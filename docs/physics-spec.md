@@ -1,0 +1,96 @@
+# DSJ2: model fizyki skoczka (specyfikacja robocza)
+
+Źródło: analiza `Dsj.exe` z DSJ2 v2.10P (Borland Pascal 7, DOS). Moduł fizyki to segment `1c06`
+(funkcje `jumper_reset` 1c06:0010 i `jumper_step` 1c06:02a1). Adresy danych odnoszą się do segmentu
+danych gry (22F2h). Oznaczenia pewności: **[kod]** odczytane z kodu, **[pomiar]** zaobserwowane
+w emulacji podczas odtwarzania `KARPACZ.RPL`, **[hipoteza]** do potwierdzenia.
+
+## Krok czasowy i jednostki
+
+- `jumper_step` wywoływana raz na klatkę; `dt = 1/70 s` (zmienna `DS:14EE` = 0,0142857) **[pomiar]**.
+  70 Hz to częstotliwość odświeżania trybu VGA 13h **[hipoteza: synchronizacja z pionowym powrotem]**.
+- Wszystkie zmienne stanu to `Single` (float32); każde przypisanie zaokrągla do float32, obliczenia
+  pośrednie biegną w precyzji x87 (80 bitów) **[kod]**.
+- Jednostki: metry, sekundy, kilogramy, radiany. `g = 9.81`, masa `m = 60` (`DS:52E0`) **[kod]**.
+
+## Stan
+
+| Adres | Nazwa | Znaczenie |
+|---|---|---|
+| 5298 | `x` | pozycja pozioma |
+| 52A0 | `y` | wysokość (rośnie w górę) |
+| 52A4 | `vx` | prędkość pozioma |
+| 52A8 | `vy` | prędkość pionowa, dodatnia w dół |
+| 52AC | `speed` | moduł prędkości (na torze: prędkość wzdłuż toru) |
+| 52B0 | `track_angle` | kąt toru użyty w kroku naziemnym |
+| 52B4, 52B8 | `prev_x`, `prev_y` | pozycja z poprzedniej klatki |
+| 5296 | `airborne` | 0 na torze, 1 w locie |
+| 5297 | `contact_event` | ustawiane przy wybiciu z progu i przy zmianie fazy |
+| 52D8 | `ref_y` | wysokość odniesienia bilansu energii |
+| 52DC | `ref_speed` | prędkość odniesienia bilansu energii |
+| 52E4 | `energy_lost` | energia rozproszona od chwili `ref_*` (J) |
+| 52FA | `ground_state` | stan naziemny; 8, 9, 100 dokładają hamowanie |
+
+Parametry skoczni (Karpacz K85, **[pomiar]**): start `x = 11.4` (`45B2`), próg `x = 44.0` (`45CE`),
+współczynnik tarcia rozbiegu `0.02` (`45B6`), zeskoku `0.05` (`4624`). Wiatr: prędkość `4D1C`,
+kierunek (kąt) `4D20`, zmienne w czasie **[pomiar]**. `4D06` = 0,5 (współczynnik powierzchni
+nośnej sylwetki, ustawiany także w `0baf`) **[hipoteza co do znaczenia]**.
+
+Profile terenu: `hill_y(x)` = 1eee:0000 dla `x <= takeoff_x` (rozbieg), 1eee:015e dla `x > takeoff_x`
+(zeskok), 1eee:0627 zwraca wysokość terenu do bilansu przy lądowaniu **[kod; implementacja profili
+do odczytania]**.
+
+## Faza naziemna (`airborne = 0`): bilans energii
+
+1. `track_angle = -inrun_slope_angle` (`52F2`; na K85 rozbieg ma -π/4).
+2. Jeśli `speed == 0`, to `speed = 0.0001`.
+3. `mu = x < takeoff_x ? mu_inrun : mu_land`.
+4. Prędkość względem wiatru wzdłuż toru:
+   `v_rel = max(0, speed - 0.2 * wind_speed * cos(wind_dir) * cos(track_angle))`.
+5. Strata energii w klatce (droga `speed * dt`):
+   `energy_lost += |speed * dt * (mu * m * g * cos(track_angle) + 0.583 * k_4D06 * v_rel^2)|`.
+6. Dodatkowe hamowanie zależne od `ground_state`: dla 8 i 100 dodaje
+   `|speed * dt * mu * 10 * m * g * cos(track_angle)|`, dla 9 to samo z mnożnikiem 20.
+7. Ograniczenie: `energy_lost <= m*g*(ref_y - y) + 0.5*m*ref_speed^2`.
+8. Nowa prędkość z zasady zachowania energii:
+   `speed = sqrt(|2 * (m*g*ref_y + 0.5*m*ref_speed^2 - energy_lost - m*g*y) / m|)`.
+9. `vy = sin(track_angle) * speed`, `vx = cos(track_angle) * speed`, `x += vx * dt`.
+10. Przekroczenie progu w tej klatce (`x_przed_ruchem < takeoff_x` i `x > takeoff_x`) ustawia `contact_event = 1`
+    i pomija przyklejenie do terenu; w przeciwnym razie `y = hill_y(x)`.
+
+Uwaga: `y` z kroku 8 pochodzi z poprzedniej klatki (przed przesunięciem `x`) **[kod]**.
+
+## Faza lotu (`airborne = 1`)
+
+1. Wiatr poziomy `w = wind_speed * cos(wind_dir)`; prędkość względna `u = vx - w`.
+2. Kąt napływu `alpha = |u| > 0.0001 ? atan(vy / u) : pi/2`; moduł `V = sqrt(u^2 + vy^2)`.
+3. Siły od sylwetki i nart (`body_angle` = `4CBC`, kąty nart `5314`, `5340`):
+   - `F_body = 0.53 * 1.1 * k_4D06 * V^2 * sin(0.35 + body_angle + alpha)`
+   - `F_ski1 = 0.139284 * V^2 * sin(alpha + ski1_angle)`
+   - `F_ski2 = 0.139284 * V^2 * sin(alpha + ski2_angle)`
+4. Składowe (wartości bezwzględne każdego składnika):
+   - `Fy = |cos(0.35 + body_angle) * F_body| + |cos(ski1) * F_ski1| + |cos(ski2) * F_ski2| + 0.1166 * vy^2`
+   - `Fx = |sin(0.35 + body_angle) * F_body| + |sin(ski1) * F_ski1| + |sin(ski2) * F_ski2| + 0.1166 * vx^2`
+   - `Fy = min(Fy, m*g)`
+5. Całkowanie (jawny Euler, kolejność ma znaczenie):
+   `vy += (g - Fy/m) * dt`; `vx -= (Fx/m) * dt`; `x += vx * dt`; `y -= vy * dt`.
+
+Uwaga: człon `0.1166 * v^2` używa prędkości absolutnych, nie względem wiatru **[kod]**.
+
+## Przejścia faz
+
+- Na torze, gdy teren pod skoczkiem jest niżej niż `y` (`hill_y(x) < y`): `airborne = 1`,
+  `contact_event = 1`; opcjonalnie dźwięk (1cb6:0457, gdy `4D04 != 0`).
+- W locie, gdy `hill_y(x) >= y` (lądowanie): `energy_lost = 0`, `ref_y = terrain_y(x)` (1eee:0627),
+  kąt uderzenia `beta = |atan(-vy/vx) - inrun_slope_angle|` (lub `pi - inrun_slope_angle` gdy `vx = 0`),
+  `ref_speed = cos(beta) * sqrt(vx^2 + vy^2)`, `y = ref_y`, `speed = ref_speed`, `airborne = 0`,
+  `landed = 1` (`52E8`).
+  Prędkość prostopadła do zeskoku jest tracona.
+
+## Do ustalenia
+
+- Profile terenu 1eee:0000, 1eee:015e, 1eee:0627 oraz źródło `inrun_slope_angle` w locie i na zeskoku.
+- Sterowanie: skąd biorą się `body_angle` i kąty nart (mysz, moduł 1cb6) i jak działa wybicie.
+- Wiatr: generator (Random z ziarnem `DS:1942`) i jego zapis w powtórce.
+- Pomiar odległości (83,92 m w `KARPACZ.RPL`) i ocena za styl.
+- Format `.rpl` i `Dsj.dat`.
