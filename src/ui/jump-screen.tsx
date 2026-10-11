@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
+import { feedbackEvents, vibrate } from "../game/haptics";
+import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput } from "../game/player-input";
 import { isJumpOver, newSeed, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
@@ -95,6 +97,10 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
   const restartRef = useRef<() => void>(() => undefined);
   const [announcement, setAnnouncement] = useState("");
   const touch = useMediaQuery("(pointer: coarse)");
+  const [tiltOn, setTiltOn] = useState(false);
+  const [tiltNote, setTiltNote] = useState("");
+  /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
+  const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({ on: false, pitch: null, neutral: null });
   const latest = useRef({ onExit, onFinished, record });
   useEffect(() => {
     latest.current = { onExit, onFinished, record };
@@ -119,6 +125,7 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
     const restart = () => {
       jump = startTrainingJump(hill, newSeed());
       input.reset();
+      tiltRef.current.neutral = tiltRef.current.pitch;
       finished = false;
       recordLine = undefined;
       setAnnouncement("");
@@ -157,7 +164,16 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
       const plan = planSteps(acc, (now - last) / 1000);
       last = now;
       acc = plan.accumulatorS;
-      for (let i = 0; i < plan.steps; i++) stepTrainingJump(jump, input.takeFrame());
+      const tilt = tiltRef.current;
+      for (let i = 0; i < plan.steps; i++) {
+        if (tilt.on && tilt.pitch !== null) {
+          tilt.neutral ??= tilt.pitch;
+          input.addMotion(tiltMotion(tilt.pitch, tilt.neutral));
+        }
+        const prev = jump.state;
+        stepTrainingJump(jump, input.takeFrame());
+        for (const event of feedbackEvents(prev, jump.state)) vibrate(event);
+      }
       if (!finished && isJumpOver(jump)) finish();
       drawJumpView(view.fb, {
         profile: hill.profile,
@@ -213,6 +229,9 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
       }
       e.preventDefault();
     };
+    const onOrientation = (e: DeviceOrientationEvent) => {
+      tiltRef.current.pitch = pitchDeg(e.beta, e.gamma, screen.orientation?.angle ?? 0);
+    };
     const onKeyDown = (e: KeyboardEvent) => onKey(e, true);
     const onKeyUp = (e: KeyboardEvent) => onKey(e, false);
 
@@ -222,7 +241,9 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
     canvas.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("deviceorientation", onOrientation);
     return () => {
+      window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
       resize.disconnect();
       restartRef.current = () => undefined;
@@ -252,6 +273,34 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
         <button type="button" className="pixel-button" onClick={onExit}>
           Skocznie{touch ? "" : " (Esc)"}
         </button>
+        {touch && (
+          <button
+            type="button"
+            className="pixel-button"
+            aria-pressed={tiltOn}
+            onClick={() => {
+              if (tiltOn) {
+                tiltRef.current.on = false;
+                setTiltOn(false);
+                setTiltNote("");
+                return;
+              }
+              void requestTiltPermission().then((granted) => {
+                tiltRef.current.on = granted;
+                tiltRef.current.neutral = tiltRef.current.pitch;
+                setTiltOn(granted);
+                setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
+              });
+            }}
+          >
+            {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
+          </button>
+        )}
+        {tiltNote !== "" && (
+          <p className="note error" role="status">
+            {tiltNote}
+          </p>
+        )}
       </div>
       {touch && (
         <TouchPad
