@@ -1,3 +1,4 @@
+import { detAtan, detCos, detSin } from "./deterministic-math";
 import { inrunYM, landingYM, terrainSlopeRad, terrainYM, type HillProfile } from "./hill-profile";
 import {
   AXIS_DRAG_COEF,
@@ -79,9 +80,9 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
       s.speedMPerS = f32(MIN_TRACK_SPEED_M_PER_S);
     }
     const mu = s.xM >= h.takeoffXM ? h.landingFrictionCoef : h.inrunFrictionCoef;
-    const cosTrack = Math.cos(s.trackAngleRad);
+    const cosTrack = detCos(s.trackAngleRad);
     let vRel = f32(
-      s.speedMPerS - Math.cos(c.windDirectionRad) * c.windSpeedMPerS * cosTrack * TRACK_WIND_FACTOR,
+      s.speedMPerS - detCos(c.windDirectionRad) * c.windSpeedMPerS * cosTrack * TRACK_WIND_FACTOR,
     );
     if (!(vRel >= 0)) {
       vRel = 0;
@@ -105,7 +106,7 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
         ),
       ),
     );
-    s.vyMPerS = f32(Math.sin(s.trackAngleRad) * s.speedMPerS);
+    s.vyMPerS = f32(detSin(s.trackAngleRad) * s.speedMPerS);
     s.vxMPerS = f32(cosTrack * s.speedMPerS);
     s.xBeforeMoveM = s.xM;
     s.xM = f32(cosTrack * s.speedMPerS * dt + s.xM);
@@ -115,23 +116,23 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
       s.yM = s.xM > h.takeoffXM ? landingYM(h, s.xM) : inrunYM(h, s.xM);
     }
   } else {
-    const u = s.vxMPerS - 1 * c.windSpeedMPerS * Math.cos(c.windDirectionRad);
-    s.flowAngleRad = MIN_RELATIVE_FLOW_M_PER_S >= Math.abs(u) ? f32(Math.PI / 2) : f32(Math.atan(s.vyMPerS / u));
+    const u = s.vxMPerS - 1 * c.windSpeedMPerS * detCos(c.windDirectionRad);
+    s.flowAngleRad = MIN_RELATIVE_FLOW_M_PER_S >= Math.abs(u) ? f32(Math.PI / 2) : f32(detAtan(s.vyMPerS / u));
     s.relativeSpeedMPerS = f32(Math.sqrt(u * u + s.vyMPerS * s.vyMPerS));
     const v2 = s.relativeSpeedMPerS;
     const bodyRad = BODY_ANGLE_OFFSET_RAD + c.bodyAngleRad;
-    s.forceBodyN = f32(BODY_FORCE_COEF * c.liftFactor * v2 * v2 * Math.sin(bodyRad + s.flowAngleRad) * BODY_FORCE_SCALE);
-    s.forceSki1N = f32(SKI_FORCE_COEF * v2 * v2 * Math.sin(s.flowAngleRad + c.ski1AngleRad));
-    s.forceSki2N = f32(SKI_FORCE_COEF * v2 * v2 * Math.sin(s.flowAngleRad + c.ski2AngleRad));
+    s.forceBodyN = f32(BODY_FORCE_COEF * c.liftFactor * v2 * v2 * detSin(bodyRad + s.flowAngleRad) * BODY_FORCE_SCALE);
+    s.forceSki1N = f32(SKI_FORCE_COEF * v2 * v2 * detSin(s.flowAngleRad + c.ski1AngleRad));
+    s.forceSki2N = f32(SKI_FORCE_COEF * v2 * v2 * detSin(s.flowAngleRad + c.ski2AngleRad));
     s.forceYN = f32(
-      Math.abs(Math.cos(bodyRad) * s.forceBodyN) +
-        Math.abs(Math.cos(c.ski1AngleRad) * s.forceSki1N) +
-        Math.abs(Math.cos(c.ski2AngleRad) * s.forceSki2N),
+      Math.abs(detCos(bodyRad) * s.forceBodyN) +
+        Math.abs(detCos(c.ski1AngleRad) * s.forceSki1N) +
+        Math.abs(detCos(c.ski2AngleRad) * s.forceSki2N),
     );
     s.forceXN = f32(
-      Math.abs(Math.sin(bodyRad) * s.forceBodyN) +
-        Math.abs(Math.sin(c.ski1AngleRad) * s.forceSki1N) +
-        Math.abs(Math.sin(c.ski2AngleRad) * s.forceSki2N),
+      Math.abs(detSin(bodyRad) * s.forceBodyN) +
+        Math.abs(detSin(c.ski1AngleRad) * s.forceSki1N) +
+        Math.abs(detSin(c.ski2AngleRad) * s.forceSki2N),
     );
     s.forceXN = f32(AXIS_DRAG_COEF * s.vxMPerS * s.vxMPerS + s.forceXN);
     s.forceYN = f32(AXIS_DRAG_COEF * s.vyMPerS * s.vyMPerS + s.forceYN);
@@ -156,10 +157,10 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
     s.refYM = terrainYM(h, s.xM);
     s.impactAngleRad =
       s.vxMPerS !== 0
-        ? f32(Math.abs(Math.atan(-s.vyMPerS / s.vxMPerS) - s.slopeAngleRad))
+        ? f32(Math.abs(detAtan(-s.vyMPerS / s.vxMPerS) - s.slopeAngleRad))
         : f32(Math.PI - s.slopeAngleRad);
     s.impactSpeedMPerS = f32(Math.sqrt(s.vyMPerS * s.vyMPerS + s.vxMPerS * s.vxMPerS));
-    s.refSpeedMPerS = f32(Math.cos(s.impactAngleRad) * s.impactSpeedMPerS);
+    s.refSpeedMPerS = f32(detCos(s.impactAngleRad) * s.impactSpeedMPerS);
     s.landed = true;
     s.yM = s.refYM;
     s.speedMPerS = s.refSpeedMPerS;
@@ -170,8 +171,8 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
     s.contactEvent = false;
     s.airborne = true;
     s.trackAngleRad = f32(-s.slopeAngleRad);
-    s.vyMPerS = f32(Math.sin(s.trackAngleRad) * s.speedMPerS - s.impulseYNs / m);
-    s.vxMPerS = f32(Math.cos(s.trackAngleRad) * s.speedMPerS + s.impulseXNs / m);
+    s.vyMPerS = f32(detSin(s.trackAngleRad) * s.speedMPerS - s.impulseYNs / m);
+    s.vxMPerS = f32(detCos(s.trackAngleRad) * s.speedMPerS + s.impulseXNs / m);
     s.impulseXNs = 0;
     s.impulseYNs = 0;
   }

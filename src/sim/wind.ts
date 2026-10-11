@@ -1,3 +1,4 @@
+import { detAtan, detSin } from "./deterministic-math";
 import type { BorlandRandom } from "./borland-random";
 import { f32 } from "./physics-constants";
 
@@ -59,10 +60,10 @@ export function updateWind(prev: WindState, frame: number, dtS: number, rng: Bor
   w.xMPerS = f32(randomCentered(rng, WIND_GAUSS_SAMPLES) * w.variabilityMPerS + w.xMPerS);
   if (w.xMPerS !== 0) {
     if (w.xMPerS > 0) {
-      w.directionRad = f32(Math.atan(w.yMPerS / w.xMPerS));
+      w.directionRad = f32(detAtan(w.yMPerS / w.xMPerS));
     }
     if (w.xMPerS <= 0) {
-      w.directionRad = f32(Math.atan(w.yMPerS / w.xMPerS) + Math.PI);
+      w.directionRad = f32(detAtan(w.yMPerS / w.xMPerS) + Math.PI);
     }
   } else {
     w.directionRad = w.yMPerS > 0 ? f32(Math.PI / 2) : f32(-Math.PI / 2);
@@ -74,7 +75,7 @@ export function updateWind(prev: WindState, frame: number, dtS: number, rng: Bor
     w.xMPerS = f32(damping * w.xMPerS);
   }
   w.indicatorMaxTurnRateRad = f32(INDICATOR_MAX_TURN_RATE_RAD);
-  if (!(INDICATOR_DEAD_ZONE >= Math.sin(w.directionRad - w.indicatorDirectionRad))) {
+  if (!(INDICATOR_DEAD_ZONE >= detSin(w.directionRad - w.indicatorDirectionRad))) {
     if (!(w.indicatorTurnRateRad >= 0)) {
       w.indicatorTurnRateRad = f32(INDICATOR_TURN_STEP_RAD + w.indicatorTurnRateRad);
     }
@@ -84,7 +85,7 @@ export function updateWind(prev: WindState, frame: number, dtS: number, rng: Bor
     }
     w.indicatorDirectionRad = f32(w.indicatorDirectionRad + w.indicatorTurnRateRad);
   }
-  if (!(-INDICATOR_DEAD_ZONE <= Math.sin(w.directionRad - w.indicatorDirectionRad))) {
+  if (!(-INDICATOR_DEAD_ZONE <= detSin(w.directionRad - w.indicatorDirectionRad))) {
     if (!(w.indicatorTurnRateRad <= 0)) {
       w.indicatorTurnRateRad = f32(w.indicatorTurnRateRad - INDICATOR_TURN_STEP_RAD);
     }

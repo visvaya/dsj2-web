@@ -1,3 +1,4 @@
+import { detAtan, detExp } from "./deterministic-math";
 import { f32 } from "./physics-constants";
 
 /**
@@ -72,8 +73,8 @@ export function landingYM(h: HillProfile, x: number): number {
     y = f32(h.outrunCurveA * x * x + h.outrunCurveB * x + h.outrunCurveCM);
   } else {
     const t = x - h.landingCenterXM;
-    const ePos = Math.exp(t * h.landingInvWidthPerM);
-    const eNeg = Math.exp(-t * h.landingInvWidthPerM);
+    const ePos = detExp(t * h.landingInvWidthPerM);
+    const eNeg = detExp(-t * h.landingInvWidthPerM);
     y = f32(((eNeg - ePos) * h.landingAmplitudeM) / (ePos + eNeg) + h.landingCenterYM);
   }
   if (x <= h.takeoffXM) {
@@ -94,7 +95,7 @@ export function landingSlope(h: HillProfile, x: number): number {
     s = f32(2 * h.outrunCurveA * x + h.outrunCurveB);
   } else {
     const t = x - h.landingCenterXM;
-    const sum = Math.exp(t * h.landingInvWidthPerM) + Math.exp(-t * h.landingInvWidthPerM);
+    const sum = detExp(t * h.landingInvWidthPerM) + detExp(-t * h.landingInvWidthPerM);
     s = f32((-4 * h.landingAmplitudeM * h.landingInvWidthPerM) / (sum * sum));
   }
   if (x <= h.takeoffXM) {
@@ -115,7 +116,7 @@ export function terrainYM(h: HillProfile, x: number): number {
 
 /** 1eee:0676: terrain slope angle in radians (negative when descending). */
 export function terrainSlopeRad(h: HillProfile, x: number): number {
-  return x > h.takeoffXM ? f32(Math.atan(landingSlope(h, x))) : f32(Math.atan(inrunSlope(h, x)));
+  return x > h.takeoffXM ? f32(detAtan(landingSlope(h, x))) : f32(detAtan(inrunSlope(h, x)));
 }
 
 /**
