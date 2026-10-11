@@ -9,19 +9,25 @@ const haveTrace = tracePath !== "" && existsSync(tracePath);
 /** Relative tolerance: the original keeps x87 80-bit intermediates, this port uses doubles. */
 const REL_TOLERANCE = 1e-6;
 
-function compare(got: JumperState, want: JumperState): string[] {
+function isStateKey(state: JumperState, key: string): key is keyof JumperState {
+  return key in state;
+}
+
+function compare(got: JumperState, want: JumperState): { bad: string[]; exact: boolean } {
   const bad: string[] = [];
-  for (const key of Object.keys(want) as (keyof JumperState)[]) {
+  let exact = true;
+  for (const key of Object.keys(want)) {
+    if (!isStateKey(want, key)) continue;
     const a = got[key];
     const e = want[key];
-    if (typeof e === "boolean") {
-      if (a !== e) bad.push(`${key}: ${String(a)} != ${String(e)}`);
-      continue;
+    if (a !== e) exact = false;
+    if (typeof a === "number" && typeof e === "number") {
+      if (Math.abs(a - e) > REL_TOLERANCE * Math.max(1, Math.abs(e))) bad.push(`${key}: ${a} != ${e}`);
+    } else if (a !== e) {
+      bad.push(`${key}: ${String(a)} != ${String(e)}`);
     }
-    const diff = Math.abs((a as number) - e);
-    if (diff > REL_TOLERANCE * Math.max(1, Math.abs(e))) bad.push(`${key}: ${String(a)} != ${String(e)}`);
   }
-  return bad;
+  return { bad, exact };
 }
 
 describe.skipIf(!haveTrace)("jumper step against the original game trace", () => {
@@ -36,9 +42,9 @@ describe.skipIf(!haveTrace)("jumper step against the original game trace", () =>
       if (!exit) continue;
       const got = stepJumper(decodeJumperState(entry.view), decodeJumperControls(entry.view), decodeHill(entry.view));
       const want = decodeJumperState(exit.view);
-      const bad = compare(got, want);
+      const { bad, exact: bitExact } = compare(got, want);
       if (bad.length === 0) {
-        exact += Object.keys(want).every((k) => got[k as keyof JumperState] === want[k as keyof JumperState]) ? 1 : 0;
+        exact += bitExact ? 1 : 0;
       } else if (failures.length < 10) {
         failures.push(`frame ${entry.frame}: ${bad.join(", ")}`);
       }
