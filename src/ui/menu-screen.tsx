@@ -2,8 +2,16 @@ import { useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
 
+/** The player's original game files, as far as they have been chosen (one at a time works too). */
+export interface GameFiles {
+  exe?: Uint8Array;
+  dat?: Uint8Array;
+}
+
 interface Props {
   originalCount: number;
+  gameFiles: GameFiles;
+  onGameFiles: (files: GameFiles) => void;
   persistent: boolean;
   onTraining: () => void;
   onOutfit: () => void;
@@ -15,21 +23,32 @@ async function bytesOf(files: FileList, name: string): Promise<Uint8Array | unde
   return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
 }
 
-export function MenuScreen({ originalCount, persistent, onTraining, onOutfit, onOriginalHills }: Props) {
+export function MenuScreen({ originalCount, gameFiles, onGameFiles, persistent, onTraining, onOutfit, onOriginalHills }: Props) {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
     if (!files || files.length === 0) return;
     try {
-      const exe = await bytesOf(files, "dsj.exe");
+      // Files may come one at a time (some pickers allow only one), so new ones join those chosen before.
+      const exe = (await bytesOf(files, "dsj.exe")) ?? gameFiles.exe;
+      const dat = (await bytesOf(files, "dsj.dat")) ?? gameFiles.dat;
+      onGameFiles({ ...(exe ? { exe } : {}), ...(dat ? { dat } : {}) });
       if (!exe) {
-        setMessage({ text: "Brak pliku Dsj.exe wśród wybranych.", error: true });
+        setMessage({
+          text: dat ? "Wczytano Dsj.dat. Wybierz jeszcze Dsj.exe: w nim są skocznie." : "Wśród wybranych plików nie ma Dsj.exe.",
+          error: !dat,
+        });
         return;
       }
-      const hills = originalHillChoices(readOriginalHills(exe, await bytesOf(files, "dsj.dat")));
+      const hills = originalHillChoices(readOriginalHills(exe, dat));
       onOriginalHills(hills);
-      setMessage({ text: `Wczytano skocznie: ${hills.length}.`, error: false });
+      setMessage({
+        text: dat
+          ? `Wczytano skocznie: ${hills.length} (nazwy z Dsj.dat).`
+          : `Wczytano skocznie: ${hills.length}.`,
+        error: false,
+      });
     } catch (err) {
       setMessage({ text: `Nie udało się odczytać plików: ${err instanceof Error ? err.message : String(err)}`, error: true });
     }
@@ -52,11 +71,13 @@ export function MenuScreen({ originalCount, persistent, onTraining, onOutfit, on
         </button>
         <label className="pixel-button file-label">
           Wczytaj pliki gry
-          <input type="file" multiple accept=".exe,.dat" onChange={(e) => void onFiles(e)} />
+          {/* No accept filter: iOS does not know .dat and greys such files out. The names are checked instead. */}
+          <input type="file" multiple onChange={(e) => void onFiles(e)} />
         </label>
       </nav>
       <p className="note">
-        Skocznie z oryginału: wybierz Dsj.exe i Dsj.dat ze swojej kopii gry. Pliki zostają w przeglądarce, nic nie jest wysyłane.
+        Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje nazwy
+        z Twojej wersji gry. Plik zostaje w przeglądarce, nic nie jest wysyłane.
         {originalCount > 0 ? ` Wczytane: ${originalCount}.` : ""}
       </p>
       {!persistent && <p className="note error">Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.</p>}

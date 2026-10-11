@@ -1,7 +1,7 @@
 import type { HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { OriginalHill } from "../original/original-hills";
-import type { CountryCode } from "../render/flags";
+import { COUNTRY_NAME_PL, type CountryCode } from "../render/flags";
 
 /** A hill the player can pick, from this project or from the player's original files. */
 export interface HillChoice {
@@ -40,10 +40,23 @@ export const ORIGINAL_HILL_COUNTRY: readonly CountryCode[] = [
   "PL", "PL", "PL", "PL", "PL",
 ];
 
+/** Names of hills 33-37 (Polish hills); hills 1-32 are named after their country. */
+const POLISH_HILL_NAMES: readonly string[] = ["Zakopane 1", "Zakopane 2", "Karpacz", "Wisła", "Szczyrk"];
+
+/**
+ * Name of an original hill when Dsj.dat is not loaded: the same names the Polish v2.10P stores there
+ * (checked against the file in the golden test), so the .dat file is optional.
+ */
+export function fallbackHillName(number: number): string {
+  const country = ORIGINAL_HILL_COUNTRY[number - 1];
+  if (number <= 32 && country !== undefined) return COUNTRY_NAME_PL[country];
+  return POLISH_HILL_NAMES[number - 33] ?? `Skocznia ${number}`;
+}
+
 export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[] {
   return hills.map((h) => ({
     id: `original-${h.number}`,
-    name: h.name ?? `Skocznia ${h.number}`,
+    name: h.name ?? fallbackHillName(h.number),
     kPointM: h.kPointM,
     profile: h.profile,
     source: "original",

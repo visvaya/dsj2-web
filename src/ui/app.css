@@ -88,8 +88,16 @@ h2 {
   cursor: pointer;
 }
 
-.pixel-button:hover {
-  color: var(--accent);
+/* Hover only where there is a pointer that hovers; on touch screens it would stick after a tap. */
+@media (hover: hover) {
+  .pixel-button:hover {
+    color: var(--accent);
+  }
+
+  .hill-item:hover,
+  .hill-item:hover .hill-item-k {
+    color: var(--accent);
+  }
 }
 
 .pixel-button:focus-visible {
@@ -102,13 +110,80 @@ h2 {
   cursor: default;
 }
 
+.screen-title {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 36px);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--accent);
+  text-shadow: 2px 2px 0 #6a3c00;
+}
+
+.hill-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hill-section-title {
+  font-size: clamp(14px, 3.6vw, 18px);
+  color: var(--muted);
+}
+
 .hill-grid {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   column-gap: 18px;
+}
+
+/* One hill per row: flag, name (shortened if it must be), K point; the record in small type under the name. */
+.hill-item {
+  all: unset;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 8px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "flag name k"
+    ". record record";
+  align-items: center;
+  column-gap: 12px;
+  font-family: inherit;
+  font-size: clamp(16px, 4.4vw, 22px);
+  color: var(--text);
+  border: 3px solid transparent;
+  cursor: pointer;
+}
+
+.hill-item .flag-icon {
+  grid-area: flag;
+}
+
+.hill-item-name {
+  grid-area: name;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hill-item-k {
+  grid-area: k;
+  color: var(--muted);
+}
+
+.hill-item-record {
+  grid-area: record;
+  font-size: 0.7em;
+  color: var(--accent);
+}
+
+.hill-item:focus-visible {
+  border-color: var(--accent);
 }
 
 .outfit-editor {
@@ -163,12 +238,6 @@ h2 {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   border: 3px solid var(--accent);
-}
-
-.hill-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 12px;
 }
 
 .flag-icon {

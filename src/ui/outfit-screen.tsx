@@ -59,9 +59,7 @@ export function OutfitScreen({ outfit, onChange, onBack }: Props) {
 
   return (
     <main className="screen">
-      <h1 className="title" style={{ fontSize: 36 }}>
-        Edycja kolorów stroju
-      </h1>
+      <h1 className="screen-title">Edycja kolorów stroju</h1>
       <hr className="rule" />
       <div className="outfit-editor">
         <div className="outfit-rows">

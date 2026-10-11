@@ -373,6 +373,8 @@ const TROUGH_DEPTH_M = 2;
 const TOWER_BACK_M = 6;
 const TOWER_FRONT_M = 2;
 const TOWER_INSET_M = 1.2;
+/** The trough (with its track) starts this far behind the jumper's start position; behind it is the platform. */
+const PLATFORM_GAP_M = 1;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
 const INRUN_LAMP_SPACING_M = 8;
@@ -419,6 +421,18 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
     if (shade !== null && gy > bottom) {
       fb.rect(sx, bottom, 1, gy - bottom, shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM));
     }
+    if (wx < h.startXM - PLATFORM_GAP_M) {
+      // Start platform behind the gate, a plain block as in the original: dark top, the wall's gradient in front,
+      // a darker outline at its back edge.
+      const edge = sx === 0 || xAt(sx - 1) < from;
+      fb.rect(sx, rimTop, 1, 2, rim);
+      if (nearTop > rimTop + 2) fb.rect(sx, rimTop + 2, 1, nearTop - rimTop - 2, inner);
+      for (let y = nearTop; y < bottom; y++) {
+        fb.put(sx, y, edge ? side : band(wall, (y - nearTop) / Math.max(1, bottom - nearTop)));
+      }
+      if (edge) fb.rect(sx, rimTop, 1, nearTop - rimTop, side);
+      continue;
+    }
     // Far wall rim, far inner wall, track, near rim, near outer wall.
     fb.rect(sx, rimTop, 1, 2, rim);
     if (farEdge > rimTop + 2) fb.rect(sx, rimTop + 2, 1, farEdge - rimTop - 2, inner);
@@ -439,12 +453,11 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       fb.rect(sx, top - 2, 2, 2, lamp);
     }
   }
-  // Both ends of the trough: the back of the start platform and the front of the takeoff table.
-  drawTroughEnd(fb, cam, h.startXM - TOWER_BACK_M, inrunYM(h, h.startXM - TOWER_BACK_M));
+  // The front of the takeoff table.
   drawTroughEnd(fb, cam, h.takeoffXM, inrunYM(h, h.takeoffXM));
 }
 
-/** An end of the inrun trough: its cross-section, a parallelogram in the oblique view. */
+/** The end of the inrun trough at the takeoff: its cross-section, a parallelogram in the oblique view. */
 function drawTroughEnd(fb: FrameBuffer, cam: Camera, xM: number, yM: number): void {
   const Y = (y: number) => Math.round(toScreenY(cam, y));
   const face = rampTable("endLight", "endDark", 3);

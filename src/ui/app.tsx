@@ -4,7 +4,7 @@ import { emptySave, withJump, withSettings, type SaveData, type Settings } from 
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
-import { MenuScreen } from "./menu-screen";
+import { MenuScreen, type GameFiles } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 
 type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
@@ -12,6 +12,7 @@ type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind
 export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "menu" });
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
+  const [gameFiles, setGameFiles] = useState<GameFiles>({});
   const [save, setSave] = useState<SaveData>(emptySave);
   const [backend] = useState<StorageBackend>(detectBackend);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -78,6 +79,8 @@ export function App() {
   return (
     <MenuScreen
       originalCount={originalHills.length}
+      gameFiles={gameFiles}
+      onGameFiles={setGameFiles}
       persistent={persistent}
       onTraining={() => setScreen({ kind: "hills" })}
       onOutfit={() => setScreen({ kind: "outfit" })}
