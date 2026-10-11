@@ -16,3 +16,7 @@ node_modules/
 dist/
 *.trace
 coverage/
+
+# Mutation testing
+.stryker-tmp/
+reports/

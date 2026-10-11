@@ -1,0 +1,27 @@
+name: Mutation testing
+
+# Stryker runs every test once per mutant, so it is started by hand instead of on every push.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  stryker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm mutation
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: mutation-report
+          path: reports/mutation/
