@@ -4,6 +4,7 @@ import type { JumpSimState } from "../sim/jump-sim";
 import { FrameBuffer } from "./frame-buffer";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
 import { DEFAULT_OUTFIT, type Outfit, type OutfitPart } from "../game/outfit";
+import { displayedWindMPerS } from "../game/wind-display";
 import { band, color, rampTable, swatchRampTable, withLook, type Lighting } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 
@@ -65,6 +66,8 @@ export interface JumpViewModel {
   scenery?: Scenery;
   /** The jumper's colours; the original's player 1 when absent. */
   outfit?: Outfit;
+  /** Accumulated drift of the displayed wind, in metres, for the falling snow. */
+  windDriftM?: { x: number; y: number };
 }
 
 const distanceCache = new WeakMap<HillProfile, Map<number, number>>();
@@ -366,15 +369,16 @@ function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed
   }
 }
 
-/** Inrun trough seen in the figure's oblique projection: 3 m wide, walls 0.55 m, 2 m deep below the near rim (as thick as in the original). */
+/** Half width of the inrun trough, which the drawn figure stays within. */
 const TROUGH_HALF_WIDTH_M = 1.5;
-const TROUGH_WALL_M = 0.55;
-const TROUGH_DEPTH_M = 2;
 const TOWER_BACK_M = 6;
 const TOWER_FRONT_M = 2;
 const TOWER_INSET_M = 1.2;
-/** The trough (with its track) starts this far behind the jumper's start position; behind it is the platform. */
-const PLATFORM_GAP_M = 1;
+/** The inrun's far rail appears this many pixels right of the near wall (the original's scenery depth). */
+const INRUN_FAR_SHIFT_PX = 32;
+/** Far rail and near wall thickness in pixels, measured on the original's screen. */
+const INRUN_RAIL_PX = 8;
+const INRUN_WALL_PX = 24;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
 const INRUN_LAMP_SPACING_M = 8;
@@ -389,86 +393,85 @@ function inBand(v: number, from: number, width: number): number | null {
   return t >= 0 && t <= 1 ? t : null;
 }
 
+/**
+ * The inrun as the original draws its scenery: the far rail is the near wall's top line moved right and up
+ * (depth recedes up and to the right), so the platform behind the gate shows as a block with a slanted back
+ * edge, the track as a light band between the rail and the near wall, and the takeoff ends in a slanted face.
+ * Pixel sizes and shades measured on the original's screen.
+ */
 function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, lightsOn: boolean): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
   const Y = (y: number) => Math.round(toScreenY(cam, y));
-  const farLift = DEPTH_TO_Y * TROUGH_HALF_WIDTH_M;
   const from = h.startXM - TOWER_BACK_M;
-  // Supports are lit from the right as in the original: dark to light across the face, then a dark side.
+  const to = h.takeoffXM;
+  const inRange = (x: number) => x >= from && x <= to;
+  /** Top of the near wall (the jumper's skis run along it) at world x. */
+  const nearTopAt = (x: number) => Y(inrunYM(h, Math.max(x, from))) - 1;
   const support = rampTable("towerDark", "towerLight", 6);
   const side = color("towerSide");
   const track = rampTable("trackFar", "trackNear", 3);
-  const wall = rampTable("wallLight", "wallDark", 5);
-  const rim = color("inrunRim");
-  const inner = color("inrunInner");
-  const highlight = color("inrunHighlight");
+  const wall = rampTable("wallLight", "wallDark", 4);
+  const rail = rampTable("inrunRim", "inrunInner", 2);
+  const face = rampTable("endLight", "endDark", 3);
+  /** Rail shade by row counted from its bottom: 2 darkest rows, 3 middle, 3 light, as in the original. */
+  const railShade = (fromBottom: number) => band(rail, fromBottom < 2 ? 1 : fromBottom < 5 ? 0.5 : 0);
+  const sxBack = Math.round(toScreenX(cam, from));
+  const sxTakeoff = Math.round(toScreenX(cam, to));
   for (let sx = 0; sx < fb.width; sx++) {
     const wx = xAt(sx);
-    if (wx < from || wx > h.takeoffXM) continue;
-    const yc = inrunYM(h, Math.max(wx, h.startXM - TOWER_BACK_M));
-    const rimTop = Y(yc + farLift + TROUGH_WALL_M);
-    const farEdge = Y(yc + farLift);
-    const nearTop = Y(yc - farLift + TROUGH_WALL_M);
-    const bottom = Y(yc - farLift + TROUGH_WALL_M - TROUGH_DEPTH_M);
+    const wf = xAt(sx - INRUN_FAR_SHIFT_PX);
+    const near = inRange(wx);
+    const far = inRange(wf);
+    if (!near && !far && !(sx > sxTakeoff && sx <= sxTakeoff + INRUN_FAR_SHIFT_PX)) continue;
     const gy = ground[sx] ?? fb.height;
-    // Supports first: the start tower and pillars, shaded in vertical bands.
-    // The tower stands back from the platform's edge, so the platform reads as a slab on top of it.
-    const tower = inBand(wx, h.startXM - TOWER_BACK_M + TOWER_INSET_M, TOWER_BACK_M - TOWER_INSET_M + TOWER_FRONT_M);
-    const k = Math.round((wx - h.startXM - 10) / PILLAR_SPACING_M);
-    const pillarFrom = h.startXM + 10 + k * PILLAR_SPACING_M - PILLAR_WIDTH_M / 2;
-    const pillar = wx < h.takeoffXM - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
-    const shade = tower ?? pillar;
-    if (shade !== null && gy > bottom) {
-      fb.rect(sx, bottom, 1, gy - bottom, shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM));
-    }
-    if (wx < h.startXM - PLATFORM_GAP_M) {
-      // Start platform behind the gate, a plain block as in the original: dark top, the wall's gradient in front,
-      // a darker outline at its back edge.
-      const edge = sx === 0 || xAt(sx - 1) < from;
-      fb.rect(sx, rimTop, 1, 2, rim);
-      if (nearTop > rimTop + 2) fb.rect(sx, rimTop + 2, 1, nearTop - rimTop - 2, inner);
-      for (let y = nearTop; y < bottom; y++) {
-        fb.put(sx, y, edge ? side : band(wall, (y - nearTop) / Math.max(1, bottom - nearTop)));
+    // Supports first: the start tower (set back from the platform's edge) and pillars, lit from the right.
+    if (near) {
+      const nearBottom = nearTopAt(wx) + INRUN_WALL_PX;
+      const tower = inBand(wx, from + TOWER_INSET_M, TOWER_BACK_M - TOWER_INSET_M + TOWER_FRONT_M);
+      const k = Math.round((wx - h.startXM - 10) / PILLAR_SPACING_M);
+      const pillarFrom = h.startXM + 10 + k * PILLAR_SPACING_M - PILLAR_WIDTH_M / 2;
+      const pillar = wx < to - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
+      const shade = tower ?? pillar;
+      if (shade !== null && gy > nearBottom) {
+        fb.rect(sx, nearBottom, 1, gy - nearBottom, shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM));
       }
-      if (edge) fb.rect(sx, rimTop, 1, nearTop - rimTop, side);
-      continue;
     }
-    // Far wall rim, far inner wall, track, near rim, near outer wall.
-    fb.rect(sx, rimTop, 1, 2, rim);
-    if (farEdge > rimTop + 2) fb.rect(sx, rimTop + 2, 1, farEdge - rimTop - 2, inner);
-    for (let y = farEdge; y < nearTop; y++) {
-      fb.put(sx, y, band(track, (y - farEdge) / Math.max(1, nearTop - farEdge)));
+    // Far rail: where the back edge has not reached it yet, a slanted top face of the platform instead.
+    let railBottom: number | null = null;
+    if (far) {
+      const top = nearTopAt(wf) - INRUN_RAIL_PX;
+      for (let i = 0; i < INRUN_RAIL_PX; i++) fb.put(sx, top + i, railShade(INRUN_RAIL_PX - 1 - i));
+      railBottom = top + INRUN_RAIL_PX;
+    } else if (near) {
+      // Every column the far rail has not reached yet belongs to the slanted back edge (no gap where they meet).
+      const rows = Math.min(INRUN_RAIL_PX, Math.floor((INRUN_RAIL_PX * (sx - sxBack)) / INRUN_FAR_SHIFT_PX));
+      const top = nearTopAt(wx) - rows;
+      for (let i = 0; i < rows; i++) fb.put(sx, top + i, railShade(rows - 1 - i));
     }
-    fb.rect(sx, nearTop, 1, 1, highlight);
-    for (let y = nearTop + 1; y < bottom; y++) {
-      fb.put(sx, y, band(wall, (y - nearTop) / Math.max(1, bottom - nearTop)));
+    if (near) {
+      const nearTop = nearTopAt(wx);
+      // Track: the light band between the far rail and the near wall (none on the flat platform).
+      if (railBottom !== null) {
+        for (let y = railBottom; y < nearTop; y++) fb.put(sx, y, band(track, (y - railBottom) / Math.max(1, nearTop - railBottom)));
+      }
+      for (let i = 0; i < INRUN_WALL_PX; i++) fb.put(sx, nearTop + i, band(wall, i / (INRUN_WALL_PX - 1)));
+    } else if (sx > sxTakeoff) {
+      // Front face of the takeoff table, from the near wall's end up to the far rail's end.
+      const t = (sx - sxTakeoff) / INRUN_FAR_SHIFT_PX;
+      const nearTop = nearTopAt(to);
+      const farTop = nearTop - INRUN_RAIL_PX;
+      // Its top edge rises to the far rail's top, its bottom edge to the rail's bottom.
+      const top = Math.round(nearTop + (farTop - nearTop) * t);
+      const bottom = Math.round(nearTop + INRUN_WALL_PX + (nearTop - (nearTop + INRUN_WALL_PX)) * t);
+      for (let y = Math.max(top, railBottom ?? top); y < bottom; y++) fb.put(sx, y, band(face, (y - top) / Math.max(1, bottom - top)));
     }
   }
   if (lightsOn) {
-    // Lamps along the far rim of the inrun.
+    // Lamps on the far rail.
     const lamp = color("lampLight");
-    for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
-      const sx = Math.round(toScreenX(cam, x));
-      const top = Y(inrunYM(h, x) + farLift + TROUGH_WALL_M);
-      fb.rect(sx, top - 2, 2, 2, lamp);
-    }
-  }
-  // The front of the takeoff table.
-  drawTroughEnd(fb, cam, h.takeoffXM, inrunYM(h, h.takeoffXM));
-}
-
-/** The end of the inrun trough at the takeoff: its cross-section, a parallelogram in the oblique view. */
-function drawTroughEnd(fb: FrameBuffer, cam: Camera, xM: number, yM: number): void {
-  const Y = (y: number) => Math.round(toScreenY(cam, y));
-  const face = rampTable("endLight", "endDark", 3);
-  const steps = 12;
-  for (let i = 0; i <= steps; i++) {
-    const z = -TROUGH_HALF_WIDTH_M + (2 * TROUGH_HALF_WIDTH_M * i) / steps;
-    const x = Math.round(toScreenX(cam, xM - DEPTH_TO_X * z));
-    const top = Y(yM + TROUGH_WALL_M - DEPTH_TO_Y * z);
-    const bottom = Y(yM + TROUGH_WALL_M - TROUGH_DEPTH_M - DEPTH_TO_Y * z);
-    for (let y = top; y <= bottom; y++) {
-      fb.put(x, y, band(face, (y - top) / Math.max(1, bottom - top)));
+    for (let x = h.startXM; x < to; x += INRUN_LAMP_SPACING_M) {
+      const sx = Math.round(toScreenX(cam, x)) + INRUN_FAR_SHIFT_PX;
+      fb.rect(sx, nearTopAt(x) - INRUN_RAIL_PX - 2, 2, 2, lamp);
     }
   }
 }
@@ -535,6 +538,21 @@ const SOCK_LENGTH_PX = 8;
 const SOCK_FULL_WIND_M_PER_S = 4.5;
 
 /**
+ * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the same vector the
+ * indicator box shows, blended with hanging straight down as the wind drops towards calm.
+ */
+export function windSockDirection(s: JumpSimState): [number, number] {
+  const w = displayedWindMPerS(s.wind);
+  const speed = Math.hypot(w.x, w.y);
+  if (!(speed > 0)) return [0, 1];
+  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
+  const dirX = (w.x / speed) * k;
+  const dirY = (-w.y / speed) * k + (1 - k);
+  const len = Math.hypot(dirX, dirY) || 1;
+  return [dirX / len, dirY / len];
+}
+
+/**
  * Wind socks on poles behind the far fence, every 25 m along the landing hill. They stream along the game's
  * wind in the side view (along the hill and vertical) and hang down in a calm; the flutter is only for show.
  */
@@ -542,10 +560,8 @@ function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimS
   const pole = color("post");
   const red = color("sockRed");
   const white = color("sockWhite");
-  const wx = s.wind.xMPerS;
-  const wy = s.wind.yMPerS;
-  const speed = Math.hypot(wx, wy);
-  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
+  const [ux0, uy0] = windSockDirection(s);
+  const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
   const first = h.takeoffXM + 5;
   const viewFrom = cam.x - (cam.cx + 20) / PIXELS_PER_M;
   const viewTo = cam.x + (fb.width - cam.cx + 20) / PIXELS_PER_M;
@@ -555,13 +571,9 @@ function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimS
     const base = Math.round(toScreenY(cam, surfaceY(h, x))) - FAR_EDGE_PX - 1;
     const top = base - SOCK_POLE_PX;
     fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
-    // Direction on screen: the wind's (y is up in the world, down on screen), blended with hanging straight down.
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
-    const dirX = speed > 0 ? (wx / speed) * k : 0;
-    const dirY = speed > 0 ? (-wy / speed) * k + (1 - k) : 1;
-    const len = Math.hypot(dirX, dirY) || 1;
-    const ux = dirX / len - flutter * (dirY / len);
-    const uy = dirY / len + flutter * (dirX / len);
+    const ux = ux0 - flutter * uy0;
+    const uy = uy0 + flutter * ux0;
     for (let i = 0; i < SOCK_LENGTH_PX; i++) {
       const c = Math.floor(i / 2) % 2 === 0 ? red : white;
       const px = sx + 0.5 + ux * i;
@@ -796,20 +808,18 @@ const SNOW_LAYERS = [
   { parallax: 0.7, per100Px: 9, fallPx: 0.6, size: 1, color: "flake" },
   { parallax: 1, per100Px: 5, fallPx: 0.9, size: 2, color: "flake" },
 ] as const;
-const FRAMES_PER_S = 70;
 
-/** Falling snow, drifting with the game's wind and the camera; positions follow from the frame alone. */
-function drawSnowfall(fb: FrameBuffer, s: JumpSimState, cam: Camera, frame: number, bottom: number): void {
+/** Falling snow, carried by the displayed wind (along the hill and vertically) and moving with the camera. */
+function drawSnowfall(fb: FrameBuffer, drift: { x: number; y: number }, cam: Camera, frame: number, bottom: number): void {
   const w = fb.width + 4;
   SNOW_LAYERS.forEach((layer, li) => {
     const c = color(layer.color);
-    const drift = (s.wind.xMPerS * PIXELS_PER_M * layer.parallax) / FRAMES_PER_S;
     const count = Math.round((fb.width * layer.per100Px) / 100);
     for (let i = 0; i < count; i++) {
       const r = hash(i * 7919 + li * 104729);
       const sway = 1.5 * fastSin(frame / 30 + (r % 628) / 100);
-      const x = (r % 4096) + frame * drift - cam.x * PIXELS_PER_M * layer.parallax + sway;
-      const y = ((r >>> 12) % 4096) + frame * layer.fallPx + cam.y * PIXELS_PER_M * layer.parallax;
+      const x = (r % 4096) + (drift.x - cam.x) * PIXELS_PER_M * layer.parallax + sway;
+      const y = ((r >>> 12) % 4096) + frame * layer.fallPx + (cam.y - drift.y) * PIXELS_PER_M * layer.parallax;
       const sx = Math.floor(((x % w) + w) % w) - 2;
       const sy = Math.floor(((y % bottom) + bottom) % bottom);
       fb.rect(sx, sy, layer.size, Math.min(layer.size, bottom - sy), c);
@@ -864,7 +874,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
   drawJumper(fb, h, s, cam, m.outfit ?? DEFAULT_OUTFIT);
   drawNearFence(fb, h, cam, groundBottom);
-  if (scenery.snowfall) drawSnowfall(fb, s, cam, m.frame, groundBottom);
+  if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
   drawText(fb, 4, 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
   drawWindBox(fb, s);

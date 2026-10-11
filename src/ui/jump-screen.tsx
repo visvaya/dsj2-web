@@ -242,6 +242,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         newRecord,
         scenery: latest.current.scenery,
         outfit: latest.current.settings.outfit,
+        windDriftM: jump.windDriftM,
         ...(best === undefined ? {} : { recordM: best.distanceM }),
       });
       ctx.putImageData(view.image, 0, 0);

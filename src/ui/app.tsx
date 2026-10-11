@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import { OWN_HILLS, type HillChoice } from "../game/hill-choice";
 import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
+import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
+import { originalHillChoices } from "../game/hill-choice";
+import { readOriginalHills } from "../original/original-hills";
 import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
-import { MenuScreen, type GameFiles } from "./menu-screen";
+import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 
 type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
@@ -13,6 +16,37 @@ export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "menu" });
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
+  const [filesStore] = useState<GameFilesStore>(detectGameFilesStore);
+  const [filesStoreName, setFilesStoreName] = useState(filesStore.name);
+
+  // Game files kept from an earlier visit bring their hills back without asking again.
+  useEffect(() => {
+    let cancelled = false;
+    void filesStore.load().then((files) => {
+      setFilesStoreName(filesStore.name);
+      if (cancelled || !files.exe) return;
+      try {
+        setOriginalHills(originalHillChoices(readOriginalHills(files.exe, files.dat)));
+        setGameFiles(files);
+      } catch {
+        void filesStore.clear();
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [filesStore]);
+
+  const onGameFiles = (files: GameFiles) => {
+    setGameFiles(files);
+    void filesStore.save(files).then(() => setFilesStoreName(filesStore.name));
+  };
+
+  const onForgetFiles = () => {
+    setGameFiles({});
+    setOriginalHills([]);
+    void filesStore.clear();
+  };
   const [save, setSave] = useState<SaveData>(emptySave);
   const [backend] = useState<StorageBackend>(detectBackend);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -80,7 +114,9 @@ export function App() {
     <MenuScreen
       originalCount={originalHills.length}
       gameFiles={gameFiles}
-      onGameFiles={setGameFiles}
+      filesRemembered={filesStoreName !== "memory"}
+      onGameFiles={onGameFiles}
+      onForgetFiles={onForgetFiles}
       persistent={persistent}
       onTraining={() => setScreen({ kind: "hills" })}
       onOutfit={() => setScreen({ kind: "outfit" })}
