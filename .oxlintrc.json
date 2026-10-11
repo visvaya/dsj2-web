@@ -1,6 +1,12 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "import", "unicorn", "vitest"],
+  "plugins": [
+    "typescript",
+    "react",
+    "import",
+    "unicorn",
+    "vitest"
+  ],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -9,7 +15,20 @@
   "rules": {
     "typescript/no-floating-promises": "error",
     "typescript/no-unnecessary-type-assertion": "error",
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": [
+      "error",
+      {
+        "allow": [
+          "**/*.css"
+        ]
+      }
+    ]
   },
-  "ignorePatterns": ["dist", "node_modules", "tools", "re-out"]
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "tools",
+    "re-out"
+  ]
 }

@@ -1,0 +1,181 @@
+:root {
+  --bg: #000000;
+  --panel: #0c1430;
+  --line: #2a3a6c;
+  --text: #f4f4f4;
+  --muted: #a0a8c0;
+  --accent: #f8d038;
+  --danger: #d4241c;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Silkscreen", ui-monospace, monospace;
+}
+
+.screen {
+  min-height: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.title {
+  margin: 0;
+  font-size: clamp(40px, 9vw, 64px);
+  line-height: 1.1;
+  color: var(--accent);
+  text-shadow: 3px 3px 0 #6a3c00;
+  font-weight: 400;
+}
+
+.rule {
+  height: 3px;
+  background: var(--accent);
+  border: 0;
+  margin: 0;
+}
+
+h2 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 400;
+  color: var(--accent);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 520px;
+}
+
+.pixel-button {
+  all: unset;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 15px;
+  font-family: inherit;
+  font-size: 30px;
+  color: var(--text);
+  border: 3px solid transparent;
+  cursor: pointer;
+}
+
+.pixel-button:hover {
+  color: var(--accent);
+}
+
+.pixel-button:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.pixel-button[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
+
+.hill-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  column-gap: 18px;
+}
+
+.note {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.error {
+  color: var(--danger);
+}
+
+.file-label {
+  position: relative;
+}
+
+.file-label input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.file-label:focus-within {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.game {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--bg);
+  touch-action: none;
+  user-select: none;
+}
+
+.game canvas {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  cursor: crosshair;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.game-stage {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px 8px;
+}
+
+.game-toolbar .pixel-button {
+  font-size: 20px;
+  background: #000000;
+  border-color: #787884;
+}
