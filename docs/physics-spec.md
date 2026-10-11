@@ -191,5 +191,6 @@ i długość górnego odcinka pierwszej nogi („kolano”, siła wybicia). Pozo
 
 ## Do ustalenia
 
-- Format `Dsj.dat` i dane skoczni (wczytywanie: 0baf:631c), w tym punkt K.
+Dane skoczni i format `Dsj.dat`: `docs/hill-format.md`.
+
 - Sterowanie komputerowych zawodników (0baf:8ee4) i tryb zawodów.

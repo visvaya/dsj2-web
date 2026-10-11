@@ -11,7 +11,7 @@ import type { WindState } from "../wind";
  * data-segment snapshots of the original game; it is derived from the game
  * and stays outside the repository (pass its path in DSJ2_TRACE).
  */
-export const TRACE_POINT = { windUpdate: 0, jumperStep: 1, readInput: 2, frameLogic: 3 } as const;
+export const TRACE_POINT = { windUpdate: 0, jumperStep: 1, readInput: 2, frameLogic: 3, hillSetup: 4 } as const;
 
 export interface TraceSnapshot {
   frame: number;
@@ -244,6 +244,13 @@ export function listTraces(): TraceFile[] {
   }
   const single = process.env.DSJ2_TRACE ?? "";
   return single !== "" && existsSync(single) ? [{ name: basename(single).replace(/\.trace$/, ""), path: single }] : [];
+}
+
+/** Hill setup snapshots of tools/re/hill_capture.py: `hills.hilltrace` in DSJ2_TRACE_DIR. */
+export function hillTraceFile(): string | undefined {
+  const dir = process.env.DSJ2_TRACE_DIR ?? "";
+  const path = join(dir, "hills.hilltrace");
+  return dir !== "" && existsSync(path) ? path : undefined;
 }
 
 /** The original game directory (for .rpl files), from DSJ2_GAME_DIR. */

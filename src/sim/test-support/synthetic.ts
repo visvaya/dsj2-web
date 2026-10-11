@@ -1,56 +1,16 @@
-import { detExp } from "../deterministic-math";
-import { landingSlope, landingYM, terrainYM, type HillProfile } from "../hill-profile";
+import { terrainYM, type HillProfile } from "../hill-profile";
+import { buildHillProfile } from "../hill-setup";
 import { PHASE, type FrameInput } from "../jump-logic";
 import type { JumpSimState } from "../jump-sim";
 import { f32 } from "../physics-constants";
 import type { WindState } from "../wind";
 
-/**
- * A hill made up for tests (not taken from the original game), built the way
- * the original derives the dependent curve coefficients.
- */
+/** A hill made up for tests (not taken from the original game). */
 export function syntheticHill(): HillProfile {
-  const lineSlope = -0.9;
-  const lineEnd = 32;
-  const intercept = 230;
-  const curveA = 0.0296;
-  const curveB = lineSlope - 2 * curveA * lineEnd;
-  const curveC = lineSlope * lineEnd + intercept - curveA * lineEnd * lineEnd - curveB * lineEnd;
-  const takeoff = 44;
-  const takeoffY = curveA * takeoff * takeoff + curveB * takeoff + curveC;
-  const amplitude = 30;
-  const invWidth = 1 / 40;
-  const center = 95;
-  const u = (center - takeoff) * invWidth;
-  const tanhU = (detExp(u) - detExp(-u)) / (detExp(u) + detExp(-u));
-  const centerY = takeoffY - 3 - amplitude * tanhU;
-  const base: HillProfile = {
-    startXM: f32(11.4),
-    inrunFlatEndXM: f32(10),
-    inrunLineEndXM: f32(lineEnd),
-    takeoffXM: f32(takeoff),
-    inrunLineSlope: f32(lineSlope),
-    inrunLineInterceptM: f32(intercept),
-    inrunCurveA: f32(curveA),
-    inrunCurveB: f32(curveB),
-    inrunCurveCM: f32(curveC),
-    inrunFrictionCoef: f32(0.02),
-    landingCenterXM: f32(center),
-    landingCenterYM: f32(centerY),
-    landingAmplitudeM: f32(amplitude),
-    landingInvWidthPerM: f32(invWidth),
-    outrunStartXM: f32(160),
-    outrunCurveA: 0,
-    outrunCurveB: 0,
-    outrunCurveCM: 0,
-    landingFrictionCoef: f32(0.05),
-    knollBlend: 0,
-  };
-  const outrunA = 0.012;
-  const slopeAtStart = landingSlope(base, base.outrunStartXM);
-  const outrunB = slopeAtStart - 2 * outrunA * base.outrunStartXM;
-  const outrunC = landingYM(base, base.outrunStartXM) - outrunA * base.outrunStartXM ** 2 - outrunB * base.outrunStartXM;
-  return { ...base, outrunCurveA: f32(outrunA), outrunCurveB: f32(outrunB), outrunCurveCM: f32(outrunC) };
+  return buildHillProfile(
+    { startXM: 11.4, flatEndXM: 10, lineEndXM: 32, takeoffXM: 44, lineSlope: -0.9, lineInterceptM: 230, curveA: 0.0296 },
+    { centerXM: 95, centerYM: 166, amplitudeM: 30, widthM: 40, outrunStartXM: 160, outrunCurveA: 0.012, knollBlend: 0 },
+  );
 }
 
 export function calmWind(seedOffset = 0): WindState {

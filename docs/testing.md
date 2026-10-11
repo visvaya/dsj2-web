@@ -32,6 +32,16 @@ python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powt
 
 `<numer-powtórki>` to pozycja na liście w studiu powtórek (od 0, alfabetycznie).
 
+### Skocznie
+
+```sh
+python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace
+```
+
+Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 30 s na skocznię); test
+`original-hills.golden.test.ts` porównuje z nim odczyt z `Dsj.exe`. Potrzebuje też `Dsj.exe` i `Dsj.dat`
+w `DSJ2_GAME_DIR`.
+
 ### Spreparowane powtórki (upadki, telemark)
 
 Powtórki z dystrybucji kończą się czystym lądowaniem, więc nie sprawdzają upadków. `tools/re/craft_replays.py`
