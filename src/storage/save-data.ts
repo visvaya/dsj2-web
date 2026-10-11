@@ -1,3 +1,5 @@
+import { DEFAULT_OUTFIT, parseOutfit, type Outfit } from "../game/outfit";
+
 /** Persistent data of the game, versioned so older saves can be migrated. */
 export const SAVE_SCHEMA_VERSION = 2;
 
@@ -9,8 +11,8 @@ export interface HillRecord {
 }
 
 export type LeanControl = "drag" | "tilt";
-/** Time of day of the hills: chosen at random per visit, or always day, or always night. */
-export type SceneryChoice = "varied" | "day" | "night";
+/** Time of day of the hills: chosen at random per visit, or a fixed one. */
+export type SceneryChoice = "varied" | "day" | "dusk" | "night";
 
 export interface Settings {
   /** How a touch screen leans the jumper: dragging the left pad or tilting the phone. */
@@ -18,9 +20,11 @@ export interface Settings {
   vibration: boolean;
   /** Added after version 2 was introduced; older saves read it as the default. */
   scenery: SceneryChoice;
+  /** The player's colours (added after version 2 too). */
+  outfit: Outfit;
 }
 
-export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied" };
+export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied", outfit: DEFAULT_OUTFIT };
 
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
@@ -78,7 +82,8 @@ function parseSettings(v: unknown): Settings {
   return {
     leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
     vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
-    scenery: scenery === "varied" || scenery === "day" || scenery === "night" ? scenery : DEFAULT_SETTINGS.scenery,
+    scenery: scenery === "varied" || scenery === "day" || scenery === "dusk" || scenery === "night" ? scenery : DEFAULT_SETTINGS.scenery,
+    outfit: parseOutfit(field(v, "outfit")),
   };
 }
 

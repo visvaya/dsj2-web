@@ -34,8 +34,9 @@ describe("jump view", () => {
   });
 
   it.each<[string, Scenery]>([
-    ["day", { lighting: "day", snowfall: false }],
-    ["night with snow", { lighting: "night", snowfall: true }],
+    ["day", { lighting: "day", snowfall: false, fog: false }],
+    ["night with snow", { lighting: "night", snowfall: true, fog: false }],
+    ["dusk with fog", { lighting: "dusk", snowfall: false, fog: true }],
   ])("draws every phase of a jump (%s) without leaving unpainted pixels, the same way each time", (_name, scenery) => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
@@ -100,8 +101,8 @@ describe("jump view", () => {
       drawJumpView(fb, { ...base, controls: "mouse", frame: 1, over: false, scenery });
       return fb;
     };
-    const day = draw({ lighting: "day", snowfall: false });
-    const night = draw({ lighting: "night", snowfall: false });
+    const day = draw({ lighting: "day", snowfall: false, fog: false });
+    const night = draw({ lighting: "night", snowfall: false, fog: false });
     expect(brightness(night)).toBeLessThan(brightness(day) * 0.75);
     // The interface is the same at any time of day.
     expect(barRows(night)).toEqual(barRows(day));

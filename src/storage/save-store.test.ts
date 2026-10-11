@@ -30,15 +30,16 @@ describe("save data", () => {
   });
 
   it("stores settings and repairs unknown values", () => {
-    const save = withSettings(emptySave(), { leanControl: "tilt", vibration: false, scenery: "night" });
-    expect(parseSave(JSON.stringify(save)).settings).toEqual({ leanControl: "tilt", vibration: false, scenery: "night" });
-    const broken = { ...save, settings: { leanControl: "joystick", vibration: "yes", scenery: "dusk" } };
+    const outfit = { pants: 1, sleeves: 2, gloves: 3, helmet: 4, skis: 11 };
+    const save = withSettings(emptySave(), { leanControl: "tilt", vibration: false, scenery: "night", outfit });
+    expect(parseSave(JSON.stringify(save)).settings).toEqual({ leanControl: "tilt", vibration: false, scenery: "night", outfit });
+    const broken = { ...save, settings: { leanControl: "joystick", vibration: "yes", scenery: "dawn", outfit: { pants: 12, skis: 1.5, helmet: "red" } } };
     expect(parseSave(JSON.stringify(broken)).settings).toEqual(DEFAULT_SETTINGS);
   });
 
   it("reads a version 2 save written before the scenery setting existed", () => {
     const older = { schemaVersion: 2, records: {}, settings: { leanControl: "tilt", vibration: false } };
-    expect(parseSave(JSON.stringify(older)).settings).toEqual({ leanControl: "tilt", vibration: false, scenery: "varied" });
+    expect(parseSave(JSON.stringify(older)).settings).toEqual({ ...DEFAULT_SETTINGS, leanControl: "tilt", vibration: false });
   });
 });
 

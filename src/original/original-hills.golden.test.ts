@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { TRACE_POINT, decodeHill, decodeKPoint, diffStates, gameFile, hillTraceFile, readTrace } from "../sim/test-support/dsj-trace";
+import { ORIGINAL_HILL_COUNTRY } from "../game/hill-choice";
+import { COUNTRY_NAME_PL } from "../render/flags";
 import { readOriginalHills } from "./original-hills";
 
 const exePath = gameFile("Dsj.exe");
@@ -21,6 +23,11 @@ describe.skipIf(exePath === undefined)("hills read from the original executable"
 
   it.skipIf(datPath === undefined)("names the hills like the replay files", () => {
     expect(load().slice(32).map((h) => h.name)).toEqual(["Zakopane 1", "Zakopane 2", "Karpacz", "Wisła", "Szczyrk"]);
+  });
+
+  it.skipIf(datPath === undefined)("names hills 1-32 after the countries their flags show", () => {
+    const names = load().slice(0, 32).map((h) => h.name);
+    expect(names).toEqual(ORIGINAL_HILL_COUNTRY.slice(0, 32).map((code) => COUNTRY_NAME_PL[code]));
   });
 
   it.skipIf(tracePath === undefined)("matches the profile the original game sets up, bit for bit", () => {

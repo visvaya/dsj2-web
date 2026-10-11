@@ -5,8 +5,9 @@ import { detectBackend, loadSave, saveSave, type StorageBackend } from "../stora
 import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
+import { OutfitScreen } from "./outfit-screen";
 
-type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "jump"; hill: HillChoice };
+type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "menu" });
@@ -55,6 +56,15 @@ export function App() {
       />
     );
   }
+  if (screen.kind === "outfit") {
+    return (
+      <OutfitScreen
+        outfit={save.settings.outfit}
+        onChange={(outfit) => onSettings({ outfit })}
+        onBack={() => setScreen({ kind: "menu" })}
+      />
+    );
+  }
   if (screen.kind === "hills") {
     return (
       <HillScreen
@@ -70,6 +80,7 @@ export function App() {
       originalCount={originalHills.length}
       persistent={persistent}
       onTraining={() => setScreen({ kind: "hills" })}
+      onOutfit={() => setScreen({ kind: "outfit" })}
       onOriginalHills={setOriginalHills}
     />
   );

@@ -3,7 +3,8 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import { FrameBuffer } from "./frame-buffer";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
-import { band, color, ramp, rampTable, withLighting, type ColorName, type Lighting } from "./palette";
+import { DEFAULT_OUTFIT, type Outfit, type OutfitPart } from "../game/outfit";
+import { band, color, rampTable, swatchRampTable, withLook, type Lighting } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
@@ -34,9 +35,10 @@ const BLINK_FRAMES = 35;
 export interface Scenery {
   lighting: Lighting;
   snowfall: boolean;
+  fog: boolean;
 }
 
-export const DAY_SCENERY: Scenery = { lighting: "day", snowfall: false };
+export const DAY_SCENERY: Scenery = { lighting: "day", snowfall: false, fog: false };
 
 /** How the player steers: the prompts name the matching controls. */
 export type ControlScheme = "mouse" | "touch" | "tilt";
@@ -59,8 +61,10 @@ export interface JumpViewModel {
   recordM?: number;
   /** This jump set a new hill record. */
   newRecord?: boolean;
-  /** Day or night, snowfall; the day without snow when absent. */
+  /** Time of day and weather; a clear day when absent. */
   scenery?: Scenery;
+  /** The jumper's colours; the original's player 1 when absent. */
+  outfit?: Outfit;
 }
 
 const distanceCache = new WeakMap<HillProfile, Map<number, number>>();
@@ -290,9 +294,16 @@ function treeColors() {
   return { dark: color("tree1"), mid: color("tree2"), light: color("tree3"), trunk: color("trunk") };
 }
 
-function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed: number): void {
+/**
+ * A pine behind the far fence. `above` gives, per screen column, the first row of the landing hill's surface;
+ * the tree is cut there so it never covers the hill.
+ */
+function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed: number, above: Int32Array): void {
   const TREE = treeColors();
-  fb.rect(x - 1, base - 4, 3, 5, TREE.trunk);
+  const put = (px: number, py: number, c: number) => {
+    if (px >= 0 && px < fb.width && py < (above[px] ?? 0)) fb.put(px, py, c);
+  };
+  for (let dx = -1; dx <= 1; dx++) for (let dy = 0; dy < 5; dy++) put(x + dx, base - 4 + dy, TREE.trunk);
   const tiers = Math.max(3, Math.floor(height / 9));
   for (let i = 0; i < tiers; i++) {
     const top = base - 4 - Math.floor(((i + 1) * (height - 4)) / tiers) - 3;
@@ -307,21 +318,23 @@ function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed
         let c = dx > half / 3 ? TREE.dark : TREE.mid;
         if (dx < -half / 2 && r % 2 === 0) c = TREE.light;
         if (r % 100 < 15) c = TREE.dark;
-        fb.put(x + dx, y, c);
+        put(x + dx, y, c);
       }
     }
   }
 }
 
-/** Inrun trough seen in the figure's oblique projection: 3 m wide, walls 0.55 m, 1.4 m deep below the near rim. */
+/** Inrun trough seen in the figure's oblique projection: 3 m wide, walls 0.55 m, 2 m deep below the near rim (as thick as in the original). */
 const TROUGH_HALF_WIDTH_M = 1.5;
 const TROUGH_WALL_M = 0.55;
-const TROUGH_DEPTH_M = 1.4;
+const TROUGH_DEPTH_M = 2;
 const TOWER_BACK_M = 6;
 const TOWER_FRONT_M = 2;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
 const INRUN_LAMP_SPACING_M = 8;
+/** Share of a support's width that is its front face; the rest is the shaded side. */
+const SUPPORT_SIDE_FROM = 0.8;
 const MAST_SPACING_M = 30;
 const MAST_HEIGHT_PX = 78;
 const LAMP_GLOW_PX = 7;
@@ -331,12 +344,14 @@ function inBand(v: number, from: number, width: number): number | null {
   return t >= 0 && t <= 1 ? t : null;
 }
 
-function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, night: boolean): void {
+function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, lightsOn: boolean): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
   const Y = (y: number) => Math.round(toScreenY(cam, y));
   const farLift = DEPTH_TO_Y * TROUGH_HALF_WIDTH_M;
   const from = h.startXM - TOWER_BACK_M;
-  const support = rampTable("towerLight", "towerDark", 4);
+  // Supports are lit from the right as in the original: dark to light across the face, then a dark side.
+  const support = rampTable("towerDark", "towerLight", 6);
+  const side = color("towerSide");
   const track = rampTable("trackFar", "trackNear", 3);
   const wall = rampTable("wallLight", "wallDark", 5);
   const rim = color("inrunRim");
@@ -358,7 +373,7 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
     const pillar = wx < h.takeoffXM - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
     const shade = tower ?? pillar;
     if (shade !== null && gy > bottom) {
-      fb.rect(sx, bottom, 1, gy - bottom, band(support, shade));
+      fb.rect(sx, bottom, 1, gy - bottom, shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM));
     }
     // Far wall rim, far inner wall, track, near rim, near outer wall.
     fb.rect(sx, rimTop, 1, 2, rim);
@@ -371,7 +386,7 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       fb.put(sx, y, band(wall, (y - nearTop) / Math.max(1, bottom - nearTop)));
     }
   }
-  if (night) {
+  if (lightsOn) {
     // Lamps along the far rim of the inrun.
     const lamp = color("lampLight");
     for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
@@ -395,8 +410,9 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
   }
 }
 
-function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, night: boolean): void {
+function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, lightsOn: boolean): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
+  const farEdge = ground.map((gy) => gy - FAR_EDGE_PX);
   // Trees behind the fence, one candidate every 6 m.
   const firstCell = Math.floor(xAt(-40) / 6);
   const lastCell = Math.floor(xAt(fb.width + 40) / 6);
@@ -407,9 +423,9 @@ function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Arr
     if (wx < h.takeoffXM + 4) continue;
     const sx = Math.round(toScreenX(cam, wx));
     const base = Math.round(toScreenY(cam, surfaceY(h, wx))) - FAR_EDGE_PX - 2;
-    drawPine(fb, sx, base, 36 + ((r >>> 8) % 48), r);
+    drawPine(fb, sx, base, 36 + ((r >>> 8) % 48), r, farEdge);
   }
-  if (night) drawFloodlights(fb, h, cam);
+  if (lightsOn) drawFloodlights(fb, h, cam);
   // Fence along the far edge of the landing hill.
   const fence = color("fence");
   const fenceDark = color("fenceDark");
@@ -423,7 +439,7 @@ function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Arr
     fb.put(sx, fy + 2, fenceDark);
     if (((wx % 3) + 3) % 3 < 1 / PIXELS_PER_M) fb.rect(sx, fy - 1, 2, 5, post);
   }
-  drawInrun(fb, h, cam, ground, night);
+  drawInrun(fb, h, cam, ground, lightsOn);
 }
 
 /** Floodlight masts behind the far fence, every 30 m from the takeoff; their lamps glow in a dithered halo. */
@@ -446,6 +462,51 @@ function drawFloodlights(fb: FrameBuffer, h: HillProfile, cam: Camera): void {
       }
     }
     fb.rect(sx - 3, top - 2, 8, 3, lamp);
+  }
+}
+
+const SOCK_SPACING_M = 25;
+const SOCK_POLE_PX = 14;
+const SOCK_LENGTH_PX = 8;
+/** Wind at which a sock flies straight out. */
+const SOCK_FULL_WIND_M_PER_S = 4.5;
+
+/**
+ * Wind socks on poles behind the far fence, every 25 m along the landing hill. They stream along the game's
+ * wind in the side view (along the hill and vertical) and hang down in a calm; the flutter is only for show.
+ */
+function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimState, frame: number): void {
+  const pole = color("post");
+  const red = color("sockRed");
+  const white = color("sockWhite");
+  const wx = s.wind.xMPerS;
+  const wy = s.wind.yMPerS;
+  const speed = Math.hypot(wx, wy);
+  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
+  const first = h.takeoffXM + 5;
+  const viewFrom = cam.x - (cam.cx + 20) / PIXELS_PER_M;
+  const viewTo = cam.x + (fb.width - cam.cx + 20) / PIXELS_PER_M;
+  const start = first + Math.max(0, Math.ceil((viewFrom - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
+  for (let x = start; x <= Math.min(viewTo, h.outrunStartXM); x += SOCK_SPACING_M) {
+    const sx = Math.round(toScreenX(cam, x));
+    const base = Math.round(toScreenY(cam, surfaceY(h, x))) - FAR_EDGE_PX - 1;
+    const top = base - SOCK_POLE_PX;
+    fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
+    // Direction on screen: the wind's (y is up in the world, down on screen), blended with hanging straight down.
+    const flutter = 0.12 * k * fastSin(frame / 4 + x);
+    const dirX = speed > 0 ? (wx / speed) * k : 0;
+    const dirY = speed > 0 ? (-wy / speed) * k + (1 - k) : 1;
+    const len = Math.hypot(dirX, dirY) || 1;
+    const ux = dirX / len - flutter * (dirY / len);
+    const uy = dirY / len + flutter * (dirX / len);
+    for (let i = 0; i < SOCK_LENGTH_PX; i++) {
+      const c = Math.floor(i / 2) % 2 === 0 ? red : white;
+      const px = sx + 0.5 + ux * i;
+      const py = top + uy * i;
+      fb.put(px, py, c);
+      // Wider at the mouth, thinning to the tail.
+      if (i < SOCK_LENGTH_PX - 3) fb.put(px - uy, py + ux, c);
+    }
   }
 }
 
@@ -509,18 +570,19 @@ function brushLine(fb: FrameBuffer, xa: number, ya: number, xb: number, yb: numb
   }
 }
 
-/** Colours of the jumper's outfit: a ramp per part, shade 0 (far side) to 5 (near side). */
-const OUTFIT: Readonly<Record<BodyPart, readonly [ColorName, ColorName]>> = {
-  suit: ["suitDark", "suitLight"],
-  pants: ["suitDark", "suitLight"],
-  sleeves: ["sleeveDark", "sleeveLight"],
-  gloves: ["gloveDark", "gloveLight"],
-  helmet: ["helmetDark", "helmetLight"],
-  skis: ["redDark", "red"],
+/** Which outfit colour each body part wears; the suit is the "Spodnie" colour, as in the original. */
+const PART_COLOUR: Readonly<Record<BodyPart, OutfitPart>> = {
+  suit: "pants",
+  pants: "pants",
+  sleeves: "sleeves",
+  gloves: "gloves",
+  helmet: "helmet",
+  skis: "skis",
 };
+/** Shade 0 (far side) to 5 (near side) within a part's ramp. */
 const SHADES = 5;
 
-function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera): void {
+function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {
   const j = s.jumper;
   const pts = skeletonPoints(s.pose, s.logic.frontLeg);
   const S = PIXELS_PER_M;
@@ -540,8 +602,8 @@ function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camer
   for (const b of BONES) {
     const a = at(b.from);
     const e = at(b.to);
-    const [dark, light] = OUTFIT[b.part];
-    brushLine(fb, sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), ramp(dark, light, b.shade / SHADES, SHADES), b.thick);
+    const shades = swatchRampTable(outfit[PART_COLOUR[b.part]], SHADES);
+    brushLine(fb, sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), band(shades, b.shade / SHADES), b.thick);
   }
 }
 
@@ -667,14 +729,30 @@ function drawSnowfall(fb: FrameBuffer, s: JumpSimState, cam: Camera, frame: numb
 const CAMERA_AHEAD_M = 4;
 const CAMERA_BELOW_JUMPER_M = 2;
 
+/** The jumper on the hill without the interface, the camera on the jumper (outfit preview). */
+export function drawJumperPreview(fb: FrameBuffer, m: { profile: HillProfile; state: JumpSimState; outfit: Outfit }): void {
+  withLook({ lighting: "day", fog: false }, () => {
+    const s = m.state;
+    const cam: Camera = { x: s.jumper.xM, y: s.jumper.yM, cx: Math.round(fb.width / 2), cy: Math.round(fb.height * 0.55) };
+    const backdrop = backdropFor(m.profile, cam);
+    drawBackdrop(fb, backdrop, cam, fb.height, false, 0);
+    const ground = drawSlope(fb, m.profile, cam, fb.height);
+    drawHill(fb, m.profile, cam, ground, false);
+    drawJumper(fb, m.profile, s, cam, m.outfit);
+    drawNearFence(fb, m.profile, cam, fb.height);
+  });
+}
+
 /** Draws one frame of the jump at the logical resolution. */
 export function drawJumpView(fb: FrameBuffer, m: JumpViewModel): void {
   const scenery = m.scenery ?? DAY_SCENERY;
-  withLighting(scenery.lighting, () => drawScene(fb, m, scenery));
+  withLook({ lighting: scenery.lighting, fog: scenery.fog }, () => drawScene(fb, m, scenery));
 }
 
 function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   const night = scenery.lighting === "night";
+  // Fog hides the stars and the moon.
+  const clearNight = night && !scenery.fog;
   const s = m.state;
   const h = m.profile;
   const groundBottom = fb.height - BAR_HEIGHT_PX;
@@ -685,13 +763,15 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     cy: Math.round(groundBottom * 0.45),
   };
   const backdrop = backdropFor(h, cam);
-  drawBackdrop(fb, backdrop, cam, groundBottom, night, m.frame);
+  drawBackdrop(fb, backdrop, cam, groundBottom, clearNight, m.frame);
   if (!night) drawBirds(fb, backdrop, m.frame);
   const ground = drawSlope(fb, h, cam, groundBottom);
-  drawHill(fb, h, cam, ground, night);
+  // Lamps are on from dusk.
+  drawHill(fb, h, cam, ground, scenery.lighting !== "day");
+  drawWindSocks(fb, h, cam, s, m.frame);
   drawDistanceLine(fb, h, cam, m.kPointM, color("kLine"), 0);
   if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
-  drawJumper(fb, h, s, cam);
+  drawJumper(fb, h, s, cam, m.outfit ?? DEFAULT_OUTFIT);
   drawNearFence(fb, h, cam, groundBottom);
   if (scenery.snowfall) drawSnowfall(fb, s, cam, m.frame, groundBottom);
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.

@@ -27,8 +27,8 @@ interface Props {
 }
 
 const PLAYER_NAME = "GRACZ 1";
-const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = { varied: "day", day: "night", night: "varied" };
-const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = { varied: "zmienna", day: "dzień", night: "noc" };
+const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = { varied: "day", day: "dusk", dusk: "night", night: "varied" };
+const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = { varied: "zmienna", day: "dzień", dusk: "zmierzch", night: "noc" };
 const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
@@ -233,6 +233,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         over,
         newRecord,
         scenery: latest.current.scenery,
+        outfit: latest.current.settings.outfit,
         ...(best === undefined ? {} : { recordM: best.distanceM }),
       });
       ctx.putImageData(view.image, 0, 0);

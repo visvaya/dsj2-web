@@ -6,6 +6,7 @@ interface Props {
   originalCount: number;
   persistent: boolean;
   onTraining: () => void;
+  onOutfit: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
 }
 
@@ -14,7 +15,7 @@ async function bytesOf(files: FileList, name: string): Promise<Uint8Array | unde
   return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
 }
 
-export function MenuScreen({ originalCount, persistent, onTraining, onOriginalHills }: Props) {
+export function MenuScreen({ originalCount, persistent, onTraining, onOutfit, onOriginalHills }: Props) {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -45,6 +46,9 @@ export function MenuScreen({ originalCount, persistent, onTraining, onOriginalHi
         <h2>Główne menu</h2>
         <button type="button" className="pixel-button" onClick={onTraining}>
           Trening
+        </button>
+        <button type="button" className="pixel-button" onClick={onOutfit}>
+          Strój
         </button>
         <label className="pixel-button file-label">
           Wczytaj pliki gry

@@ -1,5 +1,6 @@
 import type { HillChoice } from "../game/hill-choice";
 import type { HillRecord } from "../storage/save-data";
+import { FlagIcon } from "./flag-icon";
 
 interface Props {
   hills: readonly HillChoice[];
@@ -19,7 +20,10 @@ export function HillScreen({ hills, records, onPick, onBack }: Props) {
         {hills.map((h) => (
           <li key={h.id}>
             <button type="button" className="pixel-button" onClick={() => onPick(h)}>
-              <span>{h.name}</span>
+              <span className="hill-name">
+                <FlagIcon country={h.country} />
+                {h.name}
+              </span>
               <span>
                 K{h.kPointM}
                 {records[h.id] ? <span className="record"> · {records[h.id]?.distanceM.toFixed(2)} m</span> : null}
