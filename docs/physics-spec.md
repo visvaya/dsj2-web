@@ -144,8 +144,12 @@ do lądowania, 9 i 11 lądowanie, 12 upadek **[kod; nazwy faz 3, 5, 9, 11: hipot
   z p = 1/30 `body_angle += (7 - wiatr_x) * dt / 10`, oraz drgania kończyn `4CC0..4CCC`
   (Random(5), Random(60), Random(100), Random(10)); ograniczenie `body_angle` do ±0,6.
   Kąty nart `5314`, `5340` pochodzą z modułu szkieletu `1cb6`.
-- Faza 7 → 8 po wciśnięciu przycisku: `body_angle = 0.75`, poza 6; prawy przycisk to lądowanie
-  telemarkiem **[hipoteza]**, lewy na dwie nogi.
+- Faza 7 → 8 po wciśnięciu przycisku: `body_angle = 0.75`, poza 6. Przycisk wybiera nogę wysuniętą do przodu
+  (prawy: noga 0, lewy: noga 1); obie drogi prowadzą do tego samego przygotowania do telemarku **[kod]**.
+  Wcześniejsza hipoteza „prawy to telemark, lewy na dwie nogi” nie znajduje potwierdzenia w kodzie.
+  Czas przygotowania rośnie do 0,6 s i zatrzymuje się po wciśnięciu drugiego przycisku albo przy dotknięciu zeskoku;
+  kara w notach rośnie z `(0.4 - czas)²`, więc najlepiej wcisnąć przycisk około 0,4 s przed ziemią, a długie
+  przygotowanie zwiększa składową upadku `czas * 92` **[kod]**.
 
 Ziarno generatora jest zapamiętywane przed odczytem wejścia i odtwarzane po nim (0baf:9a3c),
 więc odczyt wejścia nie zmienia sekwencji losowej **[kod]**.

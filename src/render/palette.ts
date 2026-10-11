@@ -7,9 +7,24 @@ export function vga(r: number, g: number, b: number): Rgb {
   return [sixBit(r), sixBit(g), sixBit(b)];
 }
 
+// Scene colours sampled from screenshots of the original (sky, backdrop slope, fences, distance lines, notes).
 const RGB = {
-  sky1: vga(64, 92, 212),
-  sky2: vga(100, 128, 224),
+  sky1: vga(100, 100, 242),
+  sky2: vga(112, 136, 242),
+  farSnow: vga(218, 218, 246),
+  farSnowShade: vga(184, 186, 222),
+  backdropLight: vga(206, 206, 234),
+  backdropDark: vga(146, 150, 162),
+  bird: vga(92, 60, 28),
+  nearFence: vga(190, 137, 16),
+  nearFenceDark: vga(117, 85, 12),
+  kLine: vga(20, 93, 24),
+  recordLine: vga(234, 80, 89),
+  bestLine: vga(85, 85, 238),
+  noteBox: vga(28, 28, 36),
+  noteBorder: vga(72, 72, 76),
+  noteDropped: vga(190, 137, 16),
+  bar: vga(16, 16, 24),
   haze1: vga(200, 204, 224),
   snow1: vga(236, 236, 244),
   snow3: vga(196, 196, 212),
@@ -68,10 +83,32 @@ export function color(name: ColorName): number {
   return v;
 }
 
+const ramps = new Map<string, Uint32Array>();
+
+/** The bands of a ramp, index 0 = `a`, index `steps` = `b`; fetch once outside per-pixel loops. */
+export function rampTable(a: ColorName, b: ColorName, steps: number): Uint32Array {
+  const key = `${a}>${b}>${steps}`;
+  let table = ramps.get(key);
+  if (table === undefined) {
+    const ca = RGB[a];
+    const cb = RGB[b];
+    table = new Uint32Array(steps + 1);
+    for (let i = 0; i <= steps; i++) {
+      const tt = i / steps;
+      table[i] = FrameBuffer.pack(vga(ca[0] + (cb[0] - ca[0]) * tt, ca[1] + (cb[1] - ca[1]) * tt, ca[2] + (cb[2] - ca[2]) * tt));
+    }
+    ramps.set(key, table);
+  }
+  return table;
+}
+
+/** Band of a ramp table for t in 0..1 (clamped). */
+export function band(table: Uint32Array, t: number): number {
+  const steps = table.length - 1;
+  return table[Math.round(Math.min(1, Math.max(0, t)) * steps)] ?? 0;
+}
+
 /** Colour between two palette entries, quantised into bands like a 256-colour palette. */
 export function ramp(a: ColorName, b: ColorName, t: number, steps: number): number {
-  const ca = RGB[a];
-  const cb = RGB[b];
-  const tt = Math.round(Math.min(1, Math.max(0, t)) * steps) / steps;
-  return FrameBuffer.pack(vga(ca[0] + (cb[0] - ca[0]) * tt, ca[1] + (cb[1] - ca[1]) * tt, ca[2] + (cb[2] - ca[2]) * tt));
+  return band(rampTable(a, b, steps), t);
 }

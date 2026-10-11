@@ -12,6 +12,8 @@ export interface TrainingJump {
   state: JumpSimState;
   /** Generator seed the jump was created from; with the inputs it reproduces the jump. */
   seed: number;
+  /** Frames stepped after the simulation stopped (the judges' notes keep appearing). */
+  framesAfterEnd: number;
 }
 
 export function startTrainingJump(hill: HillChoice, seed: number): TrainingJump {
@@ -26,13 +28,21 @@ export function startTrainingJump(hill: HillChoice, seed: number): TrainingJump 
     points: 0,
     presentation: true,
   };
-  return { hill, setup, state: createJump(setup), seed: seed >>> 0 };
+  return { hill, setup, state: createJump(setup), seed: seed >>> 0, framesAfterEnd: 0 };
 }
 
-/** Advances by one simulation frame unless the jump is over. */
+/** Advances by one simulation frame; once the jump is over only the presentation clock moves. */
 export function stepTrainingJump(jump: TrainingJump, input: FrameInput): void {
-  if (!jumpRunning(jump.state)) return;
+  if (!jumpRunning(jump.state)) {
+    jump.framesAfterEnd++;
+    return;
+  }
   jump.state = stepFrame(jump.state, jump.setup, () => input);
+}
+
+/** Clock for presentation, in simulation frames; it keeps counting after the jump is over. */
+export function presentationFrame(jump: TrainingJump): number {
+  return jump.state.logic.frame + jump.framesAfterEnd;
 }
 
 export function isJumpOver(jump: TrainingJump): boolean {

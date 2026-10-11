@@ -4,9 +4,10 @@ import { feedbackEvents, vibrate } from "../game/haptics";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput } from "../game/player-input";
-import { isJumpOver, newSeed, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
+import { isJumpOver, newSeed, presentationFrame, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
+import { notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
-import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor } from "../render/jump-view";
+import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, Settings } from "../storage/save-data";
 
 export interface JumpResult {
@@ -27,6 +28,8 @@ interface Props {
 const PLAYER_NAME = "GRACZ 1";
 const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
+/** From this device pixel ratio the view may scale by a fraction to fill the screen. */
+const DENSE_SCREEN_DPR = 2;
 
 interface View {
   fb: FrameBuffer;
@@ -101,12 +104,20 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   const touch = useMediaQuery("(pointer: coarse)");
   const [tiltOn, setTiltOn] = useState(false);
   const [tiltNote, setTiltNote] = useState("");
+  /** In phone landscape the buttons sit behind a pause button; the jump stops while they are open. */
+  const [menuOpen, setMenuOpen] = useState(false);
+  const pausedRef = useRef(false);
+  useEffect(() => {
+    pausedRef.current = menuOpen;
+  }, [menuOpen]);
   /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({ on: false, pitch: null, neutral: null });
-  const latest = useRef({ onExit, onFinished, record, settings });
+  const controls: ControlScheme = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
+  const latest = useRef({ onExit, onFinished, record, settings, controls });
   useEffect(() => {
-    latest.current = { onExit, onFinished, record, settings };
+    latest.current = { onExit, onFinished, record, settings, controls };
   });
+  const fullscreenAvailable = touch && document.fullscreenEnabled;
 
   // A saved choice of tilt steering is switched on again where the browser remembers the permission.
   const wantsTilt = settings.leanControl === "tilt";
@@ -136,7 +147,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     let jump: TrainingJump = startTrainingJump(hill, newSeed());
     let view = makeView(viewWidthFor(stage.clientWidth, stage.clientHeight));
     let finished = false;
-    let recordLine: string | undefined;
+    let newRecord = false;
+    let leftWasDown = false;
     let acc = 0;
     let last = performance.now();
     let raf = 0;
@@ -146,7 +158,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       input.reset();
       tiltRef.current.neutral = tiltRef.current.pitch;
       finished = false;
-      recordLine = undefined;
+      newRecord = false;
       setAnnouncement("");
     };
     restartRef.current = restart;
@@ -156,9 +168,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       if (width !== view.fb.width) view = makeView(width);
       canvas.width = width;
       canvas.height = VIEW_HEIGHT_PX;
-      // Whole device pixels per game pixel keep every pixel the same size.
+      // Whole device pixels per game pixel keep every pixel the same size. On dense screens
+      // (phones) a fractional scale fills the space; the uneven pixels are then below one device pixel.
       const dpr = window.devicePixelRatio || 1;
-      const scale = Math.max(1, Math.floor(Math.min((stage.clientWidth * dpr) / width, (stage.clientHeight * dpr) / VIEW_HEIGHT_PX)));
+      const fill = Math.min((stage.clientWidth * dpr) / width, (stage.clientHeight * dpr) / VIEW_HEIGHT_PX);
+      const scale = Math.max(1, dpr >= DENSE_SCREEN_DPR ? fill : Math.floor(fill));
       canvas.style.width = `${(width * scale) / dpr}px`;
       canvas.style.height = `${(VIEW_HEIGHT_PX * scale) / dpr}px`;
     };
@@ -172,15 +186,15 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const result: JumpResult = { distanceM: L.distanceM, points: L.points, fell: L.fallType !== 0 };
       const best = latest.current.record;
       const isRecord = !result.fell && result.distanceM > 0 && (!best || result.distanceM > best.distanceM);
-      recordLine = isRecord ? "NOWY REKORD SKOCZNI!" : best ? `REKORD: ${best.distanceM.toFixed(2)} M` : undefined;
+      newRecord = isRecord;
       latest.current.onFinished(result);
       setAnnouncement(
-        `Odległość ${result.distanceM.toFixed(2)} metra, ${result.points.toFixed(1)} punktu.${isRecord ? " Nowy rekord skoczni." : ""} R: jeszcze raz.`,
+        `Odległość ${result.distanceM.toFixed(2)} metra, ${result.points.toFixed(1)} punktu.${isRecord ? " Nowy rekord skoczni." : ""} Lewy przycisk lub R: jeszcze raz.`,
       );
     };
 
     const frame = (now: number) => {
-      const plan = planSteps(acc, (now - last) / 1000);
+      const plan = planSteps(acc, pausedRef.current ? 0 : (now - last) / 1000);
       last = now;
       acc = plan.accumulatorS;
       const tilt = tiltRef.current;
@@ -195,14 +209,24 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           for (const event of feedbackEvents(prev, jump.state)) vibrate(event);
         }
       }
-      if (!finished && isJumpOver(jump)) finish();
+      const over = isJumpOver(jump);
+      if (!finished && over) finish();
+      // After the notes, a fresh press of the left button starts the next jump.
+      const clock = presentationFrame(jump);
+      if (over && input.left && !leftWasDown && notesShownBy(jump.state.logic, clock)) restart();
+      leftWasDown = input.left;
+      const best = latest.current.record;
       drawJumpView(view.fb, {
         profile: hill.profile,
         kPointM: hill.kPointM,
         hillName: hill.name,
         playerName: PLAYER_NAME,
         state: jump.state,
-        ...(recordLine === undefined ? {} : { recordLine }),
+        controls: latest.current.controls,
+        frame: clock,
+        over,
+        newRecord,
+        ...(best === undefined ? {} : { recordM: best.distanceM }),
       });
       ctx.putImageData(view.image, 0, 0);
       raf = requestAnimationFrame(frame);
@@ -279,16 +303,42 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   }, [hill]);
 
   return (
-    <div className={touch ? "game touch" : "game"}>
+    <div className={`game${touch ? " touch" : ""}${menuOpen ? " menu-open" : ""}`}>
+      {touch && (
+        <button
+          type="button"
+          className="pause-button"
+          aria-label="Pauza i ustawienia"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen(true)}
+        >
+          <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
+            <rect x="0" y="0" width="2" height="6" fill="currentColor" />
+            <rect x="4" y="0" width="2" height="6" fill="currentColor" />
+          </svg>
+        </button>
+      )}
       <div className="game-stage" ref={stageRef}>
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, jeden przycisk: lądowanie.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, po skoku lewy przycisk: jeszcze raz.`}
         />
       </div>
       <div className="game-toolbar">
-        <button type="button" className="pixel-button" onClick={() => restartRef.current()}>
+        {menuOpen && (
+          <button type="button" className="pixel-button resume-button" onClick={() => setMenuOpen(false)}>
+            Wróć do gry
+          </button>
+        )}
+        <button
+          type="button"
+          className="pixel-button"
+          onClick={() => {
+            restartRef.current();
+            setMenuOpen(false);
+          }}
+        >
           Jeszcze raz{touch ? "" : " (R)"}
         </button>
         <button type="button" className="pixel-button" onClick={onExit}>
@@ -317,6 +367,18 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             }}
           >
             {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
+          </button>
+        )}
+        {fullscreenAvailable && (
+          <button
+            type="button"
+            className="pixel-button"
+            onClick={() => {
+              const request = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+              request.catch(() => undefined);
+            }}
+          >
+            Pełny ekran
           </button>
         )}
         {touch && (

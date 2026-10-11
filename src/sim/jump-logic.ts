@@ -124,6 +124,11 @@ export interface SimFrame {
   windDirectionRad: number;
 }
 
+/** True once the jump is scored and every judge's note is on screen at presentation frame `frame`. */
+export function notesShownBy(logic: JumpLogicState, frame: number): boolean {
+  return logic.finished && logic.judges.every((judge) => frame >= judge.showFrame);
+}
+
 function distancePoints(points: number, half: number, k: number): number {
   if (k <= 90) return f32(points + 60 + (half - k) * 2);
   if (k < 145) return f32(points + 60 + (half - k) * 1.8);
