@@ -1,5 +1,5 @@
 /** Persistent data of the game, versioned so older saves can be migrated. */
-export const SAVE_SCHEMA_VERSION = 1;
+export const SAVE_SCHEMA_VERSION = 2;
 
 export interface HillRecord {
   distanceM: number;
@@ -8,14 +8,25 @@ export interface HillRecord {
   dateIso: string;
 }
 
+export type LeanControl = "drag" | "tilt";
+
+export interface Settings {
+  /** How a touch screen leans the jumper: dragging the left pad or tilting the phone. */
+  leanControl: LeanControl;
+  vibration: boolean;
+}
+
+export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true };
+
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
   /** Best jump per hill id (see HillChoice.id). */
   records: Record<string, HillRecord>;
+  settings: Settings;
 }
 
 export function emptySave(): SaveData {
-  return { schemaVersion: SAVE_SCHEMA_VERSION, records: {} };
+  return { schemaVersion: SAVE_SCHEMA_VERSION, records: {}, settings: { ...DEFAULT_SETTINGS } };
 }
 
 /** Property of an unknown value, without assuming its type. */
@@ -42,7 +53,9 @@ export function parseSave(json: string | null): SaveData {
   } catch {
     return emptySave();
   }
-  if (field(raw, "schemaVersion") !== SAVE_SCHEMA_VERSION) return emptySave();
+  const version = field(raw, "schemaVersion");
+  // Version 1 had records only; version 2 adds settings.
+  if (version !== 1 && version !== SAVE_SCHEMA_VERSION) return emptySave();
   const records: Record<string, HillRecord> = {};
   const stored = field(raw, "records");
   if (typeof stored === "object" && stored !== null) {
@@ -51,7 +64,20 @@ export function parseSave(json: string | null): SaveData {
       if (rec) records[id] = rec;
     }
   }
-  return { schemaVersion: SAVE_SCHEMA_VERSION, records };
+  return { schemaVersion: SAVE_SCHEMA_VERSION, records, settings: parseSettings(field(raw, "settings")) };
+}
+
+function parseSettings(v: unknown): Settings {
+  const lean = field(v, "leanControl");
+  const vibration = field(v, "vibration");
+  return {
+    leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
+    vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
+  };
+}
+
+export function withSettings(save: SaveData, change: Partial<Settings>): SaveData {
+  return { ...save, settings: { ...save.settings, ...change } };
 }
 
 /** Returns a new save with the jump stored if it beats the hill record (falls never count). */

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { OWN_HILLS, type HillChoice } from "../game/hill-choice";
-import { emptySave, withJump, type SaveData } from "../storage/save-data";
+import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
@@ -34,12 +34,22 @@ export function App() {
     });
   };
 
+  const onSettings = (change: Partial<Settings>) => {
+    setSave((prev) => {
+      const next = withSettings(prev, change);
+      saveSave(backend, next).catch(() => setSaveFailed(true));
+      return next;
+    });
+  };
+
   if (screen.kind === "jump") {
     const hill = screen.hill;
     return (
       <JumpScreen
         hill={hill}
         record={save.records[hill.id]}
+        settings={save.settings}
+        onSettings={onSettings}
         onFinished={(result) => onFinished(hill, result)}
         onExit={() => setScreen({ kind: "hills" })}
       />

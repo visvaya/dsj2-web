@@ -7,7 +7,7 @@ import { PlayerInput } from "../game/player-input";
 import { isJumpOver, newSeed, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor } from "../render/jump-view";
-import type { HillRecord } from "../storage/save-data";
+import type { HillRecord, Settings } from "../storage/save-data";
 
 export interface JumpResult {
   distanceM: number;
@@ -18,6 +18,8 @@ export interface JumpResult {
 interface Props {
   hill: HillChoice;
   record: HillRecord | undefined;
+  settings: Settings;
+  onSettings: (change: Partial<Settings>) => void;
   onFinished: (result: JumpResult) => void;
   onExit: () => void;
 }
@@ -90,7 +92,7 @@ function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
   );
 }
 
-export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
+export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const inputRef = useRef(new PlayerInput());
@@ -101,10 +103,27 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
   const [tiltNote, setTiltNote] = useState("");
   /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({ on: false, pitch: null, neutral: null });
-  const latest = useRef({ onExit, onFinished, record });
+  const latest = useRef({ onExit, onFinished, record, settings });
   useEffect(() => {
-    latest.current = { onExit, onFinished, record };
+    latest.current = { onExit, onFinished, record, settings };
   });
+
+  // A saved choice of tilt steering is switched on again where the browser remembers the permission.
+  const wantsTilt = settings.leanControl === "tilt";
+  useEffect(() => {
+    if (!touch || !wantsTilt) return undefined;
+    let cancelled = false;
+    void requestTiltPermission().then((granted) => {
+      if (cancelled) return;
+      tiltRef.current.on = granted;
+      tiltRef.current.neutral = tiltRef.current.pitch;
+      setTiltOn(granted);
+      setTiltNote(granted ? "" : "Dotknij „Pochylanie”, aby włączyć przechył.");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [touch, wantsTilt]);
 
   useEffect(() => {
     const stage = stageRef.current;
@@ -172,7 +191,9 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
         }
         const prev = jump.state;
         stepTrainingJump(jump, input.takeFrame());
-        for (const event of feedbackEvents(prev, jump.state)) vibrate(event);
+        if (latest.current.settings.vibration) {
+          for (const event of feedbackEvents(prev, jump.state)) vibrate(event);
+        }
       }
       if (!finished && isJumpOver(jump)) finish();
       drawJumpView(view.fb, {
@@ -283,6 +304,7 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
                 tiltRef.current.on = false;
                 setTiltOn(false);
                 setTiltNote("");
+                onSettings({ leanControl: "drag" });
                 return;
               }
               void requestTiltPermission().then((granted) => {
@@ -290,10 +312,21 @@ export function JumpScreen({ hill, record, onFinished, onExit }: Props) {
                 tiltRef.current.neutral = tiltRef.current.pitch;
                 setTiltOn(granted);
                 setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
+                if (granted) onSettings({ leanControl: "tilt" });
               });
             }}
           >
             {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
+          </button>
+        )}
+        {touch && (
+          <button
+            type="button"
+            className="pixel-button"
+            aria-pressed={settings.vibration}
+            onClick={() => onSettings({ vibration: !settings.vibration })}
+          >
+            {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
           </button>
         )}
         {tiltNote !== "" && (

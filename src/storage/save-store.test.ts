@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptySave, parseSave, withJump } from "./save-data";
+import { DEFAULT_SETTINGS, emptySave, parseSave, withJump, withSettings } from "./save-data";
 import { SAVE_KEY, detectBackend, loadSave, memoryBackend, saveSave } from "./save-store";
 
 const NOW = new Date("2026-10-11T10:00:00Z");
@@ -19,6 +19,20 @@ describe("save data", () => {
     expect(parseSave("not json")).toEqual(emptySave());
     expect(parseSave(JSON.stringify({ schemaVersion: 99, records: {} }))).toEqual(emptySave());
     expect(parseSave(JSON.stringify({ schemaVersion: 1, records: { a: { distanceM: "x" } } }))).toEqual(emptySave());
+  });
+
+  it("migrates version 1 saves and keeps their records", () => {
+    const v1 = { schemaVersion: 1, records: { "own-1": { distanceM: 80, points: 100, dateIso: NOW.toISOString() } } };
+    const save = parseSave(JSON.stringify(v1));
+    expect(save.schemaVersion).toBe(2);
+    expect(save.records).toEqual(v1.records);
+    expect(save.settings).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it("stores settings and repairs unknown values", () => {
+    const save = withSettings(emptySave(), { leanControl: "tilt", vibration: false });
+    expect(parseSave(JSON.stringify(save)).settings).toEqual({ leanControl: "tilt", vibration: false });
+    expect(parseSave(JSON.stringify({ ...save, settings: { leanControl: "joystick", vibration: "yes" } })).settings).toEqual(DEFAULT_SETTINGS);
   });
 });
 
