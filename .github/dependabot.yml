@@ -1,0 +1,26 @@
+# Weekly version updates, grouped per ecosystem.
+# npm is not listed: Dependabot cannot parse the multi-document pnpm-lock.yaml
+# written by pnpm 11 and later (dependabot/dependabot-core#14794).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /tools/re
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    groups:
+      python-tools:
+        patterns: ["*"]
