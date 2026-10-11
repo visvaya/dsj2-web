@@ -67,7 +67,18 @@ export interface JumperControls {
 
 /** 1c06:02a1, one 1/70 s step. Returns a new state; the input is not modified. */
 export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile): JumperState {
+  return stepJumperDetailed(prev, c, h).state;
+}
+
+export interface JumperStepResult {
+  state: JumperState;
+  /** The jumper left the ground in this step (the original then disturbs the pose if falling). */
+  liftedOff: boolean;
+}
+
+export function stepJumperDetailed(prev: JumperState, c: JumperControls, h: HillProfile): JumperStepResult {
   const s: JumperState = { ...prev };
+  let liftedOff = false;
   const dt = f32(c.dtS);
   const m = s.massKg;
   const g = GRAVITY_M_PER_S2;
@@ -149,6 +160,7 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
     (s.xM <= h.takeoffXM && inrunYM(h, s.xM) < s.yM) || (s.xM > h.takeoffXM && !(landingYM(h, s.xM) >= s.yM));
   if (above) {
     if (!s.airborne) {
+      liftedOff = true;
       s.airborne = true;
       s.contactEvent = true;
     }
@@ -177,5 +189,5 @@ export function stepJumper(prev: JumperState, c: JumperControls, h: HillProfile)
     s.impulseYNs = 0;
   }
   s.slopeAngleRad = terrainSlopeRad(h, s.xM);
-  return s;
+  return { state: s, liftedOff };
 }

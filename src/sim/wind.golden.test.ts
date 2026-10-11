@@ -1,15 +1,13 @@
-import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { BorlandRandom } from "./borland-random";
-import { TRACE_POINT, decodeFrame, decodeRandSeed, decodeWind, readTrace } from "./test-support/dsj-trace";
+import { TRACE_POINT, decodeFrame, decodeRandSeed, decodeWind, listTraces, readTrace } from "./test-support/dsj-trace";
 import { updateWind } from "./wind";
 
-const tracePath = process.env.DSJ2_TRACE ?? "";
-const haveTrace = tracePath !== "" && existsSync(tracePath);
+const traces = listTraces();
 
-describe.skipIf(!haveTrace)("wind update against the original game trace", () => {
-  it("matches wind state and random seed bit for bit", () => {
-    const snaps = readTrace(tracePath);
+describe.skipIf(traces.length === 0)("wind update against the original game traces", () => {
+  for (const trace of traces) it(`${trace.name}: matches wind state and random seed bit for bit`, () => {
+    const snaps = readTrace(trace.path);
     const exits = new Map(snaps.filter((s) => s.point === TRACE_POINT.jumperStep).map((s) => [s.frame, s]));
     const entries = snaps.filter((s) => s.point === TRACE_POINT.windUpdate);
     const failures: string[] = [];

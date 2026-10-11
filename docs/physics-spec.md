@@ -80,7 +80,7 @@ Uwaga: człon `0.1166 * v^2` używa prędkości absolutnych, nie względem wiatr
 ## Przejścia faz
 
 - Na torze, gdy teren pod skoczkiem jest niżej niż `y` (`hill_y(x) < y`): `airborne = 1`,
-  `contact_event = 1`; opcjonalnie dźwięk (1cb6:0457, gdy `4D04 != 0`).
+  `contact_event = 1`; po upadku (`4D04 != 0`, typ upadku) dodatkowo losowe zaburzenie pozy (1cb6:0457).
 - W locie, gdy `hill_y(x) >= y` (lądowanie): `energy_lost = 0`, `ref_y = terrain_y(x)` (1eee:0627),
   kąt uderzenia `beta = |atan(-vy/vx) - inrun_slope_angle|` (lub `pi - inrun_slope_angle` gdy `vx = 0`),
   `ref_speed = cos(beta) * sqrt(vx^2 + vy^2)`, `y = ref_y`, `speed = ref_speed`, `airborne = 0`,
@@ -150,17 +150,46 @@ do lądowania, 9 i 11 lądowanie, 12 upadek **[kod; nazwy faz 3, 5, 9, 11: hipot
 Ziarno generatora jest zapamiętywane przed odczytem wejścia i odtwarzane po nim (0baf:9a3c),
 więc odczyt wejścia nie zmienia sekwencji losowej **[kod]**.
 
+## Szkielet skoczka (moduł 1cb6)
+
+Dwie nogi, każda z dwoma długościami odcinków (górny do 1,08 m, dolny do 0,74 m) i dziewięcioma kątami stawów.
+Każdy kanał ma wartość bieżącą, docelową i prędkość; co klatkę wartość zbliża się do celu o `prędkość * dt`
+(albo przeskakuje na cel, gdy jest bliżej). Poza (1cb6:0d15) ustawia cele i prędkości z tabeli; prędkość 0 oznacza
+natychmiastowe ustawienie, wartość -99 kąta oznacza „nachylenie terenu”. Fizykę zasilają: kąt nart (staw 2 obu nóg)
+i długość górnego odcinka pierwszej nogi („kolano”, siła wybicia). Pozostałe stawy służą rysowaniu i ocenie stylu.
+
+- Na torze narty dążą do kąta terenu (1cb6:0315), w locie do kąta zależnego od sylwetki i losowych drgań, przy ziemi
+  mieszanego z nachyleniem terenu proporcjonalnie do bliskości ziemi (`2A0E`).
+- Uderzenie (upadek w locie, lądowanie przy upadku, odbicia) losowo zaburza pozę (1cb6:0457): stawy 0, 1, 2, 4, 5
+  i 6 obu nóg oraz długości odcinków, zużywając generator losowy.
+- Przed przyziemieniem długości nóg dopasowują się tak, by obie stopy dotykały zeskoku (zmienne `5420..5438`).
+
+## Lądowanie, odległość i noty
+
+- W klatce przyziemienia liczonych jest pięć składowych „uderzenia” (kąt i prędkość uderzenia, czas przygotowania,
+  ułożenie tułowia i nóg, rozstaw nart, ugięcie nóg) i ich średnia; składowa + średnia > 60 oznacza upadek danego typu.
+- Odległość: długość łuku zeskoku od progu do `x - czas_przygotowania`, krok 0,1 m, obcięta do centymetrów; do punktów
+  zaokrąglona w dół do pół metra. Punkty za odległość: `60 + (d - K) * 2` dla K <= 90, `* 1.8` dla K < 145,
+  `120 + (d - K) * 1.2` powyżej.
+- Pięciu sędziów: nota 20 minus kary (rozstaw nóg, upadek, spóźnione przygotowanie, czas wybicia, styl lotu) z
+  losowymi wagami i szumem, zaokrąglenie do pół punktu; skrajne noty odrzucane.
+
 ## Weryfikacja
 
-- Krok fizyki (`src/sim/jumper-step.ts`) i profil skoczni (`src/sim/hill-profile.ts`) odtwarzają stan
-  gry w 876 z 876 klatek `KARPACZ.RPL` (tolerancja względna 1e-6), 875 bit w bit. Jedyna różnica:
-  klatka 883, prędkość 0,005 m/s na końcu wybiegu, ostatni bit (pierwiastek z różnicy dużych energii;
-  oryginał liczy pośrednio w 80 bitach) **[pomiar]**.
-- Wiatr i `Random`: bit w bit **[pomiar]**.
+Ślady stanu oryginalnej gry z sześciu powtórek z dystrybucji (Karpacz, REC-FIN, Szczyrk, Wisła, Zakopane 1 i 2)
+**[pomiar]**:
+
+- Krok fizyki, wiatr, logika klatki i szkielet: zgodność we wszystkich klatkach wszystkich sześciu skoków
+  (tolerancja względna 1e-6), w większości bit w bit, łącznie ze stanem generatora losowego.
+- Pełna symulacja uruchomiona tylko z pliku `.rpl` (oraz geometrii skoczni) odtwarza każdą klatkę oryginału
+  i dokładnie zapisaną odległość (np. 89,92 m w Karpaczu), noty i punkty.
+- Jedyna znana różnica co do bitu: prędkość bliska zeru na końcu wybiegu (oryginał liczy w 80 bitach).
+- Ścieżki upadków nie występują w powtórkach z dystrybucji. Pięć spreparowanych powtórek (`docs/testing.md`)
+  pokrywa upadek przy lądowaniu (typy 2 i 4) z przejściem w pozę upadku, odbicia (do trzech), fazy 6 i 9
+  oraz telemark z dwoma przyciskami; port odtwarza każdą ich klatkę i odległość zmierzoną przez oryginał.
+- Niesprawdzone śladem: upadki typu 1, 3 i 5 oraz dotknięcie zeskoku przed progiem.
 
 ## Do ustalenia
 
-- Szkielet skoczka (moduł 1cb6): kąty nart i `knee` w zależności od pozy i czasu.
-- Pozostała część 0baf:9c52: przejścia faz 8–12, odbicie przy upadku (`4CD8` przy lądowaniu),
-  pomiar odległości i noty za styl.
-- Format `Dsj.dat` i dane skoczni (wczytywanie: 0baf:631c).
+- Format `Dsj.dat` i dane skoczni (wczytywanie: 0baf:631c), w tym punkt K.
+- Sterowanie komputerowych zawodników (0baf:8ee4) i tryb zawodów.

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
+import struct
 import sys
+import tempfile
 import unittest
 
 import capstone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from craft_replays import SCENARIOS, make, set_distance
 from fpu_lift import Lifter
 from mz_image import restore_fpu
 from rpl_codec import (
@@ -93,6 +96,47 @@ class ReplayCodecTest(unittest.TestCase):
         self.assertEqual(rng.below(1), 0)
         self.assertEqual(rng.seed, 1)
         self.assertEqual(rng.below(0x10000 - 1), (0x08088406 * 0xFFFF) >> 32)
+
+
+class CraftReplaysTest(unittest.TestCase):
+    def test_scenarios_change_only_inputs_and_keep_a_valid_checksum(self) -> None:
+        header = bytes([12]) + b"/DSJ_v2.1P//"
+        record = bytes((i * 37 + 11) & 0xFF for i in range(RECORD_BYTES))
+        with tempfile.TemporaryDirectory() as d:
+            source = os.path.join(d, "source.rpl")
+            with open(source, "wb") as f:
+                f.write(encode_replay(header, record))
+            make(source, os.path.join(d, "out"))
+            for name in SCENARIOS:
+                with open(os.path.join(d, "out", f"{name}.RPL"), "rb") as f:
+                    got_header, got_record, ok = decode_replay(f.read())
+                self.assertTrue(ok, name)
+                self.assertEqual(got_header, header)
+                # Wind, hill, distance and seed stay as recorded.
+                self.assertEqual(got_record[:0x30], record[:0x30], name)
+            with open(os.path.join(d, "out", "TELEMARK.RPL"), "rb") as f:
+                telemark = decode_replay(f.read())[1]
+            self.assertEqual(struct.unpack_from("<ii", telemark, 0x46A), (596, 590))
+
+    def test_set_distance_reads_the_last_snapshot(self) -> None:
+        size = 0x5300
+        first = bytearray(size)
+        last = bytearray(size)
+        struct.pack_into("<f", first, 0x528E, 12.5)
+        struct.pack_into("<f", last, 0x528E, 89.92)
+        header = bytes([12]) + b"/DSJ_v2.1P//"
+        with tempfile.TemporaryDirectory() as d:
+            trace = os.path.join(d, "x.trace")
+            with open(trace, "wb") as f:
+                f.write(b"DSJTRACE" + struct.pack("<III", 1, size, 2))
+                f.write(struct.pack("<IB", 1, 0) + first + struct.pack("<IB", 2, 3) + last)
+            replay = os.path.join(d, "x.rpl")
+            with open(replay, "wb") as f:
+                f.write(encode_replay(header, bytes(RECORD_BYTES)))
+            set_distance(trace, replay)
+            with open(replay, "rb") as f:
+                record = decode_replay(f.read())[1]
+            self.assertEqual(record[0x25 : 0x25 + 6], b"\x0589.92")
 
 
 if __name__ == "__main__":
