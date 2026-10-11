@@ -369,6 +369,27 @@ function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed
   }
 }
 
+/**
+ * Start gate ("belka"): a bar across the trough just behind the start position, at seat height, receding up and
+ * to the right like the far rail; a short post holds its far end. The jumper sits on it, so it is drawn first.
+ */
+function drawStartGate(fb: FrameBuffer, cam: Camera, h: HillProfile, nearTopAt: (x: number) => number): void {
+  const x = h.startXM - GATE_BEHIND_START_M;
+  const sx = Math.round(toScreenX(cam, x));
+  if (sx < -INRUN_FAR_SHIFT_PX - 4 || sx > fb.width + 4) return;
+  const y = Math.round(toScreenY(cam, inrunYM(h, x) + GATE_HEIGHT_M));
+  const light = color("gateLight");
+  const dark = color("gateDark");
+  const farX = sx + INRUN_FAR_SHIFT_PX;
+  const farY = y - INRUN_RAIL_PX;
+  fb.rect(farX, farY, 1, Math.max(1, nearTopAt(x) - INRUN_RAIL_PX - farY), dark);
+  for (let i = 0; i <= INRUN_FAR_SHIFT_PX; i++) {
+    const by = y - Math.round((INRUN_RAIL_PX * i) / INRUN_FAR_SHIFT_PX);
+    fb.put(sx + i, by, light);
+    fb.put(sx + i, by + 1, dark);
+  }
+}
+
 /** Half width of the inrun trough, which the drawn figure stays within. */
 const TROUGH_HALF_WIDTH_M = 1.5;
 const TOWER_BACK_M = 6;
@@ -379,6 +400,12 @@ const INRUN_FAR_SHIFT_PX = 32;
 /** Far rail and near wall thickness in pixels, measured on the original's screen. */
 const INRUN_RAIL_PX = 8;
 const INRUN_WALL_PX = 24;
+/** The skis run this many pixels above the near wall's top edge, on the track. */
+const INRUN_SKIS_ABOVE_WALL_PX = 3;
+/** Height of the start gate's bar above the track (the jumper sits on it). */
+const GATE_HEIGHT_M = 0.45;
+/** The bar is just behind the skis' binding point, under the jumper's seat. */
+const GATE_BEHIND_START_M = 0.35;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
 const INRUN_LAMP_SPACING_M = 8;
@@ -405,8 +432,8 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
   const from = h.startXM - TOWER_BACK_M;
   const to = h.takeoffXM;
   const inRange = (x: number) => x >= from && x <= to;
-  /** Top of the near wall (the jumper's skis run along it) at world x. */
-  const nearTopAt = (x: number) => Y(inrunYM(h, Math.max(x, from))) - 1;
+  /** Top of the near wall at world x: a little below the skis, which run on the track above it. */
+  const nearTopAt = (x: number) => Y(inrunYM(h, Math.max(x, from))) + INRUN_SKIS_ABOVE_WALL_PX;
   const support = rampTable("towerDark", "towerLight", 6);
   const side = color("towerSide");
   const track = rampTable("trackFar", "trackNear", 3);
@@ -455,17 +482,19 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
         for (let y = railBottom; y < nearTop; y++) fb.put(sx, y, band(track, (y - railBottom) / Math.max(1, nearTop - railBottom)));
       }
       for (let i = 0; i < INRUN_WALL_PX; i++) fb.put(sx, nearTop + i, band(wall, i / (INRUN_WALL_PX - 1)));
-    } else if (sx > sxTakeoff) {
-      // Front face of the takeoff table, from the near wall's end up to the far rail's end.
-      const t = (sx - sxTakeoff) / INRUN_FAR_SHIFT_PX;
+    } else if (sx >= sxTakeoff && railBottom !== null) {
+      // Front face of the takeoff table: the trough's cross-section, a parallelogram as tall as the near wall,
+      // its top edge running from the near wall's end up to the far rail. Above it, the end of the track.
+      const t = Math.max(0, sx - sxTakeoff) / INRUN_FAR_SHIFT_PX;
       const nearTop = nearTopAt(to);
-      const farTop = nearTop - INRUN_RAIL_PX;
-      // Its top edge rises to the far rail's top, its bottom edge to the rail's bottom.
-      const top = Math.round(nearTop + (farTop - nearTop) * t);
-      const bottom = Math.round(nearTop + INRUN_WALL_PX + (nearTop - (nearTop + INRUN_WALL_PX)) * t);
-      for (let y = Math.max(top, railBottom ?? top); y < bottom; y++) fb.put(sx, y, band(face, (y - top) / Math.max(1, bottom - top)));
+      const railTop = railBottom - INRUN_RAIL_PX;
+      const top = Math.round(nearTop + (railTop - nearTop) * t);
+      for (let y = railBottom; y < top; y++) fb.put(sx, y, band(track, 1));
+      const bottom = top + INRUN_WALL_PX;
+      for (let y = Math.max(top, railBottom); y < bottom; y++) fb.put(sx, y, band(face, (y - top) / (INRUN_WALL_PX - 1)));
     }
   }
+  drawStartGate(fb, cam, h, nearTopAt);
   if (lightsOn) {
     // Lamps on the far rail.
     const lamp = color("lampLight");
@@ -532,6 +561,7 @@ function drawFloodlights(fb: FrameBuffer, h: HillProfile, cam: Camera): void {
 }
 
 const SOCK_SPACING_M = 25;
+const SOCK_FIRST_AFTER_TAKEOFF_M = 15;
 const SOCK_POLE_PX = 14;
 const SOCK_LENGTH_PX = 8;
 /** Wind at which a sock flies straight out. */
@@ -562,7 +592,8 @@ function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimS
   const white = color("sockWhite");
   const [ux0, uy0] = windSockDirection(s);
   const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
-  const first = h.takeoffXM + 5;
+  // The first sock stands clear of the takeoff table, so its pole does not show under the lip.
+  const first = h.takeoffXM + SOCK_FIRST_AFTER_TAKEOFF_M;
   const viewFrom = cam.x - (cam.cx + 20) / PIXELS_PER_M;
   const viewTo = cam.x + (fb.width - cam.cx + 20) / PIXELS_PER_M;
   const start = first + Math.max(0, Math.ceil((viewFrom - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;

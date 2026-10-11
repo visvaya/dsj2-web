@@ -61,6 +61,8 @@ const RGB = {
   moon: vga(236, 232, 208),
   moonShade: vga(196, 192, 172),
   star: vga(220, 224, 252),
+  gateLight: vga(176, 176, 190),
+  gateDark: vga(64, 64, 74),
   sockRed: vga(224, 64, 36),
   sockWhite: vga(236, 236, 240),
   flake: vga(244, 246, 252),

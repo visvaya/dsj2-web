@@ -158,14 +158,14 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
   },
 };
 
-/** A question mark, 5 x 7 pixels, for hills without a country. */
-const QUESTION_MARK = [".###.", "#...#", "....#", "...#.", "..#..", ".....", "..#.."];
+/** A question mark, 3 x 5 pixels, for hills without a country. */
+const QUESTION_MARK = ["###", "..#", ".#.", "...", ".#."];
 
 /** Flag of a hill with no country: grey with a question mark. */
 export function unknownFlagPixels(): FlagPixels {
   const g = new Grid("#6c6c78");
   QUESTION_MARK.forEach((row, y) => {
-    for (let x = 0; x < row.length; x++) if (row[x] === "#") g.set(5 + x, 1 + y, C.white);
+    for (let x = 0; x < row.length; x++) if (row[x] === "#") g.set(6 + x, 2 + y, C.white);
   });
   return g.px;
 }

@@ -434,6 +434,7 @@ h2 {
   display: none;
 }
 
+/* The menu scrolls when it does not fit (short landscape screens); it is centred when it does. */
 .game.touch.menu-open .game-toolbar {
   position: fixed;
   inset: 0;
@@ -442,14 +443,26 @@ h2 {
   flex-direction: column;
   flex-wrap: nowrap;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 10px;
   padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   background: rgb(0 0 0 / 88%);
+}
+
+.game.touch.menu-open .game-toolbar > :first-child {
+  margin-top: auto;
+}
+
+.game.touch.menu-open .game-toolbar > :last-child {
+  margin-bottom: auto;
 }
 
 /* All menu buttons share one width, so the column reads as a list. */
 .game.touch.menu-open .game-toolbar .pixel-button {
+  flex: none;
   width: min(100%, 420px);
   justify-content: center;
 }
