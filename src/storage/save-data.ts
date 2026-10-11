@@ -9,14 +9,18 @@ export interface HillRecord {
 }
 
 export type LeanControl = "drag" | "tilt";
+/** Time of day of the hills: chosen at random per visit, or always day, or always night. */
+export type SceneryChoice = "varied" | "day" | "night";
 
 export interface Settings {
   /** How a touch screen leans the jumper: dragging the left pad or tilting the phone. */
   leanControl: LeanControl;
   vibration: boolean;
+  /** Added after version 2 was introduced; older saves read it as the default. */
+  scenery: SceneryChoice;
 }
 
-export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true };
+export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied" };
 
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
@@ -70,9 +74,11 @@ export function parseSave(json: string | null): SaveData {
 function parseSettings(v: unknown): Settings {
   const lean = field(v, "leanControl");
   const vibration = field(v, "vibration");
+  const scenery = field(v, "scenery");
   return {
     leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
     vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
+    scenery: scenery === "varied" || scenery === "day" || scenery === "night" ? scenery : DEFAULT_SETTINGS.scenery,
   };
 }
 

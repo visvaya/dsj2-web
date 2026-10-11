@@ -67,18 +67,70 @@ const RGB = {
   helmetLight: vga(252, 216, 64),
   grey: vga(120, 120, 132),
   green: vga(60, 180, 76),
+  lampLight: vga(252, 248, 224),
+  lampGlow: vga(150, 150, 120),
+  moon: vga(236, 232, 208),
+  moonShade: vga(196, 192, 172),
+  star: vga(220, 224, 252),
+  flake: vga(244, 246, 252),
+  flakeFar: vga(204, 208, 224),
 } as const;
 
 export type ColorName = keyof typeof RGB;
 
-const packed = new Map<ColorName, number>();
+/** Lighting of the scene; night is derived from the day palette, so every hill gets it without extra art. */
+export type Lighting = "day" | "night";
 
-/** Packed RGBA value of a palette entry. */
+/** Far scenery (sky, hillside, forest): at night only moonlight reaches it. */
+const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>([
+  "sky1", "sky2", "farSnow", "farSnowShade", "backdropLight", "backdropDark", "bird", "haze1",
+  "tree1", "tree2", "tree3", "trunk",
+]);
+/** Interface colours keep their look at any time of day. */
+const INTERFACE: ReadonlySet<ColorName> = new Set<ColorName>([
+  "black", "yellow", "white", "red", "grey", "green", "noteBox", "noteBorder", "noteDropped", "bar",
+  "lampLight", "lampGlow", "moon", "moonShade", "star",
+]);
+/** Night sky colours are set rather than derived (a darkened blue reads as grey). */
+const NIGHT_OVERRIDE: Partial<Record<ColorName, Rgb>> = {
+  sky1: vga(4, 6, 24),
+  sky2: vga(14, 20, 56),
+  farSnow: vga(58, 64, 100),
+  farSnowShade: vga(40, 44, 76),
+};
+
+function lit(name: ColorName, lighting: Lighting): Rgb {
+  const [r, g, b] = RGB[name];
+  if (lighting === "day" || INTERFACE.has(name)) return RGB[name];
+  const override = NIGHT_OVERRIDE[name];
+  if (override) return override;
+  // Moonlit backdrop: dark and blue. Floodlit hill (slope, inrun, fences, jumper): a little dimmer and cooler.
+  if (BACKDROP.has(name)) return vga(r * 0.2 + 4, g * 0.24 + 6, b * 0.36 + 20);
+  return vga(r * 0.8, g * 0.82, b * 0.9);
+}
+
+let lighting: Lighting = "day";
+
+/** Runs `draw` with the given lighting; colours looked up inside follow it. */
+export function withLighting<T>(next: Lighting, draw: () => T): T {
+  const previous = lighting;
+  lighting = next;
+  try {
+    return draw();
+  } finally {
+    lighting = previous;
+  }
+}
+
+const packed = new Map<string, number>();
+
+/** Packed RGBA value of a palette entry under the current lighting. */
 export function color(name: ColorName): number {
-  let v = packed.get(name);
+  const key = `${lighting}:${name}`;
+  let v = packed.get(key);
   if (v === undefined) {
-    v = FrameBuffer.pack(RGB[name]);
-    packed.set(name, v);
+    v = FrameBuffer.pack(lit(name, lighting));
+    packed.set(key, v);
   }
   return v;
 }
@@ -87,11 +139,11 @@ const ramps = new Map<string, Uint32Array>();
 
 /** The bands of a ramp, index 0 = `a`, index `steps` = `b`; fetch once outside per-pixel loops. */
 export function rampTable(a: ColorName, b: ColorName, steps: number): Uint32Array {
-  const key = `${a}>${b}>${steps}`;
+  const key = `${lighting}:${a}>${b}>${steps}`;
   let table = ramps.get(key);
   if (table === undefined) {
-    const ca = RGB[a];
-    const cb = RGB[b];
+    const ca = lit(a, lighting);
+    const cb = lit(b, lighting);
     table = new Uint32Array(steps + 1);
     for (let i = 0; i <= steps; i++) {
       const tt = i / steps;

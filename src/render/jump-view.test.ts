@@ -3,13 +3,25 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "../game/training-session";
 import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
-import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor } from "./jump-view";
+import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type Scenery } from "./jump-view";
 import { color } from "./palette";
 
 function fnv(bytes: Uint8ClampedArray): string {
   let h = 0x811c9dc5;
   for (const b of bytes) h = Math.imul(h ^ b, 0x01000193) >>> 0;
   return h.toString(16);
+}
+
+/** Mean of the colour channels over the whole frame. */
+function brightness(fb: FrameBuffer): number {
+  let sum = 0;
+  for (const p of fb.pixels) sum += (p & 0xff) + ((p >>> 8) & 0xff) + ((p >>> 16) & 0xff);
+  return sum / fb.pixels.length;
+}
+
+/** The bottom bar (interface). */
+function barRows(fb: FrameBuffer): Uint32Array {
+  return fb.pixels.slice(fb.width * (VIEW_HEIGHT_PX - 11));
 }
 
 describe("jump view", () => {
@@ -21,7 +33,10 @@ describe("jump view", () => {
     expect(viewWidthFor(0, 0)).toBe(356);
   });
 
-  it("draws every phase of a jump without leaving unpainted pixels, the same way each time", () => {
+  it.each<[string, Scenery]>([
+    ["day", { lighting: "day", snowfall: false }],
+    ["night with snow", { lighting: "night", snowfall: true }],
+  ])("draws every phase of a jump (%s) without leaving unpainted pixels, the same way each time", (_name, scenery) => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     const render = () => {
@@ -47,6 +62,7 @@ describe("jump view", () => {
             over: isJumpOver(jump),
             recordM: 80,
             newRecord: true,
+            scenery,
           });
           unpainted += fb.pixels.filter((p) => p === 0).length;
           hashes.push(fnv(fb.bytes));
@@ -72,5 +88,22 @@ describe("jump view", () => {
     const model = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1", state: jump.state };
     drawJumpView(fb, { ...model, controls: "mouse", frame: presentationFrame(jump), over: true });
     expect(fb.pixels.includes(color("noteBox"))).toBe(false);
+  });
+
+  it("darkens the scenery at night but keeps the interface colours", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    const jump = startTrainingJump(hill, 9);
+    const base = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1", state: jump.state };
+    const draw = (scenery: Scenery) => {
+      const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
+      drawJumpView(fb, { ...base, controls: "mouse", frame: 1, over: false, scenery });
+      return fb;
+    };
+    const day = draw({ lighting: "day", snowfall: false });
+    const night = draw({ lighting: "night", snowfall: false });
+    expect(brightness(night)).toBeLessThan(brightness(day) * 0.75);
+    // The interface is the same at any time of day.
+    expect(barRows(night)).toEqual(barRows(day));
   });
 });

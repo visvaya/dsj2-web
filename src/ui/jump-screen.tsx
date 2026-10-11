@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
 import { feedbackEvents, vibrate } from "../game/haptics";
+import { pickScenery } from "../game/scenery";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput } from "../game/player-input";
@@ -8,7 +9,7 @@ import { isJumpOver, newSeed, presentationFrame, startTrainingJump, stepTraining
 import { notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
-import type { HillRecord, Settings } from "../storage/save-data";
+import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
 
 export interface JumpResult {
   distanceM: number;
@@ -26,6 +27,8 @@ interface Props {
 }
 
 const PLAYER_NAME = "GRACZ 1";
+const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = { varied: "day", day: "night", night: "varied" };
+const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = { varied: "zmienna", day: "dzień", night: "noc" };
 const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
@@ -113,9 +116,12 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({ on: false, pitch: null, neutral: null });
   const controls: ControlScheme = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
-  const latest = useRef({ onExit, onFinished, record, settings, controls });
+  // The look is drawn once per visit to the hill (not per jump), from its own seed.
+  const [visitSeed] = useState(newSeed);
+  const scenery = useMemo(() => pickScenery(settings.scenery, visitSeed), [settings.scenery, visitSeed]);
+  const latest = useRef({ onExit, onFinished, record, settings, controls, scenery });
   useEffect(() => {
-    latest.current = { onExit, onFinished, record, settings, controls };
+    latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
 
@@ -226,6 +232,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         frame: clock,
         over,
         newRecord,
+        scenery: latest.current.scenery,
         ...(best === undefined ? {} : { recordM: best.distanceM }),
       });
       ctx.putImageData(view.image, 0, 0);
@@ -369,6 +376,13 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
           </button>
         )}
+        <button
+          type="button"
+          className="pixel-button"
+          onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
+        >
+          Sceneria: {SCENERY_LABEL[settings.scenery]}
+        </button>
         {fullscreenAvailable && (
           <button
             type="button"

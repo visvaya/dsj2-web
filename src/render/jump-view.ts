@@ -3,7 +3,7 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import { FrameBuffer } from "./frame-buffer";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
-import { band, color, ramp, rampTable, type ColorName } from "./palette";
+import { band, color, ramp, rampTable, withLighting, type ColorName, type Lighting } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
@@ -30,6 +30,14 @@ const MS_TO_KMH = 3.6;
 /** Frames per blink phase of the prompts (half a second). */
 const BLINK_FRAMES = 35;
 
+/** Look of the scene; purely visual, the simulation never sees it. */
+export interface Scenery {
+  lighting: Lighting;
+  snowfall: boolean;
+}
+
+export const DAY_SCENERY: Scenery = { lighting: "day", snowfall: false };
+
 /** How the player steers: the prompts name the matching controls. */
 export type ControlScheme = "mouse" | "touch" | "tilt";
 
@@ -51,6 +59,8 @@ export interface JumpViewModel {
   recordM?: number;
   /** This jump set a new hill record. */
   newRecord?: boolean;
+  /** Day or night, snowfall; the day without snow when absent. */
+  scenery?: Scenery;
 }
 
 const distanceCache = new WeakMap<HillProfile, Map<number, number>>();
@@ -139,22 +149,33 @@ function fastSin(v: number): number {
 }
 
 /** Sky, distant snowy ridges and the forested hillside behind the jump; no column is left without snow below the skyline. */
-function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number): void {
+function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number, night: boolean, frame: number): void {
   const farOrigin = cam.x * PIXELS_PER_M * FAR_RIDGE_PARALLAX;
   const sky = rampTable("sky1", "sky2", 5);
   const hillside = rampTable("backdropLight", "backdropDark", 10);
   const farSnow = color("farSnow");
   const farShade = color("farSnowShade");
+  const star = color("star");
   const px = fb.pixels;
+  const farTops = new Int32Array(fb.width);
   for (let sx = 0; sx < fb.width; sx++) {
     const skyline = Math.min(bottom, skylineAt(b, sx));
     const fx = sx + farOrigin;
     const peak = Math.abs(Math.sin(fx / 37));
     const farTop = Math.min(skyline, Math.round(skyline - 5 - 9 * peak - 3 * Math.sin(fx / 11)));
     const farShaded = Math.cos(fx / 37) * Math.sin(fx / 37) > 0;
+    farTops[sx] = farTop;
     const x = sx + b.originX;
     let sy = 0;
     for (; sy < farTop; sy++) px[sy * fb.width + sx] = band(sky, sy / Math.max(8, farTop));
+    if (night) {
+      // Stars fixed to the far ridges, a few of them twinkling.
+      const column = Math.round(fx);
+      for (let y = 0; y < farTop - 2; y++) {
+        const r = hash(column * 977 + y * 131);
+        if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0) px[y * fb.width + sx] = star;
+      }
+    }
     for (; sy < skyline; sy++) px[sy * fb.width + sx] = farShaded && sy > farTop + 1 ? farShade : farSnow;
     for (; sy < bottom; sy++) {
       const depth = sy - b.lift;
@@ -162,7 +183,28 @@ function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number)
       px[sy * fb.width + sx] = band(hillside, t);
     }
   }
+  if (night) drawMoon(fb, b, cam, farTops);
   drawBackdropForest(fb, b, bottom);
+}
+
+const MOON_RADIUS_PX = 4;
+
+/** The moon in the sky band; drawn only where the sky is visible, so ridges pass in front of it. */
+function drawMoon(fb: FrameBuffer, b: Backdrop, cam: Camera, farTops: Int32Array): void {
+  const cx = Math.round(fb.width * 0.74 - cam.x * PIXELS_PER_M * 0.02);
+  // Just above the ridge in its column, as if rising behind it, so it shows whenever any sky does.
+  const cy = Math.min(Math.round(b.lift - 15), (farTops[Math.min(fb.width - 1, Math.max(0, cx))] ?? 0) - 2);
+  const r2 = MOON_RADIUS_PX * MOON_RADIUS_PX;
+  for (let dy = -MOON_RADIUS_PX; dy <= MOON_RADIUS_PX; dy++) {
+    for (let dx = -MOON_RADIUS_PX; dx <= MOON_RADIUS_PX; dx++) {
+      if (dx * dx + dy * dy > r2) continue;
+      const x = cx + dx;
+      const y = cy + dy;
+      if (x < 0 || x >= fb.width || y < 0 || y >= (farTops[x] ?? 0)) continue;
+      const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1) || dx + dy > 4;
+      fb.pixels[y * fb.width + x] = color(crater ? "moonShade" : "moon");
+    }
+  }
 }
 
 const FOREST_CELL_W = 9;
@@ -191,6 +233,7 @@ function drawBackdropForest(fb: FrameBuffer, b: Backdrop, bottom: number): void 
 }
 
 function drawSmallPine(fb: FrameBuffer, x: number, base: number, height: number, seed: number): void {
+  const TREE = treeColors();
   fb.put(x, base, TREE.trunk);
   for (let i = 1; i <= height; i++) {
     const half = Math.floor((height - i) * 0.32 + (i % 3 === 0 ? 0 : 0.5));
@@ -242,10 +285,13 @@ function drawSlope(fb: FrameBuffer, h: HillProfile, cam: Camera, bottom: number)
   return ground;
 }
 
-/** Packed tree colours, looked up once instead of per pixel. */
-const TREE = { dark: color("tree1"), mid: color("tree2"), light: color("tree3"), trunk: color("trunk") };
+/** Tree colours under the current lighting, looked up once per tree instead of per pixel. */
+function treeColors() {
+  return { dark: color("tree1"), mid: color("tree2"), light: color("tree3"), trunk: color("trunk") };
+}
 
 function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed: number): void {
+  const TREE = treeColors();
   fb.rect(x - 1, base - 4, 3, 5, TREE.trunk);
   const tiers = Math.max(3, Math.floor(height / 9));
   for (let i = 0; i < tiers; i++) {
@@ -275,17 +321,27 @@ const TOWER_BACK_M = 6;
 const TOWER_FRONT_M = 2;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
+const INRUN_LAMP_SPACING_M = 8;
+const MAST_SPACING_M = 30;
+const MAST_HEIGHT_PX = 78;
+const LAMP_GLOW_PX = 7;
 
 function inBand(v: number, from: number, width: number): number | null {
   const t = (v - from) / width;
   return t >= 0 && t <= 1 ? t : null;
 }
 
-function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array): void {
+function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, night: boolean): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
   const Y = (y: number) => Math.round(toScreenY(cam, y));
   const farLift = DEPTH_TO_Y * TROUGH_HALF_WIDTH_M;
   const from = h.startXM - TOWER_BACK_M;
+  const support = rampTable("towerLight", "towerDark", 4);
+  const track = rampTable("trackFar", "trackNear", 3);
+  const wall = rampTable("wallLight", "wallDark", 5);
+  const rim = color("inrunRim");
+  const inner = color("inrunInner");
+  const highlight = color("inrunHighlight");
   for (let sx = 0; sx < fb.width; sx++) {
     const wx = xAt(sx);
     if (wx < from || wx > h.takeoffXM) continue;
@@ -300,23 +356,33 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
     const k = Math.round((wx - h.startXM - 10) / PILLAR_SPACING_M);
     const pillarFrom = h.startXM + 10 + k * PILLAR_SPACING_M - PILLAR_WIDTH_M / 2;
     const pillar = wx < h.takeoffXM - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
-    const support = tower ?? pillar;
-    if (support !== null && gy > bottom) {
-      fb.rect(sx, bottom, 1, gy - bottom, ramp("towerLight", "towerDark", support, 4));
+    const shade = tower ?? pillar;
+    if (shade !== null && gy > bottom) {
+      fb.rect(sx, bottom, 1, gy - bottom, band(support, shade));
     }
     // Far wall rim, far inner wall, track, near rim, near outer wall.
-    fb.rect(sx, rimTop, 1, 2, color("inrunRim"));
-    if (farEdge > rimTop + 2) fb.rect(sx, rimTop + 2, 1, farEdge - rimTop - 2, color("inrunInner"));
+    fb.rect(sx, rimTop, 1, 2, rim);
+    if (farEdge > rimTop + 2) fb.rect(sx, rimTop + 2, 1, farEdge - rimTop - 2, inner);
     for (let y = farEdge; y < nearTop; y++) {
-      fb.put(sx, y, ramp("trackFar", "trackNear", (y - farEdge) / Math.max(1, nearTop - farEdge), 3));
+      fb.put(sx, y, band(track, (y - farEdge) / Math.max(1, nearTop - farEdge)));
     }
-    fb.rect(sx, nearTop, 1, 1, color("inrunHighlight"));
+    fb.rect(sx, nearTop, 1, 1, highlight);
     for (let y = nearTop + 1; y < bottom; y++) {
-      fb.put(sx, y, ramp("wallLight", "wallDark", (y - nearTop) / Math.max(1, bottom - nearTop), 5));
+      fb.put(sx, y, band(wall, (y - nearTop) / Math.max(1, bottom - nearTop)));
+    }
+  }
+  if (night) {
+    // Lamps along the far rim of the inrun.
+    const lamp = color("lampLight");
+    for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
+      const sx = Math.round(toScreenX(cam, x));
+      const top = Y(inrunYM(h, x) + farLift + TROUGH_WALL_M);
+      fb.rect(sx, top - 2, 2, 2, lamp);
     }
   }
   // Front face of the takeoff table: the trough's cross-section, a parallelogram in the oblique view.
   const yc = inrunYM(h, h.takeoffXM);
+  const endFace = rampTable("endLight", "endDark", 3);
   const steps = 12;
   for (let i = 0; i <= steps; i++) {
     const z = -TROUGH_HALF_WIDTH_M + (2 * TROUGH_HALF_WIDTH_M * i) / steps;
@@ -324,12 +390,12 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
     const top = Y(yc + TROUGH_WALL_M - DEPTH_TO_Y * z);
     const bottom = Y(yc + TROUGH_WALL_M - TROUGH_DEPTH_M - DEPTH_TO_Y * z);
     for (let y = top; y <= bottom; y++) {
-      fb.put(x, y, ramp("endLight", "endDark", (y - top) / Math.max(1, bottom - top), 3));
+      fb.put(x, y, band(endFace, (y - top) / Math.max(1, bottom - top)));
     }
   }
 }
 
-function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array): void {
+function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, night: boolean): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
   // Trees behind the fence, one candidate every 6 m.
   const firstCell = Math.floor(xAt(-40) / 6);
@@ -343,17 +409,44 @@ function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Arr
     const base = Math.round(toScreenY(cam, surfaceY(h, wx))) - FAR_EDGE_PX - 2;
     drawPine(fb, sx, base, 36 + ((r >>> 8) % 48), r);
   }
+  if (night) drawFloodlights(fb, h, cam);
   // Fence along the far edge of the landing hill.
+  const fence = color("fence");
+  const fenceDark = color("fenceDark");
+  const post = color("post");
   for (let sx = 0; sx < fb.width; sx++) {
     const wx = xAt(sx);
     if (wx < h.takeoffXM + 1) continue;
     const fy = (ground[sx] ?? 0) - FAR_EDGE_PX - 1;
-    fb.put(sx, fy, color("fence"));
-    fb.put(sx, fy + 1, color("fence"));
-    fb.put(sx, fy + 2, color("fenceDark"));
-    if (((wx % 3) + 3) % 3 < 1 / PIXELS_PER_M) fb.rect(sx, fy - 1, 2, 5, color("post"));
+    fb.put(sx, fy, fence);
+    fb.put(sx, fy + 1, fence);
+    fb.put(sx, fy + 2, fenceDark);
+    if (((wx % 3) + 3) % 3 < 1 / PIXELS_PER_M) fb.rect(sx, fy - 1, 2, 5, post);
   }
-  drawInrun(fb, h, cam, ground);
+  drawInrun(fb, h, cam, ground, night);
+}
+
+/** Floodlight masts behind the far fence, every 30 m from the takeoff; their lamps glow in a dithered halo. */
+function drawFloodlights(fb: FrameBuffer, h: HillProfile, cam: Camera): void {
+  const pole = color("post");
+  const lamp = color("lampLight");
+  const glow = color("lampGlow");
+  const first = h.takeoffXM + 12;
+  const from = Math.max(first, first + Math.floor((cam.x - fb.width / PIXELS_PER_M - first) / MAST_SPACING_M) * MAST_SPACING_M);
+  for (let x = from; x < cam.x + fb.width / PIXELS_PER_M; x += MAST_SPACING_M) {
+    const sx = Math.round(toScreenX(cam, x));
+    if (sx < -LAMP_GLOW_PX - 4 || sx > fb.width + LAMP_GLOW_PX + 4) continue;
+    const base = Math.round(toScreenY(cam, surfaceY(h, x))) - FAR_EDGE_PX - 1;
+    const top = base - MAST_HEIGHT_PX;
+    fb.rect(sx, top, 2, MAST_HEIGHT_PX, pole);
+    for (let dy = -LAMP_GLOW_PX; dy <= LAMP_GLOW_PX; dy++) {
+      for (let dx = -LAMP_GLOW_PX - 2; dx <= LAMP_GLOW_PX + 3; dx++) {
+        if ((dx + dy) % 2 !== 0 || dx * dx + dy * dy > (LAMP_GLOW_PX + 1) * (LAMP_GLOW_PX + 1)) continue;
+        fb.put(sx + dx, top + dy, glow);
+      }
+    }
+    fb.rect(sx - 3, top - 2, 8, 3, lamp);
+  }
 }
 
 /** A line across the landing hill at a distance from the takeoff, slanted by the oblique projection. */
@@ -369,14 +462,16 @@ const NEAR_FENCE_PX = 5;
 
 /** The near fence, in front of the jumper's line (thick, as in the original). */
 function drawNearFence(fb: FrameBuffer, h: HillProfile, cam: Camera, bottom: number): void {
+  const rail = rampTable("nearFence", "nearFenceDark", 3);
+  const post = color("post");
   for (let sx = 0; sx < fb.width; sx++) {
     const wx = cam.x + (sx + NEAR_EDGE_SHIFT_PX - cam.cx) / PIXELS_PER_M;
     if (wx < h.takeoffXM + 1) continue;
     const top = Math.round(toScreenY(cam, surfaceY(h, wx))) + FAR_EDGE_PX - NEAR_FENCE_PX;
-    const post = ((wx % 6) + 6) % 6 < 2 / PIXELS_PER_M;
+    const isPost = ((wx % 6) + 6) % 6 < 2 / PIXELS_PER_M;
     for (let i = 0; i < NEAR_FENCE_PX; i++) {
       if (top + i >= bottom) break;
-      fb.put(sx, top + i, post ? color("post") : ramp("nearFence", "nearFenceDark", i / (NEAR_FENCE_PX - 1), 3));
+      fb.put(sx, top + i, isPost ? post : band(rail, i / (NEAR_FENCE_PX - 1)));
     }
   }
 }
@@ -542,11 +637,44 @@ function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesShown: boo
   drawText(fb, fb.width - 4 - textWidth(speed), top + 2, speed, color("white"));
 }
 
+/** Snowflake layers: parallax (1 = moves with the hill), flakes per 100 px of width, fall speed in px per frame. */
+const SNOW_LAYERS = [
+  { parallax: 0.45, per100Px: 12, fallPx: 0.35, size: 1, color: "flakeFar" },
+  { parallax: 0.7, per100Px: 9, fallPx: 0.6, size: 1, color: "flake" },
+  { parallax: 1, per100Px: 5, fallPx: 0.9, size: 2, color: "flake" },
+] as const;
+const FRAMES_PER_S = 70;
+
+/** Falling snow, drifting with the game's wind and the camera; positions follow from the frame alone. */
+function drawSnowfall(fb: FrameBuffer, s: JumpSimState, cam: Camera, frame: number, bottom: number): void {
+  const w = fb.width + 4;
+  SNOW_LAYERS.forEach((layer, li) => {
+    const c = color(layer.color);
+    const drift = (s.wind.xMPerS * PIXELS_PER_M * layer.parallax) / FRAMES_PER_S;
+    const count = Math.round((fb.width * layer.per100Px) / 100);
+    for (let i = 0; i < count; i++) {
+      const r = hash(i * 7919 + li * 104729);
+      const sway = 1.5 * fastSin(frame / 30 + (r % 628) / 100);
+      const x = (r % 4096) + frame * drift - cam.x * PIXELS_PER_M * layer.parallax + sway;
+      const y = ((r >>> 12) % 4096) + frame * layer.fallPx + cam.y * PIXELS_PER_M * layer.parallax;
+      const sx = Math.floor(((x % w) + w) % w) - 2;
+      const sy = Math.floor(((y % bottom) + bottom) % bottom);
+      fb.rect(sx, sy, layer.size, Math.min(layer.size, bottom - sy), c);
+    }
+  });
+}
+
 const CAMERA_AHEAD_M = 4;
 const CAMERA_BELOW_JUMPER_M = 2;
 
 /** Draws one frame of the jump at the logical resolution. */
 export function drawJumpView(fb: FrameBuffer, m: JumpViewModel): void {
+  const scenery = m.scenery ?? DAY_SCENERY;
+  withLighting(scenery.lighting, () => drawScene(fb, m, scenery));
+}
+
+function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
+  const night = scenery.lighting === "night";
   const s = m.state;
   const h = m.profile;
   const groundBottom = fb.height - BAR_HEIGHT_PX;
@@ -557,14 +685,15 @@ export function drawJumpView(fb: FrameBuffer, m: JumpViewModel): void {
     cy: Math.round(groundBottom * 0.45),
   };
   const backdrop = backdropFor(h, cam);
-  drawBackdrop(fb, backdrop, cam, groundBottom);
-  drawBirds(fb, backdrop, m.frame);
+  drawBackdrop(fb, backdrop, cam, groundBottom, night, m.frame);
+  if (!night) drawBirds(fb, backdrop, m.frame);
   const ground = drawSlope(fb, h, cam, groundBottom);
-  drawHill(fb, h, cam, ground);
+  drawHill(fb, h, cam, ground, night);
   drawDistanceLine(fb, h, cam, m.kPointM, color("kLine"), 0);
   if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
   drawJumper(fb, h, s, cam);
   drawNearFence(fb, h, cam, groundBottom);
+  if (scenery.snowfall) drawSnowfall(fb, s, cam, m.frame, groundBottom);
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
   drawText(fb, 4, 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
   drawWindBox(fb, s);
