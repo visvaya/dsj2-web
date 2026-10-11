@@ -76,8 +76,9 @@ describe("sound engine", () => {
     engine.unlock();
     expect(made).toBe(1);
     expect(fake.resumed).toBe(1);
-    // Skis, air and wind loop from the start; they are only made louder or quieter afterwards.
-    expect(fake.started).toBe(3);
+    // Skis, air and wind loop from the start (made louder or quieter afterwards), plus one silent tick that
+    // unlocks iOS; once running, further gestures start nothing.
+    expect(fake.started).toBe(4);
   });
 
   it("follows the mix and plays cues only while enabled", () => {

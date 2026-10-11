@@ -685,6 +685,8 @@ const PART_COLOUR: Readonly<Record<BodyPart, OutfitPart>> = {
   helmet: "helmet",
   skis: "skis",
 };
+/** How high above the snow any part of a jumper lying after a fall may be drawn. */
+export const FALLEN_MAX_HEIGHT_M = 0.8;
 /** How far inside the landing hill's edges the figure stays. */
 const FIGURE_EDGE_MARGIN_M = 0.4;
 /** Shade 0 (far side) to 5 (near side) within a part's ramp. */
@@ -711,11 +713,18 @@ export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   const j = s.jumper;
   const ground = terrainPlane(h, j.xM);
   const halfWidth = figureHalfWidthM(h, j.xM);
-  return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => ({
-    x: p.x,
-    z: Math.max(-halfWidth, Math.min(halfWidth, p.z)),
-    y: Math.max(p.y, ground(p.x) - j.yM),
-  }));
+  // A fallen jumper lying on the snow (or in the inrun) keeps everything low, so a ski cannot stand up past
+  // the inrun's walls or the fences in the side view.
+  const lying = s.logic.fallType !== 0 && !j.airborne;
+  return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => {
+    const floor = ground(p.x) - j.yM;
+    const y = Math.max(p.y, floor);
+    return {
+      x: p.x,
+      z: Math.max(-halfWidth, Math.min(halfWidth, p.z)),
+      y: lying ? Math.min(y, floor + FALLEN_MAX_HEIGHT_M) : y,
+    };
+  });
 }
 
 function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {

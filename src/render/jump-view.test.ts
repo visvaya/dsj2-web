@@ -3,7 +3,7 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "../game/training-session";
 import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
-import { VIEW_HEIGHT_PX, drawJumpView, figureHalfWidthM, figurePoints, viewWidthFor, type Scenery } from "./jump-view";
+import { FALLEN_MAX_HEIGHT_M, VIEW_HEIGHT_PX, drawJumpView, figureHalfWidthM, figurePoints, viewWidthFor, type Scenery } from "./jump-view";
 import { terrainYM } from "../sim/hill-profile";
 import { color } from "./palette";
 
@@ -116,17 +116,24 @@ describe("jump view", () => {
     const jump = startTrainingJump(hill, 11);
     const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: () => 0 }, () => jump.state);
     let crashed = false;
+    let highestWhileLying = -Infinity;
     for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
       stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
       const s = jump.state;
       if (s.logic.fallType !== 0) crashed = true;
       const limit = figureHalfWidthM(hill.profile, s.jumper.xM);
+      const lying = s.logic.fallType !== 0 && !s.jumper.airborne;
       for (const p of figurePoints(hill.profile, s)) {
         expect(Math.abs(p.z)).toBeLessThanOrEqual(limit);
         // Near the jumper the terrain is close to its tangent plane; allow for the curvature over a ski's length.
-        expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(terrainYM(hill.profile, s.jumper.xM + p.x) - 0.2);
+        const terrain = terrainYM(hill.profile, s.jumper.xM + p.x);
+        expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(terrain - 0.2);
+        if (lying) highestWhileLying = Math.max(highestWhileLying, s.jumper.yM + p.y - terrain);
       }
     }
     expect(crashed).toBe(true);
+    // Lying in the snow, no ski stands up past the fences.
+    expect(highestWhileLying).toBeGreaterThan(-Infinity);
+    expect(highestWhileLying).toBeLessThanOrEqual(FALLEN_MAX_HEIGHT_M + 0.2);
   });
 });

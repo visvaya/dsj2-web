@@ -142,12 +142,12 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const engine = createSoundEngine();
     soundRef.current = engine;
     const unlock = () => engine.unlock();
-    // Browsers start audio only after a gesture; any press on the screen counts.
-    window.addEventListener("pointerdown", unlock, { capture: true });
-    window.addEventListener("keydown", unlock, { capture: true });
+    // Browsers start audio only after a gesture. On iOS a touch counts when the finger lifts (touchend,
+    // pointerup), not when it lands, so all of these are listened to.
+    const gestures = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
+    for (const g of gestures) window.addEventListener(g, unlock, { capture: true });
     return () => {
-      window.removeEventListener("pointerdown", unlock, { capture: true });
-      window.removeEventListener("keydown", unlock, { capture: true });
+      for (const g of gestures) window.removeEventListener(g, unlock, { capture: true });
       soundRef.current = null;
       engine.dispose();
     };

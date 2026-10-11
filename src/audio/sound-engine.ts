@@ -69,10 +69,25 @@ const SILENT = 0.0001;
 
 function defaultContext(): ContextLike | null {
   if (typeof AudioContext === "undefined") return null;
+  playThroughSilentSwitch();
   try {
     return new AudioContext();
   } catch {
     return null;
+  }
+}
+
+/**
+ * iOS mutes web audio with the ring/silent switch unless the page asks for media playback (Audio Session API,
+ * Safari 17+). The game has its own sound switch, so the phone's ringer setting does not silence it.
+ */
+function playThroughSilentSwitch(): void {
+  const session: unknown = typeof navigator === "undefined" ? undefined : Reflect.get(navigator, "audioSession");
+  if (typeof session !== "object" || session === null) return;
+  try {
+    Reflect.set(session, "type", "playback");
+  } catch {
+    // Not settable here: the ringer switch keeps its usual effect.
   }
 }
 
@@ -166,7 +181,19 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
         if (!ctx) return;
         build(ctx);
       }
-      if (ctx.state === "suspended") ctx.resume().catch(() => undefined);
+      // iOS leaves a context "suspended" or "interrupted"; anything but running is resumed inside the gesture.
+      if (ctx.state === "running") return;
+      ctx.resume().catch(() => undefined);
+      // Starting a sound inside the gesture is what finally unlocks audio on older iOS.
+      if (master && noise) {
+        const tick = ctx.createBufferSource();
+        tick.buffer = noise;
+        const hush = ctx.createGain();
+        hush.gain.setValueAtTime(0, ctx.currentTime);
+        tick.connect(hush);
+        hush.connect(master);
+        tick.start(ctx.currentTime, 0, 0.01);
+      }
     },
     setEnabled(on) {
       enabled = on;
