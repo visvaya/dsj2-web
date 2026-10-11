@@ -4,6 +4,7 @@ import { readOriginalHills } from "../original/original-hills";
 
 interface Props {
   originalCount: number;
+  persistent: boolean;
   onTraining: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
 }
@@ -13,7 +14,7 @@ async function bytesOf(files: FileList, name: string): Promise<Uint8Array | unde
   return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
 }
 
-export function MenuScreen({ originalCount, onTraining, onOriginalHills }: Props) {
+export function MenuScreen({ originalCount, persistent, onTraining, onOriginalHills }: Props) {
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -54,6 +55,7 @@ export function MenuScreen({ originalCount, onTraining, onOriginalHills }: Props
         Skocznie z oryginału: wybierz Dsj.exe i Dsj.dat ze swojej kopii gry. Pliki zostają w przeglądarce, nic nie jest wysyłane.
         {originalCount > 0 ? ` Wczytane: ${originalCount}.` : ""}
       </p>
+      {!persistent && <p className="note error">Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.</p>}
       {message && (
         <p className={message.error ? "note error" : "note"} role="status">
           {message.text}

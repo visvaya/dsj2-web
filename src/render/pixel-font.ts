@@ -52,17 +52,47 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
 export const GLYPH_HEIGHT = 7;
 const LETTER_SPACING = 1;
 
-/** Polish letters without their own glyph yet are drawn as the base letter. */
-const FOLD: Readonly<Record<string, string>> = { Ą: "A", Ć: "C", Ę: "E", Ł: "L", Ń: "N", Ó: "O", Ś: "S", Ź: "Z", Ż: "Z" };
+interface Glyph {
+  rows: readonly string[];
+  /** Row of the first line relative to the cap height (negative: an accent above it). */
+  top: number;
+}
 
-function glyphOf(ch: string): readonly string[] {
+const ACUTE = ["...#.", "..#.."];
+const DOT = [".....", "..#.."];
+const OGONEK = ["...#.", "....#"];
+const blank = (width: number) => ".".repeat(width);
+
+/** Polish capitals: base letter plus an accent above or an ogonek below; Ł has its own shape. */
+const POLISH: Readonly<Record<string, { base: string; above?: readonly string[]; below?: readonly string[] }>> = {
+  Ą: { base: "A", below: OGONEK },
+  Ć: { base: "C", above: ACUTE },
+  Ę: { base: "E", below: OGONEK },
+  Ń: { base: "N", above: ACUTE },
+  Ó: { base: "O", above: ACUTE },
+  Ś: { base: "S", above: ACUTE },
+  Ź: { base: "Z", above: ACUTE },
+  Ż: { base: "Z", above: DOT },
+};
+const L_STROKE = ["#....", "#....", "#.#..", "##...", "#....", "#....", "#####"];
+
+function glyphOf(ch: string): Glyph {
   const up = ch.toUpperCase();
-  return GLYPHS[up] ?? GLYPHS[FOLD[up] ?? "?"] ?? [];
+  if (up === "Ł") return { rows: L_STROKE, top: 0 };
+  const polish = POLISH[up];
+  if (polish) {
+    const base = GLYPHS[polish.base] ?? [];
+    const width = base[0]?.length ?? 5;
+    const pad = (rows: readonly string[]) => rows.map((r) => (r + blank(width)).slice(0, width));
+    if (polish.above) return { rows: [...pad(polish.above), ...base], top: -polish.above.length };
+    return { rows: [...base, ...pad(polish.below ?? [])], top: 0 };
+  }
+  return { rows: GLYPHS[up] ?? GLYPHS["?"] ?? [], top: 0 };
 }
 
 export function textWidth(text: string): number {
   let w = 0;
-  for (const ch of text) w += (glyphOf(ch)[0]?.length ?? 0) + LETTER_SPACING;
+  for (const ch of text) w += (glyphOf(ch).rows[0]?.length ?? 0) + LETTER_SPACING;
   return Math.max(0, w - LETTER_SPACING);
 }
 
@@ -74,12 +104,12 @@ export function drawText(fb: FrameBuffer, x: number, y: number, text: string, co
     let cx = x;
     for (const ch of text) {
       const g = glyphOf(ch);
-      g.forEach((row, gy) => {
+      g.rows.forEach((row, gy) => {
         for (let gx = 0; gx < row.length; gx++) {
-          if (row[gx] === "#") fb.put(cx + gx + ox, y + gy + oy, c);
+          if (row[gx] === "#") fb.put(cx + gx + ox, y + g.top + gy + oy, c);
         }
       });
-      cx += (g[0]?.length ?? 0) + LETTER_SPACING;
+      cx += (g.rows[0]?.length ?? 0) + LETTER_SPACING;
     }
     end = cx;
   }

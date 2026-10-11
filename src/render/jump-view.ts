@@ -30,6 +30,8 @@ export interface JumpViewModel {
   hillName: string;
   playerName: string;
   state: JumpSimState;
+  /** Extra line under the result, e.g. the hill record. */
+  recordLine?: string;
 }
 
 const kPointCache = new WeakMap<HillProfile, number>();
@@ -328,14 +330,15 @@ function prompt(s: JumpSimState): string | null {
   return null;
 }
 
-function drawResult(fb: FrameBuffer, s: JumpSimState): void {
+function drawResult(fb: FrameBuffer, s: JumpSimState, recordLine: string | undefined): void {
   const L = s.logic;
   const w = 184;
+  const h = recordLine === undefined ? 48 : 60;
   const x = Math.round((fb.width - w) / 2);
-  const y = fb.height - BAR_HEIGHT_PX - 56;
-  fb.rect(x, y, w, 48, color("black"));
+  const y = fb.height - BAR_HEIGHT_PX - h - 8;
+  fb.rect(x, y, w, h, color("black"));
   fb.rect(x, y, w, 1, color("yellow"));
-  fb.rect(x, y + 47, w, 1, color("yellow"));
+  fb.rect(x, y + h - 1, w, 1, color("yellow"));
   const dist = `${L.distanceM.toFixed(2)} M`;
   drawText(fb, x + 6, y + 6, "ODLEGŁOŚĆ", color("white"));
   drawText(fb, x + w - 6 - textWidth(dist), y + 6, dist, color("yellow"));
@@ -344,6 +347,7 @@ function drawResult(fb: FrameBuffer, s: JumpSimState): void {
   drawText(fb, x + w - 6 - textWidth(pts), y + 18, pts, color("yellow"));
   const notes = L.judges.map((j) => j.note.toFixed(1)).join(" ");
   drawText(fb, x + 6, y + 32, notes, L.fallType !== 0 ? color("red") : color("white"));
+  if (recordLine !== undefined) drawText(fb, x + 6, y + 46, recordLine, color("green"));
 }
 
 /** Draws one frame of the jump at the logical resolution. */
@@ -361,13 +365,13 @@ export function drawJumpView(fb: FrameBuffer, m: JumpViewModel): void {
   drawJumper(fb, m.profile, s, cam);
   // HUD
   drawText(fb, 4, 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
-  drawText(fb, 4, 13, windLabel(s), color("white"), color("black"));
+  drawText(fb, 4, 14, windLabel(s), color("white"), color("black"));
   drawWindBox(fb, s);
   const p = prompt(s);
   if (p !== null && Math.floor(s.logic.frame / 35) % 2 === 0) {
     drawText(fb, Math.round((fb.width - textWidth(p)) / 2), 34, p, color("white"), color("black"));
   }
-  if (s.logic.finished && s.logic.distanceM > 0) drawResult(fb, s);
+  if (s.logic.finished && s.logic.distanceM > 0) drawResult(fb, s, m.recordLine);
   fb.rect(0, groundBottom, fb.width, BAR_HEIGHT_PX, color("black"));
   fb.rect(0, groundBottom, fb.width, 1, color("grey"));
   const nameEnd = drawText(fb, 4, groundBottom + 2, m.playerName, color("yellow"));

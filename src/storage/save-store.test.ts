@@ -1,0 +1,64 @@
+import { describe, expect, it } from "vitest";
+import { emptySave, parseSave, withJump } from "./save-data";
+import { SAVE_KEY, detectBackend, loadSave, memoryBackend, saveSave } from "./save-store";
+
+const NOW = new Date("2026-10-11T10:00:00Z");
+
+describe("save data", () => {
+  it("keeps the best clean jump per hill", () => {
+    let save = emptySave();
+    save = withJump(save, "own-1", { distanceM: 80, points: 100, fell: false }, NOW);
+    save = withJump(save, "own-1", { distanceM: 75, points: 90, fell: false }, NOW);
+    save = withJump(save, "own-1", { distanceM: 95, points: 120, fell: true }, NOW);
+    expect(save.records["own-1"]).toEqual({ distanceM: 80, points: 100, dateIso: NOW.toISOString() });
+  });
+
+  it("reads back what it writes and ignores broken or foreign data", () => {
+    const save = withJump(emptySave(), "original-35", { distanceM: 89.92, points: 128.5, fell: false }, NOW);
+    expect(parseSave(JSON.stringify(save))).toEqual(save);
+    expect(parseSave("not json")).toEqual(emptySave());
+    expect(parseSave(JSON.stringify({ schemaVersion: 99, records: {} }))).toEqual(emptySave());
+    expect(parseSave(JSON.stringify({ schemaVersion: 1, records: { a: { distanceM: "x" } } }))).toEqual(emptySave());
+  });
+});
+
+describe("save store", () => {
+  it("round-trips through a backend", async () => {
+    const backend = memoryBackend();
+    const save = withJump(emptySave(), "own-1", { distanceM: 70, points: 60, fell: false }, NOW);
+    await saveSave(backend, save);
+    expect(await loadSave(backend)).toEqual(save);
+  });
+
+  it("prefers host storage, then localStorage, then memory", async () => {
+    const host = new Map<string, string>();
+    const hostStore = {
+      get: (k: string) => Promise.resolve(host.has(k) ? { key: k, value: host.get(k) } : null),
+      set: (k: string, v: string) => {
+        host.set(k, v);
+        return Promise.resolve();
+      },
+    };
+    const viaHost = detectBackend({ storage: hostStore });
+    expect(viaHost.name).toBe("window.storage");
+    await viaHost.set(SAVE_KEY, "{}");
+    expect(await viaHost.get(SAVE_KEY)).toBe("{}");
+
+    const items = new Map<string, string>();
+    const local = {
+      getItem: (k: string) => items.get(k) ?? null,
+      setItem: (k: string, v: string) => void items.set(k, v),
+      removeItem: (k: string) => void items.delete(k),
+    };
+    expect(detectBackend({ localStorage: local }).name).toBe("localStorage");
+
+    const broken = {
+      getItem: () => null,
+      setItem: () => {
+        throw new Error("blocked");
+      },
+      removeItem: () => undefined,
+    };
+    expect(detectBackend({ localStorage: broken }).name).toBe("memory");
+  });
+});
