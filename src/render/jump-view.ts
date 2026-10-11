@@ -642,21 +642,49 @@ const PART_COLOUR: Readonly<Record<BodyPart, OutfitPart>> = {
   helmet: "helmet",
   skis: "skis",
 };
+/** How far inside the landing hill's edges the figure stays. */
+const FIGURE_EDGE_MARGIN_M = 0.4;
 /** Shade 0 (far side) to 5 (near side) within a part's ramp. */
 const SHADES = 5;
 
+/** Plane of the terrain under the jumper: height at an offset `dx` from the jumper, in metres. */
+function terrainPlane(h: HillProfile, xM: number): (dx: number) => number {
+  const groundY = groundUnder(h, xM);
+  const slope = xM < h.takeoffXM ? inrunSlope(h, xM) : landingSlope(h, xM);
+  return (dx) => groundY + slope * dx;
+}
+
+/** Half width the figure has to stay within: the inrun trough, or the landing hill less a margin. */
+export function figureHalfWidthM(h: HillProfile, xM: number): number {
+  return xM < h.takeoffXM ? TROUGH_HALF_WIDTH_M : SLOPE_HALF_WIDTH_M - FIGURE_EDGE_MARGIN_M;
+}
+
+/**
+ * Skeleton points as drawn, relative to the jumper. Display only: in a fall the original's pose can push a ski
+ * into the snow or out past the fence, so points are kept on or above the terrain plane and within the width
+ * of the trough or the landing hill.
+ */
+export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
+  const j = s.jumper;
+  const ground = terrainPlane(h, j.xM);
+  const halfWidth = figureHalfWidthM(h, j.xM);
+  return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => ({
+    x: p.x,
+    z: Math.max(-halfWidth, Math.min(halfWidth, p.z)),
+    y: Math.max(p.y, ground(p.x) - j.yM),
+  }));
+}
+
 function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {
   const j = s.jumper;
-  const pts = skeletonPoints(s.pose, s.logic.frontLeg);
   const S = PIXELS_PER_M;
+  const onGround = (p: Point3) => terrainPlane(h, j.xM)(p.x);
+  const pts = figurePoints(h, s);
   const sx = (p: Point3) => cam.cx + (j.xM + p.x - cam.x - DEPTH_TO_X * p.z) * S;
   const sy = (p: Point3, y: number) => cam.cy - (y - cam.y - DEPTH_TO_Y * p.z) * S;
   const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
   // Shadow (1cb6:1d2a): the figure dropped onto the plane of the terrain under the jumper.
   const shadow = color("shadow");
-  const groundY = groundUnder(h, j.xM);
-  const slope = j.xM < h.takeoffXM ? inrunSlope(h, j.xM) : landingSlope(h, j.xM);
-  const onGround = (p: Point3) => groundY + slope * p.x;
   for (const b of BONES) {
     const a = at(b.from);
     const e = at(b.to);

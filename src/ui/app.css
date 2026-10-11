@@ -340,11 +340,6 @@ h2 {
   grid-area: stage;
 }
 
-.game.touch .game-toolbar {
-  grid-area: bar;
-  padding: 0;
-}
-
 .touch-pad {
   all: unset;
   box-sizing: border-box;
@@ -409,7 +404,40 @@ h2 {
   border-color: var(--accent);
 }
 
-/* Phone landscape: the field takes the full height between the pads; the buttons open from the pause button. */
+/* Touch screens: the buttons open from the pause button, so the field and the pads keep their space. */
+.game.touch .pause-button {
+  display: flex;
+}
+
+.game.touch .game-toolbar {
+  display: none;
+}
+
+.game.touch.menu-open .game-toolbar {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 16px;
+  background: rgb(0 0 0 / 88%);
+}
+
+/* All menu buttons share one width, so the column reads as a list. */
+.game.touch.menu-open .game-toolbar .pixel-button {
+  width: min(100%, 420px);
+  justify-content: center;
+}
+
+.game.touch.menu-open .game-toolbar .note {
+  width: min(100%, 420px);
+  text-align: center;
+}
+
 @media (orientation: landscape) {
   .game.touch {
     grid-template-columns: minmax(96px, 1fr) minmax(0, 4fr) minmax(96px, 1fr);
@@ -418,35 +446,19 @@ h2 {
       "pause stage padR"
       "padL stage padR";
   }
-
-  .game.touch .pause-button {
-    display: flex;
-  }
-
-  .game.touch .game-toolbar {
-    display: none;
-  }
-
-  .game.touch.menu-open .game-toolbar {
-    position: fixed;
-    inset: 0;
-    z-index: 1;
-    display: flex;
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: center;
-    justify-content: center;
-    background: rgb(0 0 0 / 85%);
-  }
 }
 
 @media (orientation: portrait) {
   .game.touch {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 45%) auto minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 45%) minmax(0, 1fr);
     grid-template-areas:
+      "pause pause"
       "stage stage"
-      "bar bar"
       "padL padR";
+  }
+
+  .game.touch .pause-button {
+    justify-self: end;
   }
 }

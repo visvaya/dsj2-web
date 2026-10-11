@@ -33,6 +33,8 @@ const MOUSE_LEFT = 0;
 const MOUSE_RIGHT = 2;
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
 const DENSE_SCREEN_DPR = 2;
+/** How long a note about the motion sensor stays on screen. */
+const TILT_NOTE_MS = 5000;
 
 interface View {
   fb: FrameBuffer;
@@ -107,6 +109,12 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   const touch = useMediaQuery("(pointer: coarse)");
   const [tiltOn, setTiltOn] = useState(false);
   const [tiltNote, setTiltNote] = useState("");
+  // Notes about the motion sensor go away on their own.
+  useEffect(() => {
+    if (tiltNote === "") return undefined;
+    const timer = setTimeout(() => setTiltNote(""), TILT_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [tiltNote]);
   /** In phone landscape the buttons sit behind a pause button; the jump stops while they are open. */
   const [menuOpen, setMenuOpen] = useState(false);
   const pausedRef = useRef(false);

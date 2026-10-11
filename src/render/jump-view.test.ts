@@ -3,7 +3,8 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "../game/training-session";
 import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
-import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type Scenery } from "./jump-view";
+import { VIEW_HEIGHT_PX, drawJumpView, figureHalfWidthM, figurePoints, viewWidthFor, type Scenery } from "./jump-view";
+import { terrainYM } from "../sim/hill-profile";
 import { color } from "./palette";
 
 function fnv(bytes: Uint8ClampedArray): string {
@@ -106,5 +107,26 @@ describe("jump view", () => {
     expect(brightness(night)).toBeLessThan(brightness(day) * 0.75);
     // The interface is the same at any time of day.
     expect(barRows(night)).toEqual(barRows(day));
+  });
+
+  it("keeps the drawn figure on the snow and within the hill, even in a fall", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    // No landing press at all: the jumper crashes and the pose flails.
+    const jump = startTrainingJump(hill, 11);
+    const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: () => 0 }, () => jump.state);
+    let crashed = false;
+    for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
+      stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+      const s = jump.state;
+      if (s.logic.fallType !== 0) crashed = true;
+      const limit = figureHalfWidthM(hill.profile, s.jumper.xM);
+      for (const p of figurePoints(hill.profile, s)) {
+        expect(Math.abs(p.z)).toBeLessThanOrEqual(limit);
+        // Near the jumper the terrain is close to its tangent plane; allow for the curvature over a ski's length.
+        expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(terrainYM(hill.profile, s.jumper.xM + p.x) - 0.2);
+      }
+    }
+    expect(crashed).toBe(true);
   });
 });
