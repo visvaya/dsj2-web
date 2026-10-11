@@ -1,9 +1,9 @@
-import { inrunYM, landingSlope, landingYM, type HillProfile } from "../sim/hill-profile";
+import { inrunSlope, inrunYM, landingSlope, landingYM, type HillProfile } from "../sim/hill-profile";
 import { PHASE } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
-import { SKI_JOINT, UPPER_SEGMENT } from "../sim/pose";
 import { FrameBuffer } from "./frame-buffer";
-import { color, ramp } from "./palette";
+import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
+import { color, ramp, type ColorName } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
@@ -17,12 +17,11 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
   const w = Math.round((VIEW_HEIGHT_PX * areaWidth) / areaHeight);
   return Math.min(VIEW_MAX_WIDTH_PX, Math.max(VIEW_MIN_WIDTH_PX, w));
 }
-export const PIXELS_PER_M = 11;
+/** 14 px/m across and 14*200/240 down on the original's 4:3 screen: equal once pixels are square. */
+export const PIXELS_PER_M = (14 * 200) / 240;
 /** The far edge of the landing hill (with the fence) is drawn this much above the line the jumper lands on. */
 const FAR_EDGE_PX = 26;
 const BAR_HEIGHT_PX = 11;
-const SKI_LENGTH_M = 2.4;
-const TORSO_LENGTH_M = 0.9;
 const MS_TO_KMH = 3.6;
 
 export interface JumpViewModel {
@@ -68,6 +67,11 @@ interface Camera {
 
 const toScreenX = (cam: Camera, x: number) => cam.cx + (x - cam.x) * PIXELS_PER_M;
 const toScreenY = (cam: Camera, y: number) => cam.cy + (cam.y - y) * PIXELS_PER_M;
+
+/** Where a shadow falls: the inrun track up to the takeoff, the landing hill after it. */
+function groundUnder(h: HillProfile, x: number): number {
+  return x < h.takeoffXM && x >= h.startXM - TOWER_BACK_M ? inrunYM(h, x) : surfaceY(h, x);
+}
 
 function surfaceY(h: HillProfile, x: number): number {
   const clamped = Math.min(Math.max(x, -40), h.outrunStartXM + 120);
@@ -116,6 +120,68 @@ function drawPine(fb: FrameBuffer, x: number, base: number, height: number, seed
   }
 }
 
+/** Inrun trough seen in the figure's oblique projection: 3 m wide, walls 0.55 m, 1.4 m deep below the near rim. */
+const TROUGH_HALF_WIDTH_M = 1.5;
+const TROUGH_WALL_M = 0.55;
+const TROUGH_DEPTH_M = 1.4;
+const TOWER_BACK_M = 6;
+const TOWER_FRONT_M = 2;
+const PILLAR_SPACING_M = 12;
+const PILLAR_WIDTH_M = 2.2;
+
+function inBand(v: number, from: number, width: number): number | null {
+  const t = (v - from) / width;
+  return t >= 0 && t <= 1 ? t : null;
+}
+
+function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array): void {
+  const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
+  const Y = (y: number) => Math.round(toScreenY(cam, y));
+  const farLift = DEPTH_TO_Y * TROUGH_HALF_WIDTH_M;
+  const from = h.startXM - TOWER_BACK_M;
+  for (let sx = 0; sx < fb.width; sx++) {
+    const wx = xAt(sx);
+    if (wx < from || wx > h.takeoffXM) continue;
+    const yc = inrunYM(h, Math.max(wx, h.startXM - TOWER_BACK_M));
+    const rimTop = Y(yc + farLift + TROUGH_WALL_M);
+    const farEdge = Y(yc + farLift);
+    const nearTop = Y(yc - farLift + TROUGH_WALL_M);
+    const bottom = Y(yc - farLift + TROUGH_WALL_M - TROUGH_DEPTH_M);
+    const gy = ground[sx] ?? fb.height;
+    // Supports first: the start tower and pillars, shaded in vertical bands.
+    const tower = inBand(wx, h.startXM - TOWER_BACK_M, TOWER_BACK_M + TOWER_FRONT_M);
+    const k = Math.round((wx - h.startXM - 10) / PILLAR_SPACING_M);
+    const pillarFrom = h.startXM + 10 + k * PILLAR_SPACING_M - PILLAR_WIDTH_M / 2;
+    const pillar = wx < h.takeoffXM - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
+    const support = tower ?? pillar;
+    if (support !== null && gy > bottom) {
+      fb.rect(sx, bottom, 1, gy - bottom, ramp("towerLight", "towerDark", support, 4));
+    }
+    // Far wall rim, far inner wall, track, near rim, near outer wall.
+    fb.rect(sx, rimTop, 1, 2, color("inrunRim"));
+    if (farEdge > rimTop + 2) fb.rect(sx, rimTop + 2, 1, farEdge - rimTop - 2, color("inrunInner"));
+    for (let y = farEdge; y < nearTop; y++) {
+      fb.put(sx, y, ramp("trackFar", "trackNear", (y - farEdge) / Math.max(1, nearTop - farEdge), 3));
+    }
+    fb.rect(sx, nearTop, 1, 1, color("inrunHighlight"));
+    for (let y = nearTop + 1; y < bottom; y++) {
+      fb.put(sx, y, ramp("wallLight", "wallDark", (y - nearTop) / Math.max(1, bottom - nearTop), 5));
+    }
+  }
+  // Front face of the takeoff table: the trough's cross-section, a parallelogram in the oblique view.
+  const yc = inrunYM(h, h.takeoffXM);
+  const steps = 12;
+  for (let i = 0; i <= steps; i++) {
+    const z = -TROUGH_HALF_WIDTH_M + (2 * TROUGH_HALF_WIDTH_M * i) / steps;
+    const x = Math.round(toScreenX(cam, h.takeoffXM - DEPTH_TO_X * z));
+    const top = Y(yc + TROUGH_WALL_M - DEPTH_TO_Y * z);
+    const bottom = Y(yc + TROUGH_WALL_M - TROUGH_DEPTH_M - DEPTH_TO_Y * z);
+    for (let y = top; y <= bottom; y++) {
+      fb.put(x, y, ramp("endLight", "endDark", (y - top) / Math.max(1, bottom - top), 3));
+    }
+  }
+}
+
 function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Array, kX: number): void {
   const xAt = (sx: number) => cam.x + (sx - cam.cx) / PIXELS_PER_M;
   // Trees behind the fence, one candidate every 6 m.
@@ -140,65 +206,80 @@ function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Arr
     fb.put(sx, fy + 2, color("fenceDark"));
     if (((wx % 3) + 3) % 3 < 1 / PIXELS_PER_M) fb.rect(sx, fy - 1, 2, 5, color("post"));
   }
-  // Inrun on pillars.
-  for (let sx = 0; sx < fb.width; sx++) {
-    const wx = xAt(sx);
-    if (wx < h.startXM - 8 || wx > h.takeoffXM) continue;
-    const iy = Math.round(toScreenY(cam, inrunYM(h, wx)));
-    fb.rect(sx, iy, 1, 3, color("steel1"));
-    fb.rect(sx, iy + 3, 1, 3, color("steel2"));
-    const pillar = ((wx % 10) + 10) % 10 < 3 / PIXELS_PER_M;
-    if (pillar || wx < h.startXM + 2) fb.rect(sx, iy + 6, 1, (ground[sx] ?? 0) - FAR_EDGE_PX - iy - 6, color("steel3"));
-  }
+  drawInrun(fb, h, cam, ground);
   // K point marker.
   const ksx = Math.round(toScreenX(cam, kX));
   const ksy = Math.round(toScreenY(cam, surfaceY(h, kX)));
   fb.line(ksx, ksy - FAR_EDGE_PX, ksx + 4, ksy, color("green"));
 }
 
-function drawJumper(fb: FrameBuffer, s: JumpSimState, cam: Camera, ground: number): void {
+/** Pixels a brush covers around its anchor: 2x2, or a 4x4 disc for thick bones (1f8b:00dc). */
+const THIN_BRUSH: readonly (readonly [number, number])[] = [[0, 0], [1, 0], [0, 1], [1, 1]];
+const THICK_BRUSH: readonly (readonly [number, number])[] = [
+  ...THIN_BRUSH,
+  [2, 0], [-1, 0], [0, -1], [1, -1], [-1, 1], [2, 1], [0, 2], [1, 2],
+];
+
+function brushLine(fb: FrameBuffer, xa: number, ya: number, xb: number, yb: number, c: number, thick: boolean): void {
+  const brush = thick ? THICK_BRUSH : THIN_BRUSH;
+  let x0 = Math.round(xa);
+  let y0 = Math.round(ya);
+  const x1 = Math.round(xb);
+  const y1 = Math.round(yb);
+  const dx = Math.abs(x1 - x0);
+  const dy = -Math.abs(y1 - y0);
+  const sx = x0 < x1 ? 1 : -1;
+  const sy = y0 < y1 ? 1 : -1;
+  let err = dx + dy;
+  for (let guard = 0; guard < 2048; guard++) {
+    for (const [bx, by] of brush) fb.put(x0 + bx, y0 + by, c);
+    if (x0 === x1 && y0 === y1) return;
+    const e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      x0 += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      y0 += sy;
+    }
+  }
+}
+
+/** Colours of the jumper's outfit: a ramp per part, shade 0 (far side) to 5 (near side). */
+const OUTFIT: Readonly<Record<BodyPart, readonly [ColorName, ColorName]>> = {
+  suit: ["suitDark", "suitLight"],
+  pants: ["suitDark", "suitLight"],
+  sleeves: ["sleeveDark", "sleeveLight"],
+  gloves: ["gloveDark", "gloveLight"],
+  helmet: ["helmetDark", "helmetLight"],
+  skis: ["redDark", "red"],
+};
+const SHADES = 5;
+
+function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera): void {
   const j = s.jumper;
-  const fx = toScreenX(cam, j.xM);
-  const fy = toScreenY(cam, j.yM);
-  // Shadow on the landing hill.
-  if (j.airborne) {
-    fb.rect(fx - 6, ground + 1, 13, 1, color("shadow"));
-    fb.rect(fx - 4, ground + 2, 9, 1, color("shadow"));
-  }
-  const ski = s.pose.legs[0].joints.current[SKI_JOINT] ?? 0;
-  const knee = s.pose.legs[0].segments.current[UPPER_SEGMENT] ?? 1;
-  const phase = s.logic.phase;
-  // Simplified silhouette until the original skeleton drawing is ported.
-  let legAngle: number;
-  let torsoAngle: number;
-  if (phase === PHASE.crash) {
-    legAngle = ski + 0.1;
-    torsoAngle = ski;
-  } else if (j.airborne || (phase >= PHASE.takeoff && phase <= PHASE.landingPrep)) {
-    legAngle = ski + 0.35;
-    torsoAngle = ski + 0.15 + s.logic.bodyAngleRad * 0.2;
-  } else if (phase >= PHASE.landing) {
-    legAngle = ski + Math.PI / 2 - 0.25;
-    torsoAngle = ski + Math.PI / 2 - 0.15;
-  } else {
-    legAngle = ski + Math.PI / 2 - 0.9 + (knee - 0.54);
-    torsoAngle = ski + 0.3;
-  }
+  const pts = skeletonPoints(s.pose, s.logic.frontLeg);
   const S = PIXELS_PER_M;
-  const half = (SKI_LENGTH_M / 2) * S;
-  const dx = Math.cos(ski);
-  const dy = -Math.sin(ski);
-  fb.line(fx - dx * half, fy - dy * half, fx + dx * half, fy + dy * half, color("red"));
-  fb.line(fx - dx * half + 1, fy - dy * half + 1, fx + dx * half + 1, fy + dy * half + 1, color("redDark"));
-  const hx = fx + Math.cos(legAngle) * knee * 0.9 * S;
-  const hy = fy - Math.sin(legAngle) * knee * 0.9 * S;
-  fb.line(fx, fy - 1, hx, hy, color("blue"));
-  fb.line(fx + 1, fy - 1, hx + 1, hy, color("blue"));
-  const tx = hx + Math.cos(torsoAngle) * TORSO_LENGTH_M * S;
-  const ty = hy - Math.sin(torsoAngle) * TORSO_LENGTH_M * S;
-  fb.line(hx, hy, tx, ty, color("blue"));
-  fb.line(hx, hy - 1, tx, ty - 1, color("white"));
-  fb.rect(tx - 1, ty - 2, 3, 3, color("yellow"));
+  const sx = (p: Point3) => cam.cx + (j.xM + p.x - cam.x - DEPTH_TO_X * p.z) * S;
+  const sy = (p: Point3, y: number) => cam.cy - (y - cam.y - DEPTH_TO_Y * p.z) * S;
+  const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
+  // Shadow (1cb6:1d2a): the figure dropped onto the plane of the terrain under the jumper.
+  const shadow = color("shadow");
+  const groundY = groundUnder(h, j.xM);
+  const slope = j.xM < h.takeoffXM ? inrunSlope(h, j.xM) : landingSlope(h, j.xM);
+  const onGround = (p: Point3) => groundY + slope * p.x;
+  for (const b of BONES) {
+    const a = at(b.from);
+    const e = at(b.to);
+    brushLine(fb, sx(a), sy(a, onGround(a)), sx(e), sy(e, onGround(e)), shadow, b.thick);
+  }
+  for (const b of BONES) {
+    const a = at(b.from);
+    const e = at(b.to);
+    const [dark, light] = OUTFIT[b.part];
+    brushLine(fb, sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), ramp(dark, light, b.shade / SHADES, SHADES), b.thick);
+  }
 }
 
 function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
@@ -251,7 +332,7 @@ function drawResult(fb: FrameBuffer, s: JumpSimState): void {
   const L = s.logic;
   const w = 184;
   const x = Math.round((fb.width - w) / 2);
-  const y = 40;
+  const y = fb.height - BAR_HEIGHT_PX - 56;
   fb.rect(x, y, w, 48, color("black"));
   fb.rect(x, y, w, 1, color("yellow"));
   fb.rect(x, y + 47, w, 1, color("yellow"));
@@ -277,8 +358,7 @@ export function drawJumpView(fb: FrameBuffer, m: JumpViewModel): void {
   };
   const ground = drawBackground(fb, m.profile, cam, groundBottom);
   drawHill(fb, m.profile, cam, ground, kPointX(m.profile, m.kPointM));
-  const jsx = Math.round(toScreenX(cam, s.jumper.xM));
-  drawJumper(fb, s, cam, ground[Math.min(fb.width - 1, Math.max(0, jsx))] ?? groundBottom);
+  drawJumper(fb, m.profile, s, cam);
   // HUD
   drawText(fb, 4, 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
   drawText(fb, 4, 13, windLabel(s), color("white"), color("black"));
