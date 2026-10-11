@@ -1,0 +1,3 @@
+# Local modules are imported by bare name after a sys.path insert.
+src = ["."]
+target-version = "py313"

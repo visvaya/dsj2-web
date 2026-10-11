@@ -21,9 +21,10 @@ import struct
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from unicorn import UC_HOOK_CODE
+
 from dos_machine import LOAD_SEGMENT
 from game_session import GameSession
-from unicorn import UC_HOOK_CODE
 
 DATA_SEGMENT = 0x22F2
 SNAPSHOT_BYTES = 0x6000
