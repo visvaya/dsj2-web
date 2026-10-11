@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
 import { feedbackEvents, vibrate } from "../game/haptics";
+import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
+import { notesAppearing, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
+import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput } from "../game/player-input";
@@ -118,6 +121,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   /** In phone landscape the buttons sit behind a pause button; the jump stops while they are open. */
   const [menuOpen, setMenuOpen] = useState(false);
   const pausedRef = useRef(false);
+  const soundRef = useRef<SoundEngine | null>(null);
   useEffect(() => {
     pausedRef.current = menuOpen;
   }, [menuOpen]);
@@ -132,6 +136,26 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
+
+  // Sound: one engine per jump screen; it only listens to the game.
+  useEffect(() => {
+    const engine = createSoundEngine();
+    soundRef.current = engine;
+    const unlock = () => engine.unlock();
+    // Browsers start audio only after a gesture; any press on the screen counts.
+    window.addEventListener("pointerdown", unlock, { capture: true });
+    window.addEventListener("keydown", unlock, { capture: true });
+    return () => {
+      window.removeEventListener("pointerdown", unlock, { capture: true });
+      window.removeEventListener("keydown", unlock, { capture: true });
+      soundRef.current = null;
+      engine.dispose();
+    };
+  }, []);
+  const soundOn = settings.sound;
+  useEffect(() => {
+    soundRef.current?.setEnabled(soundOn);
+  }, [soundOn]);
 
   // A saved choice of tilt steering is switched on again where the browser remembers the permission.
   const wantsTilt = settings.leanControl === "tilt";
@@ -163,6 +187,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     let finished = false;
     let newRecord = false;
     let leftWasDown = false;
+    let heardUpTo = 0;
+    let recordPlayed = false;
     let acc = 0;
     let last = performance.now();
     let raf = 0;
@@ -173,6 +199,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       tiltRef.current.neutral = tiltRef.current.pitch;
       finished = false;
       newRecord = false;
+      heardUpTo = 0;
+      recordPlayed = false;
       setAnnouncement("");
     };
     restartRef.current = restart;
@@ -207,6 +235,36 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       );
     };
 
+    /** Notes as they appear, the record jingle after the last one, and the continuous layers. */
+    const playSounds = (clock: number) => {
+      const engine = soundRef.current;
+      if (!engine) return;
+      const s = jump.state;
+      for (const note of notesAppearing(s.logic, heardUpTo, clock)) engine.play(note.counted ? "noteCounted" : "noteDropped");
+      heardUpTo = clock;
+      if (newRecord && !recordPlayed && notesShownBy(s.logic, clock)) {
+        recordPlayed = true;
+        engine.play("record");
+      }
+      const wind = displayedWindMPerS(s.wind);
+      engine.update(
+        soundMix({
+          airborne: s.jumper.airborne,
+          groundSpeedMPerS: s.jumper.speedMPerS,
+          airSpeedMPerS: Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS),
+          windMPerS: Math.hypot(wind.x, wind.y),
+          paused: pausedRef.current || document.hidden,
+        }),
+      );
+    };
+    // A hidden tab stops animation frames, so the continuous sounds are hushed right away.
+    const onVisibility = () => {
+      if (document.hidden) {
+        soundRef.current?.update(soundMix({ airborne: false, groundSpeedMPerS: 0, airSpeedMPerS: 0, windMPerS: 0, paused: true }));
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
     const frame = (now: number) => {
       const plan = planSteps(acc, pausedRef.current ? 0 : (now - last) / 1000);
       last = now;
@@ -219,8 +277,9 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         }
         const prev = jump.state;
         stepTrainingJump(jump, input.takeFrame());
-        if (latest.current.settings.vibration) {
-          for (const event of feedbackEvents(prev, jump.state)) vibrate(event);
+        for (const event of feedbackEvents(prev, jump.state)) {
+          if (latest.current.settings.vibration) vibrate(event);
+          soundRef.current?.play(event);
         }
       }
       const over = isJumpOver(jump);
@@ -229,6 +288,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const clock = presentationFrame(jump);
       if (over && input.left && !leftWasDown && notesShownBy(jump.state.logic, clock)) restart();
       leftWasDown = input.left;
+      playSounds(clock);
       const best = latest.current.record;
       drawJumpView(view.fb, {
         profile: hill.profile,
@@ -305,6 +365,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("deviceorientation", onOrientation);
     return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
       resize.disconnect();
@@ -392,6 +453,14 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
         >
           Sceneria: {SCENERY_LABEL[settings.scenery]}
+        </button>
+        <button
+          type="button"
+          className="pixel-button"
+          aria-pressed={settings.sound}
+          onClick={() => onSettings({ sound: !settings.sound })}
+        >
+          {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
         </button>
         {fullscreenAvailable && (
           <button

@@ -31,9 +31,12 @@ describe("save data", () => {
 
   it("stores settings and repairs unknown values", () => {
     const outfit = { pants: 1, sleeves: 2, gloves: 3, helmet: 4, skis: 11 };
-    const save = withSettings(emptySave(), { leanControl: "tilt", vibration: false, scenery: "night", outfit });
-    expect(parseSave(JSON.stringify(save)).settings).toEqual({ leanControl: "tilt", vibration: false, scenery: "night", outfit });
-    const broken = { ...save, settings: { leanControl: "joystick", vibration: "yes", scenery: "dawn", outfit: { pants: 12, skis: 1.5, helmet: "red" } } };
+    const save = withSettings(emptySave(), { leanControl: "tilt", vibration: false, scenery: "night", outfit, sound: false });
+    expect(parseSave(JSON.stringify(save)).settings).toEqual({ leanControl: "tilt", vibration: false, scenery: "night", outfit, sound: false });
+    const broken = {
+      ...save,
+      settings: { leanControl: "joystick", vibration: "yes", scenery: "dawn", outfit: { pants: 12, skis: 1.5, helmet: "red" }, sound: "loud" },
+    };
     expect(parseSave(JSON.stringify(broken)).settings).toEqual(DEFAULT_SETTINGS);
   });
 

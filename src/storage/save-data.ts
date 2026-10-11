@@ -22,9 +22,11 @@ export interface Settings {
   scenery: SceneryChoice;
   /** The player's colours (added after version 2 too). */
   outfit: Outfit;
+  /** Game sounds (added after version 2 too; on by default). */
+  sound: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied", outfit: DEFAULT_OUTFIT };
+export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied", outfit: DEFAULT_OUTFIT, sound: true };
 
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
@@ -79,11 +81,13 @@ function parseSettings(v: unknown): Settings {
   const lean = field(v, "leanControl");
   const vibration = field(v, "vibration");
   const scenery = field(v, "scenery");
+  const sound = field(v, "sound");
   return {
     leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
     vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
     scenery: scenery === "varied" || scenery === "day" || scenery === "dusk" || scenery === "night" ? scenery : DEFAULT_SETTINGS.scenery,
     outfit: parseOutfit(field(v, "outfit")),
+    sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
   };
 }
 
