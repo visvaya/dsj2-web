@@ -29,7 +29,7 @@ w emulacji podczas odtwarzania `KARPACZ.RPL`, **[hipoteza]** do potwierdzenia.
 | 52D8 | `ref_y` | wysokość odniesienia bilansu energii |
 | 52DC | `ref_speed` | prędkość odniesienia bilansu energii |
 | 52E4 | `energy_lost` | energia rozproszona od chwili `ref_*` (J) |
-| 52FA | `ground_state` | stan naziemny; 8, 9, 100 dokładają hamowanie |
+| 52FA | `pose_id` | numer pozy szkieletu (moduł 1cb6, ustawia 1cb6:0d15); pozy 8, 9 i 100 dokładają hamowanie |
 
 Parametry skoczni (Karpacz K85, **[pomiar]**): start `x = 11.4` (`45B2`), próg `x = 44.0` (`45CE`),
 współczynnik tarcia rozbiegu `0.02` (`45B6`), zeskoku `0.05` (`4624`). Wiatr: prędkość `4D1C`,
@@ -49,7 +49,7 @@ do odczytania]**.
    `v_rel = max(0, speed - 0.2 * wind_speed * cos(wind_dir) * cos(track_angle))`.
 5. Strata energii w klatce (droga `speed * dt`):
    `energy_lost += |speed * dt * (mu * m * g * cos(track_angle) + 0.583 * k_4D06 * v_rel^2)|`.
-6. Dodatkowe hamowanie zależne od `ground_state`: dla 8 i 100 dodaje
+6. Dodatkowe hamowanie zależne od `pose_id`: dla 8 i 100 dodaje
    `|speed * dt * mu * 10 * m * g * cos(track_angle)|`, dla 9 to samo z mnożnikiem 20.
 7. Ograniczenie: `energy_lost <= m*g*(ref_y - y) + 0.5*m*ref_speed^2`.
 8. Nowa prędkość z zasady zachowania energii:
@@ -87,10 +87,80 @@ Uwaga: człon `0.1166 * v^2` używa prędkości absolutnych, nie względem wiatr
   `landed = 1` (`52E8`).
   Prędkość prostopadła do zeskoku jest tracona.
 
+## Koniec kroku: wybicie i nachylenie terenu
+
+- Jeśli `contact_event = 1`: `contact_event = 0`, `airborne = 1`, `track_angle = -slope_angle`,
+  `vy = sin(track_angle) * speed - impulse_y / m`, `vx = cos(track_angle) * speed + impulse_x / m`,
+  następnie `impulse_x = impulse_y = 0` (`4CD4`, `4CD8`, N·s) **[kod]**.
+- Zawsze na końcu: `slope_angle = atan(teren'(x))` (1eee:0676; rozbieg dla `x <= takeoff_x`).
+  W fazie naziemnej i przy lądowaniu używany jest więc kąt z poprzedniej klatki **[kod]**.
+
+## Profil skoczni (moduł 1eee)
+
+Parametry ustawiają 1eee:051f (rozbieg) i 1eee:06e1 (zeskok) przy wczytaniu skoczni.
+
+- Rozbieg `inrun_y(x)`: dla `x < x1` stała `a*x1 + b`; dla `x1 <= x <= x2` prosta `a*x + b`;
+  dla `x > x2` parabola `c*x^2 + d*x + e`, gdzie `d = a - 2c*x2`, `e = a*x2 + b - c*x2^2 - d*x2`
+  (ciągłość wartości i nachylenia w `x2`). Pochodna odpowiednio 0, `a`, `2c*x + d`.
+- Zeskok `landing_y(x)`: dla `x <= x_t` profil `B + A * (e^{-u} - e^{u}) / (e^{u} + e^{-u})`,
+  `u = (x - x0) * k` (czyli `B - A*tanh(u)`), dla `x > x_t` parabola wybiegu, której współczynniki
+  liczone są z ciągłości w `x_t`. Pochodna części tanh: `-4*A*k / (e^{u} + e^{-u})^2`.
+- Pod progiem (`x <= takeoff_x`) do zeskoku dodawany jest kształt rozbiegu z wagą `knoll_blend` (`4655`):
+  `y -= inrun_curve(takeoff_x) * w`, potem `y += (x <= x2 ? a*x + b : inrun_curve(x)) * w`.
+- Wysokość terenu przy lądowaniu (1eee:0627) używa `x < takeoff_x` (ostra nierówność), a funkcje kroku
+  `x <= takeoff_x`; port zachowuje obie wersje.
+- Długość łuku zeskoku (1eee:0830): całkowanie metodą punktu środkowego ze stałym krokiem,
+  `L += sqrt(teren'(x + krok/2)^2 + 1) * krok`; ostatni krok skracany do końca przedziału.
+  Służy do pomiaru odległości **[kod; parametry wywołania do ustalenia]**.
+
+## Wiatr (0baf:976a, raz na klatkę przed krokiem fizyki)
+
+Co 10 klatek (`round(frame * dt * 70) mod 10 = 0`, zaokrąglenie do parzystej):
+
+- `wy += G * zmienność`, potem `wx += G * zmienność`, gdzie `G` to średnia pięciu `Random(65535)`
+  przeskalowana do [-1, 1] (`(suma/5/65534)*2 - 1`).
+- Kierunek: `atan(wy/wx)` dla `wx > 0`, `atan(wy/wx) + pi` dla `wx < 0`, `±pi/2` dla `wx = 0`.
+  Prędkość `sqrt(wy^2 + wx^2)`; powyżej 3,8 m/s obie składowe mnożone przez `1 - (v - 3.8)/50`.
+- Wskaźnik kierunku goni kierunek wiatru z przyspieszeniem 0,05 rad i limitem 0,2 rad na aktualizację
+  (strefa martwa `|sin(różnica)| <= 0.05`).
+
+Weryfikacja: zgodność bit w bit ze stanem gry, łącznie z `RandSeed`, w 876 klatkach `KARPACZ.RPL` **[pomiar]**.
+
+## Fazy skoku i sterowanie (0baf:9c52, odczyt częściowy)
+
+Zmienna fazy `4CBB`: 1 belka, 2 zjazd, 3 kucanie, 4 okno wybicia, 5 po wybiciu, 6–7 lot, 8 przygotowanie
+do lądowania, 9 i 11 lądowanie, 12 upadek **[kod; nazwy faz 3, 5, 9, 11: hipoteza]**.
+
+- Start (faza 1 → 2): lewy przycisk po klatce 65; `ref_speed = speed = 1` m/s, poza 2.
+- Faza 2 → 3 po ponad 20 klatkach zjazdu bez wciśniętych przycisków; 3 → 4 po wciśnięciu przycisku
+  (zapis klatki `button_start` w powtórce); `lift_factor = 1`, poza 4.
+- Wybicie (faza 4, dopóki `x < takeoff_x`): co klatkę
+  `F = (lewy + prawy) * 1275 * dt * cos(((knee/1.08 - 0.5)/0.5) * pi/2)`, gdzie `knee` = `5300`
+  (kąt w szkielecie skoczka); `impulse_x -= sin(slope) * F`, `impulse_y += cos(slope) * F`;
+  licznik czasu wybicia `4CB7 += (lewy + prawy) * dt / 2`.
+- Gdy `knee > 1.07`: jeśli skoczek jest jeszcze przed progiem, wymuszone wybicie (`contact_event = 1`)
+  i korekta licznika czasu; faza 5.
+- Lot (fazy 6–7): `body_angle -= dy_myszy * dt * 1.5`; losowe zakłócenia (każde `Random(n) = 1`):
+  z p = 1/30 `body_angle += (7 - wiatr_x) * dt / 10`, oraz drgania kończyn `4CC0..4CCC`
+  (Random(5), Random(60), Random(100), Random(10)); ograniczenie `body_angle` do ±0,6.
+  Kąty nart `5314`, `5340` pochodzą z modułu szkieletu `1cb6`.
+- Faza 7 → 8 po wciśnięciu przycisku: `body_angle = 0.75`, poza 6; prawy przycisk to lądowanie
+  telemarkiem **[hipoteza]**, lewy na dwie nogi.
+
+Ziarno generatora jest zapamiętywane przed odczytem wejścia i odtwarzane po nim (0baf:9a3c),
+więc odczyt wejścia nie zmienia sekwencji losowej **[kod]**.
+
+## Weryfikacja
+
+- Krok fizyki (`src/sim/jumper-step.ts`) i profil skoczni (`src/sim/hill-profile.ts`) odtwarzają stan
+  gry w 876 z 876 klatek `KARPACZ.RPL` (tolerancja względna 1e-6), 875 bit w bit. Jedyna różnica:
+  klatka 883, prędkość 0,005 m/s na końcu wybiegu, ostatni bit (pierwiastek z różnicy dużych energii;
+  oryginał liczy pośrednio w 80 bitach) **[pomiar]**.
+- Wiatr i `Random`: bit w bit **[pomiar]**.
+
 ## Do ustalenia
 
-- Profile terenu 1eee:0000, 1eee:015e, 1eee:0627 oraz źródło `inrun_slope_angle` w locie i na zeskoku.
-- Sterowanie: skąd biorą się `body_angle` i kąty nart (mysz, moduł 1cb6) i jak działa wybicie.
-- Wiatr: generator (Random z ziarnem `DS:1942`) i jego zapis w powtórce.
-- Pomiar odległości (83,92 m w `KARPACZ.RPL`) i ocena za styl.
-- Format `.rpl` i `Dsj.dat`.
+- Szkielet skoczka (moduł 1cb6): kąty nart i `knee` w zależności od pozy i czasu.
+- Pozostała część 0baf:9c52: przejścia faz 8–12, odbicie przy upadku (`4CD8` przy lądowaniu),
+  pomiar odległości i noty za styl.
+- Format `Dsj.dat` i dane skoczni (wczytywanie: 0baf:631c).
