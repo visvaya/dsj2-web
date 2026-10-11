@@ -13,6 +13,8 @@ const RGB = {
   sky2: vga(112, 136, 242),
   farSnow: vga(218, 218, 246),
   farSnowShade: vga(184, 186, 222),
+  farRock: vga(168, 172, 200),
+  farRockShade: vga(136, 140, 172),
   backdropLight: vga(206, 206, 234),
   backdropDark: vga(146, 150, 162),
   bird: vga(92, 60, 28),
@@ -78,7 +80,7 @@ export interface Look {
 
 /** Far scenery (sky, hillside, forest): at night only moonlight reaches it, fog hides most of it. */
 const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>([
-  "sky1", "sky2", "farSnow", "farSnowShade", "backdropLight", "backdropDark", "bird",
+  "sky1", "sky2", "farSnow", "farSnowShade", "farRock", "farRockShade", "backdropLight", "backdropDark", "bird",
   "tree1", "tree2", "tree3", "trunk",
 ]);
 /** Interface colours keep their look at any time of day and in any weather. */
@@ -93,12 +95,16 @@ const SKY_OVERRIDE: Readonly<Record<Exclude<Lighting, "day">, Partial<Record<Col
     sky2: vga(236, 140, 92),
     farSnow: vga(232, 176, 164),
     farSnowShade: vga(172, 124, 144),
+    farRock: vga(176, 128, 140),
+    farRockShade: vga(132, 96, 124),
   },
   night: {
     sky1: vga(4, 6, 24),
     sky2: vga(14, 20, 56),
     farSnow: vga(58, 64, 100),
     farSnowShade: vga(40, 44, 76),
+    farRock: vga(42, 46, 80),
+    farRockShade: vga(30, 34, 62),
   },
 };
 const FOG: Readonly<Record<Lighting, Rgb>> = {

@@ -122,7 +122,7 @@ function surfaceY(h: HillProfile, x: number): number {
 const BACKDROP_PARALLAX = 0.4;
 const FAR_RIDGE_PARALLAX = 0.15;
 /** Height of the backdrop's skyline below the top of the screen when the camera is at the start gate. */
-const SKYLINE_AT_GATE_PX = 22;
+const SKYLINE_AT_GATE_PX = 38;
 
 interface Backdrop {
   /** Backdrop coordinate of screen column 0 (scrolls with parallax). */
@@ -157,17 +157,20 @@ function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number,
   const farOrigin = cam.x * PIXELS_PER_M * FAR_RIDGE_PARALLAX;
   const sky = rampTable("sky1", "sky2", 5);
   const hillside = rampTable("backdropLight", "backdropDark", 10);
-  const farSnow = color("farSnow");
-  const farShade = color("farSnowShade");
+  const range = {
+    snow: color("farSnow"),
+    snowShade: color("farSnowShade"),
+    rock: color("farRock"),
+    rockShade: color("farRockShade"),
+  };
   const star = color("star");
   const px = fb.pixels;
   const farTops = new Int32Array(fb.width);
   for (let sx = 0; sx < fb.width; sx++) {
     const skyline = Math.min(bottom, skylineAt(b, sx));
     const fx = sx + farOrigin;
-    const peak = Math.abs(Math.sin(fx / 37));
-    const farTop = Math.min(skyline, Math.round(skyline - 5 - 9 * peak - 3 * Math.sin(fx / 11)));
-    const farShaded = Math.cos(fx / 37) * Math.sin(fx / 37) > 0;
+    const ridge = mountainsAt(fx);
+    const farTop = Math.min(skyline, skyline - ridge.heightPx);
     farTops[sx] = farTop;
     const x = sx + b.originX;
     let sy = 0;
@@ -180,7 +183,12 @@ function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number,
         if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0) px[y * fb.width + sx] = star;
       }
     }
-    for (; sy < skyline; sy++) px[sy * fb.width + sx] = farShaded && sy > farTop + 1 ? farShade : farSnow;
+    // Snow on the upper part of each peak, bare rock lower down; the face turned away from the light is darker.
+    const snowline = skyline - ridge.snowlinePx;
+    for (; sy < skyline; sy++) {
+      const snow = sy < snowline;
+      px[sy * fb.width + sx] = ridge.shaded ? (snow ? range.snowShade : range.rockShade) : snow ? range.snow : range.rock;
+    }
     for (; sy < bottom; sy++) {
       const depth = sy - b.lift;
       const t = depth / 190 + 0.06 * fastSin((x * 0.7 + depth) / 29) + 0.04 * fastSin((x - depth * 1.3) / 13);
@@ -209,6 +217,40 @@ function drawMoon(fb: FrameBuffer, b: Backdrop, cam: Camera, farTops: Int32Array
       fb.pixels[y * fb.width + x] = color(crater ? "moonShade" : "moon");
     }
   }
+}
+
+/** Distant peaks: one candidate per cell of the far layer, each a triangle with its own height and steepness. */
+const PEAK_CELL_PX = 46;
+const PEAK_MIN_PX = 7;
+const PEAK_SPAN_PX = 20;
+/** Height of the range between the peaks. */
+const RANGE_BASE_PX = 4;
+
+interface Ridge {
+  heightPx: number;
+  /** Height above the skyline where the snow ends (lower is rock). */
+  snowlinePx: number;
+  /** On the right-hand face of its peak, away from the light. */
+  shaded: boolean;
+}
+
+/** The far mountain range at far-layer coordinate `fx`: the highest of the nearby triangular peaks. */
+function mountainsAt(fx: number): Ridge {
+  const cell = Math.floor(fx / PEAK_CELL_PX);
+  let best: Ridge = { heightPx: RANGE_BASE_PX, snowlinePx: RANGE_BASE_PX, shaded: false };
+  for (let k = cell - 2; k <= cell + 2; k++) {
+    const r = hash(k * 2654435761 + 17);
+    const centre = k * PEAK_CELL_PX + (r % PEAK_CELL_PX);
+    const peak = PEAK_MIN_PX + ((r >>> 8) % PEAK_SPAN_PX);
+    const steepness = 0.5 + ((r >>> 16) % 40) / 100;
+    const height = Math.round(peak - Math.abs(fx - centre) * steepness);
+    if (height > best.heightPx) {
+      // Ragged snowline at about 55 % of the peak's height.
+      const jag = (hash(Math.round(fx) * 31 + k) % 3) - 1;
+      best = { heightPx: height, snowlinePx: Math.round(peak * 0.45) + jag, shaded: fx > centre };
+    }
+  }
+  return best;
 }
 
 const FOREST_CELL_W = 9;
@@ -330,6 +372,7 @@ const TROUGH_WALL_M = 0.55;
 const TROUGH_DEPTH_M = 2;
 const TOWER_BACK_M = 6;
 const TOWER_FRONT_M = 2;
+const TOWER_INSET_M = 1.2;
 const PILLAR_SPACING_M = 12;
 const PILLAR_WIDTH_M = 2.2;
 const INRUN_LAMP_SPACING_M = 8;
@@ -367,7 +410,8 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
     const bottom = Y(yc - farLift + TROUGH_WALL_M - TROUGH_DEPTH_M);
     const gy = ground[sx] ?? fb.height;
     // Supports first: the start tower and pillars, shaded in vertical bands.
-    const tower = inBand(wx, h.startXM - TOWER_BACK_M, TOWER_BACK_M + TOWER_FRONT_M);
+    // The tower stands back from the platform's edge, so the platform reads as a slab on top of it.
+    const tower = inBand(wx, h.startXM - TOWER_BACK_M + TOWER_INSET_M, TOWER_BACK_M - TOWER_INSET_M + TOWER_FRONT_M);
     const k = Math.round((wx - h.startXM - 10) / PILLAR_SPACING_M);
     const pillarFrom = h.startXM + 10 + k * PILLAR_SPACING_M - PILLAR_WIDTH_M / 2;
     const pillar = wx < h.takeoffXM - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
@@ -395,17 +439,23 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       fb.rect(sx, top - 2, 2, 2, lamp);
     }
   }
-  // Front face of the takeoff table: the trough's cross-section, a parallelogram in the oblique view.
-  const yc = inrunYM(h, h.takeoffXM);
-  const endFace = rampTable("endLight", "endDark", 3);
+  // Both ends of the trough: the back of the start platform and the front of the takeoff table.
+  drawTroughEnd(fb, cam, h.startXM - TOWER_BACK_M, inrunYM(h, h.startXM - TOWER_BACK_M));
+  drawTroughEnd(fb, cam, h.takeoffXM, inrunYM(h, h.takeoffXM));
+}
+
+/** An end of the inrun trough: its cross-section, a parallelogram in the oblique view. */
+function drawTroughEnd(fb: FrameBuffer, cam: Camera, xM: number, yM: number): void {
+  const Y = (y: number) => Math.round(toScreenY(cam, y));
+  const face = rampTable("endLight", "endDark", 3);
   const steps = 12;
   for (let i = 0; i <= steps; i++) {
     const z = -TROUGH_HALF_WIDTH_M + (2 * TROUGH_HALF_WIDTH_M * i) / steps;
-    const x = Math.round(toScreenX(cam, h.takeoffXM - DEPTH_TO_X * z));
-    const top = Y(yc + TROUGH_WALL_M - DEPTH_TO_Y * z);
-    const bottom = Y(yc + TROUGH_WALL_M - TROUGH_DEPTH_M - DEPTH_TO_Y * z);
+    const x = Math.round(toScreenX(cam, xM - DEPTH_TO_X * z));
+    const top = Y(yM + TROUGH_WALL_M - DEPTH_TO_Y * z);
+    const bottom = Y(yM + TROUGH_WALL_M - TROUGH_DEPTH_M - DEPTH_TO_Y * z);
     for (let y = top; y <= bottom; y++) {
-      fb.put(x, y, band(endFace, (y - top) / Math.max(1, bottom - top)));
+      fb.put(x, y, band(face, (y - top) / Math.max(1, bottom - top)));
     }
   }
 }
