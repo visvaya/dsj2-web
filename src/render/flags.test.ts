@@ -1,6 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { ORIGINAL_HILL_COUNTRY } from "../game/hill-choice";
+import type { FlagPixels } from "./flags";
 import { COUNTRY_CODES, COUNTRY_NAME_PL, FLAG_HEIGHT_PX, FLAG_WIDTH_PX, flagPixels, unknownFlagPixels } from "./flags";
+import { fnv } from "./test-support/frame-hash";
+
+/** FNV-1a over the colours of every pixel, row by row. */
+const pictureHash = (px: FlagPixels): string => fnv(new Uint8ClampedArray(new TextEncoder().encode(px.flat().join())));
+
+/** Recorded from the drawn flags; a change here is a change of a picture. */
+// oxfmt-ignore
+const FLAG_HASH = {
+  AT: "8fedaed3", AU: "8edffda0", BE: "ff529d23", BY: "d92c49cf", CA: "1e2cca28", CH: "b7c6b967", CN: "6eba25d3",
+  CZ: "d983168", DE: "c16130cf", DK: "a4ac748f", EE: "30f351c7", ENG: "8b707a0b", FI: "ed012c0f", FR: "6b947ef3",
+  HU: "a88567f5", IE: "1d39316b", IS: "f611b02b", IT: "8663de93", JP: "8ed5ef63", KR: "f5906a2a", KZ: "950d4b78",
+  LT: "6da45713", LV: "d86072cf", NL: "26a56e25", NO: "7f63a277", PL: "38be343c", RU: "5dcb7110", SE: "82d21ffb",
+  SI: "fb496a65", SK: "b7677c02", UA: "6cfe3f7d", US: "29ca8cb5",
+} as const;
+const UNKNOWN_FLAG_HASH = "e65613e7";
 
 describe("flags", () => {
   it.each(COUNTRY_CODES)("draws %s as a full 15 x 10 grid of colours, with more than one colour", (code) => {
@@ -11,6 +27,14 @@ describe("flags", () => {
       for (const c of row) expect(c).toMatch(/^#[0-9a-f]{6}$/);
     }
     expect(new Set(px.flat()).size).toBeGreaterThan(1);
+  });
+
+  it.each(COUNTRY_CODES)("keeps every pixel of %s", (code) => {
+    expect(pictureHash(flagPixels(code))).toBe(FLAG_HASH[code]);
+  });
+
+  it("keeps every pixel of the flag for an unknown country", () => {
+    expect(pictureHash(unknownFlagPixels())).toBe(UNKNOWN_FLAG_HASH);
   });
 
   it("gives every flag a different picture and a Polish name", () => {
