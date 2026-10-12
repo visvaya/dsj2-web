@@ -5,11 +5,14 @@ import { previewFlightState } from "../game/outfit-preview";
 import { FrameBuffer } from "../render/frame-buffer";
 import { drawJumperPreview } from "../render/jump-view";
 import { OUTFIT_SWATCHES } from "../render/palette";
+import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
   outfit: Outfit;
   onChange: (outfit: Outfit) => void;
   onBack: () => void;
+  /** Whether the heading takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
 }
 
 /** Part labels as in the original's editor. */
@@ -44,8 +47,10 @@ function css([r, g, b]: readonly [number, number, number]): string {
   return `rgb(${r} ${g} ${b})`;
 }
 
-export function OutfitScreen({ outfit, onChange, onBack }: Props) {
+export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
   const hill = OWN_HILLS[0];
   const flight = useMemo(() => (hill ? previewFlightState(hill) : null), [hill]);
 
@@ -59,7 +64,9 @@ export function OutfitScreen({ outfit, onChange, onBack }: Props) {
 
   return (
     <main className="screen">
-      <h1 className="screen-title">Edycja kolorów stroju</h1>
+      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
+        Edycja kolorów stroju
+      </h1>
       <hr className="rule" />
       <div className="outfit-editor">
         <div className="outfit-rows">

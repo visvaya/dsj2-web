@@ -112,6 +112,14 @@ h2 {
   cursor: default;
 }
 
+/* A heading or the picture holds the focus right after its screen opens. */
+.title:focus-visible,
+.screen-title:focus-visible,
+.game canvas:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
+}
+
 .screen-title {
   margin: 0;
   font-size: clamp(22px, 6vw, 36px);

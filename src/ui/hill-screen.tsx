@@ -1,15 +1,19 @@
+import { useRef } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import type { HillRecord } from "../storage/save-data";
 import { FlagIcon } from "./flag-icon";
+import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
   hills: readonly HillChoice[];
   records: Readonly<Record<string, HillRecord>>;
   onPick: (hill: HillChoice) => void;
   onBack: () => void;
+  /** Whether the heading takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
 }
 
-function HillList({ title, hills, records, onPick }: Omit<Props, "onBack"> & { title: string }) {
+function HillList({ title, hills, records, onPick }: Pick<Props, "hills" | "records" | "onPick"> & { title: string }) {
   if (hills.length === 0) return null;
   return (
     <section className="hill-section" aria-label={title}>
@@ -33,10 +37,14 @@ function HillList({ title, hills, records, onPick }: Omit<Props, "onBack"> & { t
   );
 }
 
-export function HillScreen({ hills, records, onPick, onBack }: Props) {
+export function HillScreen({ hills, records, onPick, onBack, focusOnEntry }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
   return (
     <main className="screen">
-      <h1 className="screen-title">Wybierz skocznię do treningu</h1>
+      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
+        Wybierz skocznię do treningu
+      </h1>
       <hr className="rule" />
       <HillList
         title="Skocznie własne"
