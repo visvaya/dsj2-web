@@ -3,16 +3,18 @@
 // slashes, the gzip size of the file and its first bytes.
 
 // Gzip budgets, about 15% above the sizes measured on 2026-10-12 after `pnpm build`
-// (JavaScript 102179 bytes, CSS 8512 bytes; zlib default level). Tighten them when the
+// (JavaScript 102179 bytes, CSS 15170 bytes; zlib default level). Tighten them when the
 // bundle shrinks; raise one only together with the change that explains the growth.
+// The stylesheet carries the fonts: before that it was 8512 bytes and the browser fetched
+// a font file of 8404 bytes next to it, so the two together were 16916 bytes.
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 117_500,
-  CSS_GZIP_BUDGET_BYTES: 9_800,
+  CSS_GZIP_BUDGET_BYTES: 17_500,
 };
 
 // What the build produces: the page, the single-file page (only after `pnpm build:single`)
-// and hashed bundles and fonts under assets/.
-const ALLOWED_PATH_PATTERNS = [/^index\.html$/, /^telemark\.html$/, /^assets\/[\w.-]+-[\w-]{8}\.(?:js|css|woff2?)$/];
+// and hashed bundles under assets/. Fonts are inside the stylesheet, so a font file is unexpected.
+const ALLOWED_PATH_PATTERNS = [/^index\.html$/, /^telemark\.html$/, /^assets\/[\w.-]+-[\w-]{8}\.(?:js|css)$/];
 
 // Files of the original game and data derived from it are never shipped. Traces may be gzip-compressed.
 const GAME_FILE_PATTERN = /\.(?:exe|dat|rpl|(?:trace|hilltrace)(?:\.gz)?)$/i;

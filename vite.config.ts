@@ -3,6 +3,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   plugins: [react()],
+  build: {
+    // The fonts go into the stylesheet instead of separate files: a font fetched on its own arrives after the
+    // first screen has been laid out in the fallback font, and moves that screen when it replaces it.
+    assetsInlineLimit: (filePath) => (filePath.endsWith(".woff2") ? true : undefined),
+  },
   test: {
     include: ["src/**/*.test.ts"],
     globals: false,

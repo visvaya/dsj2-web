@@ -15,8 +15,6 @@ const CLEAN_LISTING = [
   file("telemark.html"),
   file("assets/index-DpkSeCJQ.js", 100_000),
   file("assets/index-DPSjZmzN.css", 8_000),
-  file("assets/silkscreen-latin-400-normal-CtPo2yA5.woff2"),
-  file("assets/silkscreen-latin-400-normal-D0DfPJut.woff"),
 ];
 
 test("a clean listing passes", () => {
@@ -27,6 +25,14 @@ test("an unexpected file is named", () => {
   const problems = findDistProblems([...CLEAN_LISTING, file("assets/notes.txt")], DIST_BUDGETS);
   assert.equal(problems.length, 1);
   assert.match(problems[0], /not on the allow-list: assets\/notes\.txt/);
+});
+
+test("a font file is unexpected, because the fonts belong inside the stylesheet", () => {
+  const problems = findDistProblems(
+    [...CLEAN_LISTING, file("assets/silkscreen-latin-400-normal-CtPo2yA5.woff2")],
+    DIST_BUDGETS,
+  );
+  assert.deepEqual(problems, ["not on the allow-list: assets/silkscreen-latin-400-normal-CtPo2yA5.woff2"]);
 });
 
 test("an allowed kind of file outside its place is unexpected", () => {
@@ -104,6 +110,6 @@ test("the summary gives the file count and both sums against their budgets", () 
   const budgets = { JS_GZIP_BUDGET_BYTES: 117_500, CSS_GZIP_BUDGET_BYTES: 9_800 };
   assert.equal(
     formatDistSummary(CLEAN_LISTING, budgets),
-    "6 files; JavaScript gzip 100000 of 117500 bytes; CSS gzip 8000 of 9800 bytes",
+    "4 files; JavaScript gzip 100000 of 117500 bytes; CSS gzip 8000 of 9800 bytes",
   );
 });
