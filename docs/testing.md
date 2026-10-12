@@ -8,7 +8,10 @@
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce; sprawdza też, że krok symulacji nie zmienia stanu, który dostał | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
-| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek) | wszędzie |
+| `src/sim/test-support/replay-plan.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
+| `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
+| `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
+| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
@@ -29,7 +32,8 @@ pokrycie jest wyższe. Progi są tylko podnoszone, gdy pokrycie rośnie, nigdy o
 
 Zmienne środowiskowe:
 
-- `DSJ2_TRACE_DIR`: katalog z plikami `<nazwa>.trace`, nazwanymi tak jak powtórka, którą zapisują.
+- `DSJ2_TRACE_DIR`: katalog z plikami `<nazwa>.trace` albo `<nazwa>.trace.gz`, nazwanymi tak jak powtórka, którą
+  zapisują.
 - `DSJ2_GAME_DIR`: katalog z plikami `.rpl` (wyszukiwanie bez rozróżniania wielkości liter).
 - `DSJ2_TRACE`: pojedynczy ślad, gdy nie podano katalogu.
 
@@ -57,20 +61,65 @@ Zapis śladu (gra działa w emulatorze DOS z `tools/re`, bez DOSBoksa):
 
 ```sh
 pip install -r tools/re/requirements-dev.txt
-python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powtórki> <wyjście.trace>
+python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powtórki> <wyjście.trace> [max-ticks]
 ```
 
 `<numer-powtórki>` to pozycja na liście w studiu powtórek (od 0, alfabetycznie).
 
+Ślad ma ok. 86 MB, a gzip zmniejsza go ok. 80 razy **[pomiar]**. Gdy nazwa wyjścia kończy się na `.gz`
+(`<nazwa>.trace.gz`, `hills.hilltrace.gz`), `trace_capture.py` i `hill_capture.py` zapisują ślad skompresowany;
+testy i `craft_replays.py set-distance` czytają obie postaci. Ten sam ślad w obu postaciach naraz w `DSJ2_TRACE_DIR`
+to błąd (jedna z nich jest nieaktualna): testy przerywają się z nazwą śladu.
+
 ### Skocznie
 
 ```sh
-python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace
+python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace.gz
 ```
 
 Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 30 s na skocznię); test
 `original-hills.golden.test.ts` porównuje z nim odczyt z `Dsj.exe`. Potrzebuje też `Dsj.exe` i `Dsj.dat`
 w `DSJ2_GAME_DIR`.
+
+### Powtórki dla dowolnej skoczni
+
+Powtórki z dystrybucji obejmują 6 z 37 skoczni. Dla pozostałych powtórkę trzeba zrobić: wejście (klatki przycisków
+i ruchu myszy) zależy od długości rozbiegu, więc planuje je port, a oryginał odtwarza gotową powtórkę.
+
+```sh
+# 1. Plan: port skacze na skoczni odczytanej z Dsj.exe gracza, wejście trafia do <plany>/HILLnn.json
+node scripts/plan-replays.mjs <gra> <plany> [numer-skoczni ...]      # bez numerów: wszystkie 37
+# 2. Powtórka z planu; powtórka bazowa (dowolna z gry) daje tylko nazwy i datę
+python3 -I tools/re/craft_replays.py from-plan <gra>/Karpacz.rpl <plany>/HILL32.json <kopia-gry>/HILL32.RPL
+# 3. Ślad: <kopia-gry> zawiera pliki gry i tę jedną powtórkę (numer 0)
+python3 -I tools/re/trace_capture.py <kopia-gry> <katalog-roboczy> 0 <ślady>/HILL32.trace.gz
+# 4. Odległość zmierzona przez oryginał trafia do powtórki
+python3 -I tools/re/craft_replays.py set-distance <ślady>/HILL32.trace.gz <kopia-gry>/HILL32.RPL
+# 5. Testy porównawcze
+DSJ2_TRACE_DIR=<ślady> DSJ2_GAME_DIR=<kopia-gry> pnpm test
+```
+
+Plan (`src/sim/test-support/replay-plan.ts`) to wejście skoku w postaci, w jakiej trzyma je powtórka
+(`docs/replay-format.md`): klatka startu, początek okna wybicia i jego 20 bajtów, ruch myszy z pierwszą i ostatnią
+klatką, klatki przycisków lądowania, ziarno generatora i wiatr. Powstaje z przebiegu portu ze skryptowanym
+graczem; wejście, którego powtórka nie pomieści, jest odrzucane. Plik planu zawiera też wynik portu (`expected`:
+liczba klatek, odległość, typ upadku), czyli to, co powinien pokazać oryginał. Ziarno skoczni n to 21000 + n,
+a wiatr jest losowany z tego ziarna tak jak w treningu, więc plany są powtarzalne.
+
+`plan-replays.mjs` ładuje moduły TypeScript przez serwer modułów Vite (`scripts/lib/load-typescript.mjs`): źródła
+importują się bez rozszerzeń, czego Node sam nie rozwiąże, a Vite jest już zależnością projektu. Skrypt czyta
+`Dsj.exe` i `Dsj.dat` ze wskazanego katalogu i pisze tylko do katalogu planów.
+
+`from-plan` nie wpisuje odległości: bez `set-distance` test całego skoku nie przejdzie, więc nie da się pomylić
+odległości z portu z odległością z oryginału.
+
+Sprawdzone na skoczni 32 (K250, największa) **[pomiar, 2026-10-12]**: oryginał przyjął powtórkę z planu, skok
+miał w nim 1477 klatek i 249,69 m, tak jak w porcie, a pięć testów porównawczych ze śladem przeszło (krok skoczka:
+1469 z 1469 klatek bit w bit). Zapis śladu trwał ok. 9 minut; ślad ma 5876 migawek i 1,6 MB po kompresji.
+
+`trace_capture.py` kończy zapis, gdy pętla skoku się skończy, najpóźniej po `max-ticks` taktach zegara (piąty
+argument, domyślnie 3000). Wcześniejszy limit 1500 wystarczał na ok. 990 klatek i urywał ślad długiego skoku
+w locie **[pomiar]**.
 
 ### Spreparowane powtórki (upadki, telemark)
 
@@ -88,14 +137,50 @@ tworzy z powtórki z Karpacza warianty o zmienionym wejściu:
 ```sh
 python3 -I tools/re/craft_replays.py make <gra>/Karpacz.rpl <wyjście>
 # każdą powtórkę zapisać w osobnym katalogu gry (jedyna powtórka, numer 0), potem:
-python3 -I tools/re/craft_replays.py set-distance <NAZWA.trace> <NAZWA.RPL>
+python3 -I tools/re/craft_replays.py set-distance <NAZWA.trace.gz> <NAZWA.RPL>
 ```
 
 `set-distance` wpisuje do powtórki odległość zmierzoną przez oryginał (ostatnia migawka śladu), bo zmienione wejście
 unieważnia odległość zapisaną w nagłówku.
 
 Warianty wybrano, przeszukując wejścia w porcie (ok. 4600 kombinacji przycisków i pochyleń), a potem zapisując ślady
-wybranych w oryginale. Na Karpaczu tym sposobem nie udało się wywołać upadków typu 1, 3 i 5.
+wybranych w oryginale.
+
+### Wyszukiwanie upadków
+
+Typ upadku (1..5) to numer składnika oceny lądowania, który razem ze średnią przekroczył próg 60; gdy przekroczyło
+go kilka, zostaje najwyższy numer (`landClean` w `src/sim/jump-logic.ts`). Składniki: 1 siła uderzenia, 2 czas
+przygotowania do lądowania (albo lądowanie przed progiem), 3 niedokończona postawa tułowia i goleni, 4 rozstaw
+nóg (lądowanie bez przygotowania), 5 ugięte nogi.
+
+```sh
+node scripts/search-falls.mjs <gra> <plany>
+```
+
+Skrypt rozgrywa w porcie 257 wzorców wejścia na każdej z 37 skoczni (8 wariantów wybicia: w porę, za wcześnie,
+dużo za wcześnie, późno, za progiem, jednym przyciskiem, z przytrzymaniem, bez wybicia; 4 warianty pochylenia:
+do przodu, brak, do tyłu, gwałtowne; 8 wariantów lądowania: w porę, bez przycisku, tuż po wybiciu, za wcześnie,
+późno, bardzo późno, po zetknięciu, telemark; do tego skoczek, który nie rusza z belki), wypisuje, ile skoków
+skończyło się każdym typem upadku, i zapisuje plan jednego przypadku na typ jako `<plany>/FALLn.json`. Trwa ok.
+3 minut. Z planu powstaje powtórka i ślad tak jak w sekcji „Powtórki dla dowolnej skoczni”.
+
+Wynik **[pomiar w porcie, 2026-10-12]**: 9509 skoków, każde wejście mieści się w powtórce.
+
+| Typ | Skoki (za progiem) | Skocznie | Wzorce | Przypadek zapisany jako plan |
+|---|---|---|---|---|
+| bez upadku | 2418 (2381) | 37 | 90 | |
+| 1 | 285 (28) | 37 | 24 | `FALL1`: skocznia 4 (K220), wybicie w porę, pochylenie do tyłu, lądowanie w porę, 63,02 m |
+| 2 | 2123 (1939) | 37 | 72 | `FALL2`: skocznia 1 (K105), wybicie w porę, pochylenie do przodu, lądowanie tuż po wybiciu, 53,89 m |
+| 3 | 94 (24) | 31 | 16 | `FALL3`: skocznia 3 (K135), wybicie w porę, gwałtowne pochylenia, późne lądowanie, 63,71 m |
+| 4 | 3405 (2547) | 37 | 121 | `FALL4`: skocznia 1 (K105), wybicie w porę, pochylenie do przodu, bez przycisku lądowania, 88,84 m |
+| 5 | 1184 (1184) | 37 | 32 | `FALL5`: skocznia 1 (K105), bez wybicia, pochylenie do przodu, lądowanie w porę, 24,65 m |
+
+„Za progiem” to skoki, które minęły próg; pozostałe kończą się na rozbiegu (zbyt wczesne wybicie) i mają 0 m.
+Port osiąga więc wszystkie pięć typów, także 1, 3 i 5, których nie dało się wywołać zmianami powtórki z Karpacza.
+
+W oryginale sprawdzono `FALL1` **[pomiar, 2026-10-12]**: upadek typu 1, 1574 klatki i 63,02 m, tak jak w porcie;
+pięć testów porównawczych ze śladem przeszło (krok skoczka: 1567 z 1567 klatek bit w bit). `FALL2`..`FALL5` mają
+plany i powtórki, ale nie mają jeszcze śladów; typy 3 i 5 nie były dotąd porównane z oryginałem.
 
 ## Testy mutacyjne (Stryker)
 

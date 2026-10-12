@@ -7,11 +7,9 @@ jumper_step (1c06:02a1), read_input (0baf:9a3c), frame_logic (0baf:9c52).
 A snapshot of DS[0:SNAPSHOT_BYTES] is taken at the entry of each, so the
 exit state of one routine is the entry snapshot of the next.
 
-Trace file layout (little endian):
-  magic b"DSJTRACE", u32 version, u32 snapshot_bytes, u32 count
-  count x { u32 frame, u8 point, u8[snapshot_bytes] data }
-`point` indexes TRACE_POINTS. The trace is derived from the original game
-and must not be committed.
+The trace file layout is described in trace_file.py; `point` indexes
+TRACE_POINTS. An output name that ends in .gz is written gzip-compressed.
+The trace is derived from the original game and must not be committed.
 """
 
 from __future__ import annotations
@@ -25,10 +23,10 @@ from unicorn import UC_HOOK_CODE
 
 from dos_machine import LOAD_SEGMENT
 from game_session import GameSession
+from trace_file import write_trace
 
 DATA_SEGMENT = 0x22F2
 SNAPSHOT_BYTES = 0x6000
-TRACE_VERSION = 1
 FRAME_COUNTER = 0x4CA0
 TRACE_POINTS = [
     ("wind_update", 0x0BAF, 0x976A),
@@ -36,7 +34,9 @@ TRACE_POINTS = [
     ("read_input", 0x0BAF, 0x9A3C),
     ("frame_logic", 0x0BAF, 0x9C52),
 ]
-DEFAULT_MAX_TICKS = 1500
+# Upper bound only: the capture stops by itself once the jump loop has ended. 1500 ticks cut a
+# jump of about 1500 frames (hill K250) short at frame 986.
+DEFAULT_MAX_TICKS = 3000
 
 
 def capture(game_dir: str, work_dir: str, replay_index: int, out_path: str, max_ticks: int) -> int:
@@ -68,9 +68,7 @@ def capture(game_dir: str, work_dir: str, replay_index: int, out_path: str, max_
         if len(records) == last and last > 0:
             break
         last = len(records)
-    with open(out_path, "wb") as f:
-        f.write(b"DSJTRACE" + struct.pack("<III", TRACE_VERSION, SNAPSHOT_BYTES, len(records)))
-        f.writelines(records)
+    write_trace(out_path, SNAPSHOT_BYTES, records)
     return len(records)
 
 

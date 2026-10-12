@@ -42,10 +42,24 @@ test("a game file in a subdirectory is named", () => {
 });
 
 test("every game file extension is refused in any letter case", () => {
-  for (const name of ["Dsj.EXE", "Dsj.Dat", "jump.RPL", "jump.Trace", "k120.HILLTRACE", "dsj.exe"]) {
+  for (const name of [
+    "Dsj.EXE",
+    "Dsj.Dat",
+    "jump.RPL",
+    "jump.Trace",
+    "k120.HILLTRACE",
+    "dsj.exe",
+    "jump.trace.gz",
+    "hills.hilltrace.GZ",
+  ]) {
     const problems = findDistProblems([...CLEAN_LISTING, file(`assets/${name}`)], DIST_BUDGETS);
     assert.equal(problems.includes(`game file extension: assets/${name}`), true, `${name} was not refused`);
   }
+});
+
+test("a compressed file that is not a trace is only unexpected", () => {
+  const problems = findDistProblems([...CLEAN_LISTING, file("assets/index.js.gz")], DIST_BUDGETS);
+  assert.deepEqual(problems, ["not on the allow-list: assets/index.js.gz"]);
 });
 
 test("an executable with an innocent name is named", () => {

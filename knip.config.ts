@@ -13,6 +13,10 @@ const config: KnipConfig = {
     "src/**/*.test.ts",
     "scripts/*.mjs",
     "scripts/**/*.test.mjs",
+    // Loaded by path from scripts/plan-replays.mjs and scripts/search-falls.mjs (through
+    // scripts/lib/load-typescript.mjs).
+    "src/original/test-support/hill-plans.ts",
+    "src/original/test-support/fall-search.ts",
     // Named only in stryker.config.json ("vitest.configFile"), which knip does not follow.
     "vitest.stryker.config.ts",
   ],

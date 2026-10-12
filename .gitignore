@@ -16,7 +16,9 @@ __pycache__/
 node_modules/
 dist/
 *.trace
+*.trace.gz
 *.hilltrace
+*.hilltrace.gz
 coverage/
 
 # Mutation testing

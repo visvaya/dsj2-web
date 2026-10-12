@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { gunzipSync } from "node:zlib";
 import type { HillProfile } from "../hill-profile";
 import type { JumperControls, JumperState } from "../jumper-step";
 import type { FrameInput, JumpLogicState } from "../jump-logic";
@@ -8,7 +9,8 @@ import type { WindState } from "../wind";
 /**
  * Reader for traces written by tools/re/trace_capture.py. A trace holds
  * data-segment snapshots of the original game; it is derived from the game
- * and stays outside the repository (golden-files.ts finds it).
+ * and stays outside the repository (golden-files.ts finds it). A name that
+ * ends in .gz is a gzip-compressed trace.
  */
 export const TRACE_POINT = { windUpdate: 0, jumperStep: 1, readInput: 2, frameLogic: 3, hillSetup: 4 } as const;
 
@@ -18,22 +20,31 @@ export interface TraceSnapshot {
   view: DataView;
 }
 
+const TRACE_HEADER_BYTES = 20;
+const SNAPSHOT_HEADER_BYTES = 5;
+export const GZIP_SUFFIX = ".gz";
+
 export function readTrace(path: string): TraceSnapshot[] {
-  const buf = readFileSync(path);
+  const file = readFileSync(path);
+  const buf = path.endsWith(GZIP_SUFFIX) ? gunzipSync(file) : file;
   const view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
   const magic = buf.subarray(0, 8).toString("latin1");
-  if (magic !== "DSJTRACE") {
+  if (magic !== "DSJTRACE" || buf.byteLength < TRACE_HEADER_BYTES) {
     throw new Error(`not a DSJ trace: ${path}`);
   }
   const snapshotBytes = view.getUint32(12, true);
   const count = view.getUint32(16, true);
+  if (buf.byteLength < TRACE_HEADER_BYTES + count * (SNAPSHOT_HEADER_BYTES + snapshotBytes)) {
+    throw new Error(`truncated DSJ trace: ${path}`);
+  }
   const out: TraceSnapshot[] = [];
-  let pos = 20;
+  let pos = TRACE_HEADER_BYTES;
   for (let i = 0; i < count; i++) {
     const frame = view.getUint32(pos, true);
     const point = view.getUint8(pos + 4);
-    out.push({ frame, point, view: new DataView(buf.buffer, buf.byteOffset + pos + 5, snapshotBytes) });
-    pos += 5 + snapshotBytes;
+    const data = new DataView(buf.buffer, buf.byteOffset + pos + SNAPSHOT_HEADER_BYTES, snapshotBytes);
+    out.push({ frame, point, view: data });
+    pos += SNAPSHOT_HEADER_BYTES + snapshotBytes;
   }
   return out;
 }

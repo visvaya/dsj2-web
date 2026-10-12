@@ -10,7 +10,8 @@ the per-hill branches) a snapshot of DS[0:SNAPSHOT_BYTES] is stored.
 
 The output uses the trace layout of trace_capture.py with the hill number as
 the frame and HILL_SETUP_POINT as the point; the golden tests look for it as
-hills.hilltrace in DSJ2_TRACE_DIR. It is derived from the original game and
+hills.hilltrace or hills.hilltrace.gz in DSJ2_TRACE_DIR (a name that ends in
+.gz is written gzip-compressed). It is derived from the original game and
 must not be committed.
 """
 
@@ -26,7 +27,8 @@ from unicorn.x86_const import UC_X86_REG_SP, UC_X86_REG_SS
 
 from dos_machine import LOAD_SEGMENT
 from game_session import BOOT_TICKS, MENU_SETTLE_TICKS, SOUND_SETUP_DONE, GameSession
-from trace_capture import DATA_SEGMENT, SNAPSHOT_BYTES, TRACE_VERSION
+from trace_capture import DATA_SEGMENT, SNAPSHOT_BYTES
+from trace_file import write_trace
 
 HILL_SETUP = (0x0BAF, 0x631C)
 # All per-hill branches jump here once inrun_setup and landing_setup have run.
@@ -83,9 +85,7 @@ def main() -> None:
         data = capture_hill(game_dir, work_dir, hill)
         records.append(struct.pack("<IB", hill, HILL_SETUP_POINT) + data)
         print(f"hill {hill}: K{struct.unpack_from('<h', data, 0x464C)[0]}", flush=True)
-    with open(out_path, "wb") as f:
-        f.write(b"DSJTRACE" + struct.pack("<III", TRACE_VERSION, SNAPSHOT_BYTES, len(records)))
-        f.writelines(records)
+    write_trace(out_path, SNAPSHOT_BYTES, records)
     print(f"{len(records)} hills written to {out_path}")
 
 
