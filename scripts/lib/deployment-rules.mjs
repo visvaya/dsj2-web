@@ -112,6 +112,15 @@ export function findReleaseProblems(releaseText, { sourceSha, contentId }) {
   return problems;
 }
 
+// Whether release.json as served names the given content. Anything unreadable does not.
+export function servesContent(releaseText, contentId) {
+  try {
+    return JSON.parse(releaseText).contentId === contentId;
+  } catch {
+    return false;
+  }
+}
+
 // The release a served worker carries: { sourceSha, contentId, precache: [{ url, sha256 }], ... }.
 // With it a deployment can be checked against itself when the package is not at hand (after a rollback).
 export function releaseOfWorker(workerSource) {

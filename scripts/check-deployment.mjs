@@ -5,9 +5,10 @@
 // Usage:
 //   node scripts/check-deployment.mjs <url> [--dist <dir>] [--source-sha <commit>] [--wait-s <seconds>]
 //       compares the deployment with the package in dist/ (after `pnpm build`)
-//   node scripts/check-deployment.mjs <url> --served-release [--source-sha <commit>]
-//       checks the deployment against the release its own service worker carries; for a rollback, when the
-//       package of the restored release is not at hand
+//   node scripts/check-deployment.mjs <url> --served-release [--source-sha <commit>] [--content-id <id>]
+//       checks the deployment against the release its own service worker carries: after a rollback, when the
+//       package of the restored release is not at hand, and when the deployed content is already the
+//       package's, built from an earlier commit
 //
 // A plain-HTTP <url> (the local test server) skips the check of the redirect to HTTPS.
 import { createHash } from "node:crypto";
@@ -56,13 +57,14 @@ async function get(url) {
   };
 }
 
-// Waits until the deployment serves the expected content; a new release takes a moment to reach the host's edge.
-async function waitForContent(origin, contentId, waitS) {
+// Waits until the deployment serves the expected release; a change takes a moment to reach the host's edge.
+// `expected` is { sourceSha, contentId }, either of which may be undefined.
+async function waitForRelease(origin, expected, waitS) {
   const deadline = Date.now() + waitS * 1000;
   for (;;) {
     // oxlint-disable-next-line no-await-in-loop -- one request at a time, until the release shows up
     const seen = await get(`${origin}/${RELEASE_FILES.RELEASE_JSON}`).catch(() => null);
-    if (seen !== null && findReleaseProblems(seen.text, { contentId }).length === 0) return;
+    if (seen !== null && findReleaseProblems(seen.text, expected).length === 0) return;
     if (Date.now() >= deadline) return;
     // oxlint-disable-next-line no-await-in-loop
     await new Promise((resolve) => {
@@ -93,7 +95,7 @@ async function checkAgainstPackage(origin, values) {
   const local = JSON.parse(readFileSync(join(distDir, RELEASE_FILES.RELEASE_JSON), "utf8"));
   const expectedRelease = { sourceSha: values["source-sha"] ?? local.sourceSha, contentId: local.contentId };
 
-  await waitForContent(origin, local.contentId, Number(values["wait-s"]));
+  await waitForRelease(origin, { contentId: local.contentId }, Number(values["wait-s"]));
   const problems = [];
   const expected = expectedResponses(files, rules);
   for (const response of expected) {
@@ -108,10 +110,15 @@ async function checkAgainstPackage(origin, values) {
 }
 
 async function checkAgainstServedRelease(origin, values) {
+  const asked = { sourceSha: values["source-sha"], contentId: values["content-id"] };
+  await waitForRelease(origin, asked, Number(values["wait-s"]));
   const worker = await get(`${origin}/${RELEASE_FILES.SERVICE_WORKER}`);
   if (worker.status !== 200) return { problems: [`/sw.js: HTTP ${worker.status}, expected 200`], checked: 0 };
   const release = releaseOfWorker(worker.text);
-  const expectedRelease = { sourceSha: values["source-sha"] ?? release.sourceSha, contentId: release.contentId };
+  const expectedRelease = {
+    sourceSha: values["source-sha"] ?? release.sourceSha,
+    contentId: values["content-id"] ?? release.contentId,
+  };
   const problems = [];
   for (const entry of release.precache) {
     const expected = { url: entry.url, sha256: entry.sha256, headers: [], contentType: null, compressed: false };
@@ -141,6 +148,7 @@ async function main() {
     options: {
       dist: { type: "string", default: "dist" },
       "source-sha": { type: "string" },
+      "content-id": { type: "string" },
       "wait-s": { type: "string", default: "0" },
       "served-release": { type: "boolean", default: false },
     },

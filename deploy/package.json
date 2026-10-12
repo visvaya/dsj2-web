@@ -1,0 +1,14 @@
+{
+  "name": "telemark-deploy",
+  "private": true,
+  "description": "The pinned tool that publishes the built game. Installed only by the deployment jobs, from this directory's own lockfile.",
+  "license": "GPL-3.0-or-later",
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "4.147.0"
+  },
+  "packageManager": "pnpm@12.11.2",
+  "engines": {
+    "node": ">=24"
+  }
+}

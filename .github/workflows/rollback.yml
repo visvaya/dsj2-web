@@ -1,0 +1,95 @@
+name: Rollback
+
+# Puts an earlier release of the game back, by hand. It restores a version the host still holds, which was
+# built, checked and tested when it was first published; nothing is rebuilt here. A rollback does not touch
+# what players have saved, and a player who already has the newer release gets the older one as one more
+# update, the next time every window of the game has been closed.
+#
+# Before a rollback, pause automatic publishing by setting the repository variable DEPLOY_ENABLED to anything
+# but "true": otherwise the next push to the default branch publishes the newer release again. Switching it
+# back on is a separate, deliberate step once the default branch holds a release that should go out.
+on:
+  workflow_dispatch:
+    inputs:
+      version_id:
+        description: Version to restore (the "Version, for a rollback" line in the summary of its deployment)
+        required: true
+        type: string
+      source_sha:
+        description: Full hash of the commit that version was built from
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+# Shares its queue with the deployment job of the CI workflow: one of them at a time, none cancelled.
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: rollback
+    # Only the workflow as it is on the default branch may do this.
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    env:
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+      VERSION_ID: ${{ inputs.version_id }}
+      SOURCE_SHA: ${{ inputs.source_sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The request names a version and a commit, and automatic publishing is paused
+        env:
+          DEPLOY_ENABLED: ${{ vars.DEPLOY_ENABLED }}
+        run: |
+          if ! printf '%s' "$VERSION_ID" | grep -qE '^[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}$'; then
+            echo "The version is not an identifier of a deployed version."; exit 1
+          fi
+          if ! printf '%s' "$SOURCE_SHA" | grep -qE '^[0-9a-f]{40}$'; then
+            echo "The commit is not a full commit hash."; exit 1
+          fi
+          if [ -z "$PRODUCTION_URL" ]; then
+            echo "The repository variable PRODUCTION_URL is not set."; exit 1
+          fi
+          if [ "$DEPLOY_ENABLED" = "true" ]; then
+            echo "Automatic publishing is on: the next push would publish the newer release again."
+            echo "Set the repository variable DEPLOY_ENABLED to something other than \"true\" first."; exit 1
+          fi
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      # No cache: what is restored into this job would run next to the credentials.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Install the deployment tool from its lockfile
+        working-directory: deploy
+        run: pnpm install --frozen-lockfile
+      - name: Put the earlier version back
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/run-wrangler.mjs rollback "$VERSION_ID" --message "Rollback to $SOURCE_SHA"
+      # The package of the restored release is not at hand, so the deployment is checked against the release
+      # its own service worker carries: every file it lists is served with the bytes it lists, for that commit.
+      - name: The deployed game answers with the earlier release, whole
+        run: node scripts/check-deployment.mjs "$PRODUCTION_URL" --served-release --source-sha "$SOURCE_SHA" --wait-s 120
+      - name: Report
+        if: ${{ !cancelled() }}
+        env:
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "### Rollback"
+            echo
+            echo "- Result: job $JOB_STATUS"
+            echo "- Restored version: $VERSION_ID"
+            echo "- Built from commit: $SOURCE_SHA"
+            echo "- Automatic publishing stays paused until DEPLOY_ENABLED is set to \"true\" again."
+          } >> "$GITHUB_STEP_SUMMARY"

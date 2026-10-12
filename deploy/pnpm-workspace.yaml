@@ -1,0 +1,6 @@
+# This directory is a project of its own, so the game's install never brings the deployment tool in.
+
+# Supply-chain guards: refuse a version published with weaker provenance than an earlier one of the same
+# package, and any version younger than a week (in minutes).
+trustPolicy: no-downgrade
+minimumReleaseAge: 10080

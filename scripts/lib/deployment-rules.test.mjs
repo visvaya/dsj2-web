@@ -14,6 +14,7 @@ import {
   findResponseProblems,
   findStartPageAliasProblems,
   releaseOfWorker,
+  servesContent,
 } from "./deployment-rules.mjs";
 import { parseHeadersFile } from "./headers-rules.mjs";
 import { contentIdOf, precacheOf, releaseJsonText, renderServiceWorker, sha256Hex } from "./release-rules.mjs";
@@ -148,6 +149,14 @@ test("the served release is compared with the commit and the content expected", 
   assert.deepEqual(findReleaseProblems("<html>", { contentId: "c".repeat(64) }), ["/release.json: not JSON"]);
 });
 
+test("an address serves the package's content when its release.json names that content", () => {
+  const text = releaseJsonText({ sourceSha: "a".repeat(40), contentId: "c".repeat(64) });
+  assert.equal(servesContent(text, "c".repeat(64)), true);
+  assert.equal(servesContent(text, "d".repeat(64)), false);
+  assert.equal(servesContent("<html>not found</html>", "c".repeat(64)), false);
+  assert.equal(servesContent("", "c".repeat(64)), false);
+});
+
 const TEMPLATE = "const RELEASE = self.TELEMARK_RELEASE_PLACEHOLDER;\n\nconst CACHE_NAME = RELEASE.cacheId;\n";
 
 test("the release a worker carries can be read back from its source", () => {
@@ -161,14 +170,17 @@ test("the release a worker carries can be read back from its source", () => {
 
 // The script itself, against a server that answers like the host.
 const SCRIPT_FILE = fileURLToPath(new URL("../check-deployment.mjs", import.meta.url));
+const COMPARE_FILE = fileURLToPath(new URL("../compare-release.mjs", import.meta.url));
 
-function runCheck(args) {
+function runScript(script, args) {
   return new Promise((resolve) => {
-    execFile(process.execPath, [SCRIPT_FILE, ...args], (error, stdout, stderr) => {
+    execFile(process.execPath, [script, ...args], (error, stdout, stderr) => {
       resolve({ code: error === null ? 0 : error.code, stdout, stderr });
     });
   });
 }
+
+const runCheck = (args) => runScript(SCRIPT_FILE, args);
 
 let parent;
 let distDir;
@@ -209,6 +221,29 @@ test("the check passes against the release the served worker carries", async () 
   const result = await runCheck([server.origin, "--served-release", "--source-sha", "a".repeat(40)]);
   assert.equal(result.code, 0, result.stderr);
   assert.match(result.stdout, /3 files checked, no problems/);
+});
+
+test("the check against the served release can require the content of a package", async () => {
+  const same = await runCheck([server.origin, "--served-release", "--content-id", contentIdOf(FILES, TEMPLATE)]);
+  assert.equal(same.code, 0, same.stderr);
+  const other = await runCheck([server.origin, "--served-release", "--content-id", "d".repeat(64)]);
+  assert.equal(other.code, 1);
+  assert.match(other.stderr, /release.json: content [0-9a-f]{64}, expected d{64}/);
+});
+
+test("the comparison tells an address that serves the package from one that does not", async () => {
+  const same = await runScript(COMPARE_FILE, [server.origin, "--dist", distDir]);
+  assert.equal(same.code, 0, same.stderr);
+  assert.equal(same.stdout.trim(), "same");
+  server.setFaults([{ path: "/release.json", kind: "missing" }]);
+  const missing = await runScript(COMPARE_FILE, [server.origin, "--dist", distDir]);
+  server.setFaults([]);
+  assert.equal(missing.stdout.trim(), "different");
+  server.setOffline(true);
+  const unreachable = await runScript(COMPARE_FILE, [server.origin, "--dist", distDir]);
+  server.setOffline(false);
+  assert.equal(unreachable.code, 0, unreachable.stderr);
+  assert.equal(unreachable.stdout.trim(), "different");
 });
 
 test("the check fails when another commit is expected", async () => {

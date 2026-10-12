@@ -28,6 +28,8 @@ const config: KnipConfig = {
   project: ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "scripts/**/*.mjs", "*.config.ts"],
   // Its font files are named in src/ui/fonts.css, and knip does not read stylesheets.
   ignoreDependencies: ["@fontsource/silkscreen"],
+  // The deployment tool belongs to deploy/, a project of its own with its own lockfile; the workflows run it there.
+  ignoreBinaries: ["wrangler"],
 };
 
 export default config;
