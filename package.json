@@ -1,11 +1,11 @@
 {
-  "name": "dsj2-web",
+  "name": "telemark",
   "private": true,
   "description": "Browser ski jumping game whose jump physics is a port of Deluxe Ski Jump 2 (v2.10P, DOS).",
   "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/visvaya/dsj2-web.git"
+    "url": "git+https://github.com/visvaya/telemark.git"
   },
   "version": "0.0.0",
   "type": "module",
