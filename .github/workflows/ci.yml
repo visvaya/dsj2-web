@@ -81,10 +81,13 @@ jobs:
           echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --log-opts=--all
-      - name: No em dashes or emoji in sources and docs
+      - name: No em dashes or emoji in tracked files
         env:
           LC_ALL: C.UTF-8
         run: |
-          if grep -rnP '\x{2014}|[\x{1F300}-\x{1FAFF}]|[\x{2600}-\x{27BF}]' --include='*.ts' --include='*.tsx' --include='*.py' --include='*.md' --include='*.yml' --include='*.json' --include='*.css' --include='*.html' --include='*.mjs' src tools docs scripts .github package.json index.html README.md SECURITY.md; then
-            echo "Found forbidden characters"; exit 1
+          # Every tracked text file is searched. Only "no match" (exit 1) passes, so a failed search fails the job.
+          status=0
+          git grep -nIP '\x{2014}|[\x{1F300}-\x{1FAFF}]|[\x{2600}-\x{27BF}]' || status=$?
+          if [ "$status" -ne 1 ]; then
+            echo "Found forbidden characters, or the search itself failed (exit $status)"; exit 1
           fi
