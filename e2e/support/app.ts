@@ -94,3 +94,27 @@ export async function storedSave(page: Page): Promise<unknown> {
   const json = await page.evaluate((key) => localStorage.getItem(key), SAVE_KEY);
   return json === null ? null : (JSON.parse(json) as unknown);
 }
+
+type ScreenCheck = (screen: string) => Promise<void>;
+
+/** Opens the menu, the outfit screen and the hill list in turn and runs `check` on each; ends on the hill list. */
+export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
+  await openMenu(page);
+  await check("menu");
+  await openOutfit(page, traits);
+  await check("outfit");
+  await press(button(page, TEXT.back), traits);
+  await openHillList(page, traits);
+  await check("hill list");
+}
+
+/** As `onEachMenuScreen`, then the jump screen, on touch screens also with its controls open. */
+export async function onEveryScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
+  await onEachMenuScreen(page, traits, check);
+  await openJump(page, traits);
+  await check("jump");
+  if (!traits.touch) return;
+  await openJumpControls(page, traits);
+  await check("jump with the controls open");
+  await closeJumpControls(page, traits);
+}

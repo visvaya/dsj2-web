@@ -193,7 +193,8 @@
     {
       "files": ["e2e/**"],
       "rules": {
-        "no-await-in-loop": "off"
+        "no-await-in-loop": "off",
+        "unicorn/consistent-function-scoping": "off"
       }
     },
     {

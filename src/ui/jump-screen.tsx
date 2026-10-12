@@ -82,12 +82,14 @@ function useMediaQuery(query: string): boolean {
 
 interface TouchPadProps {
   side: "left" | "right";
+  /** Out of reach of the pointer and the keyboard while the pause controls cover the zone. */
+  inert: boolean;
   onPress: (down: boolean) => void;
   onDrag: (dy: number) => void;
 }
 
 /** A touch zone standing in for a mouse button; dragging in the left one leans like the mouse. */
-function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
+function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
   const lastY = useRef(new Map<number, number>());
   const release = (e: ReactPointerEvent<HTMLButtonElement>) => {
     lastY.current.delete(e.pointerId);
@@ -97,6 +99,7 @@ function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
     <button
       type="button"
       className={`touch-pad touch-pad-${side}`}
+      inert={inert}
       aria-label={side === "left" ? "Lewy przycisk; przesuwanie w pionie pochyla skoczka" : "Prawy przycisk"}
       onPointerDown={(e) => {
         try {
@@ -144,8 +147,15 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   const [menuOpen, setMenuOpen] = useState(false);
   const pausedRef = useRef(false);
   const soundRef = useRef<SoundEngine | null>(null);
+  const pauseButtonRef = useRef<HTMLButtonElement>(null);
+  const resumeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuWasOpenRef = useRef(false);
   useEffect(() => {
     pausedRef.current = menuOpen;
+    // The controls cover everything else, so the focus goes into them and returns to the pause button after.
+    if (menuOpen) resumeButtonRef.current?.focus();
+    else if (menuWasOpenRef.current) pauseButtonRef.current?.focus();
+    menuWasOpenRef.current = menuOpen;
   }, [menuOpen]);
   /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({
@@ -468,6 +478,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           className="pause-button"
           aria-label="Pauza i ustawienia"
           aria-expanded={menuOpen}
+          inert={menuOpen}
+          ref={pauseButtonRef}
           onClick={() => setMenuOpen(true)}
         >
           <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
@@ -486,7 +498,12 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       </div>
       <div className="game-toolbar">
         {menuOpen && (
-          <button type="button" className="pixel-button resume-button" onClick={() => setMenuOpen(false)}>
+          <button
+            type="button"
+            className="pixel-button resume-button"
+            ref={resumeButtonRef}
+            onClick={() => setMenuOpen(false)}
+          >
             Wróć do gry
           </button>
         )}
@@ -576,6 +593,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       {touch && (
         <TouchPad
           side="left"
+          inert={menuOpen}
           onPress={(down) => inputRef.current.setButton("touch", "left", down)}
           onDrag={(dy) => inputRef.current.addMotion(dy)}
         />
@@ -583,6 +601,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       {touch && (
         <TouchPad
           side="right"
+          inert={menuOpen}
           onPress={(down) => inputRef.current.setButton("touch", "right", down)}
           onDrag={() => undefined}
         />

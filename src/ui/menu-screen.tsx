@@ -2,6 +2,7 @@ import { useRef, useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
 import type { GameFiles } from "../storage/game-files-store";
+import { gameFilesOutcome } from "./game-files-choice";
 import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
@@ -43,32 +44,15 @@ export function MenuScreen({
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.currentTarget.files;
     if (!files || files.length === 0) return;
-    try {
-      // Files may come one at a time (some pickers allow only one), so new ones join those chosen before.
-      const exe = (await bytesOf(files, "dsj.exe")) ?? gameFiles.exe;
-      const dat = (await bytesOf(files, "dsj.dat")) ?? gameFiles.dat;
-      onGameFiles({ ...(exe ? { exe } : {}), ...(dat ? { dat } : {}) });
-      if (!exe) {
-        setMessage({
-          text: dat
-            ? "Wczytano Dsj.dat. Wybierz jeszcze Dsj.exe: w nim są skocznie."
-            : "Wśród wybranych plików nie ma Dsj.exe.",
-          error: !dat,
-        });
-        return;
-      }
-      const hills = originalHillChoices(readOriginalHills(exe, dat));
-      onOriginalHills(hills);
-      setMessage({
-        text: dat ? `Wczytano skocznie: ${hills.length} (nazwy z Dsj.dat).` : `Wczytano skocznie: ${hills.length}.`,
-        error: false,
-      });
-    } catch (err) {
-      setMessage({
-        text: `Nie udało się odczytać plików: ${err instanceof Error ? err.message : String(err)}`,
-        error: true,
-      });
-    }
+    // Files may come one at a time (some pickers allow only one), so new ones join those chosen before.
+    const exe = (await bytesOf(files, "dsj.exe")) ?? gameFiles.exe;
+    const dat = (await bytesOf(files, "dsj.dat")) ?? gameFiles.dat;
+    const outcome = gameFilesOutcome({ ...(exe ? { exe } : {}), ...(dat ? { dat } : {}) }, (exeBytes, datBytes) =>
+      originalHillChoices(readOriginalHills(exeBytes, datBytes)),
+    );
+    if (outcome.keep) onGameFiles(outcome.keep);
+    if (outcome.hills) onOriginalHills(outcome.hills);
+    setMessage(outcome.message);
   };
 
   return (

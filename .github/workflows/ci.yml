@@ -21,10 +21,13 @@ jobs:
     name: web
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The merge commit and its first parent, to see which files a pull request changes.
+          fetch-depth: 2
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -50,23 +53,42 @@ jobs:
       - name: Only the build's own files in dist/, within the size budget
         run: pnpm check:dist
       # Browser tests of the build that was just checked, in Chromium, Firefox and WebKit on desktop, phone and
-      # tablet profiles. The browsers are cached per Playwright version; the system packages they need are not,
-      # so a cache hit still installs those.
+      # tablet profiles. They take several minutes, so a pull request that cannot change what the browser gets
+      # (documentation, the analysis tools, unit tests only) skips them; the default branch always runs them.
+      - name: Decide whether the browser tests are needed
+        id: browser
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          needed=true
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Files that reach the browser or the tests of it, without unit tests and their support files.
+            relevant=$(git diff --name-only HEAD^1 HEAD |
+              grep -E '^(src/|e2e/|public/|scripts/|\.github/workflows/|index\.html$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.json$|vite\.config\.ts$|playwright\.config\.ts$)' |
+              grep -vE '(\.test\.ts$|\.snap$|^src/sim/test-support/|^src/original/test-support/)' || true)
+            if [ -z "$relevant" ]; then needed=false; fi
+          fi
+          echo "needed=$needed" | tee -a "$GITHUB_OUTPUT"
+      # The browsers are cached per Playwright version; the system packages they need are not, so a cache hit
+      # still installs those.
       - name: Read the Playwright version
+        if: steps.browser.outputs.needed == 'true'
         id: playwright
         run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" | tee -a "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        if: steps.browser.outputs.needed == 'true'
         id: playwright-cache
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
       - name: Install the browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: steps.browser.outputs.needed == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm exec playwright install --with-deps chromium firefox webkit
       - name: Install the system packages of the cached browsers
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        if: steps.browser.outputs.needed == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium firefox webkit
       - name: The game works in real browsers
+        if: steps.browser.outputs.needed == 'true'
         run: pnpm test:browser
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()

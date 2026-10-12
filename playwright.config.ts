@@ -59,8 +59,9 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   forbidOnly: inCi,
   retries: inCi ? 1 : 0,
-  // The game keeps real time, so a crowded machine makes it drop simulation steps; two workers leave it room.
-  workers: 2,
+  // The game keeps real time, so a crowded machine makes it drop simulation steps: one worker fewer than the
+  // runner has processors, two on a developer's machine.
+  workers: inCi ? 3 : 2,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL: BASE_URL,
