@@ -194,22 +194,33 @@ export function playerData(page: Page): Promise<PlayerData> {
 /** What `playerData` returns after `plantPlayerData`, as long as nothing has touched the player's storage. */
 export const PLANTED_DATA: PlayerData = { save: PLANTED_SAVE, filesRecord: "kept", foreignCache: "kept" };
 
+/** Path of the script the page was started with. */
+const scriptOf = (page: Page): Promise<string | null> =>
+  page.evaluate(() => document.querySelector("script[src]")?.getAttribute("src") ?? null);
+
 /**
- * Launches the game again, as a player does after closing every window of it, until the given release answers.
+ * Launches the game again, as a player does after closing every window of it, until the given release is the
+ * one that runs: its worker answers and the page itself was started from its files.
+ *
  * A waiting worker takes over once no window is left; the browser does that a moment after the last one
- * closes, so a launch that still gets the old release is closed and repeated.
+ * closes. A launch in that moment may still be started from the old release, even while the new worker is
+ * already the one that answers afterwards; such a launch is closed and repeated, as a player's next one is.
  */
-export async function relaunchUntil(context: BrowserContext, origin: string, sourceSha: string): Promise<Page> {
+export async function relaunchUntil(context: BrowserContext, origin: string, release: TestRelease): Promise<Page> {
   for (let attempt = 0; attempt < REOPEN_LIMIT; attempt++) {
     const page = await context.newPage();
     await openGame(page, origin);
-    if ((await controlled(page)) && (await sourceShaSeenBy(page)) === sourceSha) return page;
+    const runs =
+      (await controlled(page)) &&
+      (await sourceShaSeenBy(page)) === release.sourceSha &&
+      (await scriptOf(page)) === scriptPathOf(release);
+    if (runs) return page;
     await page.close();
     await new Promise((resolve) => {
       setTimeout(resolve, REOPEN_WAIT_MS);
     });
   }
-  throw new Error(`The release ${sourceSha} did not take over after ${REOPEN_LIMIT} launches`);
+  throw new Error(`The release ${release.sourceSha} did not take over after ${REOPEN_LIMIT} launches`);
 }
 
 /** Path of the script the release's page loads, for example "/assets/index-abc.js". */

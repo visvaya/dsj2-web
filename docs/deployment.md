@@ -49,6 +49,10 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   „Gotowe do gry bez internetu.” dopiero wtedy, gdy aktywny worker potwierdzi komplet plików.
 - Pierwsza strona pierwszej wizyty nie jest przejmowana przez workera; gra startuje bez sieci od następnego
   uruchomienia.
+- Uruchomienie tuż po zamknięciu ostatniego okna może jeszcze raz wystartować ze starego wydania, zanim
+  przeglądarka przełączy workera (zaobserwowane w Chromium); nowe działa od kolejnego uruchomienia. Strona
+  ładuje wtedy wszystkie swoje pliki ze starego wydania, a gra niczego nie doładowuje później, więc wydania się
+  nie mieszają. Przy podziale kodu na części ładowane w trakcie gry trzeba do tego wrócić.
 
 Gdy skryptu gry nie da się pobrać (strona z jednego wydania, skrypt już z następnego), zostaje statyczny tekst
 z `index.html` z linkiem ponownego wczytania. Strona nie przeładowuje się sama.

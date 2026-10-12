@@ -127,7 +127,7 @@ test("a new release waits until every window is closed, then takes over and keep
   await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await page.close();
 
-  const first = await relaunchUntil(context, server.origin, RELEASE_A.sourceSha);
+  const first = await relaunchUntil(context, server.origin, RELEASE_A);
   await plantPlayerData(first);
   const second = await context.newPage();
   await openGame(second, server.origin);
@@ -156,12 +156,9 @@ test("a new release waits until every window is closed, then takes over and keep
 
   await second.close();
   await third.close();
-  const updated = await relaunchUntil(context, server.origin, RELEASE_B.sourceSha);
+  const updated = await relaunchUntil(context, server.origin, RELEASE_B);
   await expect(updated.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await expect(updated.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
-  expect(await updated.evaluate(() => document.querySelector("script[src]")?.getAttribute("src"))).toBe(
-    scriptPathOf(RELEASE_B),
-  );
   expect(gameCaches(await cacheNames(updated))).toHaveLength(1);
   expect(await playerData(updated)).toEqual(PLANTED_DATA);
 });
@@ -172,7 +169,7 @@ test("a release that cannot be stored whole leaves the running one as it was", a
   await requireServiceWorkers(page);
   await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await page.close();
-  const running = await relaunchUntil(context, server.origin, RELEASE_A.sourceSha);
+  const running = await relaunchUntil(context, server.origin, RELEASE_A);
   const cachesBefore = await cacheNames(running);
 
   server.setRoot(RELEASE_B.dir);
@@ -204,7 +201,7 @@ test("a release replaced on the server while it is being stored leaves no part o
   await requireServiceWorkers(page);
   await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await page.close();
-  const running = await relaunchUntil(context, server.origin, RELEASE_A.sourceSha);
+  const running = await relaunchUntil(context, server.origin, RELEASE_A);
   const cachesBefore = await cacheNames(running);
 
   // The worker of release B arrives; then, at the request for B's script, the server is back on release A,
@@ -234,7 +231,7 @@ test("going back to the earlier release reaches a player who has the newer one, 
   await requireServiceWorkers(page);
   await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await page.close();
-  const newer = await relaunchUntil(context, server.origin, RELEASE_B.sourceSha);
+  const newer = await relaunchUntil(context, server.origin, RELEASE_B);
   await plantPlayerData(newer);
 
   // The host serves release A again. For the player's browser that is one more update.
@@ -244,11 +241,8 @@ test("going back to the earlier release reaches a player who has the newer one, 
   expect(await sourceShaSeenBy(newer)).toBe(RELEASE_B.sourceSha);
   await newer.close();
 
-  const back = await relaunchUntil(context, server.origin, RELEASE_A.sourceSha);
+  const back = await relaunchUntil(context, server.origin, RELEASE_A);
   await expect(back.getByText(OFFLINE_NOTE.ready)).toBeVisible();
-  expect(await back.evaluate(() => document.querySelector("script[src]")?.getAttribute("src"))).toBe(
-    scriptPathOf(RELEASE_A),
-  );
   expect(gameCaches(await cacheNames(back))).toHaveLength(1);
   expect(await playerData(back)).toEqual(PLANTED_DATA);
 

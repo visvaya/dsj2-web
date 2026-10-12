@@ -43,7 +43,13 @@ test("at 200% zoom nothing scrolls sideways, is cut off or overlaps", async ({ p
 
 test("with the text spacing of WCAG 1.4.12 no text is cut off", async ({ page, traits }) => {
   await expectSoundLayouts(page, traits, async () => {
-    await page.addStyleTag({ content: TEXT_SPACING_CSS });
+    // A style sheet made through the style object model, as a reader's own style sheet or an extension adds
+    // one. The page's content security policy refuses a <style> element put into the document.
+    await page.evaluate((css) => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    }, TEXT_SPACING_CSS);
   });
 });
 
