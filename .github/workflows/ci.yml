@@ -5,7 +5,7 @@ on:
     branches: [master]
   pull_request:
   schedule:
-    # Weekly secret scan of the full history, Mondays 05:17 UTC.
+    # Weekly secret scan of the full history and workflow audit, Mondays 05:17 UTC.
     - cron: "17 5 * * 1"
 
 permissions:
@@ -16,11 +16,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Each job name is a required status check on pull requests; keep it equal to the job id.
   web:
+    name: web
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -37,6 +41,7 @@ jobs:
       - run: pnpm build
 
   tools:
+    name: tools
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     defaults:
@@ -44,6 +49,8 @@ jobs:
         working-directory: tools/re
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.14"
@@ -56,15 +63,22 @@ jobs:
       - run: python -m unittest discover -p "test_*.py"
 
   hygiene:
+    name: hygiene
     runs-on: ubuntu-latest
     env:
       GITLEAKS_VERSION: 8.30.1
       GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      ACTIONLINT_VERSION: 1.7.12
+      ACTIONLINT_SHA256: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      # Checksum of the manylinux x86_64 wheel on PyPI.
+      ZIZMOR_VERSION: 1.30.1
+      ZIZMOR_SHA256: eee12266b793cb87ad4a7e3af2e72404f8a63e3de5eb099b80bf7b1cfd232a8e
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The secret scan reads every commit.
           fetch-depth: 0
+          persist-credentials: false
       - name: Pull request title follows Conventional Commits
         if: github.event_name == 'pull_request'
         env:
@@ -82,6 +96,25 @@ jobs:
           echo "$GITLEAKS_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check
           tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" gitleaks
           "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --log-opts=--all
+      # actionlint checks that the workflows are correct (expressions, action inputs, ShellCheck on the run
+      # scripts); zizmor checks that they are safe. Both run even when an earlier step has failed.
+      - name: Workflows pass actionlint
+        if: ${{ !cancelled() }}
+        run: |
+          archive="actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          curl -sSfL -o "$RUNNER_TEMP/$archive" "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/$archive"
+          echo "$ACTIONLINT_SHA256  $RUNNER_TEMP/$archive" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP" actionlint
+          "$RUNNER_TEMP/actionlint" -color
+      - name: Workflows pass the zizmor security audit
+        if: ${{ !cancelled() }}
+        run: |
+          python3 -m venv "$RUNNER_TEMP/zizmor"
+          echo "zizmor==${ZIZMOR_VERSION} --hash=sha256:${ZIZMOR_SHA256}" > "$RUNNER_TEMP/zizmor.txt"
+          "$RUNNER_TEMP/zizmor/bin/pip" install --quiet --no-deps --only-binary :all: \
+            --require-hashes -r "$RUNNER_TEMP/zizmor.txt"
+          # Offline: the audits that query the GitHub API are skipped, so the step needs no token.
+          "$RUNNER_TEMP/zizmor/bin/zizmor" --persona pedantic --offline .github/workflows .github/dependabot.yml
       - name: No em dashes or emoji in tracked files
         env:
           LC_ALL: C.UTF-8
