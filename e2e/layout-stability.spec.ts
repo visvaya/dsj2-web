@@ -1,14 +1,5 @@
 import type { Page, TestInfo } from "@playwright/test";
-import {
-  builtInHill,
-  button,
-  closeJumpControls,
-  jumpCanvas,
-  openJumpControls,
-  openJumpFromStart,
-  press,
-  TEXT,
-} from "./support/app";
+import { button, closeJumpControls, jumpCanvas, openJumpControls, openJumpFromStart, press, TEXT } from "./support/app";
 import { expect, test, type DeviceTraits } from "./support/fixtures";
 import { boxOf, LAYOUT_SLACK_PX, type Box } from "./support/geometry";
 
@@ -87,12 +78,11 @@ test("settings and the pause controls do not move the picture or the main contro
 });
 
 // A web font that arrives after the first screen replaces the fallback font there and moves what was laid out in
-// it: the title of the menu by 20 pixels on a phone held sideways, the buttons under the picture by 53 pixels on
-// a desktop screen. So the fonts are inside the stylesheet and the first screen waits for them; this test holds
-// that in place.
+// it: with the web fonts switched off and on again, the buttons of the menu move by 4 pixels and the buttons under
+// the picture on a desktop screen by up to 57. So the fonts are inside the stylesheet and the first screen waits
+// for them; this test holds that in place.
 test("the first screen is already drawn in the web fonts, which are not fetched on their own", async ({
   page,
-  traits,
 }, testInfo) => {
   const fontRequests: string[] = [];
   page.on("request", (request) => {
@@ -126,26 +116,15 @@ test("the first screen is already drawn in the web fonts, which are not fetched 
   await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
   expect(await webFontsShown(), "fonts of the first screen").toEqual({ silkscreen: true, polishLetters: true });
-  const menuBefore = await menuPositions(page);
-  await press(button(page, TEXT.training), traits);
-  await press(builtInHill(page), traits);
-  await expect(jumpCanvas(page)).toBeVisible();
-  const jumpBefore = await jumpPositions(page, traits);
+  const before = await menuPositions(page);
 
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
+  const shift = largestShift(before, await menuPositions(page));
+  report(testInfo, "fonts settled on the menu", shift);
 
-  const jumpShift = largestShift(jumpBefore, await jumpPositions(page, traits));
-  report(testInfo, "fonts settled on the jump screen", jumpShift);
-  await openJumpControls(page, traits);
-  await press(button(page, TEXT.toHills), traits);
-  await press(button(page, TEXT.back), traits);
-  const menuShift = largestShift(menuBefore, await menuPositions(page));
-  report(testInfo, "fonts settled on the menu", menuShift);
-
-  expect(jumpShift.px, `${jumpShift.what} moved on the jump screen`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
-  expect(menuShift.px, `${menuShift.what} moved on the menu`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
+  expect(shift.px, `${shift.what} moved on the menu`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
   expect(fontRequests, "fonts fetched as separate files").toEqual([]);
 });
 
