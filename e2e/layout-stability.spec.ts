@@ -99,15 +99,27 @@ test("the web font arriving late does not move the picture or the main controls"
     await held;
     await route.continue();
   });
-  // The state of the font faces themselves: `document.fonts.check` answers true in WebKit while the file is still
-  // held back. A small face is inlined in the stylesheet and loads at once, so the question is whether any face
-  // is still on its way.
-  const fontsArriving = () => page.evaluate(() => Array.from(document.fonts).some((face) => face.status === "loading"));
+  // Whether text is drawn in the web font, measured on the page itself: the same words are as wide in
+  // "Silkscreen" as in the fallback only while the web font is missing. The font loading interface is not used,
+  // because WebKit reports a held-back font neither as loading nor as missing.
+  const webFontShown = () =>
+    page.evaluate(() => {
+      const widthIn = (family: string): number => {
+        const probe = document.createElement("span");
+        probe.textContent = "Telemark 0123456789";
+        probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:32px ${family}`;
+        document.body.append(probe);
+        const width = probe.getBoundingClientRect().width;
+        probe.remove();
+        return width;
+      };
+      return widthIn('"Silkscreen", monospace') !== widthIn("monospace");
+    });
 
   // Not the load event: Firefox and WebKit hold it back until the fonts have arrived.
   await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
-  expect(await fontsArriving(), "the fallback font is in use").toBe(true);
+  expect(await webFontShown(), "the fallback font is in use").toBe(false);
   const menuBefore = await menuPositions(page);
   await press(button(page, TEXT.training), traits);
   await press(builtInHill(page), traits);
@@ -115,7 +127,7 @@ test("the web font arriving late does not move the picture or the main controls"
   const jumpBefore = await jumpPositions(page, traits);
 
   release();
-  await expect.poll(fontsArriving).toBe(false);
+  await expect.poll(webFontShown).toBe(true);
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
