@@ -119,6 +119,7 @@ function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
   );
 }
 
+// oxlint-disable-next-line max-lines-per-function -- to be split: sound and tilt set-up, the jump loop, the controls markup
 export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -194,6 +195,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     };
   }, [touch, wantsTilt]);
 
+  // oxlint-disable-next-line max-lines-per-function -- to be split: the frame loop, sounds, canvas fitting, pointer lock, input listeners
   useEffect(() => {
     const stage = stageRef.current;
     const canvas = canvasRef.current;

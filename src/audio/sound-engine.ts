@@ -151,6 +151,7 @@ interface FlutterNodes {
 
 const LAYER_KEYS = ["rumble", "skis", "air", "wind"] as const;
 
+// oxlint-disable-next-line max-lines-per-function -- to be split: the node graph, the burst and tone voices, the cue table
 export function createSoundEngine(makeContext: () => ContextLike | null = defaultContext): SoundEngine {
   let ctx: ContextLike | null = null;
   let master: GainLike | null = null;
