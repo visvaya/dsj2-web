@@ -21,6 +21,7 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
 export interface JumpResult {
   distanceM: number;
@@ -273,9 +274,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const isRecord = !result.fell && result.distanceM > 0 && (!best || result.distanceM > best.distanceM);
       newRecord = isRecord;
       latest.current.onFinished(result);
-      setAnnouncement(
-        `Odległość ${result.distanceM.toFixed(2)} metra, ${result.points.toFixed(1)} punktu.${isRecord ? " Nowy rekord skoczni." : ""} Lewy przycisk lub R: jeszcze raz.`,
-      );
+      setAnnouncement(resultAnnouncement(L, { newRecord: isRecord, touch: latest.current.controls !== "mouse" }));
     };
 
     /** Notes as they appear, the record jingle after the last one, and the continuous layers. */
@@ -338,7 +337,10 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         for (const event of feedbackEvents(prev, jump.state)) {
           if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
+          if (event === "start") setAnnouncement(JUMP_STARTED_ANNOUNCEMENT);
         }
+        // The jump is scored in the frame of the touchdown, seconds before the jumper stops.
+        if (!prev.logic.finished && jump.state.logic.finished) setAnnouncement(touchdownAnnouncement(jump.state.logic));
         for (const event of soundEvents(prev, jump.state)) soundRef.current?.play(event);
       }
       const over = isJumpOver(jump);
