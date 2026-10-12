@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { stepJumper, type JumperState } from "./jumper-step";
-import {
-  TRACE_POINT,
-  decodeHill,
-  decodeJumperControls,
-  decodeJumperState,
-  listTraces,
-  readTrace,
-} from "./test-support/dsj-trace";
+import { TRACE_POINT, decodeHill, decodeJumperControls, decodeJumperState, readTrace } from "./test-support/dsj-trace";
+import { goldenTraces } from "./test-support/golden-files";
 
-const traces = listTraces();
+const golden = goldenTraces();
 
 /** Relative tolerance: the original keeps x87 80-bit intermediates, this port uses doubles. */
 const REL_TOLERANCE = 1e-6;
@@ -35,17 +29,23 @@ function compare(got: JumperState, want: JumperState): { bad: string[]; exact: b
   return { bad, exact };
 }
 
-describe.skipIf(traces.length === 0)("jumper step against the original game traces", () => {
-  for (const trace of traces)
+describe.skipIf(!golden.requested)("jumper step against the original game traces", () => {
+  it("has the traces it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  for (const trace of golden.traces)
     it(`${trace.name}: reproduces every frame from the entry snapshot`, () => {
       const snaps = readTrace(trace.path);
       const entries = snaps.filter((s) => s.point === TRACE_POINT.jumperStep);
       const exits = new Map(snaps.filter((s) => s.point === TRACE_POINT.readInput).map((s) => [s.frame, s]));
       let exact = 0;
+      let compared = 0;
       const failures: string[] = [];
       for (const entry of entries) {
         const exit = exits.get(entry.frame);
         if (!exit) continue;
+        compared++;
         const got = stepJumper(decodeJumperState(entry.view), decodeJumperControls(entry.view), decodeHill(entry.view));
         const want = decodeJumperState(exit.view);
         const { bad, exact: bitExact } = compare(got, want);
@@ -57,6 +57,7 @@ describe.skipIf(traces.length === 0)("jumper step against the original game trac
       }
       console.info(`${trace.name} jumper step: ${entries.length} frames, ${exact} bit-exact`);
       expect(entries.length).toBeGreaterThan(500);
+      expect(compared, "frames compared").toBeGreaterThan(0);
       expect(failures).toEqual([]);
     });
 });

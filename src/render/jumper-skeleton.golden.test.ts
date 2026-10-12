@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
-import { TRACE_POINT, decodeLogic, decodePose, listTraces, readTrace } from "../sim/test-support/dsj-trace";
+import { TRACE_POINT, decodeLogic, decodePose, readTrace } from "../sim/test-support/dsj-trace";
+import { goldenTraces } from "../sim/test-support/golden-files";
 import { POINT_COUNT, skeletonPoints } from "./jumper-skeleton";
 
-const traces = listTraces();
+const golden = goldenTraces();
 /** The original stores the 21 points (z, x, y Singles) from DS:4456 on. */
 const POINTS_BASE = 0x444a;
 
-describe.skipIf(traces.length === 0)("jumper figure against the original", () => {
-  for (const trace of traces) {
+describe.skipIf(!golden.requested)("jumper figure against the original", () => {
+  it("has the traces it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  for (const trace of golden.traces) {
     it(`${trace.name}: skeleton points match the stored ones`, () => {
       const snaps = readTrace(trace.path).filter((s) => s.point === TRACE_POINT.windUpdate);
       let compared = 0;

@@ -13,25 +13,31 @@ import {
   decodePose,
   decodeRandSeed,
   diffStates,
-  listTraces,
   readTrace,
 } from "./test-support/dsj-trace";
+import { goldenTraces } from "./test-support/golden-files";
 
-const traces = listTraces();
+const golden = goldenTraces();
 const REL_TOLERANCE = 1e-6;
 /** Incremented by the loop before the next snapshot. */
 const SKIP = new Set(["logic.frame"]);
 
-describe.skipIf(traces.length === 0)("frame logic against original game traces", () => {
-  for (const trace of traces) {
+describe.skipIf(!golden.requested)("frame logic against original game traces", () => {
+  it("has the traces it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  for (const trace of golden.traces) {
     it(`${trace.name}: reproduces each frame from the entry snapshot`, () => {
       const snaps = readTrace(trace.path);
       const next = new Map(snaps.filter((s) => s.point === TRACE_POINT.windUpdate).map((s) => [s.frame, s]));
       const entries = snaps.filter((s) => s.point === TRACE_POINT.frameLogic);
       const failures: string[] = [];
+      let compared = 0;
       for (const entry of entries) {
         const exit = next.get(entry.frame + 1);
         if (!exit) continue;
+        compared++;
         const v = entry.view;
         const frame = {
           logic: decodeLogic(v),
@@ -60,6 +66,7 @@ describe.skipIf(traces.length === 0)("frame logic against original game traces",
         }
       }
       expect(entries.length).toBeGreaterThan(500);
+      expect(compared, "frames compared").toBeGreaterThan(0);
       expect(failures).toEqual([]);
     });
   }

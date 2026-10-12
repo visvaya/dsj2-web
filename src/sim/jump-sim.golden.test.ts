@@ -13,17 +13,23 @@ import {
   decodeRandSeed,
   decodeWind,
   diffStates,
-  gameFile,
-  listTraces,
   readTrace,
 } from "./test-support/dsj-trace";
+import { goldenTraces, replayCases } from "./test-support/golden-files";
 
-const cases = listTraces()
-  .map((t) => ({ ...t, replay: gameFile(`${t.name}.rpl`) }))
-  .filter((t): t is typeof t & { replay: string } => t.replay !== undefined);
+const golden = goldenTraces();
+const { cases, missing } = replayCases(golden.traces);
 const REL_TOLERANCE = 1e-5;
 
-describe.skipIf(cases.length === 0)("whole jump from a replay file against the original game", () => {
+describe.skipIf(!golden.requested)("whole jump from a replay file against the original game", () => {
+  it("has the traces it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  it("has the replay file of every trace", () => {
+    expect(missing).toEqual([]);
+  });
+
   for (const c of cases) {
     it(`${c.name}: same state every frame and the recorded distance`, () => {
       const { header, record } = decodeReplayFile(new Uint8Array(readFileSync(c.replay)));
