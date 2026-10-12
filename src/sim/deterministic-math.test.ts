@@ -1,5 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { detAtan, detCos, detExp, detSin } from "./deterministic-math";
 
@@ -66,7 +67,7 @@ describe("deterministic math", () => {
   });
 
   it("is the only place in src/sim that calls engine trigonometry or exp", () => {
-    const dir = new URL(".", import.meta.url).pathname;
+    const dir = fileURLToPath(new URL(".", import.meta.url));
     const offenders: string[] = [];
     const walk = (d: string) => {
       for (const entry of readdirSync(d, { withFileTypes: true })) {
