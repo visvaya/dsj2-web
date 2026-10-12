@@ -13,73 +13,108 @@ import {
 import { soundMix } from "./sound-mix";
 
 /** Records what the engine asks of Web Audio. */
-class FakeParam implements ParamLike {
-  target = 0;
-  setValueAtTime(v: number) {
-    this.target = v;
-  }
-  linearRampToValueAtTime(v: number) {
-    this.target = v;
-  }
-  exponentialRampToValueAtTime(v: number) {
-    this.target = v;
-  }
-  setTargetAtTime(v: number) {
-    this.target = v;
-  }
+interface FakeParam extends ParamLike {
+  readonly target: number;
 }
 
-class FakeContext implements ContextLike {
-  currentTime = 1;
-  sampleRate = 8000;
-  state = "suspended";
-  resumed = 0;
-  closed = false;
-  started = 0;
-  oscillators = 0;
-  readonly destination: NodeLike = { connect: () => undefined };
-  readonly gains: GainLike[] = [];
-  createGain(): GainLike {
-    const g = { gain: new FakeParam(), connect: () => undefined };
-    this.gains.push(g);
-    return g;
-  }
-  createBiquadFilter(): FilterLike {
-    return { type: "lowpass", frequency: new FakeParam(), Q: new FakeParam(), connect: () => undefined };
-  }
-  createBufferSource(): SourceLike {
-    return { buffer: null, loop: false, connect: () => undefined, start: () => void this.started++ };
-  }
-  createOscillator(): OscillatorLike {
-    this.oscillators++;
-    return {
-      type: "sine",
-      frequency: new FakeParam(),
-      connect: () => undefined,
-      start: () => undefined,
-      stop: () => undefined,
-    };
-  }
-  createBuffer(_channels: number, length: number): BufferLike {
-    const data = new Float32Array(length);
-    return { getChannelData: () => data };
-  }
-  resume() {
-    this.resumed++;
-    this.state = "running";
-    return Promise.resolve();
-  }
-  close() {
-    this.closed = true;
-    return Promise.resolve();
-  }
+function fakeParam(): FakeParam {
+  let target = 0;
+  const follow = (v: number): void => {
+    target = v;
+  };
+  return {
+    get target() {
+      return target;
+    },
+    setValueAtTime: follow,
+    linearRampToValueAtTime: follow,
+    exponentialRampToValueAtTime: follow,
+    setTargetAtTime: follow,
+  };
 }
 
-const gainOf = (g: GainLike | undefined) => (g?.gain instanceof FakeParam ? g.gain.target : NaN);
+interface FakeGain extends GainLike {
+  readonly gain: FakeParam;
+}
+
+interface FakeContext extends ContextLike {
+  readonly resumed: number;
+  readonly closed: boolean;
+  readonly started: number;
+  readonly oscillators: number;
+  readonly gains: readonly FakeGain[];
+}
+
+function fakeContext(): FakeContext {
+  let state = "suspended";
+  let resumed = 0;
+  let closed = false;
+  let started = 0;
+  let oscillators = 0;
+  const destination: NodeLike = { connect: () => undefined };
+  const gains: FakeGain[] = [];
+  return {
+    currentTime: 1,
+    sampleRate: 8000,
+    destination,
+    gains,
+    get state() {
+      return state;
+    },
+    get resumed() {
+      return resumed;
+    },
+    get closed() {
+      return closed;
+    },
+    get started() {
+      return started;
+    },
+    get oscillators() {
+      return oscillators;
+    },
+    createGain(): GainLike {
+      const g = { gain: fakeParam(), connect: () => undefined };
+      gains.push(g);
+      return g;
+    },
+    createBiquadFilter(): FilterLike {
+      return { type: "lowpass", frequency: fakeParam(), Q: fakeParam(), connect: () => undefined };
+    },
+    createBufferSource(): SourceLike {
+      return { buffer: null, loop: false, connect: () => undefined, start: () => void started++ };
+    },
+    createOscillator(): OscillatorLike {
+      oscillators++;
+      return {
+        type: "sine",
+        frequency: fakeParam(),
+        connect: () => undefined,
+        start: () => undefined,
+        stop: () => undefined,
+      };
+    },
+    createBuffer(_channels: number, length: number): BufferLike {
+      const data = new Float32Array(length);
+      return { getChannelData: () => data };
+    },
+    resume() {
+      resumed++;
+      state = "running";
+      return Promise.resolve();
+    },
+    close() {
+      closed = true;
+      return Promise.resolve();
+    },
+  };
+}
+
+const gainOf = (g: FakeGain | undefined) => g?.gain.target ?? NaN;
 
 describe("sound engine", () => {
   it("stays silent until a gesture unlocks it, then starts the continuous layers once", () => {
-    const fake = new FakeContext();
+    const fake = fakeContext();
     let made = 0;
     const engine = createSoundEngine(() => {
       made++;
@@ -100,7 +135,7 @@ describe("sound engine", () => {
   });
 
   it("follows the mix and plays cues only while enabled", () => {
-    const fake = new FakeContext();
+    const fake = fakeContext();
     const engine = createSoundEngine(() => fake);
     engine.unlock();
     // Gains: master, the ground layers' shared gain, the depth of its flutter, then one per layer (rumble, skis,
@@ -151,7 +186,7 @@ describe("sound engine", () => {
       "record",
     ] as const;
     const silent = cues.filter((cue) => {
-      const fake = new FakeContext();
+      const fake = fakeContext();
       const engine = createSoundEngine(() => fake);
       engine.unlock();
       const before = fake.started + fake.oscillators;
