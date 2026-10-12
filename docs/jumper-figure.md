@@ -1,7 +1,7 @@
 # Figura skoczka (v2.10P)
 
 Oryginał nie ma sprite'ów skoczka: rysuje go z pozy (`src/sim/pose.ts`) jako szkielet 3D w rzucie ukośnym.
-Port: `src/render/jumper-skeleton.ts`, rysowanie: `src/render/jump-view.ts`.
+Port: `src/render/jumper-skeleton.ts`, rysowanie: `src/render/jump-view-jumper.ts`.
 
 ## Znaczenie pól pozy
 

@@ -7,9 +7,13 @@
 | `src/sim/*.test.ts` | testy jednostkowe (generator, profil skoczni, funkcje deterministyczne) | wszędzie |
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
+| `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek) | wszędzie |
 
 Testy porównawcze („golden”) są pomijane, gdy nie ma śladów. Ślady i pliki gry nie trafiają do repozytorium.
+
+Celowa zmiana wyglądu wymaga odświeżenia migawki pikseli: `pnpm test -u src/render/jump-view.pixels.test.ts`.
+Diff migawki pokazuje, które sceny się zmieniły; zmiana w scenie, której nie dotyczyła praca, to błąd.
 
 ## Testy porównawcze z oryginałem
 

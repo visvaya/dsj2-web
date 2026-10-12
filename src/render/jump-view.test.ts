@@ -14,12 +14,7 @@ import {
 } from "./jump-view";
 import { terrainYM } from "../sim/hill-profile";
 import { color } from "./palette";
-
-function fnv(bytes: Uint8ClampedArray): string {
-  let h = 0x811c9dc5;
-  for (const b of bytes) h = Math.imul(h ^ b, 0x01000193) >>> 0;
-  return h.toString(16);
-}
+import { fnv } from "./test-support/frame-hash";
 
 /** Mean of the colour channels over the whole frame. */
 function brightness(fb: FrameBuffer): number {
