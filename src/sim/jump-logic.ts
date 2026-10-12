@@ -54,7 +54,7 @@ const LANDING_PREP_MAX_S = 0.6;
 const FALL_THRESHOLD = 60;
 const DISTANCE_STEP_M = f32(0.1);
 
-export interface JudgeState {
+interface JudgeState {
   showFrame: number;
   counted: boolean;
   note: number;

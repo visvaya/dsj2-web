@@ -19,7 +19,7 @@ export interface Point3 {
   y: number;
 }
 
-export const POINT = {
+const POINT = {
   ski0Tail: 1,
   ski0Tip: 2,
   ski1Tail: 3,

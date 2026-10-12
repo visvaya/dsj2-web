@@ -1,9 +1,9 @@
 import type { FrameInput } from "../sim/jump-logic";
 
 /** The original clamps the mouse motion of one frame to a signed byte. */
-export const MOTION_LIMIT = 127;
+const MOTION_LIMIT = 127;
 /** Motion per frame while a lean key is held (keyboard alternative to the mouse). */
-export const KEY_LEAN_PER_FRAME = 6;
+const KEY_LEAN_PER_FRAME = 6;
 
 /** Where a held button comes from; a button counts as held while any source holds it. */
 export type ButtonSource = "mouse" | "keys" | "touch";

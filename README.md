@@ -36,6 +36,8 @@ pnpm dev            # development server
 pnpm typecheck
 pnpm lint
 pnpm format         # rewrite the sources in the project's format (oxfmt)
+pnpm check:unused   # unused files, exports and dependencies (knip)
+pnpm check:duplicates  # duplicated code (jscpd); src/sim is exempt, the port repeats where the original does
 pnpm test
 pnpm test:coverage  # the tests with the coverage floor for src/sim, as in CI
 pnpm build          # production build in dist/
@@ -73,9 +75,10 @@ The notes in `docs` are mostly in Polish.
 ## Contributing
 
 `master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
-and becomes the commit. CI runs the checks above, verifies the formatting (`pnpm format:check`), tests the build
-scripts (`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), and
-adds a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
+and becomes the commit. CI runs the checks above, including the search for unused code (`pnpm check:unused`)
+and for duplicates (`pnpm check:duplicates`), verifies the formatting (`pnpm format:check`), tests the build scripts
+(`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), and adds a
+dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
 dashes and emoji. Security reports: see `SECURITY.md`.
 
 ## Legal

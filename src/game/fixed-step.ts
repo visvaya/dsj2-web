@@ -1,9 +1,9 @@
 import { FRAME_DT_S } from "../sim/physics-constants";
 
 /** The simulation always advances in steps of the original frame time (1/70 s). */
-export const SIM_STEP_S = FRAME_DT_S;
+const SIM_STEP_S = FRAME_DT_S;
 /** After a long pause (tab in the background) the game skips time instead of catching up. */
-export const MAX_STEPS_PER_UPDATE = 8;
+const MAX_STEPS_PER_UPDATE = 8;
 
 export interface StepPlan {
   steps: number;

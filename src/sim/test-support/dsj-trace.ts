@@ -196,11 +196,7 @@ export function decodeInput(v: DataView): FrameInput {
 export const decodeKPoint = (v: DataView): number => v.getInt16(0x464c, true);
 
 /** Flattens nested numbers and booleans into path/value pairs for comparisons. */
-export function flatten(
-  value: unknown,
-  path = "",
-  out: [string, number | boolean][] = [],
-): [string, number | boolean][] {
+function flatten(value: unknown, path = "", out: [string, number | boolean][] = []): [string, number | boolean][] {
   if (typeof value === "number" || typeof value === "boolean") {
     out.push([path, value]);
   } else if (Array.isArray(value)) {

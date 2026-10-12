@@ -12,10 +12,9 @@ import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model
 import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 
-export { PIXELS_PER_M } from "./jump-view-camera";
 export { FALLEN_MAX_HEIGHT_M, figureHalfWidthM, figurePoints } from "./jump-view-jumper";
-export { windSockDirection, xAtDistance } from "./jump-view-landing";
-export { DAY_SCENERY, type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
+export { windSockDirection } from "./jump-view-landing";
+export { type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
 export const VIEW_HEIGHT_PX = 200;

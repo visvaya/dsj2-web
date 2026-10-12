@@ -7,10 +7,10 @@ import type { WindState } from "./wind";
  * A replay holds the random seed, the starting wind and the player's input;
  * the jump itself is recomputed by the simulation.
  */
-export const REPLAY_KEY = 0x26b51b17;
-export const REPLAY_HEADER_BYTES = 13;
-export const REPLAY_RECORD_BYTES = 0x4b5;
-export const REPLAY_FILE_BYTES = REPLAY_HEADER_BYTES + REPLAY_RECORD_BYTES + 4;
+const REPLAY_KEY = 0x26b51b17;
+const REPLAY_HEADER_BYTES = 13;
+const REPLAY_RECORD_BYTES = 0x4b5;
+const REPLAY_FILE_BYTES = REPLAY_HEADER_BYTES + REPLAY_RECORD_BYTES + 4;
 const BUTTON_WINDOW_FRAMES = 20;
 
 export interface ReplayRecord {

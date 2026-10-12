@@ -5,7 +5,7 @@ import type { Layer, Mix, SoundEvent } from "./sound-mix";
  * Game sounds made in the browser (Web Audio): filtered noise for skis, air and wind, short synthesised cues
  * for the jump's moments. No recordings, so nothing to license. The engine only plays what it is told.
  */
-export type SoundCue = FeedbackEvent | SoundEvent | "noteCounted" | "noteDropped" | "record";
+type SoundCue = FeedbackEvent | SoundEvent | "noteCounted" | "noteDropped" | "record";
 
 /** The parts of the Web Audio API the engine uses (a real AudioContext fits; tests pass a stand-in). */
 export interface ParamLike {

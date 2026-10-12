@@ -9,19 +9,19 @@ import { f32 } from "./physics-constants";
  * towards its target at a constant rate; a pose sets targets and rates at once.
  * Joint k of the original (1..9) is stored at index k - 1.
  */
-export const JOINT_COUNT = 9;
+const JOINT_COUNT = 9;
 /** Joint 2: ski pitch, used by the flight physics. */
 export const SKI_JOINT = 1;
 export const UPPER_SEGMENT = 0;
 export const LOWER_SEGMENT = 1;
 /** Table value meaning "use the terrain slope angle". */
-export const SLOPE_MARKER = -99;
+const SLOPE_MARKER = -99;
 export const UPPER_SEGMENT_MAX_M = 1.08;
-export const LOWER_SEGMENT_MAX_M = 0.74;
+const LOWER_SEGMENT_MAX_M = 0.74;
 /** Pose id written directly (not through the table) after a crash landing. */
 export const CRASH_POSE_ID = 100;
 
-export interface Channels {
+interface Channels {
   current: number[];
   target: number[];
   rate: number[];
@@ -38,7 +38,7 @@ export interface PoseState {
   legs: [LegPose, LegPose];
 }
 
-export interface PoseLegDefinition {
+interface PoseLegDefinition {
   upperLength: number;
   upperRate: number;
   lowerLength: number;

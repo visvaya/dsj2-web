@@ -35,6 +35,12 @@ jobs:
         run: pnpm audit --prod
       - run: pnpm typecheck
       - run: pnpm lint
+      - name: No unused files, exports or dependencies
+        run: pnpm check:unused
+      # src/sim is exempt (.jscpd.json): it is a port whose routines mirror the original's, including its
+      # repetitions, so they are not merged.
+      - name: No duplicated code
+        run: pnpm check:duplicates
       - run: pnpm format:check
       # Golden tests need a trace of the original game and are skipped here. The run also enforces the
       # coverage thresholds for src/sim set in vite.config.ts.

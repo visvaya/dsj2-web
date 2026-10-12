@@ -3,7 +3,7 @@ import { FrameBuffer, type Rgb } from "./frame-buffer";
 const sixBit = (v: number) => Math.min(252, Math.max(0, Math.round(v / 4) * 4));
 
 /** Rounds each channel to the 6-bit levels of a VGA DAC. */
-export function vga(r: number, g: number, b: number): Rgb {
+function vga(r: number, g: number, b: number): Rgb {
   return [sixBit(r), sixBit(g), sixBit(b)];
 }
 
@@ -268,9 +268,4 @@ export function swatchRampTable(index: number, steps: number): Uint32Array {
 export function band(table: Uint32Array, t: number): number {
   const steps = table.length - 1;
   return table[Math.round(Math.min(1, Math.max(0, t)) * steps)] ?? 0;
-}
-
-/** Colour between two palette entries, quantised into bands like a 256-colour palette. */
-export function ramp(a: ColorName, b: ColorName, t: number, steps: number): number {
-  return band(rampTable(a, b, steps), t);
 }

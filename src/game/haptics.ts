@@ -4,7 +4,7 @@ import type { JumpSimState } from "../sim/jump-sim";
 export type FeedbackEvent = "start" | "takeoff" | "landing" | "crash";
 
 /** Vibration patterns in milliseconds (on, off, on, ...). */
-export const VIBRATION_MS: Readonly<Record<FeedbackEvent, readonly number[]>> = {
+const VIBRATION_MS: Readonly<Record<FeedbackEvent, readonly number[]>> = {
   start: [15],
   takeoff: [30],
   landing: [45],

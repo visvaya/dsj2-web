@@ -24,7 +24,7 @@ const NEAR_EDGE_SHIFT_PX = DEPTH_TO_X * SLOPE_HALF_WIDTH_M * PIXELS_PER_M;
 const distanceCache = new WeakMap<HillProfile, Map<number, number>>();
 
 /** x reached after `distanceM` of arc along the landing hill from the takeoff (display only). */
-export function xAtDistance(h: HillProfile, distanceM: number): number {
+function xAtDistance(h: HillProfile, distanceM: number): number {
   let byDistance = distanceCache.get(h);
   if (byDistance === undefined) {
     byDistance = new Map();

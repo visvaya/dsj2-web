@@ -3,7 +3,7 @@ import { detCos, detSin } from "./deterministic-math";
 import { f32 } from "./physics-constants";
 import { INDICATOR_MAX_TURN_RATE_RAD, randomCentered, randomUnit, type WindState } from "./wind";
 
-export const TRAINING_WIND_MAX_M_PER_S = 4.5;
+const TRAINING_WIND_MAX_M_PER_S = 4.5;
 /** Random(6282) / 1000 covers 0..2*pi in steps of 1 mrad. */
 const DIRECTION_STEPS = 6282;
 

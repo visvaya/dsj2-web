@@ -17,17 +17,17 @@ export interface WindState {
   indicatorMaxTurnRateRad: number;
 }
 
-export const WIND_UPDATE_PERIOD_FRAMES = 10;
-export const WIND_SOFT_LIMIT_M_PER_S = 3.8;
-export const WIND_DAMPING_DIVISOR = 50;
-export const WIND_GAUSS_SAMPLES = 5;
-export const INDICATOR_TURN_STEP_RAD = 0.05;
-export const INDICATOR_DEAD_ZONE = 0.05;
+const WIND_UPDATE_PERIOD_FRAMES = 10;
+const WIND_SOFT_LIMIT_M_PER_S = 3.8;
+const WIND_DAMPING_DIVISOR = 50;
+const WIND_GAUSS_SAMPLES = 5;
+const INDICATOR_TURN_STEP_RAD = 0.05;
+const INDICATOR_DEAD_ZONE = 0.05;
 export const INDICATOR_MAX_TURN_RATE_RAD = 0.2;
 const RANDOM_WORD_RANGE = 0xffff;
 
 /** x87 FISTP with the default rounding mode: nearest, ties to even. */
-export function roundHalfEven(v: number): number {
+function roundHalfEven(v: number): number {
   const r = Math.round(v);
   return Math.abs(v % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r;
 }
