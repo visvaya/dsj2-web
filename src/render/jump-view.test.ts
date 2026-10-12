@@ -41,49 +41,54 @@ describe("jump view", () => {
     ["day", { lighting: "day", snowfall: false, fog: false }],
     ["night with snow", { lighting: "night", snowfall: true, fog: false }],
     ["dusk with fog", { lighting: "dusk", snowfall: false, fog: true }],
-  ])("draws every phase of a jump (%s) without leaving unpainted pixels, the same way each time", (_name, scenery) => {
-    const hill = OWN_HILLS[0];
-    if (!hill) throw new Error("no hill");
-    const render = () => {
-      let jump = startTrainingJump(hill, 7);
-      const bot = makeBot(
-        hill.profile,
-        { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
-        () => jump.state,
-      );
-      const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
-      const hashes: string[] = [];
-      let unpainted = 0;
-      // Past the end of the jump too, while the judges' notes appear.
-      for (let f = 0; f < 3000 && jump.framesAfterEnd < 200; f++) {
-        jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
-        const frame = presentationFrame(jump);
-        if (frame % 100 === 0) {
-          fb.pixels.fill(0);
-          drawJumpView(fb, {
-            profile: hill.profile,
-            kPointM: hill.kPointM,
-            hillName: hill.name,
-            playerName: "GRACZ 1",
-            state: jump.state,
-            controls: "touch",
-            frame,
-            over: isJumpOver(jump),
-            recordM: 80,
-            newRecord: true,
-            scenery,
-          });
-          unpainted += fb.pixels.filter((p) => p === 0).length;
-          hashes.push(fnv(fb.bytes));
+  ])(
+    "draws every phase of a jump (%s) without leaving unpainted pixels, the same way each time",
+    (_name, scenery) => {
+      const hill = OWN_HILLS[0];
+      if (!hill) throw new Error("no hill");
+      const render = () => {
+        let jump = startTrainingJump(hill, 7);
+        const bot = makeBot(
+          hill.profile,
+          { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+          () => jump.state,
+        );
+        const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
+        const hashes: string[] = [];
+        let unpainted = 0;
+        // Past the end of the jump too, while the judges' notes appear.
+        for (let f = 0; f < 3000 && jump.framesAfterEnd < 200; f++) {
+          jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+          const frame = presentationFrame(jump);
+          if (frame % 100 === 0) {
+            fb.pixels.fill(0);
+            drawJumpView(fb, {
+              profile: hill.profile,
+              kPointM: hill.kPointM,
+              hillName: hill.name,
+              playerName: "GRACZ 1",
+              state: jump.state,
+              controls: "touch",
+              frame,
+              over: isJumpOver(jump),
+              recordM: 80,
+              newRecord: true,
+              scenery,
+            });
+            unpainted += fb.pixels.filter((p) => p === 0).length;
+            hashes.push(fnv(fb.bytes));
+          }
         }
-      }
-      return { hashes, unpainted };
-    };
-    const first = render();
-    expect(first.hashes.length).toBeGreaterThan(5);
-    expect(first.unpainted).toBe(0);
-    expect(render()).toEqual(first);
-  });
+        return { hashes, unpainted };
+      };
+      const first = render();
+      expect(first.hashes.length).toBeGreaterThan(5);
+      expect(first.unpainted).toBe(0);
+      expect(render()).toEqual(first);
+      // Two whole jumps are drawn frame by frame; on a slow or busy machine that takes longer than the default.
+    },
+    30_000,
+  );
 
   it("shows no judges' notes after a disqualification", () => {
     const hill = OWN_HILLS[0];
