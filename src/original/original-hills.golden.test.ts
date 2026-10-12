@@ -1,21 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  TRACE_POINT,
-  decodeHill,
-  decodeKPoint,
-  diffStates,
-  gameFile,
-  hillTraceFile,
-  readTrace,
-} from "../sim/test-support/dsj-trace";
+import { TRACE_POINT, decodeHill, decodeKPoint, diffStates, readTrace } from "../sim/test-support/dsj-trace";
+import { hillGoldenFiles } from "../sim/test-support/golden-files";
 import { ORIGINAL_HILL_COUNTRY, fallbackHillName } from "../game/hill-choice";
 import { COUNTRY_NAME_PL } from "../render/flags";
 import { readOriginalHills } from "./original-hills";
 
-const exePath = gameFile("Dsj.exe");
-const datPath = gameFile("Dsj.dat");
-const tracePath = hillTraceFile();
+const golden = hillGoldenFiles();
+const { exe: exePath, dat: datPath, hillTrace: tracePath } = golden;
+const noExe = exePath === undefined;
+const noTexts = noExe || datPath === undefined;
+const noHillTrace = noExe || tracePath === undefined;
 
 function load() {
   const exe = new Uint8Array(readFileSync(exePath ?? ""));
@@ -23,12 +18,16 @@ function load() {
   return readOriginalHills(exe, dat);
 }
 
-describe.skipIf(exePath === undefined)("hills read from the original executable", () => {
-  it("finds all 37 hills of v2.10P", () => {
+describe.skipIf(!golden.requested)("hills read from the original executable", () => {
+  it("has the files it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  it.skipIf(noExe)("finds all 37 hills of v2.10P", () => {
     expect(load().map((h) => h.number)).toEqual(Array.from({ length: 37 }, (_, i) => i + 1));
   });
 
-  it.skipIf(datPath === undefined)("names the hills like the replay files", () => {
+  it.skipIf(noTexts)("names the hills like the replay files", () => {
     expect(
       load()
         .slice(32)
@@ -36,19 +35,19 @@ describe.skipIf(exePath === undefined)("hills read from the original executable"
     ).toEqual(["Zakopane 1", "Zakopane 2", "Karpacz", "Wisła", "Szczyrk"]);
   });
 
-  it.skipIf(datPath === undefined)("names hills 1-32 after the countries their flags show", () => {
+  it.skipIf(noTexts)("names hills 1-32 after the countries their flags show", () => {
     const names = load()
       .slice(0, 32)
       .map((h) => h.name);
     expect(names).toEqual(ORIGINAL_HILL_COUNTRY.slice(0, 32).map((code) => COUNTRY_NAME_PL[code]));
   });
 
-  it.skipIf(datPath === undefined)("names every hill as the built-in names do when Dsj.dat is missing", () => {
+  it.skipIf(noTexts)("names every hill as the built-in names do when Dsj.dat is missing", () => {
     const hills = load();
     expect(hills.map((h) => h.name)).toEqual(hills.map((h) => fallbackHillName(h.number)));
   });
 
-  it.skipIf(tracePath === undefined)("matches the profile the original game sets up, bit for bit", () => {
+  it.skipIf(noHillTrace)("matches the profile the original game sets up, bit for bit", () => {
     const hills = load();
     const snaps = readTrace(tracePath ?? "").filter((s) => s.point === TRACE_POINT.hillSetup);
     expect(snaps.length).toBe(37);

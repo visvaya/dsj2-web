@@ -1,5 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { readFileSync } from "node:fs";
 import type { HillProfile } from "../hill-profile";
 import type { JumperControls, JumperState } from "../jumper-step";
 import type { FrameInput, JumpLogicState } from "../jump-logic";
@@ -9,7 +8,7 @@ import type { WindState } from "../wind";
 /**
  * Reader for traces written by tools/re/trace_capture.py. A trace holds
  * data-segment snapshots of the original game; it is derived from the game
- * and stays outside the repository (pass its path in DSJ2_TRACE).
+ * and stays outside the repository (golden-files.ts finds it).
  */
 export const TRACE_POINT = { windUpdate: 0, jumperStep: 1, readInput: 2, frameLogic: 3, hillSetup: 4 } as const;
 
@@ -228,41 +227,4 @@ export function diffStates(
     }
   }
   return bad;
-}
-
-export interface TraceFile {
-  name: string;
-  path: string;
-}
-
-/**
- * Traces to test against: every *.trace in DSJ2_TRACE_DIR (named after the
- * replay they record), or the single file in DSJ2_TRACE.
- */
-export function listTraces(): TraceFile[] {
-  const dir = process.env["DSJ2_TRACE_DIR"] ?? "";
-  if (dir !== "" && existsSync(dir)) {
-    return readdirSync(dir)
-      .filter((file) => file.endsWith(".trace"))
-      .toSorted()
-      .map((file) => ({ name: file.replace(/\.trace$/, ""), path: join(dir, file) }));
-  }
-  const single = process.env["DSJ2_TRACE"] ?? "";
-  return single !== "" && existsSync(single) ? [{ name: basename(single).replace(/\.trace$/, ""), path: single }] : [];
-}
-
-/** Hill setup snapshots of tools/re/hill_capture.py: `hills.hilltrace` in DSJ2_TRACE_DIR. */
-export function hillTraceFile(): string | undefined {
-  const dir = process.env["DSJ2_TRACE_DIR"] ?? "";
-  const path = join(dir, "hills.hilltrace");
-  return dir !== "" && existsSync(path) ? path : undefined;
-}
-
-/** The original game directory (for .rpl files), from DSJ2_GAME_DIR. */
-export function gameFile(name: string): string | undefined {
-  const dir = process.env["DSJ2_GAME_DIR"] ?? "";
-  if (dir === "" || !existsSync(dir)) return undefined;
-  const want = name.toLowerCase();
-  const found = readdirSync(dir).find((file) => file.toLowerCase() === want);
-  return found === undefined ? undefined : join(dir, found);
 }

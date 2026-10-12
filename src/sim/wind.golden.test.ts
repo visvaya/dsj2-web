@@ -1,21 +1,28 @@
 import { describe, expect, it } from "vitest";
 import { BorlandRandom } from "./borland-random";
-import { TRACE_POINT, decodeFrame, decodeRandSeed, decodeWind, listTraces, readTrace } from "./test-support/dsj-trace";
+import { TRACE_POINT, decodeFrame, decodeRandSeed, decodeWind, readTrace } from "./test-support/dsj-trace";
+import { goldenTraces } from "./test-support/golden-files";
 import { updateWind } from "./wind";
 
-const traces = listTraces();
+const golden = goldenTraces();
 
-describe.skipIf(traces.length === 0)("wind update against the original game traces", () => {
-  for (const trace of traces)
+describe.skipIf(!golden.requested)("wind update against the original game traces", () => {
+  it("has the traces it was asked to compare", () => {
+    expect(golden.problems).toEqual([]);
+  });
+
+  for (const trace of golden.traces)
     it(`${trace.name}: matches wind state and random seed bit for bit`, () => {
       const snaps = readTrace(trace.path);
       const exits = new Map(snaps.filter((s) => s.point === TRACE_POINT.jumperStep).map((s) => [s.frame, s]));
       const entries = snaps.filter((s) => s.point === TRACE_POINT.windUpdate);
       const failures: string[] = [];
       let updates = 0;
+      let compared = 0;
       for (const entry of entries) {
         const exit = exits.get(entry.frame);
         if (!exit) continue;
+        compared++;
         const rng = new BorlandRandom(decodeRandSeed(entry.view));
         const before = decodeWind(entry.view);
         const got = updateWind(before, decodeFrame(entry.view), entry.view.getFloat32(0x14ee, true), rng);
@@ -26,6 +33,7 @@ describe.skipIf(traces.length === 0)("wind update against the original game trac
         }
       }
       expect(entries.length).toBeGreaterThan(500);
+      expect(compared, "frames compared").toBeGreaterThan(0);
       expect(updates).toBeGreaterThan(50);
       expect(failures.slice(0, 5)).toEqual([]);
     });
