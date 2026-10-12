@@ -1,5 +1,5 @@
-// Guards the production build: dist/ may hold only what the build produces, no file of
-// the original game or data derived from it, and the bundles must stay within their gzip
+// Guards the production build: dist/ must hold exactly what the build produces, no file of
+// the original game or data derived from it, and the package must stay within its size
 // budgets. The rules live in scripts/lib/dist-rules.mjs.
 // Usage: node scripts/check-dist.mjs  (run after `pnpm build`; it never builds by itself)
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -20,7 +20,12 @@ function listFiles(dir, prefix = "") {
 
 function describeFile(path) {
   const content = readFileSync(join(DIST_DIR, path));
-  return { path, gzipBytes: gzipSync(content).length, head: content.subarray(0, HEAD_LENGTH_BYTES) };
+  return {
+    path,
+    bytes: content.length,
+    gzipBytes: gzipSync(content).length,
+    head: content.subarray(0, HEAD_LENGTH_BYTES),
+  };
 }
 
 function main() {

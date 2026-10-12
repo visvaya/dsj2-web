@@ -2,5 +2,12 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 120,
   "sortPackageJson": false,
-  "ignorePatterns": ["*.md", "playwright-report", "test-results", "e2e/.sim-harness"]
+  "ignorePatterns": [
+    "*.md",
+    "playwright-report",
+    "test-results",
+    "e2e/.sim-harness",
+    "e2e/.pwa-releases",
+    "dist-single"
+  ]
 }
