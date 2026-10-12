@@ -33,14 +33,14 @@ describe("wind on screen", () => {
   it("drifts the snow by the wind the box shows, frame by frame", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
-    const jump = startTrainingJump(hill, 5);
+    let jump = startTrainingJump(hill, 5);
     let x = 0;
     let y = 0;
     for (let f = 0; f < 300; f++) {
       const w = displayedWindMPerS(jump.state.wind);
       x += w.x / 70;
       y += w.y / 70;
-      stepTrainingJump(jump, { left: f === 69, right: false, dy: 0 });
+      jump = stepTrainingJump(jump, { left: f === 69, right: false, dy: 0 });
     }
     expect(jump.windDriftM.x).toBeCloseTo(x, 9);
     expect(jump.windDriftM.y).toBeCloseTo(y, 9);

@@ -104,7 +104,7 @@ function drawMoon(fb: FrameBuffer, b: Backdrop, cam: Camera, farTops: Int32Array
       const y = cy + dy;
       if (x < 0 || x >= fb.width || y < 0 || y >= (farTops[x] ?? 0)) continue;
       const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1) || dx + dy > 4;
-      fb.pixels[y * fb.width + x] = color(crater ? "moonShade" : "moon");
+      fb.put(x, y, color(crater ? "moonShade" : "moon"));
     }
   }
 }

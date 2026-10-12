@@ -36,15 +36,14 @@ export function startTrainingJump(hill: HillChoice, seed: number): TrainingJump 
   return { hill, setup, state: createJump(setup), seed: seed >>> 0, framesAfterEnd: 0, windDriftM: { x: 0, y: 0 } };
 }
 
-/** Advances by one simulation frame; once the jump is over only the presentation clock moves. */
-export function stepTrainingJump(jump: TrainingJump, input: FrameInput): void {
+/** The session one simulation frame later; once the jump is over only the presentation clock moves. */
+export function stepTrainingJump(jump: TrainingJump, input: FrameInput): TrainingJump {
   const wind = displayedWindMPerS(jump.state.wind);
-  jump.windDriftM = { x: jump.windDriftM.x + wind.x * FRAME_S, y: jump.windDriftM.y + wind.y * FRAME_S };
+  const windDriftM = { x: jump.windDriftM.x + wind.x * FRAME_S, y: jump.windDriftM.y + wind.y * FRAME_S };
   if (!jumpRunning(jump.state)) {
-    jump.framesAfterEnd++;
-    return;
+    return { ...jump, windDriftM, framesAfterEnd: jump.framesAfterEnd + 1 };
   }
-  jump.state = stepFrame(jump.state, jump.setup, () => input);
+  return { ...jump, windDriftM, state: stepFrame(jump.state, jump.setup, () => input) };
 }
 
 /** Clock for presentation, in simulation frames; it keeps counting after the jump is over. */

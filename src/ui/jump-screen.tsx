@@ -332,7 +332,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         const prev = jump.state;
         const frameInput = input.takeFrame();
         leftDown ||= frameInput.left;
-        stepTrainingJump(jump, frameInput);
+        jump = stepTrainingJump(jump, frameInput);
         for (const event of feedbackEvents(prev, jump.state)) {
           if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
@@ -420,6 +420,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       e.preventDefault();
     };
     const onOrientation = (e: DeviceOrientationEvent) => {
+      // oxlint-disable-next-line typescript/no-unnecessary-condition -- screen.orientation is missing in Safari before 16.4
       tiltRef.current.pitch = pitchDeg(e.beta, e.gamma, screen.orientation?.angle ?? 0);
     };
     const onKeyDown = (e: KeyboardEvent) => onKey(e, true);

@@ -1,21 +1,207 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "react", "import", "unicorn", "vitest"],
+  "options": {
+    "typeAware": true,
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "deny"
+  },
+  "plugins": ["eslint", "typescript", "oxc", "unicorn", "react", "jsx-a11y", "import", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
-    "perf": "warn"
+    "perf": "error"
   },
   "rules": {
+    "no-param-reassign": ["error", { "props": true }],
+    "prefer-const": "error",
+    "no-var": "error",
+    "unicorn/no-array-reverse": "error",
+    "unicorn/no-array-sort": "error",
+    "typescript/prefer-readonly": "error",
+    "oxc/no-map-spread": "off",
+
+    "eqeqeq": "error",
+    "max-depth": ["error", 4],
+    "max-lines": ["error", { "max": 800, "skipBlankLines": true, "skipComments": true }],
+    "no-console": "error",
+    "no-alert": "error",
+    "no-eval": "error",
+    "no-new-func": "error",
+    "no-script-url": "error",
+    "unicorn/filename-case": ["error", { "case": "kebabCase" }],
+    "unicorn/throw-new-error": "error",
+
     "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/require-await": "error",
+    "typescript/return-await": "error",
+    "typescript/no-implied-eval": "error",
     "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/no-unnecessary-condition": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/prefer-nullish-coalescing": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/strict-boolean-expressions": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/consistent-type-imports": "error",
+
+    "import/no-cycle": "error",
+    "import/no-default-export": "error",
+    "import/no-duplicates": "error",
+    "import/no-namespace": "error",
+    "import/no-self-import": "error",
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+
     "react/react-in-jsx-scope": "off",
-    "import/no-unassigned-import": [
-      "error",
-      {
-        "allow": ["**/*.css"]
-      }
-    ]
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "react/no-danger": "error",
+    "react/jsx-no-script-url": "error",
+    "react/jsx-no-useless-fragment": "error",
+    "react/no-array-index-key": "error",
+    "jsx-a11y/prefer-tag-over-role": "off",
+
+    "vitest/no-focused-tests": "error",
+    "vitest/no-disabled-tests": "error",
+    "vitest/no-conditional-expect": "error",
+    "vitest/no-identical-title": "error"
   },
-  "ignorePatterns": ["dist", "node_modules", "tools", "re-out"]
+  "overrides": [
+    {
+      "files": ["src/sim/**"],
+      "rules": {
+        "no-param-reassign": "error",
+        "oxc/approx-constant": "off",
+        "typescript/no-non-null-assertion": "off",
+        "typescript/no-unnecessary-condition": "off",
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "../audio/*",
+                  "../game/*",
+                  "../original/*",
+                  "../render/*",
+                  "../storage/*",
+                  "../ui/*",
+                  "react",
+                  "react-dom"
+                ],
+                "message": "The simulation is self-contained: nothing outside src/sim may influence it."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          { "name": "Date", "message": "The simulation must not read the clock." },
+          { "name": "performance", "message": "The simulation must not read the clock." },
+          { "name": "window", "message": "The simulation must not depend on the browser." },
+          { "name": "document", "message": "The simulation must not depend on the browser." },
+          { "name": "navigator", "message": "The simulation must not depend on the browser." }
+        ],
+        "no-restricted-properties": [
+          "error",
+          { "object": "Math", "property": "random", "message": "Use BorlandRandom: the simulation is seeded." },
+          { "object": "Math", "property": "sin", "message": "Use detSin from deterministic-math.ts." },
+          { "object": "Math", "property": "cos", "message": "Use detCos from deterministic-math.ts." },
+          { "object": "Math", "property": "atan", "message": "Use detAtan from deterministic-math.ts." },
+          { "object": "Math", "property": "exp", "message": "Use detExp from deterministic-math.ts." },
+          {
+            "object": "Math",
+            "property": "tan",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "atan2",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "asin",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "acos",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "log",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "pow",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "sinh",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "cosh",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "tanh",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "cbrt",
+            "message": "Engine results differ between devices; add a deterministic version."
+          },
+          {
+            "object": "Math",
+            "property": "hypot",
+            "message": "Engine results differ between devices; add a deterministic version."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/sim/**/*.test.ts", "src/sim/test-support/**", "src/sim/deterministic-math.ts"],
+      "rules": {
+        "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    },
+    {
+      "files": ["*.config.ts"],
+      "rules": {
+        "import/no-default-export": "off"
+      }
+    }
+  ],
+  "ignorePatterns": ["dist", "node_modules", "tools", "re-out", ".scratch"]
 }

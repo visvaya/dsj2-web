@@ -45,7 +45,7 @@ describe("jump view", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     const render = () => {
-      const jump = startTrainingJump(hill, 7);
+      let jump = startTrainingJump(hill, 7);
       const bot = makeBot(
         hill.profile,
         { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
@@ -56,7 +56,7 @@ describe("jump view", () => {
       let unpainted = 0;
       // Past the end of the jump too, while the judges' notes appear.
       for (let f = 0; f < 3000 && jump.framesAfterEnd < 200; f++) {
-        stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+        jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
         const frame = presentationFrame(jump);
         if (frame % 100 === 0) {
           fb.pixels.fill(0);
@@ -89,9 +89,9 @@ describe("jump view", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     // Nobody presses start: the countdown runs out and the jump is disqualified.
-    const jump = startTrainingJump(hill, 5);
+    let jump = startTrainingJump(hill, 5);
     for (let f = 0; f < 3000 && jump.framesAfterEnd < 50; f++)
-      stepTrainingJump(jump, { left: false, right: false, dy: 0 });
+      jump = stepTrainingJump(jump, { left: false, right: false, dy: 0 });
     expect(jump.state.logic.finished).toBe(true);
     expect(jump.state.logic.distanceM).toBe(0);
     const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
@@ -133,7 +133,7 @@ describe("jump view", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     // No landing press at all: the jumper crashes and the pose flails.
-    const jump = startTrainingJump(hill, 11);
+    let jump = startTrainingJump(hill, 11);
     const bot = makeBot(
       hill.profile,
       { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: () => 0 },
@@ -142,7 +142,7 @@ describe("jump view", () => {
     let crashed = false;
     let highestWhileLying = -Infinity;
     for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
-      stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+      jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
       const s = jump.state;
       if (s.logic.fallType !== 0) crashed = true;
       const limit = figureHalfWidthM(hill.profile, s.jumper.xM);

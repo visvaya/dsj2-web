@@ -15,7 +15,7 @@ export const DEFAULT_OUTFIT: Outfit = { pants: 8, sleeves: 8, gloves: 0, helmet:
 /** Reads an outfit from stored data, keeping the default for any part that is missing or out of range. */
 export function parseOutfit(v: unknown): Outfit {
   const read = (part: OutfitPart): number => {
-    const value = typeof v === "object" && v !== null ? Reflect.get(v, part) : undefined;
+    const value: unknown = typeof v === "object" && v !== null ? Reflect.get(v, part) : undefined;
     return Number.isInteger(value) && typeof value === "number" && value >= 0 && value < OUTFIT_COLOR_COUNT
       ? value
       : DEFAULT_OUTFIT[part];

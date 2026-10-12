@@ -75,10 +75,13 @@ function openDb(idb: IDBFactory): Promise<IDBDatabase> {
 }
 
 function indexedDbStore(idb: IDBFactory): GameFilesStore {
-  const withStore = async <T>(mode: IDBTransactionMode, use: (store: IDBObjectStore) => IDBRequest<T>): Promise<T> => {
+  const withStore = async <T>(
+    mode: IDBTransactionMode,
+    makeRequest: (store: IDBObjectStore) => IDBRequest<T>,
+  ): Promise<T> => {
     const db = await openDb(idb);
     try {
-      return await request(use(db.transaction(DB_STORE, mode).objectStore(DB_STORE)));
+      return await request(makeRequest(db.transaction(DB_STORE, mode).objectStore(DB_STORE)));
     } finally {
       db.close();
     }

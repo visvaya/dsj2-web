@@ -59,7 +59,7 @@ describe("sound mix", () => {
   it("reports each judge's note once, in the frame it appears", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
-    const jump = startTrainingJump(hill, 7);
+    let jump = startTrainingJump(hill, 7);
     const bot = makeBot(
       hill.profile,
       { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
@@ -69,7 +69,7 @@ describe("sound mix", () => {
     let counted = 0;
     let clock = presentationFrame(jump);
     for (let f = 0; f < 4000 && jump.framesAfterEnd < 300; f++) {
-      stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+      jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
       const next = presentationFrame(jump);
       for (const note of notesAppearing(jump.state.logic, clock, next)) {
         heard++;
@@ -85,7 +85,7 @@ describe("sound mix", () => {
   it("reports the push at the takeoff once, and nothing else in a clean jump", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
-    const jump = startTrainingJump(hill, 7);
+    let jump = startTrainingJump(hill, 7);
     const bot = makeBot(
       hill.profile,
       { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
@@ -94,7 +94,7 @@ describe("sound mix", () => {
     const events: string[] = [];
     for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
       const prev = jump.state;
-      stepTrainingJump(jump, bot(prev.logic.frame + 1));
+      jump = stepTrainingJump(jump, bot(prev.logic.frame + 1));
       events.push(...soundEvents(prev, jump.state));
     }
     expect(events).toEqual(["push"]);
@@ -103,11 +103,11 @@ describe("sound mix", () => {
   it("ticks through the last seconds on the gate and reports the disqualification", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
-    const jump = startTrainingJump(hill, 7);
+    let jump = startTrainingJump(hill, 7);
     const events: string[] = [];
     for (let f = 0; f < 2000 && !isJumpOver(jump); f++) {
       const prev = jump.state;
-      stepTrainingJump(jump, { left: false, right: false, dy: 0 });
+      jump = stepTrainingJump(jump, { left: false, right: false, dy: 0 });
       events.push(...soundEvents(prev, jump.state));
     }
     expect(events).toEqual(["countdown", "countdown", "countdown", "countdown", "countdown", "disqualified"]);

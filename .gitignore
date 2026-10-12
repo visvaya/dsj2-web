@@ -9,6 +9,7 @@ re-out/
 *.RPL
 
 # Tooling
+.scratch/
 __pycache__/
 *.pyc
 .ruff_cache/

@@ -167,12 +167,12 @@ const NO_INPUT: FrameInput = { left: false, right: false, dy: 0 };
 /** Hash of the frame for each variant at each moment of the scenario, drawn while the jump is at that moment. */
 function capture(sc: Scenario): Record<string, Record<string, string>> {
   const hill = practiceHill();
-  const jump = startTrainingJump(hill, sc.seed);
+  let jump = startTrainingJump(hill, sc.seed);
   const bot = sc.bot === null ? () => NO_INPUT : makeBot(hill.profile, sc.bot, () => jump.state);
   const buffers = new Map(WIDTHS_PX.map((w) => [w, new FrameBuffer(w, VIEW_HEIGHT_PX)]));
   const frames: Record<string, Record<string, string>> = {};
   for (let f = 0; f < 4000 && jump.framesAfterEnd < 400; f++) {
-    stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+    jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
     const frame = presentationFrame(jump);
     for (const moment of sc.moments) {
       if (frames[moment.name] !== undefined || !moment.when(jump, frame)) continue;

@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { OWN_HILLS, type HillChoice } from "../game/hill-choice";
+import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
-import { originalHillChoices } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
 import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
