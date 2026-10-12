@@ -2,52 +2,60 @@ import { describe, expect, it } from "vitest";
 import { decodePushedCalls, readHillTable } from "./hill-table";
 
 /** Builds x86 code in the shape of the original hill setup routine (made-up values). */
-class CodeBuilder {
-  bytes: number[] = [];
-
-  get at(): number {
-    return this.bytes.length;
-  }
-
-  word(w: number): this {
-    // Use the short form where the original assembler would.
-    const signed = w >= 0x8000 ? w - 0x10000 : w;
-    if (signed >= -128 && signed <= 127) {
-      this.bytes.push(0x6a, signed & 0xff);
-    } else {
-      this.bytes.push(0x68, w & 0xff, w >> 8);
-    }
-    return this;
-  }
-
-  single(x: number): this {
-    const v = new DataView(new ArrayBuffer(4));
-    v.setFloat32(0, x, true);
-    return this.word(v.getUint16(2, true)).word(v.getUint16(0, true));
-  }
-
-  callFar(seg: number, off: number): this {
-    this.bytes.push(0x9a, off & 0xff, off >> 8, seg & 0xff, seg >> 8);
-    return this;
-  }
-
-  callNear(target: number): this {
-    const rel = (target - (this.at + 3)) & 0xffff;
-    this.bytes.push(0xe8, rel & 0xff, rel >> 8);
-    return this;
-  }
-
+interface CodeBuilder {
+  readonly bytes: number[];
+  readonly at: number;
+  word: (w: number) => CodeBuilder;
+  single: (x: number) => CodeBuilder;
+  callFar: (seg: number, off: number) => CodeBuilder;
+  callNear: (target: number) => CodeBuilder;
   /** cmp al, n ; je +3 ; jmp rel16 (patched later). Returns the position of rel16. */
-  branch(n: number): number {
-    this.bytes.push(0x3c, n, 0x74, 0x03, 0xe9, 0, 0);
-    return this.at - 2;
-  }
+  branch: (n: number) => number;
+  patchJump: (relAt: number, target: number) => void;
+}
 
-  patchJump(relAt: number, target: number): void {
-    const rel = (target - (relAt + 2)) & 0xffff;
-    this.bytes[relAt] = rel & 0xff;
-    this.bytes[relAt + 1] = rel >> 8;
-  }
+function codeBuilder(): CodeBuilder {
+  const bytes: number[] = [];
+  const self: CodeBuilder = {
+    bytes,
+    get at() {
+      return bytes.length;
+    },
+    word(w) {
+      // Use the short form where the original assembler would.
+      const signed = w >= 0x8000 ? w - 0x10000 : w;
+      if (signed >= -128 && signed <= 127) {
+        bytes.push(0x6a, signed & 0xff);
+      } else {
+        bytes.push(0x68, w & 0xff, w >> 8);
+      }
+      return self;
+    },
+    single(x) {
+      const v = new DataView(new ArrayBuffer(4));
+      v.setFloat32(0, x, true);
+      return self.word(v.getUint16(2, true)).word(v.getUint16(0, true));
+    },
+    callFar(seg, off) {
+      bytes.push(0x9a, off & 0xff, off >> 8, seg & 0xff, seg >> 8);
+      return self;
+    },
+    callNear(target) {
+      const rel = (target - (bytes.length + 3)) & 0xffff;
+      bytes.push(0xe8, rel & 0xff, rel >> 8);
+      return self;
+    },
+    branch(n) {
+      bytes.push(0x3c, n, 0x74, 0x03, 0xe9, 0, 0);
+      return bytes.length - 2;
+    },
+    patchJump(relAt, target) {
+      const rel = (target - (relAt + 2)) & 0xffff;
+      bytes[relAt] = rel & 0xff;
+      bytes[relAt + 1] = rel >> 8;
+    },
+  };
+  return self;
 }
 
 interface FakeHill {
@@ -67,7 +75,7 @@ function emitHill(c: CodeBuilder, h: FakeHill): void {
 }
 
 function buildImage(hills: FakeHill[], decoy = true): Uint8Array {
-  const c = new CodeBuilder();
+  const c = codeBuilder();
   if (decoy) {
     // A lone "cmp al, 1" elsewhere must not be taken for the table.
     c.branch(1);

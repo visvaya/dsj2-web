@@ -6,8 +6,8 @@ const MOTION_LIMIT = 127;
 const KEY_LEAN_PER_FRAME = 6;
 
 /** Where a held button comes from; a button counts as held while any source holds it. */
-export type ButtonSource = "mouse" | "keys" | "touch";
-export type ButtonSide = "left" | "right";
+type ButtonSource = "mouse" | "keys" | "touch";
+type ButtonSide = "left" | "right";
 export interface ButtonState {
   left: boolean;
   right: boolean;
@@ -36,57 +36,67 @@ const nothingHeld = (): Record<ButtonSource, ButtonState> => ({
  * `right` are the held state of the buttons, `dy` the vertical motion since
  * the previous frame, as read by 0baf:9a3c.
  */
-export class PlayerInput {
-  private held = nothingHeld();
-  /** Presses since the last frame; a press shorter than a frame still reaches the game for one frame. */
-  private pressed: ButtonState = { left: false, right: false };
-  private pendingDy = 0;
-  private leanKeys = 0;
-
-  get left(): boolean {
-    return this.held.mouse.left || this.held.keys.left || this.held.touch.left;
-  }
-
-  get right(): boolean {
-    return this.held.mouse.right || this.held.keys.right || this.held.touch.right;
-  }
-
-  setButton(source: ButtonSource, side: ButtonSide, down: boolean): void {
-    this.setButtons(source, { ...this.held[source], [side]: down });
-  }
-
-  setButtons(source: ButtonSource, state: ButtonState): void {
-    this.held = { ...this.held, [source]: { left: state.left, right: state.right } };
-    this.pressed = { left: this.pressed.left || state.left, right: this.pressed.right || state.right };
-  }
-
+interface PlayerInput {
+  readonly left: boolean;
+  readonly right: boolean;
+  setButton: (source: ButtonSource, side: ButtonSide, down: boolean) => void;
+  setButtons: (source: ButtonSource, state: ButtonState) => void;
   /** Lets go of what a source held, for when its release can no longer arrive (capture or focus lost). */
-  release(source: ButtonSource): void {
-    this.setButtons(source, { left: false, right: false });
-  }
-
-  addMotion(dy: number): void {
-    this.pendingDy += dy;
-  }
-
-  setLeanKeys(direction: -1 | 0 | 1): void {
-    this.leanKeys = direction;
-  }
-
+  release: (source: ButtonSource) => void;
+  addMotion: (dy: number) => void;
+  setLeanKeys: (direction: -1 | 0 | 1) => void;
   /** Input for the next simulation frame; consumes the pending motion. */
-  takeFrame(): FrameInput {
-    const raw = Math.round(this.pendingDy) + this.leanKeys * KEY_LEAN_PER_FRAME;
-    this.pendingDy = 0;
-    const dy = Math.max(-MOTION_LIMIT - 1, Math.min(MOTION_LIMIT, raw));
-    const frame = { left: this.left || this.pressed.left, right: this.right || this.pressed.right, dy };
-    this.pressed = { left: false, right: false };
-    return frame;
-  }
+  takeFrame: () => FrameInput;
+  reset: () => void;
+}
 
-  reset(): void {
-    this.held = nothingHeld();
-    this.pressed = { left: false, right: false };
-    this.pendingDy = 0;
-    this.leanKeys = 0;
-  }
+export function createPlayerInput(): PlayerInput {
+  let held = nothingHeld();
+  /** Presses since the last frame; a press shorter than a frame still reaches the game for one frame. */
+  let pressed: ButtonState = { left: false, right: false };
+  let pendingDy = 0;
+  let leanKeys = 0;
+
+  const leftHeld = (): boolean => held.mouse.left || held.keys.left || held.touch.left;
+  const rightHeld = (): boolean => held.mouse.right || held.keys.right || held.touch.right;
+  const setButtons = (source: ButtonSource, state: ButtonState): void => {
+    held = { ...held, [source]: { left: state.left, right: state.right } };
+    pressed = { left: pressed.left || state.left, right: pressed.right || state.right };
+  };
+
+  return {
+    get left() {
+      return leftHeld();
+    },
+    get right() {
+      return rightHeld();
+    },
+    setButton(source, side, down) {
+      setButtons(source, { ...held[source], [side]: down });
+    },
+    setButtons,
+    release(source) {
+      setButtons(source, { left: false, right: false });
+    },
+    addMotion(dy) {
+      pendingDy += dy;
+    },
+    setLeanKeys(direction) {
+      leanKeys = direction;
+    },
+    takeFrame() {
+      const raw = Math.round(pendingDy) + leanKeys * KEY_LEAN_PER_FRAME;
+      pendingDy = 0;
+      const dy = Math.max(-MOTION_LIMIT - 1, Math.min(MOTION_LIMIT, raw));
+      const frame = { left: leftHeld() || pressed.left, right: rightHeld() || pressed.right, dy };
+      pressed = { left: false, right: false };
+      return frame;
+    },
+    reset() {
+      held = nothingHeld();
+      pressed = { left: false, right: false };
+      pendingDy = 0;
+      leanKeys = 0;
+    },
+  };
 }

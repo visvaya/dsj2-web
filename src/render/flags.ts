@@ -39,36 +39,48 @@ const C = {
   black: "#141414",
 } as const;
 
-class Grid {
-  readonly px: string[][];
-  constructor(fill: string) {
-    this.px = Array.from({ length: FLAG_HEIGHT_PX }, () => Array.from({ length: FLAG_WIDTH_PX }, () => fill));
-  }
-  rect(x: number, y: number, w: number, h: number, c: string): this {
-    for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) this.set(xx, yy, c);
-    return this;
-  }
-  set(x: number, y: number, c: string): this {
-    const row = this.px[y];
+/** A flag being drawn; every drawing call returns the same grid, so calls chain. */
+interface Grid {
+  readonly px: FlagPixels;
+  rect: (x: number, y: number, w: number, h: number, c: string) => Grid;
+  set: (x: number, y: number, c: string) => Grid;
+  disc: (cx: number, cy: number, r: number, c: string) => Grid;
+}
+
+function grid(fill: string): Grid {
+  const px = Array.from({ length: FLAG_HEIGHT_PX }, () => Array.from({ length: FLAG_WIDTH_PX }, () => fill));
+  const put = (x: number, y: number, c: string): void => {
+    const row = px[y];
     if (row && x >= 0 && x < FLAG_WIDTH_PX) row[x] = c;
-    return this;
-  }
-  disc(cx: number, cy: number, r: number, c: string): this {
-    for (let y = 0; y < FLAG_HEIGHT_PX; y++) {
-      for (let x = 0; x < FLAG_WIDTH_PX; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) this.set(x, y, c);
-    }
-    return this;
-  }
+  };
+  const self: Grid = {
+    px,
+    rect(x, y, w, h, c) {
+      for (let yy = y; yy < y + h; yy++) for (let xx = x; xx < x + w; xx++) put(xx, yy, c);
+      return self;
+    },
+    set(x, y, c) {
+      put(x, y, c);
+      return self;
+    },
+    disc(cx, cy, r, c) {
+      for (let y = 0; y < FLAG_HEIGHT_PX; y++) {
+        for (let x = 0; x < FLAG_WIDTH_PX; x++) if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) put(x, y, c);
+      }
+      return self;
+    },
+  };
+  return self;
 }
 
 /** Three horizontal bands of 3, 4 and 3 rows. */
-const horizontal = (a: string, b: string, c: string) => new Grid(b).rect(0, 0, 15, 3, a).rect(0, 7, 15, 3, c);
+const horizontal = (a: string, b: string, c: string) => grid(b).rect(0, 0, 15, 3, a).rect(0, 7, 15, 3, c);
 /** Three vertical bands of 5 columns. */
-const vertical = (a: string, b: string, c: string) => new Grid(b).rect(0, 0, 5, 10, a).rect(10, 0, 5, 10, c);
+const vertical = (a: string, b: string, c: string) => grid(b).rect(0, 0, 5, 10, a).rect(10, 0, 5, 10, c);
 /** Nordic cross (2 pixels thick), or a 4-pixel cross with a 2-pixel inner one. */
 function nordic(field: string, cross: string, inner?: string): Grid {
-  if (inner === undefined) return new Grid(field).rect(4, 0, 2, 10, cross).rect(0, 4, 15, 2, cross);
-  return new Grid(field)
+  if (inner === undefined) return grid(field).rect(4, 0, 2, 10, cross).rect(0, 4, 15, 2, cross);
+  return grid(field)
     .rect(3, 0, 4, 10, cross)
     .rect(0, 3, 15, 4, cross)
     .rect(4, 0, 2, 10, inner)
@@ -78,7 +90,7 @@ function nordic(field: string, cross: string, inner?: string): Grid {
 const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
   AT: () => horizontal(C.red, C.white, C.red),
   AU: () =>
-    new Grid(C.navy)
+    grid(C.navy)
       .rect(0, 1, 7, 3, C.white)
       .rect(2, 0, 3, 5, C.white)
       .rect(0, 2, 7, 1, C.red)
@@ -90,12 +102,12 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .set(12, 8, C.white),
   BE: () => vertical(C.black, C.yellow, C.red),
   BY: () => {
-    const g = new Grid(C.red).rect(0, 7, 15, 3, C.green).rect(0, 0, 3, 10, C.white);
+    const g = grid(C.red).rect(0, 7, 15, 3, C.green).rect(0, 0, 3, 10, C.white);
     for (let y = 0; y < 10; y++) g.set(1, y, C.red).set(y % 2 === 0 ? 0 : 2, y, C.red);
     return g;
   },
   CA: () =>
-    new Grid(C.white)
+    grid(C.white)
       .rect(0, 0, 4, 10, C.red)
       .rect(11, 0, 4, 10, C.red)
       .rect(7, 2, 1, 7, C.red)
@@ -103,9 +115,9 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .rect(5, 4, 5, 2, C.red)
       .set(5, 3, C.red)
       .set(9, 3, C.red),
-  CH: () => new Grid(C.red).rect(6, 2, 3, 6, C.white).rect(4, 4, 7, 2, C.white),
+  CH: () => grid(C.red).rect(6, 2, 3, 6, C.white).rect(4, 4, 7, 2, C.white),
   CN: () =>
-    new Grid(C.red)
+    grid(C.red)
       .rect(2, 2, 3, 2, C.yellow)
       .set(3, 1, C.yellow)
       .set(2, 4, C.yellow)
@@ -115,7 +127,7 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .set(7, 4, C.yellow)
       .set(6, 5, C.yellow),
   CZ: () => {
-    const g = new Grid(C.white).rect(0, 5, 15, 5, C.red);
+    const g = grid(C.white).rect(0, 5, 15, 5, C.red);
     for (let y = 0; y < 10; y++) {
       const reach = Math.round(7 * (1 - Math.abs(y - 4.5) / 5));
       g.rect(0, y, reach, 1, C.blue);
@@ -125,16 +137,16 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
   DE: () => horizontal(C.black, C.red, C.yellow),
   DK: () => nordic(C.red, C.white),
   EE: () => horizontal(C.sky, C.black, C.white),
-  ENG: () => new Grid(C.white).rect(6, 0, 3, 10, C.red).rect(0, 4, 15, 2, C.red),
+  ENG: () => grid(C.white).rect(6, 0, 3, 10, C.red).rect(0, 4, 15, 2, C.red),
   FI: () => nordic(C.white, C.blue),
   FR: () => vertical(C.blue, C.white, C.red),
   HU: () => horizontal(C.red, C.white, C.green),
   IE: () => vertical(C.green, C.white, C.orange),
   IS: () => nordic(C.blue, C.white, C.red),
   IT: () => vertical(C.green, C.white, C.red),
-  JP: () => new Grid(C.white).disc(7, 4.5, 3, C.red),
+  JP: () => grid(C.white).disc(7, 4.5, 3, C.red),
   KR: () =>
-    new Grid(C.white)
+    grid(C.white)
       .disc(7, 4.5, 3, C.blue)
       .rect(4, 2, 7, 3, C.red)
       .rect(5, 1, 5, 1, C.red)
@@ -147,15 +159,15 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .rect(1, 7, 1, 1, C.black)
       .rect(13, 7, 1, 1, C.black),
   KZ: () => {
-    const g = new Grid(C.teal).disc(8, 4, 2, C.yellow).rect(6, 7, 5, 1, C.yellow);
+    const g = grid(C.teal).disc(8, 4, 2, C.yellow).rect(6, 7, 5, 1, C.yellow);
     for (let y = 0; y < 10; y += 2) g.set(1, y, C.yellow);
     return g;
   },
   LT: () => horizontal(C.yellow, C.darkGreen, C.red),
-  LV: () => new Grid(C.darkRed).rect(0, 4, 15, 2, C.white),
+  LV: () => grid(C.darkRed).rect(0, 4, 15, 2, C.white),
   NL: () => horizontal(C.red, C.white, C.blue),
   NO: () => nordic(C.red, C.white, C.navy),
-  PL: () => new Grid(C.white).rect(0, 5, 15, 5, C.red),
+  PL: () => grid(C.white).rect(0, 5, 15, 5, C.red),
   RU: () => horizontal(C.white, C.blue, C.red),
   SE: () => nordic(C.blue, C.yellow),
   SI: () =>
@@ -177,9 +189,9 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .rect(4, 4, 3, 1, C.white)
       .rect(4, 6, 3, 1, C.blue)
       .set(5, 7, C.red),
-  UA: () => new Grid(C.blue).rect(0, 5, 15, 5, C.yellow),
+  UA: () => grid(C.blue).rect(0, 5, 15, 5, C.yellow),
   US: () => {
-    const g = new Grid(C.white);
+    const g = grid(C.white);
     for (let y = 0; y < 10; y += 2) g.rect(0, y, 15, 1, C.red);
     g.rect(0, 0, 7, 5, C.navy);
     for (let y = 1; y < 5; y += 2) for (let x = 1; x < 7; x += 2) g.set(x, y, C.white);
@@ -192,7 +204,7 @@ const QUESTION_MARK = ["###", "..#", ".#.", "...", ".#."];
 
 /** Flag of a hill with no country: grey with a question mark. */
 export function unknownFlagPixels(): FlagPixels {
-  const g = new Grid("#6c6c78");
+  const g = grid("#6c6c78");
   QUESTION_MARK.forEach((row, y) => {
     for (let x = 0; x < row.length; x++) if (row[x] === "#") g.set(6 + x, 2 + y, C.white);
   });

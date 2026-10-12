@@ -7,7 +7,7 @@ import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
-import { PlayerInput, mouseButtons } from "../game/player-input";
+import { createPlayerInput, mouseButtons } from "../game/player-input";
 import { lockLossAction } from "../game/pointer-lock";
 import {
   isJumpOver,
@@ -123,7 +123,7 @@ function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
 export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const inputRef = useRef(new PlayerInput());
+  const inputRef = useRef(createPlayerInput());
   const restartRef = useRef<() => void>(() => undefined);
   const [announcement, setAnnouncement] = useState("");
   const touch = useMediaQuery("(pointer: coarse)");
