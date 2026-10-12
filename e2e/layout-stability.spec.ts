@@ -101,7 +101,8 @@ test("the web font arriving late does not move the picture or the main controls"
   });
   const fontsLoaded = () => page.evaluate(() => document.fonts.check('16px "Silkscreen"'));
 
-  await page.goto("/");
+  // Not the load event: Firefox and WebKit hold it back until the fonts have arrived.
+  await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
   expect(await fontsLoaded(), "the fallback font is in use").toBe(false);
   const menuBefore = await menuPositions(page);

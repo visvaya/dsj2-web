@@ -518,4 +518,12 @@ h2 {
   .swatch {
     forced-color-adjust: none;
   }
+
+  /* These controls show the focus by a change of colour, which a contrast theme replaces with its own. */
+  .pixel-button:focus-visible,
+  .hill-item:focus-visible,
+  .pause-button:focus-visible {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
 }
