@@ -55,7 +55,7 @@ Co sprawdzają pliki w `e2e/`:
 | `interruption.spec.ts` | obrót telefonu w trakcie skoku: poprawny układ i skok do końca; ukrycie strony: test pomija się sam, bo żaden silnik uruchamiany przez Playwrighta nie ukrywa strony | telefony; ukrycie: brak |
 | `sound.spec.ts` | żaden kontekst audio nie działa przed pierwszym gestem, jeden po nim; wyłączony dźwięk to cisza na wyjściu, także po przeładowaniu (`AudioContext` obserwowany z testu) | wszystkie |
 | `player-files.spec.ts` | plik, który nie jest grą: komunikat po polsku, nic nie zostaje zapisane, skocznia wbudowana dostępna | wszystkie |
-| `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html` | wszystkie |
+| `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html`; nowy ekran otwiera się od góry, bez pozycji przewinięcia poprzedniego | wszystkie |
 
 Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,
 liczonego od komunikatu „Skok rozpoczęty.” w regionie `aria-live` obok obrazu. Chwile naciśnięć leżą w środku okien

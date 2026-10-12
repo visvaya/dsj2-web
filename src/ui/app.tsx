@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
@@ -20,8 +20,12 @@ export function App() {
     setNavigated(true);
     setScreen(next);
   };
-  useEffect(() => {
+  // What follows the screen: the title of the page, and the scroll position. A new screen starts at its top; the
+  // page would otherwise keep the scroll position of the screen before it, so a screen opened from the end of a
+  // long one would show its middle. Before the paint, so the old position never shows.
+  useLayoutEffect(() => {
     document.title = screenTitle(screen);
+    window.scrollTo(0, 0);
   }, [screen]);
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
