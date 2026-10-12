@@ -26,6 +26,8 @@ const config: KnipConfig = {
     "e2e/sim-harness/entry.ts",
   ],
   project: ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "scripts/**/*.mjs", "*.config.ts"],
+  // Its font files are named in src/ui/fonts.css, and knip does not read stylesheets.
+  ignoreDependencies: ["@fontsource/silkscreen"],
 };
 
 export default config;

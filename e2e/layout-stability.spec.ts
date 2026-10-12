@@ -1,14 +1,5 @@
 import type { Page, TestInfo } from "@playwright/test";
-import {
-  builtInHill,
-  button,
-  closeJumpControls,
-  jumpCanvas,
-  openJumpControls,
-  openJumpFromStart,
-  press,
-  TEXT,
-} from "./support/app";
+import { button, closeJumpControls, jumpCanvas, openJumpControls, openJumpFromStart, press, TEXT } from "./support/app";
 import { expect, test, type DeviceTraits } from "./support/fixtures";
 import { boxOf, LAYOUT_SLACK_PX, type Box } from "./support/geometry";
 
@@ -86,74 +77,62 @@ test("settings and the pause controls do not move the picture or the main contro
   expect(shift.px, `${shift.what} moved`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
 });
 
-test("the web font arriving late does not move the picture or the main controls", async ({
+// A web font that arrives after the first screen replaces the fallback font there and moves what was laid out in
+// it: with the web fonts switched off and on again, the buttons of the menu move by 4 pixels and the buttons under
+// the picture on a desktop screen by up to 57. So the fonts are inside the stylesheet and the first screen waits
+// for them; this test holds that in place.
+test("the first screen is already drawn in the web fonts, which are not fetched on their own", async ({
   page,
-  traits,
 }, testInfo) => {
-  // Known defect, seen on iphone-landscape (WebKit, 844 by 390): the title of the menu moves by 20 pixels when the
-  // web font replaces the fallback, because the two fonts are not the same size there. The fix is in how the font
-  // is delivered (inside the stylesheet, so it never arrives late), which also changes the size budget.
-  test.fixme(traits.project === "iphone-landscape", "the menu title moves when the web font arrives late");
-  // The fonts are held back until the screens have been laid out with the fallback font.
-  let release: () => void = () => undefined;
-  const held = new Promise<void>((resolve) => {
-    release = resolve;
+  const fontRequests: string[] = [];
+  page.on("request", (request) => {
+    const url = request.url();
+    if (url.startsWith("data:")) return;
+    if (request.resourceType() === "font" || /\.woff2?(?:\?|$)/.test(url)) fontRequests.push(url);
   });
-  await page.route(/\.woff2?$/, async (route) => {
-    await held;
-    await route.continue();
-  });
-  // Whether text is drawn in the web font, measured on the page itself: the same words are as wide in
-  // "Silkscreen" as in the fallback only while the web font is missing. The font loading interface is not used,
-  // because WebKit reports a held-back font neither as loading nor as missing.
-  const webFontShown = () =>
+  // Which of the web fonts text is drawn in, measured on the page itself: a text is as wide in a web font as in
+  // the fallback only while that web font is missing. The font loading interface is not asked, because it tells
+  // what has been loaded, not what the text on the screen is drawn in.
+  const webFontsShown = () =>
     page.evaluate(() => {
-      const widthIn = (family: string): number => {
+      const widthOf = (text: string, family: string): number => {
         const probe = document.createElement("span");
-        probe.textContent = "Telemark 0123456789";
+        probe.textContent = text;
         probe.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:32px ${family}`;
         document.body.append(probe);
         const width = probe.getBoundingClientRect().width;
         probe.remove();
         return width;
       };
-      return widthIn('"Silkscreen", monospace') !== widthIn("monospace");
+      const shown = (text: string, family: string): boolean =>
+        widthOf(text, `"${family}", monospace`) !== widthOf(text, "monospace");
+      return {
+        silkscreen: shown("Telemark 0123456789", "Silkscreen"),
+        polishLetters: shown("ąćęłńśźż", "Telemark Polish"),
+      };
     });
 
-  // Not the load event: Firefox and WebKit hold it back until the fonts have arrived.
+  // Not the load event: the measurement is of the first screen, before anything else has had time to arrive.
   await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
-  expect(await webFontShown(), "the fallback font is in use").toBe(false);
-  const menuBefore = await menuPositions(page);
-  await press(button(page, TEXT.training), traits);
-  await press(builtInHill(page), traits);
-  await expect(jumpCanvas(page)).toBeVisible();
-  const jumpBefore = await jumpPositions(page, traits);
+  expect(await webFontsShown(), "fonts of the first screen").toEqual({ silkscreen: true, polishLetters: true });
+  const before = await menuPositions(page);
 
-  release();
-  await expect.poll(webFontShown).toBe(true);
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
+  const shift = largestShift(before, await menuPositions(page));
+  report(testInfo, "fonts settled on the menu", shift);
 
-  const jumpShift = largestShift(jumpBefore, await jumpPositions(page, traits));
-  report(testInfo, "web font on the jump screen", jumpShift);
-  await openJumpControls(page, traits);
-  await press(button(page, TEXT.toHills), traits);
-  await press(button(page, TEXT.back), traits);
-  const menuShift = largestShift(menuBefore, await menuPositions(page));
-  report(testInfo, "web font on the menu", menuShift);
-
-  expect(jumpShift.px, `${jumpShift.what} moved on the jump screen`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
-  expect(menuShift.px, `${menuShift.what} moved on the menu`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
+  expect(shift.px, `${shift.what} moved on the menu`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
+  expect(fontRequests, "fonts fetched as separate files").toEqual([]);
 });
 
 // Known defect, desktop layout (seen on desktop-chromium at 1280 by 720): the buttons under the picture are a
 // centred row sized by their labels. When a label changes ("Dźwięk: wł." to "Dźwięk: wył.", the scenery name) the
-// whole row re-centres and its buttons move sideways, by 8.75 px in this sequence; when the web font replaces the
-// fallback font they move by 53 px. The picture itself stays in place (the tests above). A fix means giving the
-// row columns that do not depend on the label text, which changes how the toolbar looks, so it is left to a
-// deliberate change.
+// whole row re-centres and its buttons move sideways, by 8.75 px in this sequence. The picture itself stays in
+// place (the tests above). A fix means giving the row columns that do not depend on the label text, which changes
+// how the toolbar looks, so it is left to a deliberate change.
 test.fixme("the buttons under the picture keep their place when a label changes", async ({ page, traits }) => {
   test.skip(!traits.desktop, "the row of buttons under the picture is the desktop layout");
   await openJumpFromStart(page, traits);
