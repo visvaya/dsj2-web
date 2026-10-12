@@ -65,13 +65,12 @@ The notes in `docs` are mostly in Polish.
 | `docs/jumper-figure.md` | How is the jumper drawn from a pose? |
 | `docs/replay-format.md` | How are the original `.rpl` replays encoded? |
 | `docs/testing.md` | Which tests exist, what do they need and how are they run? |
-| `docs/SECURITY.md` | How is a vulnerability reported and what is in scope? |
 
 ## Contributing
 
 `master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
 and becomes the commit. CI runs the commands above plus a dependency audit, a secret scan and a check for em
-dashes and emoji. Security reports: see `docs/SECURITY.md`.
+dashes and emoji. Security reports: see `SECURITY.md`.
 
 ## Legal
 
