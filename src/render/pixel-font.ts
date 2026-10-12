@@ -49,7 +49,6 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
   " ": ["...", "...", "...", "...", "...", "...", "..."],
 };
 
-export const GLYPH_HEIGHT = 7;
 const LETTER_SPACING = 1;
 
 interface Glyph {

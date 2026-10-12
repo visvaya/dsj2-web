@@ -25,8 +25,8 @@ export interface LandingSpec {
   knollBlend: number;
 }
 
-export const INRUN_FRICTION_COEF = f32(0.02);
-export const LANDING_FRICTION_COEF = f32(0.05);
+const INRUN_FRICTION_COEF = f32(0.02);
+const LANDING_FRICTION_COEF = f32(0.05);
 
 /**
  * 1eee:051f followed by 1eee:06e1: stores the parameters as Singles and

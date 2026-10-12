@@ -2,9 +2,9 @@
  * Leaning by tilting the phone: the tilt away from the angle held at the
  * start acts like holding the mouse moving, i.e. it sets the lean rate.
  */
-export const TILT_DEAD_ZONE_DEG = 3;
-export const TILT_GAIN_PER_DEG = 1.5;
-export const TILT_MAX_MOTION = 60;
+const TILT_DEAD_ZONE_DEG = 3;
+const TILT_GAIN_PER_DEG = 1.5;
+const TILT_MAX_MOTION = 60;
 
 /** Tilt towards and away from the player, in degrees, for the current screen orientation. */
 export function pitchDeg(beta: number | null, gamma: number | null, screenAngle: number): number | null {

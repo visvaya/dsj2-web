@@ -1,7 +1,7 @@
 import { DEFAULT_OUTFIT, parseOutfit, type Outfit } from "../game/outfit";
 
 /** Persistent data of the game, versioned so older saves can be migrated. */
-export const SAVE_SCHEMA_VERSION = 2;
+const SAVE_SCHEMA_VERSION = 2;
 
 export interface HillRecord {
   distanceM: number;
@@ -10,7 +10,7 @@ export interface HillRecord {
   dateIso: string;
 }
 
-export type LeanControl = "drag" | "tilt";
+type LeanControl = "drag" | "tilt";
 /** Time of day of the hills: chosen at random per visit, or a fixed one. */
 export type SceneryChoice = "varied" | "day" | "dusk" | "night";
 

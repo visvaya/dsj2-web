@@ -29,7 +29,7 @@ export interface Layer {
 }
 
 /** Pulsing of the ground layers: the joints of the track passing under the skis. */
-export interface Flutter {
+interface Flutter {
   rateHz: number;
   /** Share of the loudness that pulses, 0 (steady) to 1. */
   depth: number;
