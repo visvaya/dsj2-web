@@ -9,6 +9,7 @@
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
 | `src/sim/test-support/replay-plan.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
+| `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 
@@ -143,7 +144,43 @@ python3 -I tools/re/craft_replays.py set-distance <NAZWA.trace.gz> <NAZWA.RPL>
 unieważnia odległość zapisaną w nagłówku.
 
 Warianty wybrano, przeszukując wejścia w porcie (ok. 4600 kombinacji przycisków i pochyleń), a potem zapisując ślady
-wybranych w oryginale. Na Karpaczu tym sposobem nie udało się wywołać upadków typu 1, 3 i 5.
+wybranych w oryginale.
+
+### Wyszukiwanie upadków
+
+Typ upadku (1..5) to numer składnika oceny lądowania, który razem ze średnią przekroczył próg 60; gdy przekroczyło
+go kilka, zostaje najwyższy numer (`landClean` w `src/sim/jump-logic.ts`). Składniki: 1 siła uderzenia, 2 czas
+przygotowania do lądowania (albo lądowanie przed progiem), 3 niedokończona postawa tułowia i goleni, 4 rozstaw
+nóg (lądowanie bez przygotowania), 5 ugięte nogi.
+
+```sh
+node scripts/search-falls.mjs <gra> <plany>
+```
+
+Skrypt rozgrywa w porcie 257 wzorców wejścia na każdej z 37 skoczni (8 wariantów wybicia: w porę, za wcześnie,
+dużo za wcześnie, późno, za progiem, jednym przyciskiem, z przytrzymaniem, bez wybicia; 4 warianty pochylenia:
+do przodu, brak, do tyłu, gwałtowne; 8 wariantów lądowania: w porę, bez przycisku, tuż po wybiciu, za wcześnie,
+późno, bardzo późno, po zetknięciu, telemark; do tego skoczek, który nie rusza z belki), wypisuje, ile skoków
+skończyło się każdym typem upadku, i zapisuje plan jednego przypadku na typ jako `<plany>/FALLn.json`. Trwa ok.
+3 minut. Z planu powstaje powtórka i ślad tak jak w sekcji „Powtórki dla dowolnej skoczni”.
+
+Wynik **[pomiar w porcie, 2026-10-12]**: 9509 skoków, każde wejście mieści się w powtórce.
+
+| Typ | Skoki (za progiem) | Skocznie | Wzorce | Przypadek zapisany jako plan |
+|---|---|---|---|---|
+| bez upadku | 2418 (2381) | 37 | 90 | |
+| 1 | 285 (28) | 37 | 24 | `FALL1`: skocznia 4 (K220), wybicie w porę, pochylenie do tyłu, lądowanie w porę, 63,02 m |
+| 2 | 2123 (1939) | 37 | 72 | `FALL2`: skocznia 1 (K105), wybicie w porę, pochylenie do przodu, lądowanie tuż po wybiciu, 53,89 m |
+| 3 | 94 (24) | 31 | 16 | `FALL3`: skocznia 3 (K135), wybicie w porę, gwałtowne pochylenia, późne lądowanie, 63,71 m |
+| 4 | 3405 (2547) | 37 | 121 | `FALL4`: skocznia 1 (K105), wybicie w porę, pochylenie do przodu, bez przycisku lądowania, 88,84 m |
+| 5 | 1184 (1184) | 37 | 32 | `FALL5`: skocznia 1 (K105), bez wybicia, pochylenie do przodu, lądowanie w porę, 24,65 m |
+
+„Za progiem” to skoki, które minęły próg; pozostałe kończą się na rozbiegu (zbyt wczesne wybicie) i mają 0 m.
+Port osiąga więc wszystkie pięć typów, także 1, 3 i 5, których nie dało się wywołać zmianami powtórki z Karpacza.
+
+W oryginale sprawdzono `FALL1` **[pomiar, 2026-10-12]**: upadek typu 1, 1574 klatki i 63,02 m, tak jak w porcie;
+pięć testów porównawczych ze śladem przeszło (krok skoczka: 1567 z 1567 klatek bit w bit). `FALL2`..`FALL5` mają
+plany i powtórki, ale nie mają jeszcze śladów; typy 3 i 5 nie były dotąd porównane z oryginałem.
 
 ## Testy mutacyjne (Stryker)
 
