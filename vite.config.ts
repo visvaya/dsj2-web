@@ -13,9 +13,9 @@ export default defineConfig({
       exclude: ["src/sim/**/*.test.ts", "src/sim/test-support/**", "src/sim/data/**"],
       reporter: ["text-summary", "html"],
       // Two points under the values measured on 2026-10-12 without files of the original game, as in CI,
-      // where the golden tests are skipped: statements 88.15, branches 73.9, functions 87.5, lines 89.7.
+      // where the golden tests are skipped: statements 91.92, branches 78.84, functions 95, lines 92.97.
       // Raise them when coverage improves; never lower them to make a run pass.
-      thresholds: { statements: 86, branches: 71, functions: 85, lines: 87 },
+      thresholds: { statements: 89, branches: 76, functions: 93, lines: 90 },
     },
   },
 });

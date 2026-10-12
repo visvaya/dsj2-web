@@ -8,8 +8,9 @@
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce; sprawdza też, że krok symulacji nie zmienia stanu, który dostał | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
+| `src/sim/test-support/replay-plan.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
-| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, zapis śladów) | wszędzie |
+| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
@@ -59,7 +60,7 @@ Zapis śladu (gra działa w emulatorze DOS z `tools/re`, bez DOSBoksa):
 
 ```sh
 pip install -r tools/re/requirements-dev.txt
-python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powtórki> <wyjście.trace>
+python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powtórki> <wyjście.trace> [max-ticks]
 ```
 
 `<numer-powtórki>` to pozycja na liście w studiu powtórek (od 0, alfabetycznie).
@@ -78,6 +79,46 @@ python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hil
 Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 30 s na skocznię); test
 `original-hills.golden.test.ts` porównuje z nim odczyt z `Dsj.exe`. Potrzebuje też `Dsj.exe` i `Dsj.dat`
 w `DSJ2_GAME_DIR`.
+
+### Powtórki dla dowolnej skoczni
+
+Powtórki z dystrybucji obejmują 6 z 37 skoczni. Dla pozostałych powtórkę trzeba zrobić: wejście (klatki przycisków
+i ruchu myszy) zależy od długości rozbiegu, więc planuje je port, a oryginał odtwarza gotową powtórkę.
+
+```sh
+# 1. Plan: port skacze na skoczni odczytanej z Dsj.exe gracza, wejście trafia do <plany>/HILLnn.json
+node scripts/plan-replays.mjs <gra> <plany> [numer-skoczni ...]      # bez numerów: wszystkie 37
+# 2. Powtórka z planu; powtórka bazowa (dowolna z gry) daje tylko nazwy i datę
+python3 -I tools/re/craft_replays.py from-plan <gra>/Karpacz.rpl <plany>/HILL32.json <kopia-gry>/HILL32.RPL
+# 3. Ślad: <kopia-gry> zawiera pliki gry i tę jedną powtórkę (numer 0)
+python3 -I tools/re/trace_capture.py <kopia-gry> <katalog-roboczy> 0 <ślady>/HILL32.trace.gz
+# 4. Odległość zmierzona przez oryginał trafia do powtórki
+python3 -I tools/re/craft_replays.py set-distance <ślady>/HILL32.trace.gz <kopia-gry>/HILL32.RPL
+# 5. Testy porównawcze
+DSJ2_TRACE_DIR=<ślady> DSJ2_GAME_DIR=<kopia-gry> pnpm test
+```
+
+Plan (`src/sim/test-support/replay-plan.ts`) to wejście skoku w postaci, w jakiej trzyma je powtórka
+(`docs/replay-format.md`): klatka startu, początek okna wybicia i jego 20 bajtów, ruch myszy z pierwszą i ostatnią
+klatką, klatki przycisków lądowania, ziarno generatora i wiatr. Powstaje z przebiegu portu ze skryptowanym
+graczem; wejście, którego powtórka nie pomieści, jest odrzucane. Plik planu zawiera też wynik portu (`expected`:
+liczba klatek, odległość, typ upadku), czyli to, co powinien pokazać oryginał. Ziarno skoczni n to 21000 + n,
+a wiatr jest losowany z tego ziarna tak jak w treningu, więc plany są powtarzalne.
+
+`plan-replays.mjs` ładuje moduły TypeScript przez serwer modułów Vite (`scripts/lib/load-typescript.mjs`): źródła
+importują się bez rozszerzeń, czego Node sam nie rozwiąże, a Vite jest już zależnością projektu. Skrypt czyta
+`Dsj.exe` i `Dsj.dat` ze wskazanego katalogu i pisze tylko do katalogu planów.
+
+`from-plan` nie wpisuje odległości: bez `set-distance` test całego skoku nie przejdzie, więc nie da się pomylić
+odległości z portu z odległością z oryginału.
+
+Sprawdzone na skoczni 32 (K250, największa) **[pomiar, 2026-10-12]**: oryginał przyjął powtórkę z planu, skok
+miał w nim 1477 klatek i 249,69 m, tak jak w porcie, a pięć testów porównawczych ze śladem przeszło (krok skoczka:
+1469 z 1469 klatek bit w bit). Zapis śladu trwał ok. 9 minut; ślad ma 5876 migawek i 1,6 MB po kompresji.
+
+`trace_capture.py` kończy zapis, gdy pętla skoku się skończy, najpóźniej po `max-ticks` taktach zegara (piąty
+argument, domyślnie 3000). Wcześniejszy limit 1500 wystarczał na ok. 990 klatek i urywał ślad długiego skoku
+w locie **[pomiar]**.
 
 ### Spreparowane powtórki (upadki, telemark)
 

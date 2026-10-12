@@ -34,7 +34,9 @@ TRACE_POINTS = [
     ("read_input", 0x0BAF, 0x9A3C),
     ("frame_logic", 0x0BAF, 0x9C52),
 ]
-DEFAULT_MAX_TICKS = 1500
+# Upper bound only: the capture stops by itself once the jump loop has ended. 1500 ticks cut a
+# jump of about 1500 frames (hill K250) short at frame 986.
+DEFAULT_MAX_TICKS = 3000
 
 
 def capture(game_dir: str, work_dir: str, replay_index: int, out_path: str, max_ticks: int) -> int:
