@@ -1,0 +1,4 @@
+# Supply-chain guard: refuse a version published with weaker provenance than an
+# earlier one of the same package (for example trusted publishing dropped to a
+# plain token).
+trustPolicy: no-downgrade
