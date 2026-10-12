@@ -153,9 +153,10 @@ function readChain(img: Uint8Array, first: number): HillDefinition[] {
 }
 
 function plausible(h: HillDefinition): boolean {
-  const values = [...Object.values(h.inrun), ...Object.values(h.landing)];
+  const inrunValues: unknown[] = Object.values(h.inrun);
+  const landingValues: unknown[] = Object.values(h.landing);
   return (
-    values.every((v) => Number.isFinite(v)) &&
+    [...inrunValues, ...landingValues].every((v) => Number.isFinite(v)) &&
     h.kPointM > 0 &&
     h.kPointM < 400 &&
     h.inrun.takeoffXM > h.inrun.lineEndXM &&

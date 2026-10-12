@@ -8,7 +8,7 @@ import { isJumpOver, startTrainingJump, stepTrainingJump } from "./training-sess
 function run(landingHeightM: number | null): string[] {
   const hill = OWN_HILLS[0];
   if (!hill) throw new Error("no hill");
-  const jump = startTrainingJump(hill, 3);
+  let jump = startTrainingJump(hill, 3);
   const bot = makeBot(
     hill.profile,
     { startFrame: 70, takeoffLeadM: 3, landingHeightM, leanPattern: () => 0 },
@@ -17,7 +17,7 @@ function run(landingHeightM: number | null): string[] {
   const events: string[] = [];
   for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
     const prev = jump.state;
-    stepTrainingJump(jump, bot(prev.logic.frame + 1));
+    jump = stepTrainingJump(jump, bot(prev.logic.frame + 1));
     events.push(...feedbackEvents(prev, jump.state));
   }
   return events;

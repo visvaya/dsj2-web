@@ -244,29 +244,29 @@ export interface TraceFile {
  * replay they record), or the single file in DSJ2_TRACE.
  */
 export function listTraces(): TraceFile[] {
-  const dir = process.env.DSJ2_TRACE_DIR ?? "";
+  const dir = process.env["DSJ2_TRACE_DIR"] ?? "";
   if (dir !== "" && existsSync(dir)) {
     return readdirSync(dir)
       .filter((file) => file.endsWith(".trace"))
       .toSorted()
       .map((file) => ({ name: file.replace(/\.trace$/, ""), path: join(dir, file) }));
   }
-  const single = process.env.DSJ2_TRACE ?? "";
+  const single = process.env["DSJ2_TRACE"] ?? "";
   return single !== "" && existsSync(single) ? [{ name: basename(single).replace(/\.trace$/, ""), path: single }] : [];
 }
 
 /** Hill setup snapshots of tools/re/hill_capture.py: `hills.hilltrace` in DSJ2_TRACE_DIR. */
 export function hillTraceFile(): string | undefined {
-  const dir = process.env.DSJ2_TRACE_DIR ?? "";
+  const dir = process.env["DSJ2_TRACE_DIR"] ?? "";
   const path = join(dir, "hills.hilltrace");
   return dir !== "" && existsSync(path) ? path : undefined;
 }
 
 /** The original game directory (for .rpl files), from DSJ2_GAME_DIR. */
 export function gameFile(name: string): string | undefined {
-  const dir = process.env.DSJ2_GAME_DIR ?? "";
+  const dir = process.env["DSJ2_GAME_DIR"] ?? "";
   if (dir === "" || !existsSync(dir)) return undefined;
   const want = name.toLowerCase();
   const found = readdirSync(dir).find((file) => file.toLowerCase() === want);
-  return found ? join(dir, found) : undefined;
+  return found === undefined ? undefined : join(dir, found);
 }

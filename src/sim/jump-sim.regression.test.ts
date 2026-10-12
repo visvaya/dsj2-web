@@ -40,10 +40,9 @@ const SCENARIOS: Scenario[] = [
   },
 ];
 
-function run(sc: Scenario) {
-  const hill = syntheticHill();
-  const setup: JumpSetup = {
-    hill,
+function setupFor(sc: Scenario): JumpSetup {
+  return {
+    hill: syntheticHill(),
     kPointM: 90,
     poses: ORIGINAL_POSES,
     wind: calmWind(sc.windOffset),
@@ -51,8 +50,12 @@ function run(sc: Scenario) {
     points: 0,
     presentation: true,
   };
+}
+
+function run(sc: Scenario) {
+  const setup = setupFor(sc);
   let state: JumpSimState = createJump(setup);
-  const input = makeBot(hill, sc.bot, () => state);
+  const input = makeBot(setup.hill, sc.bot, () => state);
   let hash = 0x811c9dc5;
   for (let guard = 0; guard < 6000 && jumpRunning(state); guard++) {
     state = stepFrame(state, setup, input);
@@ -71,5 +74,22 @@ function run(sc: Scenario) {
 describe("jump simulation regression on a synthetic hill", () => {
   it.each(SCENARIOS)("$name", (sc) => {
     expect(run(sc)).toMatchSnapshot();
+  });
+
+  // The step routines write into a copy of the frame's state, as the original writes memory. Everything
+  // outside the simulation relies on the previous state staying as it was.
+  it.each(SCENARIOS)("$name: a step never modifies the state it is given", (sc) => {
+    const setup = setupFor(sc);
+    let state: JumpSimState = createJump(setup);
+    const input = makeBot(setup.hill, sc.bot, () => state);
+    let frames = 0;
+    for (let guard = 0; guard < 6000 && jumpRunning(state); guard++) {
+      const before = structuredClone(state);
+      const next = stepFrame(state, setup, input);
+      expect(state).toEqual(before);
+      state = next;
+      frames++;
+    }
+    expect(frames).toBeGreaterThan(500);
   });
 });

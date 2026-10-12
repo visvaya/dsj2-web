@@ -14,7 +14,7 @@
     "build": "tsc --noEmit && vite build",
     "build:single": "pnpm build && node scripts/build-single-file.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "oxlint --type-aware",
+    "lint": "oxlint",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run",

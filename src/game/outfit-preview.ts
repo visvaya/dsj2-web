@@ -12,7 +12,7 @@ const PREVIEW_SEED = 2001;
 
 /** A jumper in flight on the given hill, from a fixed seed and fixed inputs, for the outfit preview. */
 export function previewFlightState(hill: HillChoice): JumpSimState {
-  const jump = startTrainingJump(hill, PREVIEW_SEED);
+  let jump = startTrainingJump(hill, PREVIEW_SEED);
   let flying = 0;
   for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
     const s = jump.state;
@@ -21,7 +21,7 @@ export function previewFlightState(hill: HillChoice): JumpSimState {
     const takingOff = s.logic.phase === PHASE.takeoff && !s.jumper.airborne;
     const both = nearEdge || takingOff;
     const input: FrameInput = { left: frame === START_FRAME || both, right: both, dy: 0 };
-    stepTrainingJump(jump, input);
+    jump = stepTrainingJump(jump, input);
     if (jump.state.logic.phase === PHASE.flight) flying++;
     if (flying >= FLIGHT_FRAMES) break;
   }

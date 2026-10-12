@@ -37,8 +37,9 @@ describe("hill setup", () => {
   });
 
   it("stores every value as a Single and inverts the width", () => {
-    for (const value of Object.values(h)) {
-      expect(Math.fround(value)).toBe(value);
+    const values: unknown[] = Object.values(h);
+    for (const value of values) {
+      expect(value).toBe(Math.fround(Number(value)));
     }
     expect(h.landingInvWidthPerM).toBe(Math.fround(1 / 40));
     expect(h.knollBlend).toBe(Math.fround(0.2));
