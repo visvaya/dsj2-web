@@ -19,8 +19,13 @@ const config: KnipConfig = {
     "src/original/test-support/fall-search.ts",
     // Named only in stryker.config.json ("vitest.configFile"), which knip does not follow.
     "vitest.stryker.config.ts",
+    // Browser tests (Playwright): the specs, the set-up that bundles the simulation harness, and the page
+    // script of that harness, which only Vite's build API is pointed at.
+    "e2e/**/*.spec.ts",
+    "e2e/**/*.setup.ts",
+    "e2e/sim-harness/entry.ts",
   ],
-  project: ["src/**/*.{ts,tsx}", "scripts/**/*.mjs", "*.config.ts"],
+  project: ["src/**/*.{ts,tsx}", "e2e/**/*.ts", "scripts/**/*.mjs", "*.config.ts"],
 };
 
 export default config;
