@@ -138,6 +138,7 @@ function disqualificationPoints(points: number, k: number): number {
 const signedUnit = (rng: BorlandRandom): number => rng.below(2) * 2 - 1;
 
 /** 0baf:9c52 without presentation. Mutates `s`; consumes `rng` in the original order. */
+// oxlint-disable-next-line max-lines-per-function, complexity -- the port of one routine of the original (0baf:9c52), kept in its shape
 export function stepLogic(s: SimFrame, input: FrameInput, ctx: LogicContext, rng: BorlandRandom): void {
   const L = s.logic;
   const j = s.jumper;

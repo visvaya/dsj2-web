@@ -23,6 +23,9 @@
     "eqeqeq": "error",
     "max-depth": ["error", 4],
     "max-lines": ["error", { "max": 800, "skipBlankLines": true, "skipComments": true }],
+    "max-lines-per-function": ["error", { "max": 120, "skipBlankLines": true, "skipComments": true }],
+    "complexity": ["error", 30],
+    "max-params": ["error", 7],
     "no-console": "error",
     "no-alert": "error",
     "no-eval": "error",
@@ -78,6 +81,7 @@
       "files": ["src/sim/**"],
       "rules": {
         "no-param-reassign": "error",
+        "complexity": ["error", 40],
         "oxc/approx-constant": "off",
         "typescript/no-non-null-assertion": "off",
         "typescript/no-unnecessary-condition": "off",
@@ -178,6 +182,12 @@
       "files": ["src/sim/**/*.test.ts", "src/sim/test-support/**", "src/sim/deterministic-math.ts"],
       "rules": {
         "no-restricted-properties": "off"
+      }
+    },
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.mjs"],
+      "rules": {
+        "max-lines-per-function": "off"
       }
     },
     {
