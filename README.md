@@ -4,6 +4,8 @@ A ski jumping game for the browser. Its jump physics is a faithful port of Delux
 reconstructed from an analysis of the original executable and checked against the original game frame by frame.
 Graphics, interface and sound are new, made in the style of the original.
 
+![A jumper in flight over the built-in practice hill in snowfall](docs/screenshot.png)
+
 Telemark is a working title.
 
 ## Status
