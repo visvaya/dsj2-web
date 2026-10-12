@@ -8,7 +8,7 @@ import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { createPlayerInput, mouseButtons } from "../game/player-input";
-import { lockLossAction } from "../game/pointer-lock";
+import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   isJumpOver,
   newSeed,
@@ -374,7 +374,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       e.preventDefault();
-      if (document.pointerLockElement !== canvas) canvas.requestPointerLock().catch(() => undefined);
+      if (document.pointerLockElement !== canvas) requestMouseCapture(canvas);
       input.setButtons("mouse", mouseButtons(e.buttons));
     };
     const onPointerUp = (e: PointerEvent) => {
