@@ -15,7 +15,12 @@ const inCi = Boolean(process.env["CI"]);
 const localEdge = Boolean(process.env["BROWSER_TESTS_EDGE"]);
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 720 };
-const edgeChannel = localEdge ? { channel: "msedge" } : {};
+/**
+ * The Chromium-based projects run in a full browser in its headless mode: Edge locally, Chromium on the runner.
+ * Playwright's separate headless shell did not start a jump from a held mouse button on the runner, while the
+ * full browser does.
+ */
+const chromiumChannel = { channel: localEdge ? "msedge" : "chromium" };
 /** Builds the simulation harness once; the projects that load it depend on this one. */
 const HARNESS_PROJECT = "sim-harness-build";
 
@@ -23,11 +28,11 @@ const HARNESS_PROJECT = "sim-harness-build";
 const chromiumProjects: Project[] = [
   {
     name: "desktop-chromium",
-    use: { ...devices["Desktop Chrome"], viewport: DESKTOP_VIEWPORT, ...edgeChannel },
+    use: { ...devices["Desktop Chrome"], viewport: DESKTOP_VIEWPORT, ...chromiumChannel },
     dependencies: [HARNESS_PROJECT],
   },
-  { name: "android-portrait", use: { ...devices["Pixel 7"], ...edgeChannel } },
-  { name: "android-landscape", use: { ...devices["Pixel 7 landscape"], ...edgeChannel } },
+  { name: "android-portrait", use: { ...devices["Pixel 7"], ...chromiumChannel } },
+  { name: "android-landscape", use: { ...devices["Pixel 7 landscape"], ...chromiumChannel } },
 ];
 
 const firefoxAndWebkitProjects: Project[] = [
