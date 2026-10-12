@@ -4,7 +4,15 @@ A ski jumping game for the browser. Its jump physics is a faithful port of Delux
 reconstructed from an analysis of the original executable and checked against the original game frame by frame.
 Graphics, interface and sound are new, made in the style of the original.
 
-Working title. Status: playable training mode, in development.
+Telemark is a working title.
+
+## Status
+
+As of 2026-10-12: in active development.
+
+- Playable: training mode on the built-in hill and on the 37 original hills.
+- Not there yet: competitions, a replay viewer, an instructions screen.
+- Not deployed anywhere; it runs locally with `pnpm dev`. No releases.
 
 ## Features
 
@@ -42,13 +50,36 @@ skipped. See `docs/testing.md`.
 | `src/game`, `src/render`, `src/audio`, `src/ui` | game session, pixel renderer, sound, React screens |
 | `src/storage` | local saves |
 | `tools/re` | reverse-engineering tools (disassembler, headless DOS emulator, trace capture) |
-| `docs` | physics specification, file formats, testing guide (mostly in Polish) |
+| `tools/font` | generator of the Polish letters for the Silkscreen font |
+| `scripts` | the single-file build |
+| `docs` | specifications and guides, see below |
+
+## Documentation
+
+The notes in `docs` are mostly in Polish.
+
+| File | Question it answers |
+|---|---|
+| `docs/physics-spec.md` | How does the original move the jumper on the inrun, in flight and on landing? |
+| `docs/hill-format.md` | Where does the original keep its hills and how are they read? |
+| `docs/jumper-figure.md` | How is the jumper drawn from a pose? |
+| `docs/replay-format.md` | How are the original `.rpl` replays encoded? |
+| `docs/testing.md` | Which tests exist, what do they need and how are they run? |
+| `docs/SECURITY.md` | How is a vulnerability reported and what is in scope? |
+
+## Contributing
+
+`master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
+and becomes the commit. CI runs the commands above plus a dependency audit, a secret scan and a check for em
+dashes and emoji. Security reports: see `docs/SECURITY.md`.
 
 ## Legal
 
 This is an independent project, not affiliated with or endorsed by the authors or publishers of Deluxe Ski Jump.
 Deluxe Ski Jump is a name of its respective owner and is used here only to describe compatibility. The repository
 contains no files from the original game; the game reads them from the player's own copy, locally.
+
+The pixel font is Silkscreen with added Polish letters, under the SIL Open Font License 1.1 (`src/ui/fonts/OFL.txt`).
 
 ## License
 
