@@ -72,9 +72,10 @@ The notes in `docs` are mostly in Polish.
 ## Contributing
 
 `master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
-and becomes the commit. CI runs the checks above, verifies the formatting (`pnpm format:check`), and adds
-a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em dashes
-and emoji. Security reports: see `SECURITY.md`.
+and becomes the commit. CI runs the checks above, verifies the formatting (`pnpm format:check`), tests the build
+scripts (`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), and
+adds a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
+dashes and emoji. Security reports: see `SECURITY.md`.
 
 ## Legal
 

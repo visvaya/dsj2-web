@@ -18,6 +18,8 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "check:dist": "node scripts/check-dist.mjs",
     "mutation": "stryker run"
   },
   "dependencies": {
