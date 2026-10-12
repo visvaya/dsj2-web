@@ -99,12 +99,15 @@ test("the web font arriving late does not move the picture or the main controls"
     await held;
     await route.continue();
   });
-  const fontsLoaded = () => page.evaluate(() => document.fonts.check('16px "Silkscreen"'));
+  // The state of the font faces themselves: `document.fonts.check` answers true in WebKit while the file is still
+  // held back. A small face is inlined in the stylesheet and loads at once, so the question is whether any face
+  // is still on its way.
+  const fontsArriving = () => page.evaluate(() => Array.from(document.fonts).some((face) => face.status === "loading"));
 
   // Not the load event: Firefox and WebKit hold it back until the fonts have arrived.
   await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
-  expect(await fontsLoaded(), "the fallback font is in use").toBe(false);
+  expect(await fontsArriving(), "the fallback font is in use").toBe(true);
   const menuBefore = await menuPositions(page);
   await press(button(page, TEXT.training), traits);
   await press(builtInHill(page), traits);
@@ -112,7 +115,7 @@ test("the web font arriving late does not move the picture or the main controls"
   const jumpBefore = await jumpPositions(page, traits);
 
   release();
-  await expect.poll(fontsLoaded).toBe(true);
+  await expect.poll(fontsArriving).toBe(false);
   await page.evaluate(async () => {
     await document.fonts.ready;
   });
