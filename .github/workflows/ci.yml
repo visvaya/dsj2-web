@@ -38,7 +38,10 @@ jobs:
       - run: pnpm format:check
       # Golden tests need a trace of the original game and are skipped here.
       - run: pnpm test
+      - run: pnpm test:scripts
       - run: pnpm build
+      - name: Only the build's own files in dist/, within the size budget
+        run: pnpm check:dist
 
   tools:
     name: tools
