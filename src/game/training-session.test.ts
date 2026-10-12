@@ -11,7 +11,11 @@ describe("training jump", () => {
       const jump = startTrainingJump(hill, 12345);
       for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
         const frame = jump.state.logic.frame + 1;
-        stepTrainingJump(jump, { left: frame === 70 || (frame > 500 && frame < 520), right: frame > 500 && frame < 520, dy: 0 });
+        stepTrainingJump(jump, {
+          left: frame === 70 || (frame > 500 && frame < 520),
+          right: frame > 500 && frame < 520,
+          dy: 0,
+        });
       }
       return jump.state;
     };

@@ -41,4 +41,3 @@ export async function requestTiltPermission(ctor: unknown = globalThis.DeviceOri
     return false;
   }
 }
-

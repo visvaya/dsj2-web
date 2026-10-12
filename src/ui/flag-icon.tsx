@@ -1,4 +1,11 @@
-import { FLAG_HEIGHT_PX, FLAG_WIDTH_PX, COUNTRY_NAME_PL, flagPixels, unknownFlagPixels, type CountryCode } from "../render/flags";
+import {
+  FLAG_HEIGHT_PX,
+  FLAG_WIDTH_PX,
+  COUNTRY_NAME_PL,
+  flagPixels,
+  unknownFlagPixels,
+  type CountryCode,
+} from "../render/flags";
 
 /** CSS pixels per flag pixel. */
 const FLAG_SCALE = 2;

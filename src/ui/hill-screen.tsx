@@ -38,8 +38,18 @@ export function HillScreen({ hills, records, onPick, onBack }: Props) {
     <main className="screen">
       <h1 className="screen-title">Wybierz skocznię do treningu</h1>
       <hr className="rule" />
-      <HillList title="Skocznie własne" hills={hills.filter((h) => h.source === "own")} records={records} onPick={onPick} />
-      <HillList title="Skocznie z oryginału" hills={hills.filter((h) => h.source === "original")} records={records} onPick={onPick} />
+      <HillList
+        title="Skocznie własne"
+        hills={hills.filter((h) => h.source === "own")}
+        records={records}
+        onPick={onPick}
+      />
+      <HillList
+        title="Skocznie z oryginału"
+        hills={hills.filter((h) => h.source === "original")}
+        records={records}
+        onPick={onPick}
+      />
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
           Wstecz

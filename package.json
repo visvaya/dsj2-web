@@ -15,6 +15,8 @@
     "build:single": "pnpm build && node scripts/build-single-file.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --type-aware",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "vitest run",
     "mutation": "stryker run"
   },
@@ -30,6 +32,7 @@
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
+    "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2003",
     "typescript": "7.0.2",

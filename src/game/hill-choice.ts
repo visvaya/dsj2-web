@@ -23,8 +23,24 @@ export const OWN_HILLS: readonly HillChoice[] = [
     source: "own",
     country: null,
     profile: buildHillProfile(
-      { startXM: 11.4, flatEndXM: 10, lineEndXM: 32, takeoffXM: 44, lineSlope: -0.9, lineInterceptM: 230, curveA: 0.0296 },
-      { centerXM: 95, centerYM: 166, amplitudeM: 30, widthM: 40, outrunStartXM: 160, outrunCurveA: 0.012, knollBlend: 0 },
+      {
+        startXM: 11.4,
+        flatEndXM: 10,
+        lineEndXM: 32,
+        takeoffXM: 44,
+        lineSlope: -0.9,
+        lineInterceptM: 230,
+        curveA: 0.0296,
+      },
+      {
+        centerXM: 95,
+        centerYM: 166,
+        amplitudeM: 30,
+        widthM: 40,
+        outrunStartXM: 160,
+        outrunCurveA: 0.012,
+        knollBlend: 0,
+      },
     ),
   },
 ];
@@ -34,6 +50,7 @@ export const OWN_HILLS: readonly HillChoice[] = [
  * 33-37 are Polish hills (Zakopane 1 and 2, Karpacz, Wisła, Szczyrk). By number, not by name, because
  * the names come from the player's file and differ between language versions.
  */
+// oxfmt-ignore
 export const ORIGINAL_HILL_COUNTRY: readonly CountryCode[] = [
   "FI", "CH", "CZ", "BY", "AT", "US", "LV", "PL", "JP", "BE", "IS", "ENG", "DE", "EE", "NO", "AU",
   "IE", "UA", "HU", "SE", "IT", "DK", "SK", "CA", "LT", "KZ", "CN", "FR", "NL", "RU", "KR", "SI",

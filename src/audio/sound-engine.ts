@@ -204,7 +204,15 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
   };
 
   /** A short piece of noise through a filter that may sweep from one frequency to another. */
-  const burst = (c: ContextLike, t: number, type: BiquadFilterType, fromHz: number, toHz: number, peak: number, seconds: number) => {
+  const burst = (
+    c: ContextLike,
+    t: number,
+    type: BiquadFilterType,
+    fromHz: number,
+    toHz: number,
+    peak: number,
+    seconds: number,
+  ) => {
     if (!master || !noise) return;
     const source = c.createBufferSource();
     source.buffer = noise;
@@ -220,7 +228,15 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     source.start(t, (t * 0.37) % (NOISE_SECONDS - 1), seconds + 0.05);
   };
 
-  const tone = (c: ContextLike, t: number, type: OscillatorType, fromHz: number, toHz: number, peak: number, seconds: number) => {
+  const tone = (
+    c: ContextLike,
+    t: number,
+    type: OscillatorType,
+    fromHz: number,
+    toHz: number,
+    peak: number,
+    seconds: number,
+  ) => {
     if (!master) return;
     const osc = c.createOscillator();
     osc.type = type;

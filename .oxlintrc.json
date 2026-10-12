@@ -1,12 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "typescript",
-    "react",
-    "import",
-    "unicorn",
-    "vitest"
-  ],
+  "plugins": ["typescript", "react", "import", "unicorn", "vitest"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -19,16 +13,9 @@
     "import/no-unassigned-import": [
       "error",
       {
-        "allow": [
-          "**/*.css"
-        ]
+        "allow": ["**/*.css"]
       }
     ]
   },
-  "ignorePatterns": [
-    "dist",
-    "node_modules",
-    "tools",
-    "re-out"
-  ]
+  "ignorePatterns": ["dist", "node_modules", "tools", "re-out"]
 }

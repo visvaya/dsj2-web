@@ -1,12 +1,6 @@
 import type { BorlandRandom } from "./borland-random";
 import { detCos, detSin } from "./deterministic-math";
-import {
-  inrunSlope,
-  landingArcLengthM,
-  landingSlope,
-  terrainYM,
-  type HillProfile,
-} from "./hill-profile";
+import { inrunSlope, landingArcLengthM, landingSlope, terrainYM, type HillProfile } from "./hill-profile";
 import type { JumperState } from "./jumper-step";
 import { roundHalfEven, toInt16, toWord, truncToInt } from "./pascal-numeric";
 import { f32 } from "./physics-constants";
@@ -232,7 +226,9 @@ export function stepLogic(s: SimFrame, input: FrameInput, ctx: LogicContext, rng
       L.flightStyle = f32(body * body * dt * 1.5 + L.flightStyle + skis * 0.3 * dt + arms * 0.3 * dt);
     } else {
       if (0.1 < L.styleRampS) {
-        L.flightStyle = f32((L.styleRampS * 3 - 0.1) * (body * body * dt * 1.5 + skis * 0.3 * dt + arms * 0.3 * dt) + L.flightStyle);
+        L.flightStyle = f32(
+          (L.styleRampS * 3 - 0.1) * (body * body * dt * 1.5 + skis * 0.3 * dt + arms * 0.3 * dt) + L.flightStyle,
+        );
       }
       if (!(0.4 <= L.styleRampS)) {
         L.styleRampS = f32(L.styleRampS + dt);
@@ -346,17 +342,21 @@ export function stepLogic(s: SimFrame, input: FrameInput, ctx: LogicContext, rng
   if (j.airborne && L.phase >= PHASE.flightHold && L.phase <= PHASE.outrun) {
     const behind = terrainYM(h, f32(j.xM - 1));
     if (!(behind <= j.yM)) {
-      L.groundProximity = f32((terrainYM(h, f32(j.xM - 1)) - j.yM) / (terrainYM(h, f32(j.xM - 1)) - terrainYM(h, j.xM)));
+      L.groundProximity = f32(
+        (terrainYM(h, f32(j.xM - 1)) - j.yM) / (terrainYM(h, f32(j.xM - 1)) - terrainYM(h, j.xM)),
+      );
     } else {
       L.groundProximity = 0;
     }
     const g = L.groundProximity;
     if (L.phase < PHASE.landingPrep) {
       leg0.joints.target[SKI_JOINT] = f32(
-        j.slopeAngleRad * g + (L.bodyAngleRad / 4 + L.skiWobbleRad[0] + 0.2) * (1 - g) * detCos(leg0.joints.current[0] ?? 0),
+        j.slopeAngleRad * g +
+          (L.bodyAngleRad / 4 + L.skiWobbleRad[0] + 0.2) * (1 - g) * detCos(leg0.joints.current[0] ?? 0),
       );
       leg1.joints.target[SKI_JOINT] = f32(
-        j.slopeAngleRad * g + (L.bodyAngleRad / 4 + L.skiWobbleRad[1] + 0.2) * (1 - g) * detCos(leg1.joints.current[0] ?? 0),
+        j.slopeAngleRad * g +
+          (L.bodyAngleRad / 4 + L.skiWobbleRad[1] + 0.2) * (1 - g) * detCos(leg1.joints.current[0] ?? 0),
       );
     } else {
       leg0.joints.target[SKI_JOINT] = f32(detCos(leg0.joints.current[0] ?? 0) * j.slopeAngleRad);
@@ -402,13 +402,7 @@ export function stepLogic(s: SimFrame, input: FrameInput, ctx: LogicContext, rng
   }
 
   // Bounces while sliding fast after a crash.
-  if (
-    j.speedMPerS > 8 &&
-    L.phase === PHASE.crash &&
-    L.fallType !== 0 &&
-    !j.airborne &&
-    p.poseTimeS > 0
-  ) {
+  if (j.speedMPerS > 8 && L.phase === PHASE.crash && L.fallType !== 0 && !j.airborne && p.poseTimeS > 0) {
     if (L.bounceCount < 3) {
       L.bounceCount++;
       j.impulseYNs = f32(0.24 * j.vyMPerS * j.massKg * (detCos(j.impactAngleRad) + 0.5));
@@ -443,8 +437,12 @@ function landClean(s: SimFrame, ctx: LogicContext, rng: BorlandRandom): void {
   // The original adds the first leg's term twice.
   L.impact[2] = f32(torso * 30 + shin * 20 + shin * 20);
   L.impact[3] = f32((leg0.joints.current[0] ?? 0) * 140 + (leg1.joints.current[0] ?? 0) * 140);
-  L.impact[4] = f32((2.16 - (leg0.segments.current[UPPER_SEGMENT] ?? 0) - (leg1.segments.current[UPPER_SEGMENT] ?? 0)) * 50);
-  L.impactMean = f32(((L.impact[0] ?? 0) + (L.impact[1] ?? 0) + (L.impact[2] ?? 0) + (L.impact[3] ?? 0) + (L.impact[4] ?? 0)) / 5);
+  L.impact[4] = f32(
+    (2.16 - (leg0.segments.current[UPPER_SEGMENT] ?? 0) - (leg1.segments.current[UPPER_SEGMENT] ?? 0)) * 50,
+  );
+  L.impactMean = f32(
+    ((L.impact[0] ?? 0) + (L.impact[1] ?? 0) + (L.impact[2] ?? 0) + (L.impact[3] ?? 0) + (L.impact[4] ?? 0)) / 5,
+  );
   if (!(j.xM >= ctx.hill.takeoffXM)) {
     L.fallType = 2;
     L.impactMean = 40;
@@ -498,8 +496,7 @@ function landClean(s: SimFrame, ctx: LogicContext, rng: BorlandRandom): void {
     joints.target[3] = f32(0.24 + spread);
     joints.rate[3] = 3;
   }
-  const spreadSum = () =>
-    Math.abs(L.legSpreadRad[L.backLeg] ?? 0) + Math.abs(L.legSpreadRad[L.frontLeg] ?? 0);
+  const spreadSum = () => Math.abs(L.legSpreadRad[L.backLeg] ?? 0) + Math.abs(L.legSpreadRad[L.frontLeg] ?? 0);
   leg0.joints.target[4] = f32((leg0.joints.target[4] ?? 0) - spreadSum());
   leg0.joints.rate[4] = 3;
   leg0.joints.target[6] = f32(spreadSum() * (rng.below(5) + 1) + (leg0.joints.target[6] ?? 0));
@@ -704,8 +701,12 @@ function landCrash(s: SimFrame, ctx: LogicContext, rng: BorlandRandom): void {
     } else {
       leg0.joints.target[4] = f32(rng.below(15) / 20 + (leg0.joints.target[4] ?? 0));
     }
-    leg0.joints.target[6] = f32(roundHalfEven(((leg0.joints.current[6] ?? 0) - (rng.below(10) + 7) / 10) / Math.PI) * Math.PI);
-    leg1.joints.target[6] = f32(roundHalfEven(((leg1.joints.current[6] ?? 0) - (rng.below(10) + 7) / 10) / Math.PI) * Math.PI);
+    leg0.joints.target[6] = f32(
+      roundHalfEven(((leg0.joints.current[6] ?? 0) - (rng.below(10) + 7) / 10) / Math.PI) * Math.PI,
+    );
+    leg1.joints.target[6] = f32(
+      roundHalfEven(((leg1.joints.current[6] ?? 0) - (rng.below(10) + 7) / 10) / Math.PI) * Math.PI,
+    );
     leg0.joints.target[7] = f32(rng.below(5) / 10 + 0.8);
     leg1.joints.target[7] = f32(rng.below(5) / 10 + 0.8);
     leg0.joints.target[3] = f32(rng.below(5) / 10 + 0.5);

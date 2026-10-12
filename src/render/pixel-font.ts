@@ -98,7 +98,13 @@ export function textWidth(text: string): number {
 
 /** Draws text with an optional one-pixel drop shadow; returns the x after the text. */
 export function drawText(fb: FrameBuffer, x: number, y: number, text: string, color: number, shadow?: number): number {
-  const passes: [number, number, number][] = shadow === undefined ? [[0, 0, color]] : [[1, 1, shadow], [0, 0, color]];
+  const passes: [number, number, number][] =
+    shadow === undefined
+      ? [[0, 0, color]]
+      : [
+          [1, 1, shadow],
+          [0, 0, color],
+        ];
   let end = x;
   for (const [ox, oy, c] of passes) {
     let cx = x;

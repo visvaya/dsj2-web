@@ -92,9 +92,7 @@ export function stepJumperDetailed(prev: JumperState, c: JumperControls, h: Hill
     }
     const mu = s.xM >= h.takeoffXM ? h.landingFrictionCoef : h.inrunFrictionCoef;
     const cosTrack = detCos(s.trackAngleRad);
-    let vRel = f32(
-      s.speedMPerS - detCos(c.windDirectionRad) * c.windSpeedMPerS * cosTrack * TRACK_WIND_FACTOR,
-    );
+    let vRel = f32(s.speedMPerS - detCos(c.windDirectionRad) * c.windSpeedMPerS * cosTrack * TRACK_WIND_FACTOR);
     if (!(vRel >= 0)) {
       vRel = 0;
     }

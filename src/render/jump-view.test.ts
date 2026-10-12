@@ -3,7 +3,15 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "../game/training-session";
 import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
-import { FALLEN_MAX_HEIGHT_M, VIEW_HEIGHT_PX, drawJumpView, figureHalfWidthM, figurePoints, viewWidthFor, type Scenery } from "./jump-view";
+import {
+  FALLEN_MAX_HEIGHT_M,
+  VIEW_HEIGHT_PX,
+  drawJumpView,
+  figureHalfWidthM,
+  figurePoints,
+  viewWidthFor,
+  type Scenery,
+} from "./jump-view";
 import { terrainYM } from "../sim/hill-profile";
 import { color } from "./palette";
 
@@ -43,7 +51,11 @@ describe("jump view", () => {
     if (!hill) throw new Error("no hill");
     const render = () => {
       const jump = startTrainingJump(hill, 7);
-      const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 }, () => jump.state);
+      const bot = makeBot(
+        hill.profile,
+        { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+        () => jump.state,
+      );
       const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
       const hashes: string[] = [];
       let unpainted = 0;
@@ -83,11 +95,18 @@ describe("jump view", () => {
     if (!hill) throw new Error("no hill");
     // Nobody presses start: the countdown runs out and the jump is disqualified.
     const jump = startTrainingJump(hill, 5);
-    for (let f = 0; f < 3000 && jump.framesAfterEnd < 50; f++) stepTrainingJump(jump, { left: false, right: false, dy: 0 });
+    for (let f = 0; f < 3000 && jump.framesAfterEnd < 50; f++)
+      stepTrainingJump(jump, { left: false, right: false, dy: 0 });
     expect(jump.state.logic.finished).toBe(true);
     expect(jump.state.logic.distanceM).toBe(0);
     const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
-    const model = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1", state: jump.state };
+    const model = {
+      profile: hill.profile,
+      kPointM: hill.kPointM,
+      hillName: hill.name,
+      playerName: "GRACZ 1",
+      state: jump.state,
+    };
     drawJumpView(fb, { ...model, controls: "mouse", frame: presentationFrame(jump), over: true });
     expect(fb.pixels.includes(color("noteBox"))).toBe(false);
   });
@@ -96,7 +115,13 @@ describe("jump view", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     const jump = startTrainingJump(hill, 9);
-    const base = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1", state: jump.state };
+    const base = {
+      profile: hill.profile,
+      kPointM: hill.kPointM,
+      hillName: hill.name,
+      playerName: "GRACZ 1",
+      state: jump.state,
+    };
     const draw = (scenery: Scenery) => {
       const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
       drawJumpView(fb, { ...base, controls: "mouse", frame: 1, over: false, scenery });
@@ -114,7 +139,11 @@ describe("jump view", () => {
     if (!hill) throw new Error("no hill");
     // No landing press at all: the jumper crashes and the pose flails.
     const jump = startTrainingJump(hill, 11);
-    const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: () => 0 }, () => jump.state);
+    const bot = makeBot(
+      hill.profile,
+      { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: () => 0 },
+      () => jump.state,
+    );
     let crashed = false;
     let highestWhileLying = -Infinity;
     for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {

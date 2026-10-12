@@ -9,7 +9,11 @@ function run(landingHeightM: number | null): string[] {
   const hill = OWN_HILLS[0];
   if (!hill) throw new Error("no hill");
   const jump = startTrainingJump(hill, 3);
-  const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM, leanPattern: () => 0 }, () => jump.state);
+  const bot = makeBot(
+    hill.profile,
+    { startFrame: 70, takeoffLeadM: 3, landingHeightM, leanPattern: () => 0 },
+    () => jump.state,
+  );
   const events: string[] = [];
   for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
     const prev = jump.state;
@@ -52,7 +56,9 @@ describe("tilt steering", () => {
 
   it("asks for permission only where required", async () => {
     expect(await requestTiltPermission(function DeviceOrientationEvent() {})).toBe(true);
-    const ios = Object.assign(function DeviceOrientationEvent() {}, { requestPermission: () => Promise.resolve("denied") });
+    const ios = Object.assign(function DeviceOrientationEvent() {}, {
+      requestPermission: () => Promise.resolve("denied"),
+    });
     expect(await requestTiltPermission(ios)).toBe(false);
     expect(await requestTiltPermission(undefined)).toBe(false);
   });

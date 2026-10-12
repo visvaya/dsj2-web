@@ -57,7 +57,13 @@ describe.skipIf(cases.length === 0)("whole jump from a replay file against the o
           wind: decodeWind(snap.view),
           seed: decodeRandSeed(snap.view),
         };
-        const got = { logic: state.logic, jumper: state.jumper, pose: state.pose, wind: state.wind, seed: state.randomSeed };
+        const got = {
+          logic: state.logic,
+          jumper: state.jumper,
+          pose: state.pose,
+          wind: state.wind,
+          seed: state.randomSeed,
+        };
         const bad = diffStates(got, want, REL_TOLERANCE, new Set(["logic.frame"]));
         if (bad.length > 0 && failures.length < 4) {
           failures.push(`frame ${state.logic.frame} phase ${state.logic.phase}: ${bad.slice(0, 6).join("; ")}`);

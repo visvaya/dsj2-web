@@ -203,14 +203,26 @@ export function applyGroundPose(p: PoseState, slopeAngleRad: number): void {
 }
 
 /** 1cb6:003a: preparing to land; the front leg reaches forward. Mutates `p`. */
-export function applyLandingPrepPose(p: PoseState, frontLeg: number, backLeg: number, prepS: number, slopeAngleRad: number): void {
+export function applyLandingPrepPose(
+  p: PoseState,
+  frontLeg: number,
+  backLeg: number,
+  prepS: number,
+  slopeAngleRad: number,
+): void {
   setJoint(p, frontLeg, 2, 0.8 * prepS + 1.5 + slopeAngleRad * prepS * 1.6, 4);
   setJoint(p, backLeg, 2, 1.5 - 0.7 * prepS + slopeAngleRad * prepS * 1.6, 4);
   setJoint(p, 0, 4, 1.4 - 0.3 * prepS + 0.3 * slopeAngleRad, 4);
 }
 
 /** 1cb6:0a9e: absorbing the landing. Mutates `p`. */
-export function applyLandingAbsorbPose(p: PoseState, frontLeg: number, backLeg: number, prepS: number, slopeAngleRad: number): void {
+export function applyLandingAbsorbPose(
+  p: PoseState,
+  frontLeg: number,
+  backLeg: number,
+  prepS: number,
+  slopeAngleRad: number,
+): void {
   setJoint(p, 0, 6, 0.2 * slopeAngleRad + 3.5, 3);
   setJoint(p, 1, 6, 0.2 * slopeAngleRad + 3.5, 3);
   for (const leg of p.legs) {

@@ -92,15 +92,31 @@ function groundLayers(i: MixInput, loudness: number): Pick<Mix, "rumble" | "skis
   const speed = share(v, GROUND_FULL_SPEED_M_PER_S);
   if (i.onTrack) {
     return {
-      rumble: { gain: loudness * TRACK_RUMBLE_MAX_GAIN * speed, freqHz: TRACK_RUMBLE_BASE_HZ + v * TRACK_RUMBLE_HZ_PER_M_PER_S, q: RUMBLE_Q },
+      rumble: {
+        gain: loudness * TRACK_RUMBLE_MAX_GAIN * speed,
+        freqHz: TRACK_RUMBLE_BASE_HZ + v * TRACK_RUMBLE_HZ_PER_M_PER_S,
+        q: RUMBLE_Q,
+      },
       // The note comes in late: quiet while the skis are slow, clear near the takeoff.
-      skis: { gain: loudness * TRACK_SKIS_MAX_GAIN * speed ** 1.5, freqHz: TRACK_SKIS_BASE_HZ + v * TRACK_SKIS_HZ_PER_M_PER_S, q: TRACK_SKIS_Q },
+      skis: {
+        gain: loudness * TRACK_SKIS_MAX_GAIN * speed ** 1.5,
+        freqHz: TRACK_SKIS_BASE_HZ + v * TRACK_SKIS_HZ_PER_M_PER_S,
+        q: TRACK_SKIS_Q,
+      },
       flutter: { rateHz: TRACK_FLUTTER_BASE_HZ + v * TRACK_FLUTTER_HZ_PER_M_PER_S, depth: TRACK_FLUTTER_DEPTH },
     };
   }
   return {
-    rumble: { gain: loudness * SNOW_RUMBLE_MAX_GAIN * speed, freqHz: SNOW_RUMBLE_BASE_HZ + v * SNOW_RUMBLE_HZ_PER_M_PER_S, q: RUMBLE_Q },
-    skis: { gain: loudness * SNOW_SKIS_MAX_GAIN * speed, freqHz: SNOW_SKIS_BASE_HZ + v * SNOW_SKIS_HZ_PER_M_PER_S, q: SNOW_SKIS_Q },
+    rumble: {
+      gain: loudness * SNOW_RUMBLE_MAX_GAIN * speed,
+      freqHz: SNOW_RUMBLE_BASE_HZ + v * SNOW_RUMBLE_HZ_PER_M_PER_S,
+      q: RUMBLE_Q,
+    },
+    skis: {
+      gain: loudness * SNOW_SKIS_MAX_GAIN * speed,
+      freqHz: SNOW_SKIS_BASE_HZ + v * SNOW_SKIS_HZ_PER_M_PER_S,
+      q: SNOW_SKIS_Q,
+    },
     flutter: { rateHz: TRACK_FLUTTER_BASE_HZ, depth: 0 },
   };
 }
@@ -130,11 +146,16 @@ export function soundEvents(prev: JumpSimState, next: JumpSimState): SoundEvent[
   const before = prev.logic;
   const after = next.logic;
   // The push: the player's press that straightens the legs at the end of the inrun.
-  if (before.phase < PHASE.takeoff && after.phase >= PHASE.takeoff && after.phase <= PHASE.flightHold) events.push("push");
+  if (before.phase < PHASE.takeoff && after.phase >= PHASE.takeoff && after.phase <= PHASE.flightHold)
+    events.push("push");
   if (before.phase === PHASE.gate && after.phase === PHASE.gate) {
     if (!before.finished && after.finished) {
       events.push("disqualified");
-    } else if (after.startCountdown < before.startCountdown && after.startCountdown > 0 && after.startCountdown <= COUNTDOWN_HEARD_FROM_S) {
+    } else if (
+      after.startCountdown < before.startCountdown &&
+      after.startCountdown > 0 &&
+      after.startCountdown <= COUNTDOWN_HEARD_FROM_S
+    ) {
       events.push("countdown");
     }
   }
@@ -144,5 +165,7 @@ export function soundEvents(prev: JumpSimState, next: JumpSimState): SoundEvent[
 /** Judges' notes that appear between two presentation frames (each judge has its own frame, as in the original). */
 export function notesAppearing(logic: JumpLogicState, fromFrame: number, toFrame: number): { counted: boolean }[] {
   if (!logic.finished || !(logic.distanceM > 0)) return [];
-  return logic.judges.filter((j) => j.showFrame > fromFrame && j.showFrame <= toFrame).map((j) => ({ counted: j.counted }));
+  return logic.judges
+    .filter((j) => j.showFrame > fromFrame && j.showFrame <= toFrame)
+    .map((j) => ({ counted: j.counted }));
 }

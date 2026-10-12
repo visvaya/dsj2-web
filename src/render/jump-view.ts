@@ -190,7 +190,13 @@ function drawBackdrop(fb: FrameBuffer, b: Backdrop, cam: Camera, bottom: number,
     const snowline = skyline - ridge.snowlinePx;
     for (; sy < skyline; sy++) {
       const snow = sy < snowline;
-      px[sy * fb.width + sx] = ridge.shaded ? (snow ? range.snowShade : range.rockShade) : snow ? range.snow : range.rock;
+      px[sy * fb.width + sx] = ridge.shaded
+        ? snow
+          ? range.snowShade
+          : range.rockShade
+        : snow
+          ? range.snow
+          : range.rock;
     }
     for (; sy < bottom; sy++) {
       const depth = sy - b.lift;
@@ -460,7 +466,13 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       const pillar = wx < to - 6 && k >= 0 ? inBand(wx, pillarFrom, PILLAR_WIDTH_M) : null;
       const shade = tower ?? pillar;
       if (shade !== null && gy > nearBottom) {
-        fb.rect(sx, nearBottom, 1, gy - nearBottom, shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM));
+        fb.rect(
+          sx,
+          nearBottom,
+          1,
+          gy - nearBottom,
+          shade > SUPPORT_SIDE_FROM ? side : band(support, shade / SUPPORT_SIDE_FROM),
+        );
       }
     }
     // Far rail: where the back edge has not reached it yet, a slanted top face of the platform instead.
@@ -479,7 +491,8 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       const nearTop = nearTopAt(wx);
       // Track: the light band between the far rail and the near wall (none on the flat platform).
       if (railBottom !== null) {
-        for (let y = railBottom; y < nearTop; y++) fb.put(sx, y, band(track, (y - railBottom) / Math.max(1, nearTop - railBottom)));
+        for (let y = railBottom; y < nearTop; y++)
+          fb.put(sx, y, band(track, (y - railBottom) / Math.max(1, nearTop - railBottom)));
       }
       for (let i = 0; i < INRUN_WALL_PX; i++) fb.put(sx, nearTop + i, band(wall, i / (INRUN_WALL_PX - 1)));
     } else if (sx >= sxTakeoff && railBottom !== null) {
@@ -491,7 +504,8 @@ function drawInrun(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Ar
       const top = Math.round(nearTop + (railTop - nearTop) * t);
       for (let y = railBottom; y < top; y++) fb.put(sx, y, band(track, 1));
       const bottom = top + INRUN_WALL_PX;
-      for (let y = Math.max(top, railBottom); y < bottom; y++) fb.put(sx, y, band(face, (y - top) / (INRUN_WALL_PX - 1)));
+      for (let y = Math.max(top, railBottom); y < bottom; y++)
+        fb.put(sx, y, band(face, (y - top) / (INRUN_WALL_PX - 1)));
     }
   }
   drawStartGate(fb, cam, h, nearTopAt);
@@ -514,7 +528,7 @@ function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: Int32Arr
   for (let cell = firstCell; cell <= lastCell; cell++) {
     const r = hash(cell);
     if (r % 3 !== 0) continue;
-    const wx = cell * 6 + (r >>> 4) % 6;
+    const wx = cell * 6 + ((r >>> 4) % 6);
     if (wx < h.takeoffXM + 4) continue;
     const sx = Math.round(toScreenX(cam, wx));
     const base = Math.round(toScreenY(cam, surfaceY(h, wx))) - FAR_EDGE_PX - 2;
@@ -543,7 +557,10 @@ function drawFloodlights(fb: FrameBuffer, h: HillProfile, cam: Camera): void {
   const lamp = color("lampLight");
   const glow = color("lampGlow");
   const first = h.takeoffXM + 12;
-  const from = Math.max(first, first + Math.floor((cam.x - fb.width / PIXELS_PER_M - first) / MAST_SPACING_M) * MAST_SPACING_M);
+  const from = Math.max(
+    first,
+    first + Math.floor((cam.x - fb.width / PIXELS_PER_M - first) / MAST_SPACING_M) * MAST_SPACING_M,
+  );
   for (let x = from; x < cam.x + fb.width / PIXELS_PER_M; x += MAST_SPACING_M) {
     const sx = Math.round(toScreenX(cam, x));
     if (sx < -LAMP_GLOW_PX - 4 || sx > fb.width + LAMP_GLOW_PX + 4) continue;
@@ -617,7 +634,14 @@ function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimS
 }
 
 /** A line across the landing hill at a distance from the takeoff, slanted by the oblique projection. */
-function drawDistanceLine(fb: FrameBuffer, h: HillProfile, cam: Camera, distanceM: number, c: number, offsetPx: number): void {
+function drawDistanceLine(
+  fb: FrameBuffer,
+  h: HillProfile,
+  cam: Camera,
+  distanceM: number,
+  c: number,
+  offsetPx: number,
+): void {
   const x = xAtDistance(h, distanceM);
   const sx = toScreenX(cam, x) + offsetPx;
   const sy = toScreenY(cam, surfaceY(h, x));
@@ -644,10 +668,22 @@ function drawNearFence(fb: FrameBuffer, h: HillProfile, cam: Camera, bottom: num
 }
 
 /** Pixels a brush covers around its anchor: 2x2, or a 4x4 disc for thick bones (1f8b:00dc). */
-const THIN_BRUSH: readonly (readonly [number, number])[] = [[0, 0], [1, 0], [0, 1], [1, 1]];
+const THIN_BRUSH: readonly (readonly [number, number])[] = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+];
 const THICK_BRUSH: readonly (readonly [number, number])[] = [
   ...THIN_BRUSH,
-  [2, 0], [-1, 0], [0, -1], [1, -1], [-1, 1], [2, 1], [0, 2], [1, 2],
+  [2, 0],
+  [-1, 0],
+  [0, -1],
+  [1, -1],
+  [-1, 1],
+  [2, 1],
+  [0, 2],
+  [1, 2],
 ];
 
 function brushLine(fb: FrameBuffer, xa: number, ya: number, xb: number, yb: number, c: number, thick: boolean): void {
@@ -779,7 +815,13 @@ function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void {
     fb.rect(x, y, 27, 11, color("noteBorder"));
     fb.rect(x + 1, y + 1, 25, 9, color("noteBox"));
     const label = judge.note.toFixed(1);
-    drawText(fb, x + 14 - Math.ceil(textWidth(label) / 2), y + 2, label, color(judge.counted ? "yellow" : "noteDropped"));
+    drawText(
+      fb,
+      x + 14 - Math.ceil(textWidth(label) / 2),
+      y + 2,
+      label,
+      color(judge.counted ? "yellow" : "noteDropped"),
+    );
     y += 12;
   }
 }
@@ -807,10 +849,14 @@ function prompt(m: JumpViewModel, notesShown: boolean): readonly string[] {
   const touch = m.controls !== "mouse";
   if (m.over && notesShown) return touch ? ["L: JESZCZE RAZ"] : ["KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE"];
   if (phase === PHASE.gate) return [touch ? "L: START" : "LEWY PRZYCISK: START"];
-  if (phase === PHASE.inrun || phase === PHASE.crouch) return [touch ? "L+P NA PROGU: WYBICIE" : "OBA PRZYCISKI NA PROGU"];
+  if (phase === PHASE.inrun || phase === PHASE.crouch)
+    return [touch ? "L+P NA PROGU: WYBICIE" : "OBA PRZYCISKI NA PROGU"];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores best.
   if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    return [LEAN_PROMPT[m.controls], touch ? "L LUB P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK"];
+    return [
+      LEAN_PROMPT[m.controls],
+      touch ? "L LUB P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+    ];
   }
   return [];
 }
@@ -850,7 +896,13 @@ const SNOW_LAYERS = [
 ] as const;
 
 /** Falling snow, carried by the displayed wind (along the hill and vertically) and moving with the camera. */
-function drawSnowfall(fb: FrameBuffer, drift: { x: number; y: number }, cam: Camera, frame: number, bottom: number): void {
+function drawSnowfall(
+  fb: FrameBuffer,
+  drift: { x: number; y: number },
+  cam: Camera,
+  frame: number,
+  bottom: number,
+): void {
   const w = fb.width + 4;
   SNOW_LAYERS.forEach((layer, li) => {
     const c = color(layer.color);
@@ -871,10 +923,18 @@ const CAMERA_AHEAD_M = 4;
 const CAMERA_BELOW_JUMPER_M = 2;
 
 /** The jumper on the hill without the interface, the camera on the jumper (outfit preview). */
-export function drawJumperPreview(fb: FrameBuffer, m: { profile: HillProfile; state: JumpSimState; outfit: Outfit }): void {
+export function drawJumperPreview(
+  fb: FrameBuffer,
+  m: { profile: HillProfile; state: JumpSimState; outfit: Outfit },
+): void {
   withLook({ lighting: "day", fog: false }, () => {
     const s = m.state;
-    const cam: Camera = { x: s.jumper.xM, y: s.jumper.yM, cx: Math.round(fb.width / 2), cy: Math.round(fb.height * 0.55) };
+    const cam: Camera = {
+      x: s.jumper.xM,
+      y: s.jumper.yM,
+      cx: Math.round(fb.width / 2),
+      cy: Math.round(fb.height * 0.55),
+    };
     const backdrop = backdropFor(m.profile, cam);
     drawBackdrop(fb, backdrop, cam, fb.height, false, 0);
     const ground = drawSlope(fb, m.profile, cam, fb.height);

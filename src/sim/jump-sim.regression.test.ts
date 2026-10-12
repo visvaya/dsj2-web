@@ -20,9 +20,24 @@ interface Scenario {
 const gentleLean = (frame: number) => ((frame * 7) % 9) - 4;
 
 const SCENARIOS: Scenario[] = [
-  { name: "clean telemark", seed: 0x1234_5678, windOffset: 0, bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: gentleLean } },
-  { name: "late takeoff, tail wind", seed: 0x0bad_cafe, windOffset: 8, bot: { startFrame: 90, takeoffLeadM: 0.8, landingHeightM: 1.2, leanPattern: () => -3 } },
-  { name: "no landing (crash)", seed: 42, windOffset: 2, bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: gentleLean } },
+  {
+    name: "clean telemark",
+    seed: 0x1234_5678,
+    windOffset: 0,
+    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: gentleLean },
+  },
+  {
+    name: "late takeoff, tail wind",
+    seed: 0x0bad_cafe,
+    windOffset: 8,
+    bot: { startFrame: 90, takeoffLeadM: 0.8, landingHeightM: 1.2, leanPattern: () => -3 },
+  },
+  {
+    name: "no landing (crash)",
+    seed: 42,
+    windOffset: 2,
+    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: null, leanPattern: gentleLean },
+  },
 ];
 
 function run(sc: Scenario) {
