@@ -208,7 +208,11 @@ function flatten(value: unknown, path = "", out: [string, number | boolean][] = 
   return out;
 }
 
-/** Lists differences beyond a relative tolerance; ignores the paths in `skip`. */
+/**
+ * Lists differences beyond a relative tolerance; ignores the paths in `skip`. Whole numbers (the generator
+ * seed, counters, phases) are compared exactly: a tolerance scaled by a value in the billions would let a seed
+ * drift by thousands.
+ */
 export function diffStates(
   got: unknown,
   want: unknown,
@@ -221,7 +225,8 @@ export function diffStates(
     if (skip.has(path)) continue;
     const a = g.get(path);
     if (typeof w === "number" && typeof a === "number") {
-      if (!(Math.abs(a - w) <= tolerance * Math.max(1, Math.abs(w)))) bad.push(`${path}: ${a} != ${w}`);
+      const allowed = Number.isInteger(a) && Number.isInteger(w) ? 0 : tolerance * Math.max(1, Math.abs(w));
+      if (!(Math.abs(a - w) <= allowed)) bad.push(`${path}: ${a} != ${w}`);
     } else if (a !== w) {
       bad.push(`${path}: ${String(a)} != ${String(w)}`);
     }
