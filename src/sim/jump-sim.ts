@@ -10,7 +10,16 @@ import {
 } from "./jump-logic";
 import { stepJumperDetailed, type JumperState } from "./jumper-step";
 import { FRAME_DT_S, JUMPER_MASS_KG, f32 } from "./physics-constants";
-import { CRASH_TAKEOFF_PERTURB, SKI_JOINT, clonePose, emptyPose, perturbPose, setPose, type PoseDefinition, type PoseState } from "./pose";
+import {
+  CRASH_TAKEOFF_PERTURB,
+  SKI_JOINT,
+  clonePose,
+  emptyPose,
+  perturbPose,
+  setPose,
+  type PoseDefinition,
+  type PoseState,
+} from "./pose";
 import { updateWind, type WindState } from "./wind";
 
 /** Whole simulation state of one jump. */
@@ -157,7 +166,13 @@ export function stepFrame(prev: JumpSimState, setup: JumpSetup, input: InputSour
     presentation: setup.presentation,
   };
   stepLogic(
-    { logic: s.logic, jumper: s.jumper, pose: s.pose, windSpeedMPerS: s.wind.speedMPerS, windDirectionRad: s.wind.directionRad },
+    {
+      logic: s.logic,
+      jumper: s.jumper,
+      pose: s.pose,
+      windSpeedMPerS: s.wind.speedMPerS,
+      windDirectionRad: s.wind.directionRad,
+    },
     input(s.logic.frame),
     ctx,
     rng,

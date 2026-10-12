@@ -82,13 +82,37 @@ export interface Look {
 
 /** Far scenery (sky, hillside, forest): at night only moonlight reaches it, fog hides most of it. */
 const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>([
-  "sky1", "sky2", "farSnow", "farSnowShade", "farRock", "farRockShade", "backdropLight", "backdropDark", "bird",
-  "tree1", "tree2", "tree3", "trunk",
+  "sky1",
+  "sky2",
+  "farSnow",
+  "farSnowShade",
+  "farRock",
+  "farRockShade",
+  "backdropLight",
+  "backdropDark",
+  "bird",
+  "tree1",
+  "tree2",
+  "tree3",
+  "trunk",
 ]);
 /** Interface colours keep their look at any time of day and in any weather. */
 const INTERFACE: ReadonlySet<ColorName> = new Set<ColorName>([
-  "black", "yellow", "white", "red", "grey", "green", "noteBox", "noteBorder", "noteDropped", "bar",
-  "lampLight", "lampGlow", "moon", "moonShade", "star",
+  "black",
+  "yellow",
+  "white",
+  "red",
+  "grey",
+  "green",
+  "noteBox",
+  "noteBorder",
+  "noteDropped",
+  "bar",
+  "lampLight",
+  "lampGlow",
+  "moon",
+  "moonShade",
+  "star",
 ]);
 /** Sky colours are set rather than derived (a darkened blue reads as grey). */
 const SKY_OVERRIDE: Readonly<Record<Exclude<Lighting, "day">, Partial<Record<ColorName, Rgb>>>> = {
@@ -187,7 +211,9 @@ export function rampTable(a: ColorName, b: ColorName, steps: number): Uint32Arra
     table = new Uint32Array(steps + 1);
     for (let i = 0; i <= steps; i++) {
       const tt = i / steps;
-      table[i] = FrameBuffer.pack(vga(ca[0] + (cb[0] - ca[0]) * tt, ca[1] + (cb[1] - ca[1]) * tt, ca[2] + (cb[2] - ca[2]) * tt));
+      table[i] = FrameBuffer.pack(
+        vga(ca[0] + (cb[0] - ca[0]) * tt, ca[1] + (cb[1] - ca[1]) * tt, ca[2] + (cb[2] - ca[2]) * tt),
+      );
     }
     ramps.set(key, table);
   }
@@ -217,11 +243,21 @@ export function swatchRampTable(index: number, steps: number): Uint32Array {
   if (table === undefined) {
     const [r, g, b] = OUTFIT_SWATCHES[index] ?? OUTFIT_SWATCHES[0] ?? vga(0, 0, 0);
     const dark = fogged(shade(vga(r * 0.45, g * 0.45, b * 0.45), false, look.lighting), false, look);
-    const light = fogged(shade(vga(Math.min(252, r * 1.15 + 12), Math.min(252, g * 1.15 + 12), Math.min(252, b * 1.15 + 12)), false, look.lighting), false, look);
+    const light = fogged(
+      shade(
+        vga(Math.min(252, r * 1.15 + 12), Math.min(252, g * 1.15 + 12), Math.min(252, b * 1.15 + 12)),
+        false,
+        look.lighting,
+      ),
+      false,
+      look,
+    );
     table = new Uint32Array(steps + 1);
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
-      table[i] = FrameBuffer.pack(vga(dark[0] + (light[0] - dark[0]) * t, dark[1] + (light[1] - dark[1]) * t, dark[2] + (light[2] - dark[2]) * t));
+      table[i] = FrameBuffer.pack(
+        vga(dark[0] + (light[0] - dark[0]) * t, dark[1] + (light[1] - dark[1]) * t, dark[2] + (light[2] - dark[2]) * t),
+      );
     }
     ramps.set(key, table);
   }

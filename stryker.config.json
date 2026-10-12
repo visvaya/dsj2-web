@@ -5,18 +5,9 @@
   "vitest": {
     "configFile": "vitest.stryker.config.ts"
   },
-  "mutate": [
-    "src/sim/**/*.ts",
-    "!src/sim/**/*.test.ts",
-    "!src/sim/test-support/**",
-    "!src/sim/data/**"
-  ],
+  "mutate": ["src/sim/**/*.ts", "!src/sim/**/*.test.ts", "!src/sim/test-support/**", "!src/sim/data/**"],
   "coverageAnalysis": "perTest",
-  "reporters": [
-    "clear-text",
-    "progress",
-    "html"
-  ],
+  "reporters": ["clear-text", "progress", "html"],
   "htmlReporter": {
     "fileName": "reports/mutation/index.html"
   },
@@ -27,7 +18,5 @@
     "break": null
   },
   "tsconfigFile": "tsconfig.stryker-none.json",
-  "plugins": [
-    "@stryker-mutator/vitest-runner"
-  ]
+  "plugins": ["@stryker-mutator/vitest-runner"]
 }

@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { stepJumper, type JumperState } from "./jumper-step";
-import { TRACE_POINT, decodeHill, decodeJumperControls, decodeJumperState, listTraces, readTrace } from "./test-support/dsj-trace";
+import {
+  TRACE_POINT,
+  decodeHill,
+  decodeJumperControls,
+  decodeJumperState,
+  listTraces,
+  readTrace,
+} from "./test-support/dsj-trace";
 
 const traces = listTraces();
 
@@ -29,26 +36,27 @@ function compare(got: JumperState, want: JumperState): { bad: string[]; exact: b
 }
 
 describe.skipIf(traces.length === 0)("jumper step against the original game traces", () => {
-  for (const trace of traces) it(`${trace.name}: reproduces every frame from the entry snapshot`, () => {
-    const snaps = readTrace(trace.path);
-    const entries = snaps.filter((s) => s.point === TRACE_POINT.jumperStep);
-    const exits = new Map(snaps.filter((s) => s.point === TRACE_POINT.readInput).map((s) => [s.frame, s]));
-    let exact = 0;
-    const failures: string[] = [];
-    for (const entry of entries) {
-      const exit = exits.get(entry.frame);
-      if (!exit) continue;
-      const got = stepJumper(decodeJumperState(entry.view), decodeJumperControls(entry.view), decodeHill(entry.view));
-      const want = decodeJumperState(exit.view);
-      const { bad, exact: bitExact } = compare(got, want);
-      if (bad.length === 0) {
-        exact += bitExact ? 1 : 0;
-      } else if (failures.length < 10) {
-        failures.push(`frame ${entry.frame}: ${bad.join(", ")}`);
+  for (const trace of traces)
+    it(`${trace.name}: reproduces every frame from the entry snapshot`, () => {
+      const snaps = readTrace(trace.path);
+      const entries = snaps.filter((s) => s.point === TRACE_POINT.jumperStep);
+      const exits = new Map(snaps.filter((s) => s.point === TRACE_POINT.readInput).map((s) => [s.frame, s]));
+      let exact = 0;
+      const failures: string[] = [];
+      for (const entry of entries) {
+        const exit = exits.get(entry.frame);
+        if (!exit) continue;
+        const got = stepJumper(decodeJumperState(entry.view), decodeJumperControls(entry.view), decodeHill(entry.view));
+        const want = decodeJumperState(exit.view);
+        const { bad, exact: bitExact } = compare(got, want);
+        if (bad.length === 0) {
+          exact += bitExact ? 1 : 0;
+        } else if (failures.length < 10) {
+          failures.push(`frame ${entry.frame}: ${bad.join(", ")}`);
+        }
       }
-    }
-    console.info(`${trace.name} jumper step: ${entries.length} frames, ${exact} bit-exact`);
-    expect(entries.length).toBeGreaterThan(500);
-    expect(failures).toEqual([]);
-  });
+      console.info(`${trace.name} jumper step: ${entries.length} frames, ${exact} bit-exact`);
+      expect(entries.length).toBeGreaterThan(500);
+      expect(failures).toEqual([]);
+    });
 });

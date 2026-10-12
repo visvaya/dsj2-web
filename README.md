@@ -35,6 +35,7 @@ pnpm install
 pnpm dev            # development server
 pnpm typecheck
 pnpm lint
+pnpm format         # rewrite the sources in the project's format (oxfmt)
 pnpm test
 pnpm build          # production build in dist/
 pnpm build:single   # the build packed into one HTML file
@@ -71,8 +72,8 @@ The notes in `docs` are mostly in Polish.
 ## Contributing
 
 `master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
-and becomes the commit. CI runs the commands above plus a dependency audit, a secret scan and a check for em
-dashes and emoji. Security reports: see `SECURITY.md`.
+and becomes the commit. CI runs the checks above, verifies the formatting (`pnpm format:check`), and adds
+a dependency audit, a secret scan and a check for em dashes and emoji. Security reports: see `SECURITY.md`.
 
 ## Legal
 

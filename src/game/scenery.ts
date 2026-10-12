@@ -10,7 +10,7 @@ export const FOG_CHANCE = 1 / 5;
 
 /** A uniform value in 0..1 from a 32-bit seed and a salt (purely visual; not the simulation's generator). */
 function unit(seed: number, salt: number): number {
-  let h = Math.imul((seed ^ Math.imul(salt, 0x27d4eb2d)) >>> 0 ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
+  let h = Math.imul(((seed ^ Math.imul(salt, 0x27d4eb2d)) >>> 0) ^ 0x9e3779b9, 0x85ebca6b) >>> 0;
   h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35) >>> 0;
   h = (h ^ (h >>> 16)) >>> 0;
   return h / 0x100000000;

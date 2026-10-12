@@ -6,11 +6,13 @@
 export const FLAG_WIDTH_PX = 15;
 export const FLAG_HEIGHT_PX = 10;
 
+// oxfmt-ignore
 export type CountryCode =
   | "AT" | "AU" | "BE" | "BY" | "CA" | "CH" | "CN" | "CZ" | "DE" | "DK" | "EE" | "ENG" | "FI" | "FR" | "HU" | "IE"
   | "IS" | "IT" | "JP" | "KR" | "KZ" | "LT" | "LV" | "NL" | "NO" | "PL" | "RU" | "SE" | "SI" | "SK" | "UA" | "US";
 
 /** Country names in Polish, as the hill list reads them out. */
+// oxfmt-ignore
 export const COUNTRY_NAME_PL: Readonly<Record<CountryCode, string>> = {
   AT: "Austria", AU: "Australia", BE: "Belgia", BY: "Białoruś", CA: "Kanada", CH: "Szwajcaria", CN: "Chiny",
   CZ: "Czechy", DE: "Niemcy", DK: "Dania", EE: "Estonia", ENG: "Anglia", FI: "Finlandia", FR: "Francja",
@@ -66,7 +68,11 @@ const vertical = (a: string, b: string, c: string) => new Grid(b).rect(0, 0, 5, 
 /** Nordic cross (2 pixels thick), or a 4-pixel cross with a 2-pixel inner one. */
 function nordic(field: string, cross: string, inner?: string): Grid {
   if (inner === undefined) return new Grid(field).rect(4, 0, 2, 10, cross).rect(0, 4, 15, 2, cross);
-  return new Grid(field).rect(3, 0, 4, 10, cross).rect(0, 3, 15, 4, cross).rect(4, 0, 2, 10, inner).rect(0, 4, 15, 2, inner);
+  return new Grid(field)
+    .rect(3, 0, 4, 10, cross)
+    .rect(0, 3, 15, 4, cross)
+    .rect(4, 0, 2, 10, inner)
+    .rect(0, 4, 15, 2, inner);
 }
 
 const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
@@ -77,7 +83,11 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .rect(2, 0, 3, 5, C.white)
       .rect(0, 2, 7, 1, C.red)
       .rect(3, 0, 1, 5, C.red)
-      .set(3, 7, C.white).set(11, 2, C.white).set(13, 4, C.white).set(10, 6, C.white).set(12, 8, C.white),
+      .set(3, 7, C.white)
+      .set(11, 2, C.white)
+      .set(13, 4, C.white)
+      .set(10, 6, C.white)
+      .set(12, 8, C.white),
   BE: () => vertical(C.black, C.yellow, C.red),
   BY: () => {
     const g = new Grid(C.red).rect(0, 7, 15, 3, C.green).rect(0, 0, 3, 10, C.white);
@@ -91,12 +101,19 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .rect(7, 2, 1, 7, C.red)
       .rect(6, 3, 3, 4, C.red)
       .rect(5, 4, 5, 2, C.red)
-      .set(5, 3, C.red).set(9, 3, C.red),
+      .set(5, 3, C.red)
+      .set(9, 3, C.red),
   CH: () => new Grid(C.red).rect(6, 2, 3, 6, C.white).rect(4, 4, 7, 2, C.white),
   CN: () =>
     new Grid(C.red)
-      .rect(2, 2, 3, 2, C.yellow).set(3, 1, C.yellow).set(2, 4, C.yellow).set(4, 4, C.yellow)
-      .set(6, 1, C.yellow).set(7, 2, C.yellow).set(7, 4, C.yellow).set(6, 5, C.yellow),
+      .rect(2, 2, 3, 2, C.yellow)
+      .set(3, 1, C.yellow)
+      .set(2, 4, C.yellow)
+      .set(4, 4, C.yellow)
+      .set(6, 1, C.yellow)
+      .set(7, 2, C.yellow)
+      .set(7, 4, C.yellow)
+      .set(6, 5, C.yellow),
   CZ: () => {
     const g = new Grid(C.white).rect(0, 5, 15, 5, C.red);
     for (let y = 0; y < 10; y++) {
@@ -121,8 +138,14 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
       .disc(7, 4.5, 3, C.blue)
       .rect(4, 2, 7, 3, C.red)
       .rect(5, 1, 5, 1, C.red)
-      .rect(1, 1, 2, 1, C.black).rect(12, 1, 2, 1, C.black).rect(1, 8, 2, 1, C.black).rect(12, 8, 2, 1, C.black)
-      .rect(1, 2, 1, 1, C.black).rect(13, 2, 1, 1, C.black).rect(1, 7, 1, 1, C.black).rect(13, 7, 1, 1, C.black),
+      .rect(1, 1, 2, 1, C.black)
+      .rect(12, 1, 2, 1, C.black)
+      .rect(1, 8, 2, 1, C.black)
+      .rect(12, 8, 2, 1, C.black)
+      .rect(1, 2, 1, 1, C.black)
+      .rect(13, 2, 1, 1, C.black)
+      .rect(1, 7, 1, 1, C.black)
+      .rect(13, 7, 1, 1, C.black),
   KZ: () => {
     const g = new Grid(C.teal).disc(8, 4, 2, C.yellow).rect(6, 7, 5, 1, C.yellow);
     for (let y = 0; y < 10; y += 2) g.set(1, y, C.yellow);
@@ -139,7 +162,13 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
     horizontal(C.white, C.blue, C.red)
       .rect(3, 1, 4, 4, C.blue)
       .rect(3, 1, 4, 1, C.red)
-      .set(4, 3, C.white).set(5, 2, C.white).set(6, 3, C.white).set(3, 4, C.white).set(4, 4, C.white).set(5, 4, C.white).set(6, 4, C.white),
+      .set(4, 3, C.white)
+      .set(5, 2, C.white)
+      .set(6, 3, C.white)
+      .set(3, 4, C.white)
+      .set(4, 4, C.white)
+      .set(5, 4, C.white)
+      .set(6, 4, C.white),
   SK: () =>
     horizontal(C.white, C.blue, C.red)
       .rect(3, 2, 5, 6, C.white)
@@ -175,6 +204,7 @@ export function flagPixels(code: CountryCode): FlagPixels {
   return FLAGS[code]().px;
 }
 
+// oxfmt-ignore
 export const COUNTRY_CODES: readonly CountryCode[] = [
   "AT", "AU", "BE", "BY", "CA", "CH", "CN", "CZ", "DE", "DK", "EE", "ENG", "FI", "FR", "HU", "IE",
   "IS", "IT", "JP", "KR", "KZ", "LT", "LV", "NL", "NO", "PL", "RU", "SE", "SI", "SK", "UA", "US",

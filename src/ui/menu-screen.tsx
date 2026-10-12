@@ -44,7 +44,9 @@ export function MenuScreen({
       onGameFiles({ ...(exe ? { exe } : {}), ...(dat ? { dat } : {}) });
       if (!exe) {
         setMessage({
-          text: dat ? "Wczytano Dsj.dat. Wybierz jeszcze Dsj.exe: w nim są skocznie." : "Wśród wybranych plików nie ma Dsj.exe.",
+          text: dat
+            ? "Wczytano Dsj.dat. Wybierz jeszcze Dsj.exe: w nim są skocznie."
+            : "Wśród wybranych plików nie ma Dsj.exe.",
           error: !dat,
         });
         return;
@@ -52,13 +54,14 @@ export function MenuScreen({
       const hills = originalHillChoices(readOriginalHills(exe, dat));
       onOriginalHills(hills);
       setMessage({
-        text: dat
-          ? `Wczytano skocznie: ${hills.length} (nazwy z Dsj.dat).`
-          : `Wczytano skocznie: ${hills.length}.`,
+        text: dat ? `Wczytano skocznie: ${hills.length} (nazwy z Dsj.dat).` : `Wczytano skocznie: ${hills.length}.`,
         error: false,
       });
     } catch (err) {
-      setMessage({ text: `Nie udało się odczytać plików: ${err instanceof Error ? err.message : String(err)}`, error: true });
+      setMessage({
+        text: `Nie udało się odczytać plików: ${err instanceof Error ? err.message : String(err)}`,
+        error: true,
+      });
     }
   };
 
@@ -84,8 +87,8 @@ export function MenuScreen({
         </label>
       </nav>
       <p className="note">
-        Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje nazwy
-        z Twojej wersji gry. Plik zostaje w przeglądarce, nic nie jest wysyłane.
+        Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje
+        nazwy z Twojej wersji gry. Plik zostaje w przeglądarce, nic nie jest wysyłane.
       </p>
       {gameFiles.exe && (
         <div className="files-status">
@@ -109,7 +112,9 @@ export function MenuScreen({
           )}
         </div>
       )}
-      {!persistent && <p className="note error">Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.</p>}
+      {!persistent && (
+        <p className="note error">Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.</p>
+      )}
       {message && (
         <p className={message.error ? "note error" : "note"} role="status">
           {message.text}

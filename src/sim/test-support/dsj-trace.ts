@@ -196,7 +196,11 @@ export function decodeInput(v: DataView): FrameInput {
 export const decodeKPoint = (v: DataView): number => v.getInt16(0x464c, true);
 
 /** Flattens nested numbers and booleans into path/value pairs for comparisons. */
-export function flatten(value: unknown, path = "", out: [string, number | boolean][] = []): [string, number | boolean][] {
+export function flatten(
+  value: unknown,
+  path = "",
+  out: [string, number | boolean][] = [],
+): [string, number | boolean][] {
   if (typeof value === "number" || typeof value === "boolean") {
     out.push([path, value]);
   } else if (Array.isArray(value)) {
@@ -210,7 +214,12 @@ export function flatten(value: unknown, path = "", out: [string, number | boolea
 }
 
 /** Lists differences beyond a relative tolerance; ignores the paths in `skip`. */
-export function diffStates(got: unknown, want: unknown, tolerance: number, skip: ReadonlySet<string> = new Set()): string[] {
+export function diffStates(
+  got: unknown,
+  want: unknown,
+  tolerance: number,
+  skip: ReadonlySet<string> = new Set(),
+): string[] {
   const g = new Map(flatten(got));
   const bad: string[] = [];
   for (const [path, w] of flatten(want)) {

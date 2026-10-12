@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { createSoundEngine, type BufferLike, type ContextLike, type FilterLike, type GainLike, type NodeLike, type OscillatorLike, type ParamLike, type SourceLike } from "./sound-engine";
+import {
+  createSoundEngine,
+  type BufferLike,
+  type ContextLike,
+  type FilterLike,
+  type GainLike,
+  type NodeLike,
+  type OscillatorLike,
+  type ParamLike,
+  type SourceLike,
+} from "./sound-engine";
 import { soundMix } from "./sound-mix";
 
 /** Records what the engine asks of Web Audio. */
@@ -42,7 +52,13 @@ class FakeContext implements ContextLike {
   }
   createOscillator(): OscillatorLike {
     this.oscillators++;
-    return { type: "sine", frequency: new FakeParam(), connect: () => undefined, start: () => undefined, stop: () => undefined };
+    return {
+      type: "sine",
+      frequency: new FakeParam(),
+      connect: () => undefined,
+      start: () => undefined,
+      stop: () => undefined,
+    };
   }
   createBuffer(_channels: number, length: number): BufferLike {
     const data = new Float32Array(length);
@@ -70,7 +86,9 @@ describe("sound engine", () => {
       return fake;
     });
     engine.play("takeoff");
-    engine.update(soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
+    engine.update(
+      soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }),
+    );
     expect(made).toBe(0);
     engine.unlock();
     engine.unlock();
@@ -87,14 +105,25 @@ describe("sound engine", () => {
     engine.unlock();
     // Gains: master, the ground layers' shared gain, the depth of its flutter, then one per layer (rumble, skis,
     // air, wind).
-    engine.update(soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
+    engine.update(
+      soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }),
+    );
     expect(gainOf(fake.gains[2])).toBeGreaterThan(0);
     expect(gainOf(fake.gains[1])).toBeLessThan(1);
     expect(gainOf(fake.gains[3])).toBeGreaterThan(0);
     expect(gainOf(fake.gains[4])).toBeGreaterThan(0);
     expect(gainOf(fake.gains[5])).toBe(0);
     // On the snow of the outrun the flutter stops.
-    engine.update(soundMix({ airborne: false, onTrack: false, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
+    engine.update(
+      soundMix({
+        airborne: false,
+        onTrack: false,
+        groundSpeedMPerS: 20,
+        airSpeedMPerS: 0,
+        windMPerS: 2,
+        paused: false,
+      }),
+    );
     expect(gainOf(fake.gains[2])).toBe(0);
     expect(gainOf(fake.gains[1])).toBe(1);
     engine.play("landing");
@@ -109,7 +138,18 @@ describe("sound engine", () => {
   });
 
   it("has a sound for every cue", () => {
-    const cues = ["start", "push", "takeoff", "landing", "crash", "countdown", "disqualified", "noteCounted", "noteDropped", "record"] as const;
+    const cues = [
+      "start",
+      "push",
+      "takeoff",
+      "landing",
+      "crash",
+      "countdown",
+      "disqualified",
+      "noteCounted",
+      "noteDropped",
+      "record",
+    ] as const;
     const silent = cues.filter((cue) => {
       const fake = new FakeContext();
       const engine = createSoundEngine(() => fake);
@@ -126,7 +166,16 @@ describe("sound engine", () => {
     expect(() => {
       engine.unlock();
       engine.play("crash");
-      engine.update(soundMix({ airborne: true, onTrack: false, groundSpeedMPerS: 0, airSpeedMPerS: 25, windMPerS: 3, paused: false }));
+      engine.update(
+        soundMix({
+          airborne: true,
+          onTrack: false,
+          groundSpeedMPerS: 0,
+          airSpeedMPerS: 25,
+          windMPerS: 3,
+          paused: false,
+        }),
+      );
       engine.dispose();
     }).not.toThrow();
   });

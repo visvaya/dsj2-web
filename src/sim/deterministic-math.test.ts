@@ -25,6 +25,7 @@ function ulpDistance(a: number, b: number): number {
   return Number(d < 0n ? -d : d);
 }
 
+// oxfmt-ignore
 const cases = [
   { name: "sin", det: detSin, ref: Math.sin, ranges: [[-0.8, 0.8], [-10, 10], [-1000, 1000]] },
   { name: "cos", det: detCos, ref: Math.cos, ranges: [[-0.8, 0.8], [-10, 10], [-1000, 1000]] },
@@ -74,8 +75,16 @@ describe("deterministic math", () => {
         const path = join(d, entry.name);
         if (entry.isDirectory()) {
           walk(path);
-        } else if (entry.name.endsWith(".ts") && !entry.name.endsWith(".test.ts") && entry.name !== "deterministic-math.ts") {
-          if (/Math\.(sin|cos|tan|atan|atan2|exp|log|pow|asin|acos|sinh|cosh|tanh|cbrt|hypot)\b/.test(readFileSync(path, "utf8"))) {
+        } else if (
+          entry.name.endsWith(".ts") &&
+          !entry.name.endsWith(".test.ts") &&
+          entry.name !== "deterministic-math.ts"
+        ) {
+          if (
+            /Math\.(sin|cos|tan|atan|atan2|exp|log|pow|asin|acos|sinh|cosh|tanh|cbrt|hypot)\b/.test(
+              readFileSync(path, "utf8"),
+            )
+          ) {
             offenders.push(path);
           }
         }

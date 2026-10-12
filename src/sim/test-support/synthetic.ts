@@ -8,7 +8,15 @@ import type { WindState } from "../wind";
 /** A hill made up for tests (not taken from the original game). */
 export function syntheticHill(): HillProfile {
   return buildHillProfile(
-    { startXM: 11.4, flatEndXM: 10, lineEndXM: 32, takeoffXM: 44, lineSlope: -0.9, lineInterceptM: 230, curveA: 0.0296 },
+    {
+      startXM: 11.4,
+      flatEndXM: 10,
+      lineEndXM: 32,
+      takeoffXM: 44,
+      lineSlope: -0.9,
+      lineInterceptM: 230,
+      curveA: 0.0296,
+    },
     { centerXM: 95, centerYM: 166, amplitudeM: 30, widthM: 40, outrunStartXM: 160, outrunCurveA: 0.012, knollBlend: 0 },
   );
 }
@@ -37,7 +45,11 @@ export interface BotOptions {
 }
 
 /** Input that reacts to the current state, like a player would. */
-export function makeBot(hill: HillProfile, opts: BotOptions, current: () => JumpSimState): (frame: number) => FrameInput {
+export function makeBot(
+  hill: HillProfile,
+  opts: BotOptions,
+  current: () => JumpSimState,
+): (frame: number) => FrameInput {
   return (frame) => {
     const s = current();
     const { phase } = s.logic;

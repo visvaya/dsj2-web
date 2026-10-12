@@ -4,7 +4,14 @@ import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } fr
 import { makeBot } from "../sim/test-support/synthetic";
 import { notesAppearing, soundEvents, soundMix, type MixInput } from "./sound-mix";
 
-const base: MixInput = { airborne: false, onTrack: true, groundSpeedMPerS: 0, airSpeedMPerS: 0, windMPerS: 0, paused: false };
+const base: MixInput = {
+  airborne: false,
+  onTrack: true,
+  groundSpeedMPerS: 0,
+  airSpeedMPerS: 0,
+  windMPerS: 0,
+  paused: false,
+};
 
 describe("sound mix", () => {
   it("lets the skis rumble and sing louder and higher with speed, only on the ground", () => {
@@ -53,7 +60,11 @@ describe("sound mix", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     const jump = startTrainingJump(hill, 7);
-    const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 }, () => jump.state);
+    const bot = makeBot(
+      hill.profile,
+      { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+      () => jump.state,
+    );
     let heard = 0;
     let counted = 0;
     let clock = presentationFrame(jump);
@@ -75,7 +86,11 @@ describe("sound mix", () => {
     const hill = OWN_HILLS[0];
     if (!hill) throw new Error("no hill");
     const jump = startTrainingJump(hill, 7);
-    const bot = makeBot(hill.profile, { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 }, () => jump.state);
+    const bot = makeBot(
+      hill.profile,
+      { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+      () => jump.state,
+    );
     const events: string[] = [];
     for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
       const prev = jump.state;

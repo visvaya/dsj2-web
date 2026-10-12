@@ -16,7 +16,15 @@ export const DEFAULT_OUTFIT: Outfit = { pants: 8, sleeves: 8, gloves: 0, helmet:
 export function parseOutfit(v: unknown): Outfit {
   const read = (part: OutfitPart): number => {
     const value = typeof v === "object" && v !== null ? Reflect.get(v, part) : undefined;
-    return Number.isInteger(value) && typeof value === "number" && value >= 0 && value < OUTFIT_COLOR_COUNT ? value : DEFAULT_OUTFIT[part];
+    return Number.isInteger(value) && typeof value === "number" && value >= 0 && value < OUTFIT_COLOR_COUNT
+      ? value
+      : DEFAULT_OUTFIT[part];
   };
-  return { pants: read("pants"), sleeves: read("sleeves"), gloves: read("gloves"), helmet: read("helmet"), skis: read("skis") };
+  return {
+    pants: read("pants"),
+    sleeves: read("sleeves"),
+    gloves: read("gloves"),
+    helmet: read("helmet"),
+    skis: read("skis"),
+  };
 }

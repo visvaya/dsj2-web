@@ -127,7 +127,10 @@ describe("hill table in the executable", () => {
   });
 
   it("decodes short pushes as sign-extended words", () => {
-    const calls = decodePushedCalls(Uint8Array.from([0x6a, 0xa3, 0x6a, 0x05, 0x68, 0x34, 0x12, 0x9a, 1, 0, 2, 0, 0xc3]), 0);
+    const calls = decodePushedCalls(
+      Uint8Array.from([0x6a, 0xa3, 0x6a, 0x05, 0x68, 0x34, 0x12, 0x9a, 1, 0, 2, 0, 0xc3]),
+      0,
+    );
     expect(calls).toEqual([{ kind: "far", target: 0x0002_0001, words: [0xffa3, 0x0005, 0x1234] }]);
   });
 

@@ -32,7 +32,11 @@ export function parseStoredGameFiles(v: unknown): GameFiles {
 }
 
 function record(files: GameFiles): object {
-  return { schemaVersion: GAME_FILES_SCHEMA_VERSION, ...(files.exe ? { exe: files.exe } : {}), ...(files.dat ? { dat: files.dat } : {}) };
+  return {
+    schemaVersion: GAME_FILES_SCHEMA_VERSION,
+    ...(files.exe ? { exe: files.exe } : {}),
+    ...(files.dat ? { dat: files.dat } : {}),
+  };
 }
 
 export function memoryGameFilesStore(): GameFilesStore {

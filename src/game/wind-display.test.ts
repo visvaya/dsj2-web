@@ -13,12 +13,15 @@ function withWind(directionRad: number, speedMPerS: number): JumpSimState {
 }
 
 describe("wind on screen", () => {
-  it.each([0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6])("points a sock in a strong wind where the box's arrow points (%s rad)", (d) => {
-    // The box draws its arrow towards (cos d, -sin d) on screen.
-    const [ux, uy] = windSockDirection(withWind(d, 5));
-    expect(ux).toBeCloseTo(Math.cos(d), 6);
-    expect(uy).toBeCloseTo(-Math.sin(d), 6);
-  });
+  it.each([0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6])(
+    "points a sock in a strong wind where the box's arrow points (%s rad)",
+    (d) => {
+      // The box draws its arrow towards (cos d, -sin d) on screen.
+      const [ux, uy] = windSockDirection(withWind(d, 5));
+      expect(ux).toBeCloseTo(Math.cos(d), 6);
+      expect(uy).toBeCloseTo(-Math.sin(d), 6);
+    },
+  );
 
   it("lets a sock hang down in a calm and lift partly in a light wind", () => {
     expect(windSockDirection(withWind(0, 0))).toEqual([0, 1]);

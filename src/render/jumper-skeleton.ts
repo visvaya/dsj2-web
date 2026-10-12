@@ -89,7 +89,11 @@ export function skeletonPoints(p: PoseState, frontLeg: number): Point3[] {
   const pelvis = { z: 0, x: Math.cos(fDir) * fLeg * fTilt, y: Math.sin(fDir) * fLeg * fTilt };
   const hip0 = { ...pelvis };
   const hip1 = { ...pelvis };
-  const neck = { z: pelvis.z, x: Math.cos(ja(4) + rot) * TORSO_M + pelvis.x, y: Math.sin(ja(4) + rot) * TORSO_M + pelvis.y };
+  const neck = {
+    z: pelvis.z,
+    x: Math.cos(ja(4) + rot) * TORSO_M + pelvis.x,
+    y: Math.sin(ja(4) + rot) * TORSO_M + pelvis.y,
+  };
   const shoulder0 = { z: SHOULDER_HALF_WIDTH_M + neck.z, x: neck.x, y: neck.y };
   const hand0 = {
     z: Math.sin(ja(7)) * armA + shoulder0.z,

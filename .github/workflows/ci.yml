@@ -31,6 +31,7 @@ jobs:
         run: pnpm audit --prod
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm format:check
       # Golden tests need a trace of the original game and are skipped here.
       - run: pnpm test
       - run: pnpm build

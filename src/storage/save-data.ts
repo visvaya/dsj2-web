@@ -26,7 +26,13 @@ export interface Settings {
   sound: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { leanControl: "drag", vibration: true, scenery: "varied", outfit: DEFAULT_OUTFIT, sound: true };
+export const DEFAULT_SETTINGS: Settings = {
+  leanControl: "drag",
+  vibration: true,
+  scenery: "varied",
+  outfit: DEFAULT_OUTFIT,
+  sound: true,
+};
 
 export interface SaveData {
   schemaVersion: typeof SAVE_SCHEMA_VERSION;
@@ -85,7 +91,10 @@ function parseSettings(v: unknown): Settings {
   return {
     leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
     vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
-    scenery: scenery === "varied" || scenery === "day" || scenery === "dusk" || scenery === "night" ? scenery : DEFAULT_SETTINGS.scenery,
+    scenery:
+      scenery === "varied" || scenery === "day" || scenery === "dusk" || scenery === "night"
+        ? scenery
+        : DEFAULT_SETTINGS.scenery,
     outfit: parseOutfit(field(v, "outfit")),
     sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
   };
@@ -96,11 +105,19 @@ export function withSettings(save: SaveData, change: Partial<Settings>): SaveDat
 }
 
 /** Returns a new save with the jump stored if it beats the hill record (falls never count). */
-export function withJump(save: SaveData, hillId: string, jump: { distanceM: number; points: number; fell: boolean }, now: Date): SaveData {
+export function withJump(
+  save: SaveData,
+  hillId: string,
+  jump: { distanceM: number; points: number; fell: boolean },
+  now: Date,
+): SaveData {
   const best = save.records[hillId];
   if (jump.fell || !(jump.distanceM > 0) || (best && best.distanceM >= jump.distanceM)) return save;
   return {
     ...save,
-    records: { ...save.records, [hillId]: { distanceM: jump.distanceM, points: jump.points, dateIso: now.toISOString() } },
+    records: {
+      ...save.records,
+      [hillId]: { distanceM: jump.distanceM, points: jump.points, dateIso: now.toISOString() },
+    },
   };
 }

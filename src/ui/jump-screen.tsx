@@ -9,7 +9,14 @@ import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input"
 import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput, mouseButtons } from "../game/player-input";
 import { lockLossAction } from "../game/pointer-lock";
-import { isJumpOver, newSeed, presentationFrame, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
+import {
+  isJumpOver,
+  newSeed,
+  presentationFrame,
+  startTrainingJump,
+  stepTrainingJump,
+  type TrainingJump,
+} from "../game/training-session";
 import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
@@ -31,8 +38,18 @@ interface Props {
 }
 
 const PLAYER_NAME = "GRACZ 1";
-const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = { varied: "day", day: "dusk", dusk: "night", night: "varied" };
-const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = { varied: "zmienna", day: "dzień", dusk: "zmierzch", night: "noc" };
+const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = {
+  varied: "day",
+  day: "dusk",
+  dusk: "night",
+  night: "varied",
+};
+const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = {
+  varied: "zmienna",
+  day: "dzień",
+  dusk: "zmierzch",
+  night: "noc",
+};
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
 const DENSE_SCREEN_DPR = 2;
 /** How long a note about the motion sensor stays on screen. */
@@ -125,7 +142,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     pausedRef.current = menuOpen;
   }, [menuOpen]);
   /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
-  const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({ on: false, pitch: null, neutral: null });
+  const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({
+    on: false,
+    pitch: null,
+    neutral: null,
+  });
   const controls: ControlScheme = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
   // The look is drawn once per visit to the hill (not per jump), from its own seed.
   const [visitSeed] = useState(newSeed);
@@ -260,7 +281,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const engine = soundRef.current;
       if (!engine) return;
       const s = jump.state;
-      for (const note of notesAppearing(s.logic, heardUpTo, clock)) engine.play(note.counted ? "noteCounted" : "noteDropped");
+      for (const note of notesAppearing(s.logic, heardUpTo, clock))
+        engine.play(note.counted ? "noteCounted" : "noteDropped");
       heardUpTo = clock;
       if (newRecord && !recordPlayed && notesShownBy(s.logic, clock)) {
         recordPlayed = true;
@@ -281,7 +303,16 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     // A hidden tab stops animation frames, so the continuous sounds are hushed right away.
     const onVisibility = () => {
       if (document.hidden) {
-        soundRef.current?.update(soundMix({ airborne: false, onTrack: false, groundSpeedMPerS: 0, airSpeedMPerS: 0, windMPerS: 0, paused: true }));
+        soundRef.current?.update(
+          soundMix({
+            airborne: false,
+            onTrack: false,
+            groundSpeedMPerS: 0,
+            airSpeedMPerS: 0,
+            windMPerS: 0,
+            paused: true,
+          }),
+        );
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -507,7 +538,9 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             type="button"
             className="pixel-button"
             onClick={() => {
-              const request = document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+              const request = document.fullscreenElement
+                ? document.exitFullscreen()
+                : document.documentElement.requestFullscreen();
               request.catch(() => undefined);
             }}
           >

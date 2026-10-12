@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { GAME_FILES_SCHEMA_VERSION, memoryGameFilesStore, parseStoredGameFiles, withFallback, type GameFilesStore } from "./game-files-store";
+import {
+  GAME_FILES_SCHEMA_VERSION,
+  memoryGameFilesStore,
+  parseStoredGameFiles,
+  withFallback,
+  type GameFilesStore,
+} from "./game-files-store";
 
 describe("game files store", () => {
   it("round-trips the files and forgets them", async () => {

@@ -11,7 +11,12 @@ export interface StepPlan {
 }
 
 /** How many fixed steps to run for the wall-clock time that has passed. */
-export function planSteps(accumulatorS: number, elapsedS: number, stepS = SIM_STEP_S, maxSteps = MAX_STEPS_PER_UPDATE): StepPlan {
+export function planSteps(
+  accumulatorS: number,
+  elapsedS: number,
+  stepS = SIM_STEP_S,
+  maxSteps = MAX_STEPS_PER_UPDATE,
+): StepPlan {
   let acc = accumulatorS + Math.max(0, elapsedS);
   let steps = Math.floor(acc / stepS);
   if (steps > maxSteps) {

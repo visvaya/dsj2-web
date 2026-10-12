@@ -67,10 +67,16 @@ describe("hill profile", () => {
 
   it("returns analytic slopes that match numeric derivatives of the heights", () => {
     for (const x of [50, 80, 110, 140, 165, 175, 200]) {
-      expect(landingSlope(hill, x)).toBeCloseTo(numericSlope((v) => landingYM(hill, v), x), 2);
+      expect(landingSlope(hill, x)).toBeCloseTo(
+        numericSlope((v) => landingYM(hill, v), x),
+        2,
+      );
     }
     for (const x of [20, 35, 40]) {
-      expect(inrunSlope(hill, x)).toBeCloseTo(numericSlope((v) => inrunYM(hill, v), x), 2);
+      expect(inrunSlope(hill, x)).toBeCloseTo(
+        numericSlope((v) => inrunYM(hill, v), x),
+        2,
+      );
     }
   });
 
