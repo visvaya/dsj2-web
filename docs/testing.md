@@ -12,6 +12,7 @@
 | `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
+| `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
@@ -19,6 +20,61 @@ działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy te
 
 Celowa zmiana wyglądu wymaga odświeżenia migawki pikseli: `pnpm test -u src/render/jump-view.pixels.test.ts`.
 Diff migawki pokazuje, które sceny się zmieniły; zmiana w scenie, której nie dotyczyła praca, to błąd.
+
+## Testy w przeglądarkach
+
+`pnpm test:browser` uruchamia Playwright na zbudowanej grze (`vite preview` na katalogu `dist/`, port 4317), nie na
+serwerze deweloperskim. Każdy test zaczyna od czystego kontekstu przeglądarki i kończy się błędem, gdy strona zgłosi
+nieobsłużony wyjątek albo wypisze błąd na konsoli. Środowisko jest ustalone w `playwright.config.ts`: język `pl-PL`,
+strefa `Europe/Warsaw`, ciemny schemat kolorów, ograniczony ruch.
+
+Projekty (profile urządzeń):
+
+| Projekt | Profil | Silnik |
+|---|---|---|
+| `desktop-chromium`, `desktop-firefox`, `desktop-webkit` | okno 1280x720, mysz i klawiatura | Chromium, Firefox, WebKit |
+| `android-portrait`, `android-landscape` | Pixel 7 | Chromium |
+| `iphone-portrait`, `iphone-landscape` | iPhone 14 | WebKit |
+| `tablet-landscape` | iPad (7. generacji) | WebKit |
+
+Co sprawdzają pliki w `e2e/`:
+
+| Plik | Co sprawdza | Projekty |
+|---|---|---|
+| `smoke.spec.ts` | strona po polsku, przejścia menu, lista skoczni, skok i z powrotem; obraz narysowany, kwadratowe piksele gry (poza gęstymi ekranami w całkowitej liczbie pikseli urządzenia), brak przewijania na ekranie skoku | wszystkie |
+| `jump.spec.ts` | cały skok wejściem urządzenia (przyciski myszy albo pola dotykowe), rekord na liście skoczni i w zapisie, także po przeładowaniu | wszystkie |
+| `touch-layout.spec.ts` | pola L i P: co najmniej 44 px, poza obrazem, obok obrazu w poziomie i pod nim w pionie; przycisk pauzy | telefony i tablet |
+| `keyboard.spec.ts` | obsługa samą klawiaturą: fokus zawsze na widocznym, niezasłoniętym elemencie z widocznym wskaźnikiem, nigdy na `<body>`; Enter i spacja uruchamiają, Esc wychodzi ze skoku | komputery |
+| `a11y.spec.ts` | axe, WCAG 2.2 AA, zero naruszeń na każdym ekranie; test pilnuje, że żaden ekran nie został pominięty | `desktop-chromium`, `android-portrait` |
+| `settings.spec.ts` | dźwięk i sceneria zostają po przeładowaniu | `desktop-chromium`, `android-portrait` |
+| `sim-engines.spec.ts` | symulacja daje w silniku przeglądarki bit w bit wynik z migawki `jump-sim.regression.test.ts` (klatki, odległość, punkty, noty, typ upadku, skrót stanu) | komputery |
+
+Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,
+liczonego od komunikatu „Skok rozpoczęty.” w regionie `aria-live` obok obrazu. Chwile naciśnięć leżą w środku okien
+zmierzonych w symulacji na wielu ziarnach (opis w `e2e/support/jump.ts`). Skok zakończony upadkiem test powtarza,
+najwyżej trzy razy, tak jak zrobiłby to gracz.
+
+Scenariusze regresyjne symulacji są w `src/sim/test-support/regression-scenarios.ts`; korzysta z nich test Vitest
+i strona testowa. Stronę buduje Vite projektu przed testami (`e2e/sim-harness.setup.ts`) do ignorowanego katalogu
+`e2e/.sim-harness/`; do `dist/` nie trafia.
+
+Wyniki axe oznaczone jako „incomplete” nie są ani naruszeniem, ani zaliczeniem: test zapisuje je do pliku
+`axe-incomplete.json` w `test-results/` i dołącza do raportu.
+
+### Lokalnie
+
+```sh
+pnpm test:browser:edge   # tylko projekty na Chromium, w zainstalowanym Microsoft Edge
+```
+
+Tryb lokalny (zmienna `BROWSER_TESTS_EDGE`) niczego nie pobiera: używa przeglądarki Edge z systemu i przed testami
+buduje grę. Firefox i WebKit działają tylko w CI. `pnpm test:browser` bez zmiennej uruchamia wszystkie projekty
+i wymaga przeglądarek Playwrighta (`pnpm exec playwright install chromium firefox webkit`); w CI testuje `dist/`
+zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
+Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/`.
+
+Emulacja to nie urządzenie: profile telefonów i tabletu ustawiają rozmiar okna, gęstość pikseli, dotyk i nagłówek
+przeglądarki, ale silnik pozostaje desktopowy.
 
 ## Pokrycie kodu symulacji
 

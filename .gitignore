@@ -21,6 +21,11 @@ dist/
 *.hilltrace.gz
 coverage/
 
+# Browser tests: the report, traces and the bundled simulation harness
+playwright-report/
+test-results/
+e2e/.sim-harness/
+
 # Mutation testing
 .stryker-tmp/
 reports/

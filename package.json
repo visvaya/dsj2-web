@@ -22,6 +22,8 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
+    "test:browser": "playwright test",
+    "test:browser:edge": "cross-env BROWSER_TESTS_EDGE=1 playwright test",
     "check:dist": "node scripts/check-dist.mjs",
     "mutation": "stryker run"
   },
@@ -31,6 +33,8 @@
     "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@types/node": "24.19.2",

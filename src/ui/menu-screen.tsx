@@ -1,7 +1,8 @@
-import { useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
 import type { GameFiles } from "../storage/game-files-store";
+import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
   originalCount: number;
@@ -14,6 +15,8 @@ interface Props {
   onTraining: () => void;
   onOutfit: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
+  /** Whether the heading takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
 }
 
 async function bytesOf(files: FileList, name: string): Promise<Uint8Array | undefined> {
@@ -31,7 +34,10 @@ export function MenuScreen({
   onTraining,
   onOutfit,
   onOriginalHills,
+  focusOnEntry,
 }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -68,7 +74,9 @@ export function MenuScreen({
   return (
     <main className="screen">
       <header>
-        <h1 className="title">Telemark</h1>
+        <h1 className="title" tabIndex={-1} ref={headingRef}>
+          Telemark
+        </h1>
         <p className="note">Skoki narciarskie · wersja robocza</p>
       </header>
       <hr className="rule" />

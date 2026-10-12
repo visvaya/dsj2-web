@@ -17,3 +17,17 @@ export function lockLossAction(loss: LockLoss): "exit" | "stay" {
   if (loss.releasedByGame) return "stay";
   return loss.focused && !loss.hidden ? "exit" : "stay";
 }
+
+/**
+ * Asks the browser to capture the mouse on `element`. Engines differ in how they refuse: newer ones return a
+ * promise that rejects, older ones return nothing, and some throw. The game is playable without the capture, so
+ * every refusal is ignored and the press that asked for it still counts.
+ */
+export function requestMouseCapture(element: { requestPointerLock: () => unknown }): void {
+  try {
+    const pending = element.requestPointerLock();
+    if (pending instanceof Promise) pending.catch(() => undefined);
+  } catch {
+    // Refused outright (no user gesture, or a sandboxed frame).
+  }
+}

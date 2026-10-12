@@ -185,9 +185,15 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.mjs"],
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.mjs", "e2e/**/*.spec.ts"],
       "rules": {
         "max-lines-per-function": "off"
+      }
+    },
+    {
+      "files": ["e2e/**"],
+      "rules": {
+        "no-await-in-loop": "off"
       }
     },
     {
@@ -213,5 +219,14 @@
       }
     }
   ],
-  "ignorePatterns": ["dist", "node_modules", "tools", "re-out", ".scratch"]
+  "ignorePatterns": [
+    "dist",
+    "node_modules",
+    "tools",
+    "re-out",
+    ".scratch",
+    "playwright-report",
+    "test-results",
+    "e2e/.sim-harness"
+  ]
 }

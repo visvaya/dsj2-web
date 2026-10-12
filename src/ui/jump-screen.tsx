@@ -8,7 +8,7 @@ import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { createPlayerInput, mouseButtons } from "../game/player-input";
-import { lockLossAction } from "../game/pointer-lock";
+import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   isJumpOver,
   newSeed,
@@ -21,6 +21,8 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import { useEntryFocus } from "./use-entry-focus";
+import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
 export interface JumpResult {
   distanceM: number;
@@ -35,6 +37,8 @@ interface Props {
   onSettings: (change: Partial<Settings>) => void;
   onFinished: (result: JumpResult) => void;
   onExit: () => void;
+  /** Whether the picture takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
 }
 
 const PLAYER_NAME = "GRACZ 1";
@@ -120,9 +124,10 @@ function TouchPad({ side, onPress, onDrag }: TouchPadProps) {
 }
 
 // oxlint-disable-next-line max-lines-per-function -- to be split: sound and tilt set-up, the jump loop, the controls markup
-export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit }: Props) {
+export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit, focusOnEntry }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEntryFocus(canvasRef, focusOnEntry);
   const inputRef = useRef(createPlayerInput());
   const restartRef = useRef<() => void>(() => undefined);
   const [announcement, setAnnouncement] = useState("");
@@ -273,9 +278,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const isRecord = !result.fell && result.distanceM > 0 && (!best || result.distanceM > best.distanceM);
       newRecord = isRecord;
       latest.current.onFinished(result);
-      setAnnouncement(
-        `Odległość ${result.distanceM.toFixed(2)} metra, ${result.points.toFixed(1)} punktu.${isRecord ? " Nowy rekord skoczni." : ""} Lewy przycisk lub R: jeszcze raz.`,
-      );
+      setAnnouncement(resultAnnouncement(L, { newRecord: isRecord, touch: latest.current.controls !== "mouse" }));
     };
 
     /** Notes as they appear, the record jingle after the last one, and the continuous layers. */
@@ -338,7 +341,10 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         for (const event of feedbackEvents(prev, jump.state)) {
           if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
+          if (event === "start") setAnnouncement(JUMP_STARTED_ANNOUNCEMENT);
         }
+        // The jump is scored in the frame of the touchdown, seconds before the jumper stops.
+        if (!prev.logic.finished && jump.state.logic.finished) setAnnouncement(touchdownAnnouncement(jump.state.logic));
         for (const event of soundEvents(prev, jump.state)) soundRef.current?.play(event);
       }
       const over = isJumpOver(jump);
@@ -372,7 +378,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const onPointerDown = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       e.preventDefault();
-      if (document.pointerLockElement !== canvas) canvas.requestPointerLock().catch(() => undefined);
+      if (document.pointerLockElement !== canvas) requestMouseCapture(canvas);
       input.setButtons("mouse", mouseButtons(e.buttons));
     };
     const onPointerUp = (e: PointerEvent) => {
@@ -473,6 +479,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       <div className="game-stage" ref={stageRef}>
         <canvas
           ref={canvasRef}
+          tabIndex={-1}
           role="img"
           aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, po skoku lewy przycisk: jeszcze raz, Esc: lista skoczni.`}
         />

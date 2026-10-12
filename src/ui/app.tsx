@@ -13,6 +13,12 @@ type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind
 
 export function App() {
   const [screen, setScreen] = useState<Screen>({ kind: "menu" });
+  // The first screen leaves the focus where the browser put it; every later one takes it (see useEntryFocus).
+  const [navigated, setNavigated] = useState(false);
+  const show = (next: Screen) => {
+    setNavigated(true);
+    setScreen(next);
+  };
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
   const [filesStore] = useState<GameFilesStore>(detectGameFilesStore);
@@ -86,7 +92,8 @@ export function App() {
         settings={save.settings}
         onSettings={onSettings}
         onFinished={(result) => onFinished(hill, result)}
-        onExit={() => setScreen({ kind: "hills" })}
+        onExit={() => show({ kind: "hills" })}
+        focusOnEntry={navigated}
       />
     );
   }
@@ -95,7 +102,8 @@ export function App() {
       <OutfitScreen
         outfit={save.settings.outfit}
         onChange={(outfit) => onSettings({ outfit })}
-        onBack={() => setScreen({ kind: "menu" })}
+        onBack={() => show({ kind: "menu" })}
+        focusOnEntry={navigated}
       />
     );
   }
@@ -104,8 +112,9 @@ export function App() {
       <HillScreen
         hills={[...OWN_HILLS, ...originalHills]}
         records={save.records}
-        onPick={(hill) => setScreen({ kind: "jump", hill })}
-        onBack={() => setScreen({ kind: "menu" })}
+        onPick={(hill) => show({ kind: "jump", hill })}
+        onBack={() => show({ kind: "menu" })}
+        focusOnEntry={navigated}
       />
     );
   }
@@ -117,8 +126,9 @@ export function App() {
       onGameFiles={onGameFiles}
       onForgetFiles={onForgetFiles}
       persistent={persistent}
-      onTraining={() => setScreen({ kind: "hills" })}
-      onOutfit={() => setScreen({ kind: "outfit" })}
+      onTraining={() => show({ kind: "hills" })}
+      onOutfit={() => show({ kind: "outfit" })}
+      focusOnEntry={navigated}
       onOriginalHills={setOriginalHills}
     />
   );

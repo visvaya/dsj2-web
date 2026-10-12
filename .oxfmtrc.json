@@ -2,5 +2,5 @@
   "$schema": "./node_modules/oxfmt/configuration_schema.json",
   "printWidth": 120,
   "sortPackageJson": false,
-  "ignorePatterns": ["*.md"]
+  "ignorePatterns": ["*.md", "playwright-report", "test-results", "e2e/.sim-harness"]
 }
