@@ -33,12 +33,22 @@ export interface JumpOutcome {
   announcement: string;
 }
 
-interface Point {
+interface JumpOptions {
+  /**
+   * Runs right after the jumper leaves the gate, during the inrun. Returns for how many milliseconds the game
+   * stood still meanwhile (a hidden page); the rest of the jump is played that much later.
+   */
+  afterStart?: () => Promise<number>;
+}
+
+const postponement = async (options: JumpOptions): Promise<number> => (await options.afterStart?.()) ?? 0;
+
+export interface Point {
   x: number;
   y: number;
 }
 
-async function centerOf(target: Locator): Promise<Point> {
+export async function centerOf(target: Locator): Promise<Point> {
   const box = await target.boundingBox();
   if (!box) throw new Error("The element has no box: it is not rendered");
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -53,15 +63,15 @@ function parseOutcome(text: string): JumpOutcome {
   throw new Error(`Not an announcement of a result: "${text}"`);
 }
 
-const pageNow = (page: Page): Promise<number> => page.evaluate(() => performance.now());
+export const pageNow = (page: Page): Promise<number> => page.evaluate(() => performance.now());
 
 /** Waits on the page's clock, checked every animation frame, so the delay of the test runner does not add up. */
-async function waitForPageTime(page: Page, targetMs: number): Promise<void> {
+export async function waitForPageTime(page: Page, targetMs: number): Promise<void> {
   await page.waitForFunction((target) => performance.now() >= target, targetMs, { polling: "raf" });
 }
 
 /** The page time at which the start was announced, or null when it was not within the timeout. */
-async function startAnnouncedAt(page: Page, timeoutMs: number): Promise<number | null> {
+export async function startAnnouncedAt(page: Page, timeoutMs: number): Promise<number | null> {
   try {
     const handle = await page.waitForFunction(
       (text) => (document.querySelector("p[aria-live]")?.textContent === text ? performance.now() : null),
@@ -82,7 +92,7 @@ async function clickMouse(page: Page, side: "left" | "right"): Promise<void> {
 }
 
 /** Holds the left button on the picture until the jumper leaves the gate; returns the page time of the start. */
-async function startWithMouse(page: Page): Promise<number> {
+export async function startWithMouse(page: Page): Promise<number> {
   const middle = await centerOf(jumpCanvas(page));
   await page.mouse.move(middle.x, middle.y);
   await page.mouse.down();
@@ -92,8 +102,8 @@ async function startWithMouse(page: Page): Promise<number> {
   return startedAt;
 }
 
-async function driveWithMouse(page: Page): Promise<void> {
-  const startedAt = await startWithMouse(page);
+async function driveWithMouse(page: Page, options: JumpOptions): Promise<void> {
+  const startedAt = (await startWithMouse(page)) + (await postponement(options));
   await waitForPageTime(page, startedAt + TAKEOFF_AFTER_START_MS);
   await page.mouse.down({ button: "left" });
   await page.mouse.down({ button: "right" });
@@ -119,10 +129,12 @@ async function startWithTouch(page: Page, left: Point): Promise<number> {
   throw new Error("The jump did not start after repeated taps on the left zone");
 }
 
-async function driveWithTouch(page: Page): Promise<void> {
+async function driveWithTouch(page: Page, options: JumpOptions): Promise<void> {
+  const startedAt =
+    (await startWithTouch(page, await centerOf(button(page, TEXT.leftPad)))) + (await postponement(options));
+  // Measured after the start: what happens right after it may move the zones (a turn of the phone).
   const left = await centerOf(button(page, TEXT.leftPad));
   const right = await centerOf(button(page, TEXT.rightPad));
-  const startedAt = await startWithTouch(page, left);
   await waitForPageTime(page, startedAt + TAKEOFF_AFTER_START_MS);
   await page.touchscreen.tap(left.x, left.y);
   await page.touchscreen.tap(right.x, right.y);
@@ -136,18 +148,18 @@ async function driveWithTouch(page: Page): Promise<void> {
 }
 
 /** Waits until the jumper has stopped and returns what the page announced. */
-async function finishedOutcome(page: Page): Promise<JumpOutcome> {
+export async function finishedOutcome(page: Page): Promise<JumpOutcome> {
   await expect(announcement(page)).toHaveText(RESULT, { timeout: RESULT_TIMEOUT_MS });
   return parseOutcome((await announcement(page).textContent()) ?? "");
 }
 
 /** One whole jump with the input the device has, from the gate until the jumper has stopped. */
-async function playJump(page: Page, traits: DeviceTraits): Promise<JumpOutcome> {
-  await (traits.touch ? driveWithTouch(page) : driveWithMouse(page));
+async function playJump(page: Page, traits: DeviceTraits, options: JumpOptions): Promise<JumpOutcome> {
+  await (traits.touch ? driveWithTouch(page, options) : driveWithMouse(page, options));
   return finishedOutcome(page);
 }
 
-async function restartJump(page: Page, traits: DeviceTraits): Promise<void> {
+export async function restartJump(page: Page, traits: DeviceTraits): Promise<void> {
   await openJumpControls(page, traits);
   await press(button(page, TEXT.jumpAgain), traits);
   await expect(announcement(page)).toHaveText("");
@@ -158,11 +170,16 @@ async function restartJump(page: Page, traits: DeviceTraits): Promise<void> {
  * but the game keeps real time and a stalled machine can still spoil one jump; a fall is a valid end of a jump,
  * not a failure of the page. Returns every outcome, the clean landing last.
  */
-export async function playUntilLanded(page: Page, traits: DeviceTraits, attempts = 3): Promise<JumpOutcome[]> {
+export async function playUntilLanded(
+  page: Page,
+  traits: DeviceTraits,
+  options: JumpOptions = {},
+  attempts = 3,
+): Promise<JumpOutcome[]> {
   const outcomes: JumpOutcome[] = [];
   for (let attempt = 0; attempt < attempts; attempt++) {
     if (attempt > 0) await restartJump(page, traits);
-    const outcome = await playJump(page, traits);
+    const outcome = await playJump(page, traits, options);
     outcomes.push(outcome);
     if (outcome.kind === "landed") return outcomes;
   }

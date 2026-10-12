@@ -18,7 +18,7 @@ interface FocusReport {
  * Describes the element that has the keyboard focus. A file input and the radio buttons of the outfit screen are
  * visually hidden inside their label, which carries the focus ring, so for them the label is measured.
  */
-function focusReport(page: Page): Promise<FocusReport> {
+export function focusReport(page: Page): Promise<FocusReport> {
   return page.evaluate(() => {
     const active = document.activeElement;
     if (!(active instanceof HTMLElement) || active === document.body) {

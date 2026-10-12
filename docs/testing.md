@@ -48,6 +48,14 @@ Co sprawdzają pliki w `e2e/`:
 | `a11y.spec.ts` | axe, WCAG 2.2 AA, zero naruszeń na każdym ekranie; test pilnuje, że żaden ekran nie został pominięty | `desktop-chromium`, `android-portrait` |
 | `settings.spec.ts` | dźwięk i sceneria zostają po przeładowaniu | `desktop-chromium`, `android-portrait` |
 | `sim-engines.spec.ts` | symulacja daje w silniku przeglądarki bit w bit wynik z migawki `jump-sim.regression.test.ts` (klatki, odległość, punkty, noty, typ upadku, skrót stanu) | komputery |
+| `reflow.spec.ts` | menu, lista skoczni i strój przy szerokości 320 px i przy powiększeniu 200%: brak przewijania w bok, uciętych i nachodzących elementów; odstępy tekstu z WCAG 1.4.12; wymuszone kolory: kontrolki, kolory próbek i fokus widoczne | komputery, `android-portrait` |
+| `layout-stability.spec.ts` | zmiana ustawienia, otwarcie i zamknięcie pauzy oraz spóźniony font nie przesuwają obrazu ani pól dotykowych (różnice w pikselach trafiają do raportu); przyciski pod obrazem na komputerze: znany błąd, `test.fixme` | wszystkie |
+| `targets.spec.ts` | każda kontrolka spełnia WCAG 2.5.8 (24 na 24 px albo odstęp) i nic jej nie zasłania; przy otwartej pauzie fokus klawiatury nie wchodzi pod nią | wszystkie; fokus: dotykowe |
+| `input.spec.ts` | oba przyciski myszy jako akord w obu kolejnościach naciśnięcia i puszczenia; naciśnięcie krótsze niż krok symulacji; jedno Esc wychodzi ze skoku | komputery |
+| `interruption.spec.ts` | obrót telefonu w trakcie skoku: poprawny układ i skok do końca; ukrycie strony: test pomija się sam, bo żaden silnik uruchamiany przez Playwrighta nie ukrywa strony | telefony; ukrycie: brak |
+| `sound.spec.ts` | żaden kontekst audio nie działa przed pierwszym gestem, jeden po nim; wyłączony dźwięk to cisza na wyjściu, także po przeładowaniu (`AudioContext` obserwowany z testu) | wszystkie |
+| `player-files.spec.ts` | plik, który nie jest grą: komunikat po polsku, nic nie zostaje zapisane, skocznia wbudowana dostępna | wszystkie |
+| `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html` | wszystkie |
 
 Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,
 liczonego od komunikatu „Skok rozpoczęty.” w regionie `aria-live` obok obrazu. Chwile naciśnięć leżą w środku okien
@@ -74,7 +82,36 @@ zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
 Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/`.
 
 Emulacja to nie urządzenie: profile telefonów i tabletu ustawiają rozmiar okna, gęstość pikseli, dotyk i nagłówek
-przeglądarki, ale silnik pozostaje desktopowy.
+przeglądarki, ale silnik pozostaje desktopowy. Czego testy nie widzą, sprawdza się ręcznie (niżej).
+
+### Odbiór ręczny na urządzeniu
+
+Lista na około dziesięć minut: prawdziwy telefon (Android z Chrome albo iPhone z Safari) i jedna przeglądarka na
+komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo „tylko urządzenie”.
+
+| Nr | Krok | Oczekiwany wynik | Pokrycie |
+|---|---|---|---|
+| 1 | Otwórz stronę z adresu; na telefonie dodaj ją do ekranu głównego i otwórz stamtąd | menu po polsku, czcionka pikselowa, tytuł karty „Telemark” | `smoke.spec.ts`, `page-basics.spec.ts`; dodanie do ekranu głównego: tylko urządzenie |
+| 2 | Trening, skocznia Ćwiczebna; przed dotknięciem ekranu skoku posłuchaj | cisza do pierwszego dotknięcia, potem wiatr | `sound.spec.ts`; realny głośnik: tylko urządzenie |
+| 3 | iPhone: przełącznik wyciszenia włączony, potem wyłączony | dźwięk gry słychać w obu położeniach (gra ma własny wyłącznik) | tylko urządzenie |
+| 4 | Pauza, „Dźwięk: wył.”, wróć do gry | cisza; po ponownym włączeniu dźwięk wraca | `sound.spec.ts` |
+| 5 | Pauza, „Pochylanie: palec” | iPhone pyta o dostęp do czujnika ruchu; po zgodzie etykieta „Pochylanie: przechył”, po odmowie komunikat i pochylanie palcem | tylko urządzenie |
+| 6 | Skok z pochylaniem przechyłem telefonu | skoczek pochyla się zgodnie z ruchem telefonu w obu orientacjach | tylko urządzenie |
+| 7 | Android: skok z włączonymi wibracjami, potem „Wibracje: wył.” | krótka wibracja przy starcie, wybiciu i lądowaniu; po wyłączeniu brak (iPhone nie wibruje) | tylko urządzenie |
+| 8 | Cały skok polami L i P w pionie, potem w poziomie | pola nie zasłaniają obrazu, rekord pojawia się na liście skoczni | `jump.spec.ts`, `touch-layout.spec.ts` |
+| 9 | Obróć telefon w trakcie najazdu | układ przestawia się, skok da się dokończyć | `interruption.spec.ts` |
+| 10 | W poziomie obejrzyj okolice wycięcia ekranu i paska gestów | nic ważnego pod wycięciem ani pod paskiem, brak białych pasów obok obrazu | `page-basics.spec.ts` (tło); wycięcie i pasek: tylko urządzenie |
+| 11 | W trakcie skoku przejdź do innej aplikacji na kilka sekund i wróć | dźwięk milknie od razu, po powrocie skok trwa dalej od tego samego miejsca | tylko urządzenie (`interruption.spec.ts` pomija ten test) |
+| 12 | W trakcie skoku zablokuj ekran, odblokuj | jak w punkcie 11 | tylko urządzenie |
+| 13 | Menu, „Wczytaj pliki gry”, wybierz `Dsj.exe` ze swojej kopii; zamknij przeglądarkę i otwórz stronę ponownie | 37 skoczni z oryginału na liście także po ponownym otwarciu | tylko urządzenie i własna kopia gry; odmowa dla obcego pliku: `player-files.spec.ts` |
+| 14 | Czytnik ekranu (VoiceOver albo TalkBack): przejdź menu, listę skoczni i strój | każdy przycisk i kolor ma nazwę, po zmianie ekranu czytany jest jego nagłówek | `a11y.spec.ts`, `keyboard.spec.ts` (fokus); mowa czytnika: tylko urządzenie |
+| 15 | Z czytnikiem ekranu oddaj jeden skok | słychać „Skok rozpoczęty.”, potem lądowanie albo upadek z odległością, na końcu noty i wynik z przecinkiem dziesiętnym | treść komunikatów: `jump.spec.ts`; mowa czytnika: tylko urządzenie |
+| 16 | Komputer: skok myszą (oba przyciski na progu), Esc w trakcie | mysz przechwycona na czas skoku, jedno Esc wraca do listy skoczni | `input.spec.ts`; zachowanie Esc w prawdziwym przechwyceniu myszy: tylko urządzenie |
+| 17 | Komputer: przejdź całą grę samą klawiaturą; powiększ stronę do 200% | fokus zawsze widoczny, nic nie ucieka poza ekran | `keyboard.spec.ts`, `reflow.spec.ts` |
+
+Gdy coś zawiedzie, zanotuj: numer kroku, urządzenie i wersję systemu, przeglądarkę z wersją, orientację, czy
+strona była otwarta z ekranu głównego, co było widać albo słychać (zrzut ekranu lub nagranie) oraz czy błąd
+powtarza się po przeładowaniu strony.
 
 ## Pokrycie kodu symulacji
 
