@@ -8,6 +8,7 @@ import { HillScreen } from "./hill-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
+import { screenTitle } from "./screen-title";
 
 type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
 
@@ -19,6 +20,9 @@ export function App() {
     setNavigated(true);
     setScreen(next);
   };
+  useEffect(() => {
+    document.title = screenTitle(screen);
+  }, [screen]);
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
   const [filesStore] = useState<GameFilesStore>(detectGameFilesStore);
