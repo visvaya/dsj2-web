@@ -95,7 +95,7 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
           className="outfit-preview"
           width={PREVIEW_WIDTH_PX}
           height={PREVIEW_HEIGHT_PX}
-          style={{ width: PREVIEW_WIDTH_PX * PREVIEW_SCALE, height: PREVIEW_HEIGHT_PX * PREVIEW_SCALE }}
+          style={{ width: PREVIEW_WIDTH_PX * PREVIEW_SCALE }}
           role="img"
           aria-label="Podgląd skoczka w wybranym stroju"
         />

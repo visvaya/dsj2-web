@@ -248,7 +248,10 @@ h2 {
   outline-offset: 2px;
 }
 
+/* The width is set on the element; on a screen narrower than that the preview shrinks and keeps its shape. */
 .outfit-preview {
+  max-width: 100%;
+  height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   border: 3px solid var(--accent);
@@ -504,5 +507,15 @@ h2 {
 
   .game.touch .pause-button {
     justify-self: end;
+  }
+}
+
+/*
+ * Forced colours (Windows contrast themes) repaint every background with one system colour. The swatches are the
+ * colours being chosen, so they keep their own.
+ */
+@media (forced-colors: active) {
+  .swatch {
+    forced-color-adjust: none;
   }
 }
