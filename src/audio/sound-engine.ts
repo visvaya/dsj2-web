@@ -1,11 +1,11 @@
 import type { FeedbackEvent } from "../game/haptics";
-import type { Mix } from "./sound-mix";
+import type { Layer, Mix, SoundEvent } from "./sound-mix";
 
 /**
  * Game sounds made in the browser (Web Audio): filtered noise for skis, air and wind, short synthesised cues
  * for the jump's moments. No recordings, so nothing to license. The engine only plays what it is told.
  */
-export type SoundCue = FeedbackEvent | "noteCounted" | "noteDropped" | "record";
+export type SoundCue = FeedbackEvent | SoundEvent | "noteCounted" | "noteDropped" | "record";
 
 /** The parts of the Web Audio API the engine uses (a real AudioContext fits; tests pass a stand-in). */
 export interface ParamLike {
@@ -15,7 +15,8 @@ export interface ParamLike {
   setTargetAtTime(value: number, time: number, timeConstant: number): unknown;
 }
 export interface NodeLike {
-  connect(destination: NodeLike): unknown;
+  /** To another node, or to a parameter that the signal then moves (the flutter of the ground layers). */
+  connect(destination: NodeLike | ParamLike): unknown;
 }
 export interface GainLike extends NodeLike {
   gain: ParamLike;
@@ -101,6 +102,34 @@ function fillNoise(buffer: BufferLike, length: number): void {
   }
 }
 
+/** How far each sample of the deep noise moves towards a new random value. */
+const DEEP_NOISE_STEP = 0.1;
+const DEEP_NOISE_PEAK = 0.9;
+
+/**
+ * Deep noise for the rumble: white noise run through a leaky sum, so most of its energy sits low and it sounds
+ * like a rumble where white noise sounds like radio static. The ends are joined so the loop does not click.
+ */
+function fillDeepNoise(buffer: BufferLike, length: number): void {
+  const data = buffer.getChannelData(0);
+  let s = 0x7f4a7c15;
+  let level = 0;
+  for (let i = 0; i < length; i++) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    level = (level + DEEP_NOISE_STEP * (s / 0x80000000 - 1)) / (1 + DEEP_NOISE_STEP);
+    data[i] = level;
+  }
+  const drift = length > 1 ? ((data[length - 1] ?? 0) - (data[0] ?? 0)) / (length - 1) : 0;
+  let peak = 0;
+  for (let i = 0; i < length; i++) {
+    const v = (data[i] ?? 0) - drift * i;
+    data[i] = v;
+    peak = Math.max(peak, Math.abs(v));
+  }
+  if (peak === 0) return;
+  for (let i = 0; i < length; i++) data[i] = ((data[i] ?? 0) / peak) * DEEP_NOISE_PEAK;
+}
+
 /** A short envelope: up to `peak` in `attack`, then down to silence over `decay`. */
 function envelope(param: ParamLike, t: number, peak: number, attack: number, decay: number): void {
   param.setValueAtTime(SILENT, t);
@@ -113,11 +142,21 @@ interface ContinuousLayer {
   gain: GainLike;
 }
 
+/** The shared gain of the ground layers and the slow wave that pulses it. */
+interface FlutterNodes {
+  bus: GainLike;
+  wave: OscillatorLike;
+  depth: GainLike;
+}
+
+const LAYER_KEYS = ["rumble", "skis", "air", "wind"] as const;
+
 export function createSoundEngine(makeContext: () => ContextLike | null = defaultContext): SoundEngine {
   let ctx: ContextLike | null = null;
   let master: GainLike | null = null;
   let noise: BufferLike | null = null;
-  let layers: Record<keyof Mix, ContinuousLayer> | null = null;
+  let layers: Record<(typeof LAYER_KEYS)[number], ContinuousLayer> | null = null;
+  let flutter: FlutterNodes | null = null;
   let enabled = true;
 
   const build = (c: ContextLike) => {
@@ -127,37 +166,58 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     const length = Math.round(c.sampleRate * NOISE_SECONDS);
     noise = c.createBuffer(1, length, c.sampleRate);
     fillNoise(noise, length);
-    const layer = (type: BiquadFilterType, q: number): ContinuousLayer => {
+    const deepNoise = c.createBuffer(1, length, c.sampleRate);
+    fillDeepNoise(deepNoise, length);
+    // The ground layers share one gain; a slow wave added to it makes the track chatter.
+    const bus = c.createGain();
+    bus.gain.setValueAtTime(1, c.currentTime);
+    bus.connect(master);
+    const wave = c.createOscillator();
+    wave.type = "sine";
+    wave.frequency.setValueAtTime(1, c.currentTime);
+    const depth = c.createGain();
+    depth.gain.setValueAtTime(0, c.currentTime);
+    wave.connect(depth);
+    depth.connect(bus.gain);
+    wave.start();
+    flutter = { bus, wave, depth };
+    const layer = (buffer: BufferLike, type: BiquadFilterType, out: NodeLike): ContinuousLayer => {
       const source = c.createBufferSource();
-      source.buffer = noise;
+      source.buffer = buffer;
       source.loop = true;
       const filter = c.createBiquadFilter();
       filter.type = type;
-      filter.Q.setValueAtTime(q, c.currentTime);
       const gain = c.createGain();
       gain.gain.setValueAtTime(0, c.currentTime);
       source.connect(filter);
       filter.connect(gain);
-      if (master) gain.connect(master);
+      gain.connect(out);
       source.start();
       return { filter, gain };
     };
-    layers = { skis: layer("bandpass", 0.8), air: layer("bandpass", 0.5), wind: layer("lowpass", 0.7) };
+    layers = {
+      rumble: layer(deepNoise, "lowpass", bus),
+      skis: layer(noise, "bandpass", bus),
+      air: layer(noise, "bandpass", master),
+      wind: layer(noise, "lowpass", master),
+    };
   };
 
-  const burst = (c: ContextLike, t: number, type: BiquadFilterType, freqHz: number, peak: number, seconds: number) => {
+  /** A short piece of noise through a filter that may sweep from one frequency to another. */
+  const burst = (c: ContextLike, t: number, type: BiquadFilterType, fromHz: number, toHz: number, peak: number, seconds: number) => {
     if (!master || !noise) return;
     const source = c.createBufferSource();
     source.buffer = noise;
     const filter = c.createBiquadFilter();
     filter.type = type;
-    filter.frequency.setValueAtTime(freqHz, t);
+    filter.frequency.setValueAtTime(fromHz, t);
+    if (toHz !== fromHz) filter.frequency.exponentialRampToValueAtTime(toHz, t + seconds);
     const gain = c.createGain();
     envelope(gain.gain, t, peak, 0.005, seconds);
     source.connect(filter);
     filter.connect(gain);
     gain.connect(master);
-    source.start(t, (t * 0.37) % (NOISE_SECONDS - 0.5), seconds + 0.05);
+    source.start(t, (t * 0.37) % (NOISE_SECONDS - 1), seconds + 0.05);
   };
 
   const tone = (c: ContextLike, t: number, type: OscillatorType, fromHz: number, toHz: number, peak: number, seconds: number) => {
@@ -202,9 +262,17 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     update(mix) {
       if (!ctx || !layers) return;
       const t = ctx.currentTime;
-      for (const key of ["skis", "air", "wind"] as const) {
-        layers[key].gain.gain.setTargetAtTime(mix[key].gain, t, FOLLOW_S);
-        layers[key].filter.frequency.setTargetAtTime(mix[key].freqHz, t, FOLLOW_S);
+      for (const key of LAYER_KEYS) {
+        const target: Layer = mix[key];
+        layers[key].gain.gain.setTargetAtTime(target.gain, t, FOLLOW_S);
+        layers[key].filter.frequency.setTargetAtTime(target.freqHz, t, FOLLOW_S);
+        layers[key].filter.Q.setTargetAtTime(target.q, t, FOLLOW_S);
+      }
+      if (flutter) {
+        // The wave swings the shared gain between 1 - depth and 1.
+        flutter.wave.frequency.setTargetAtTime(mix.flutter.rateHz, t, FOLLOW_S);
+        flutter.depth.gain.setTargetAtTime(mix.flutter.depth / 2, t, FOLLOW_S);
+        flutter.bus.gain.setTargetAtTime(1 - mix.flutter.depth / 2, t, FOLLOW_S);
       }
     },
     play(cue) {
@@ -213,20 +281,39 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
       const t = c.currentTime + 0.01;
       switch (cue) {
         case "start":
-          burst(c, t, "highpass", 2500, 0.12, 0.03);
+          // The bar lets go: a click and a short wooden knock.
+          burst(c, t, "highpass", 2500, 2500, 0.12, 0.03);
+          tone(c, t, "sine", 190, 95, 0.16, 0.09);
+          break;
+        case "push":
+          // The legs straighten: a rising swish over a short thump.
+          burst(c, t, "bandpass", 450, 1900, 0.24, 0.14);
+          tone(c, t, "sine", 170, 85, 0.3, 0.1);
           break;
         case "takeoff":
-          burst(c, t, "bandpass", 900, 0.25, 0.12);
-          tone(c, t, "sine", 140, 70, 0.3, 0.12);
+          // The skis leave the track: the air closes in.
+          burst(c, t, "bandpass", 1400, 500, 0.2, 0.32);
+          tone(c, t, "sine", 120, 60, 0.14, 0.1);
           break;
         case "landing":
           tone(c, t, "sine", 100, 45, 0.45, 0.22);
-          burst(c, t, "lowpass", 600, 0.28, 0.18);
+          burst(c, t, "lowpass", 600, 600, 0.28, 0.18);
+          // Snow thrown up by the skis.
+          burst(c, t, "bandpass", 3200, 1400, 0.14, 0.45);
           break;
         case "crash":
           tone(c, t, "sine", 100, 40, 0.55, 0.25);
           tone(c, t + 0.15, "sine", 80, 35, 0.45, 0.3);
-          burst(c, t, "lowpass", 500, 0.35, 0.4);
+          burst(c, t, "lowpass", 500, 500, 0.35, 0.4);
+          // The slide on the snow.
+          burst(c, t + 0.1, "bandpass", 900, 300, 0.2, 0.7);
+          break;
+        case "countdown":
+          tone(c, t, "square", 440, 440, 0.035, 0.05);
+          break;
+        case "disqualified":
+          tone(c, t, "square", 196, 196, 0.06, 0.18);
+          tone(c, t + 0.2, "square", 147, 147, 0.06, 0.3);
           break;
         case "noteCounted":
           tone(c, t, "square", 880, 880, 0.07, 0.07);
@@ -243,6 +330,7 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
       const c = ctx;
       ctx = null;
       layers = null;
+      flutter = null;
       master = null;
       if (c) c.close().catch(() => undefined);
     },

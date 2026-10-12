@@ -70,25 +70,33 @@ describe("sound engine", () => {
       return fake;
     });
     engine.play("takeoff");
-    engine.update(soundMix({ airborne: false, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
+    engine.update(soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
     expect(made).toBe(0);
     engine.unlock();
     engine.unlock();
     expect(made).toBe(1);
     expect(fake.resumed).toBe(1);
-    // Skis, air and wind loop from the start (made louder or quieter afterwards), plus one silent tick that
-    // unlocks iOS; once running, further gestures start nothing.
-    expect(fake.started).toBe(4);
+    // Rumble, skis, air and wind loop from the start (made louder or quieter afterwards), plus one silent tick
+    // that unlocks iOS; once running, further gestures start nothing.
+    expect(fake.started).toBe(5);
   });
 
   it("follows the mix and plays cues only while enabled", () => {
     const fake = new FakeContext();
     const engine = createSoundEngine(() => fake);
     engine.unlock();
-    // Gains: master, then one per layer (skis, air, wind).
-    engine.update(soundMix({ airborne: false, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
-    expect(gainOf(fake.gains[1])).toBeGreaterThan(0);
+    // Gains: master, the ground layers' shared gain, the depth of its flutter, then one per layer (rumble, skis,
+    // air, wind).
+    engine.update(soundMix({ airborne: false, onTrack: true, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
+    expect(gainOf(fake.gains[2])).toBeGreaterThan(0);
+    expect(gainOf(fake.gains[1])).toBeLessThan(1);
+    expect(gainOf(fake.gains[3])).toBeGreaterThan(0);
+    expect(gainOf(fake.gains[4])).toBeGreaterThan(0);
+    expect(gainOf(fake.gains[5])).toBe(0);
+    // On the snow of the outrun the flutter stops.
+    engine.update(soundMix({ airborne: false, onTrack: false, groundSpeedMPerS: 20, airSpeedMPerS: 0, windMPerS: 2, paused: false }));
     expect(gainOf(fake.gains[2])).toBe(0);
+    expect(gainOf(fake.gains[1])).toBe(1);
     engine.play("landing");
     const afterLanding = fake.oscillators;
     expect(afterLanding).toBeGreaterThan(0);
@@ -100,12 +108,25 @@ describe("sound engine", () => {
     expect(fake.closed).toBe(true);
   });
 
+  it("has a sound for every cue", () => {
+    const cues = ["start", "push", "takeoff", "landing", "crash", "countdown", "disqualified", "noteCounted", "noteDropped", "record"] as const;
+    const silent = cues.filter((cue) => {
+      const fake = new FakeContext();
+      const engine = createSoundEngine(() => fake);
+      engine.unlock();
+      const before = fake.started + fake.oscillators;
+      engine.play(cue);
+      return fake.started + fake.oscillators === before;
+    });
+    expect(silent).toEqual([]);
+  });
+
   it("does nothing where the browser has no Web Audio", () => {
     const engine = createSoundEngine(() => null);
     expect(() => {
       engine.unlock();
       engine.play("crash");
-      engine.update(soundMix({ airborne: true, groundSpeedMPerS: 0, airSpeedMPerS: 25, windMPerS: 3, paused: false }));
+      engine.update(soundMix({ airborne: true, onTrack: false, groundSpeedMPerS: 0, airSpeedMPerS: 25, windMPerS: 3, paused: false }));
       engine.dispose();
     }).not.toThrow();
   });

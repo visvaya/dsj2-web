@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointer
 import { planSteps } from "../game/fixed-step";
 import { feedbackEvents, vibrate } from "../game/haptics";
 import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
-import { notesAppearing, soundMix } from "../audio/sound-mix";
+import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
@@ -10,7 +10,7 @@ import type { HillChoice } from "../game/hill-choice";
 import { PlayerInput, mouseButtons } from "../game/player-input";
 import { lockLossAction } from "../game/pointer-lock";
 import { isJumpOver, newSeed, presentationFrame, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
-import { notesShownBy } from "../sim/jump-logic";
+import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
@@ -270,6 +270,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       engine.update(
         soundMix({
           airborne: s.jumper.airborne,
+          onTrack: s.logic.phase < PHASE.flightHold,
           groundSpeedMPerS: s.jumper.speedMPerS,
           airSpeedMPerS: Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS),
           windMPerS: Math.hypot(wind.x, wind.y),
@@ -280,7 +281,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     // A hidden tab stops animation frames, so the continuous sounds are hushed right away.
     const onVisibility = () => {
       if (document.hidden) {
-        soundRef.current?.update(soundMix({ airborne: false, groundSpeedMPerS: 0, airSpeedMPerS: 0, windMPerS: 0, paused: true }));
+        soundRef.current?.update(soundMix({ airborne: false, onTrack: false, groundSpeedMPerS: 0, airSpeedMPerS: 0, windMPerS: 0, paused: true }));
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -305,6 +306,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
         }
+        for (const event of soundEvents(prev, jump.state)) soundRef.current?.play(event);
       }
       const over = isJumpOver(jump);
       if (!finished && over) finish();
