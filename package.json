@@ -2,6 +2,7 @@
   "name": "dsj2-web",
   "private": true,
   "description": "Browser ski jumping game whose jump physics is a port of Deluxe Ski Jump 2 (v2.10P, DOS).",
+  "license": "GPL-3.0-or-later",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/visvaya/dsj2-web.git"

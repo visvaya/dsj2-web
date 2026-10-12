@@ -83,4 +83,11 @@ The pixel font is Silkscreen with added Polish letters, under the SIL Open Font 
 
 ## License
 
-Not decided yet. Until a license is added, all rights are reserved.
+Copyright (C) 2026 Maciej Budzyński.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
+License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any
+later version. It is distributed without any warranty. See `LICENSE` for the full text.
+
+The license covers this project's own code and documentation. It does not cover the original game, and the font
+keeps its own license (see Legal).
