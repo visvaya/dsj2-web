@@ -7,7 +7,8 @@ import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
-import { PlayerInput } from "../game/player-input";
+import { PlayerInput, mouseButtons } from "../game/player-input";
+import { lockLossAction } from "../game/pointer-lock";
 import { isJumpOver, newSeed, presentationFrame, startTrainingJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
 import { notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
@@ -32,8 +33,6 @@ interface Props {
 const PLAYER_NAME = "GRACZ 1";
 const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = { varied: "day", day: "dusk", dusk: "night", night: "varied" };
 const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = { varied: "zmienna", day: "dzień", dusk: "zmierzch", night: "noc" };
-const MOUSE_LEFT = 0;
-const MOUSE_RIGHT = 2;
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
 const DENSE_SCREEN_DPR = 2;
 /** How long a note about the motion sensor stays on screen. */
@@ -205,6 +204,26 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     };
     restartRef.current = restart;
 
+    // The mouse is captured during a jump and free between jumps, so the buttons below can be reached.
+    let releasingLock = false;
+    const releaseLock = () => {
+      if (document.pointerLockElement !== canvas) return;
+      releasingLock = true;
+      document.exitPointerLock();
+    };
+    const onLockChange = () => {
+      if (document.pointerLockElement === canvas) {
+        releasingLock = false;
+        return;
+      }
+      // A release that happened while the mouse was captured elsewhere never arrives.
+      input.release("mouse");
+      const loss = { releasedByGame: releasingLock, focused: document.hasFocus(), hidden: document.hidden };
+      releasingLock = false;
+      if (lockLossAction(loss) === "exit") latest.current.onExit();
+    };
+    document.addEventListener("pointerlockchange", onLockChange);
+
     const fit = () => {
       const width = viewWidthFor(stage.clientWidth, stage.clientHeight);
       if (width !== view.fb.width) view = makeView(width);
@@ -224,6 +243,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
 
     const finish = () => {
       finished = true;
+      releaseLock();
       const L = jump.state.logic;
       const result: JumpResult = { distanceM: L.distanceM, points: L.points, fell: L.fallType !== 0 };
       const best = latest.current.record;
@@ -270,13 +290,17 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       last = now;
       acc = plan.accumulatorS;
       const tilt = tiltRef.current;
+      // A click shorter than a frame is held only inside the frames taken below.
+      let leftDown = input.left;
       for (let i = 0; i < plan.steps; i++) {
         if (tilt.on && tilt.pitch !== null) {
           tilt.neutral ??= tilt.pitch;
           input.addMotion(tiltMotion(tilt.pitch, tilt.neutral));
         }
         const prev = jump.state;
-        stepTrainingJump(jump, input.takeFrame());
+        const frameInput = input.takeFrame();
+        leftDown ||= frameInput.left;
+        stepTrainingJump(jump, frameInput);
         for (const event of feedbackEvents(prev, jump.state)) {
           if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
@@ -286,8 +310,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       if (!finished && over) finish();
       // After the notes, a fresh press of the left button starts the next jump.
       const clock = presentationFrame(jump);
-      if (over && input.left && !leftWasDown && notesShownBy(jump.state.logic, clock)) restart();
-      leftWasDown = input.left;
+      if (over && leftDown && !leftWasDown && notesShownBy(jump.state.logic, clock)) restart();
+      leftWasDown = leftDown;
       playSounds(clock);
       const best = latest.current.record;
       drawJumpView(view.fb, {
@@ -314,25 +338,31 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       if (e.pointerType !== "mouse") return;
       e.preventDefault();
       if (document.pointerLockElement !== canvas) canvas.requestPointerLock().catch(() => undefined);
-      if (e.button === MOUSE_LEFT) input.left = true;
-      if (e.button === MOUSE_RIGHT) input.right = true;
+      input.setButtons("mouse", mouseButtons(e.buttons));
     };
     const onPointerUp = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return;
-      if (e.button === MOUSE_LEFT) input.left = false;
-      if (e.button === MOUSE_RIGHT) input.right = false;
+      if (e.pointerType === "mouse") input.setButtons("mouse", mouseButtons(e.buttons));
     };
+    // A second button pressed or released while one is held arrives as a move, so moves carry the buttons too.
     const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerType === "mouse") input.addMotion(e.movementY);
+      if (e.pointerType !== "mouse") return;
+      input.setButtons("mouse", mouseButtons(e.buttons));
+      input.addMotion(e.movementY);
+    };
+    // Key and button releases are lost while another window has the focus.
+    const onBlur = () => {
+      input.release("mouse");
+      input.release("keys");
+      input.setLeanKeys(0);
     };
     const onContextMenu = (e: Event) => e.preventDefault();
     const onKey = (e: KeyboardEvent, down: boolean) => {
       switch (e.code) {
         case "KeyZ":
-          input.left = down;
+          input.setButton("keys", "left", down);
           break;
         case "KeyX":
-          input.right = down;
+          input.setButton("keys", "right", down);
           break;
         case "ArrowUp":
           input.setLeanKeys(down ? -1 : 0);
@@ -344,8 +374,13 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           if (down) restart();
           break;
         case "Escape":
-          if (down && document.pointerLockElement !== canvas) latest.current.onExit();
-          break;
+          // Not every browser keeps Escape to itself while the mouse is captured; where the key arrives, it
+          // frees the mouse and leaves in one press. The browser's own handling of the key is left alone.
+          if (down) {
+            releaseLock();
+            latest.current.onExit();
+          }
+          return;
         default:
           return;
       }
@@ -363,8 +398,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     canvas.addEventListener("contextmenu", onContextMenu);
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     window.addEventListener("deviceorientation", onOrientation);
     return () => {
+      document.removeEventListener("pointerlockchange", onLockChange);
+      window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
@@ -400,7 +438,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         <canvas
           ref={canvasRef}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, po skoku lewy przycisk: jeszcze raz.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, po skoku lewy przycisk: jeszcze raz, Esc: lista skoczni.`}
         />
       </div>
       <div className="game-toolbar">
@@ -493,18 +531,14 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       {touch && (
         <TouchPad
           side="left"
-          onPress={(down) => {
-            inputRef.current.left = down;
-          }}
+          onPress={(down) => inputRef.current.setButton("touch", "left", down)}
           onDrag={(dy) => inputRef.current.addMotion(dy)}
         />
       )}
       {touch && (
         <TouchPad
           side="right"
-          onPress={(down) => {
-            inputRef.current.right = down;
-          }}
+          onPress={(down) => inputRef.current.setButton("touch", "right", down)}
           onDrag={() => undefined}
         />
       )}
