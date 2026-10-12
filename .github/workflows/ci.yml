@@ -36,8 +36,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
-      # Golden tests need a trace of the original game and are skipped here.
-      - run: pnpm test
+      # Golden tests need a trace of the original game and are skipped here. The run also enforces the
+      # coverage thresholds for src/sim set in vite.config.ts.
+      - run: pnpm test:coverage
       - run: pnpm test:scripts
       - run: pnpm build
       - name: Only the build's own files in dist/, within the size budget

@@ -37,6 +37,7 @@ pnpm typecheck
 pnpm lint
 pnpm format         # rewrite the sources in the project's format (oxfmt)
 pnpm test
+pnpm test:coverage  # the tests with the coverage floor for src/sim, as in CI
 pnpm build          # production build in dist/
 pnpm build:single   # the build packed into one HTML file
 ```
