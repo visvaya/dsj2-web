@@ -30,8 +30,9 @@ test("each screen has its own title and the page background is set on the root e
   expect(new Set([titles.get("menu"), titles.get("outfit"), titles.get("hill list"), titles.get("jump")]).size).toBe(4);
 });
 
-// A window too short for the menu and for the hill list, so that both scroll on every device profile.
-const SHORT_WINDOW_HEIGHT_PX = 300;
+// A window too short for the menu and for the hill list, so that both scroll on every device profile. The hill
+// list with its one built-in hill is about 270 pixels high on a narrow phone, so 300 would not do there.
+const SHORT_WINDOW_HEIGHT_PX = 200;
 
 test("a screen opens at its top, whatever the scroll position of the one before", async ({
   page,
