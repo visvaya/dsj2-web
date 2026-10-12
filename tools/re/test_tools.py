@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import gzip
 import os
 import struct
 import sys
@@ -21,6 +22,7 @@ from rpl_codec import (
     decode_replay,
     encode_replay,
 )
+from trace_file import open_trace, write_trace
 
 
 class RestoreFpuTest(unittest.TestCase):
@@ -118,7 +120,7 @@ class CraftReplaysTest(unittest.TestCase):
                 telemark = decode_replay(f.read())[1]
             self.assertEqual(struct.unpack_from("<ii", telemark, 0x46A), (596, 590))
 
-    def test_set_distance_reads_the_last_snapshot(self) -> None:
+    def check_set_distance(self, trace_name: str) -> None:
         size = 0x5300
         first = bytearray(size)
         last = bytearray(size)
@@ -126,10 +128,9 @@ class CraftReplaysTest(unittest.TestCase):
         struct.pack_into("<f", last, 0x528E, 89.92)
         header = bytes([12]) + b"/DSJ_v2.1P//"
         with tempfile.TemporaryDirectory() as d:
-            trace = os.path.join(d, "x.trace")
-            with open(trace, "wb") as f:
-                f.write(b"DSJTRACE" + struct.pack("<III", 1, size, 2))
-                f.write(struct.pack("<IB", 1, 0) + first + struct.pack("<IB", 2, 3) + last)
+            trace = os.path.join(d, trace_name)
+            records = [struct.pack("<IB", 1, 0) + first, struct.pack("<IB", 2, 3) + last]
+            write_trace(trace, size, records)
             replay = os.path.join(d, "x.rpl")
             with open(replay, "wb") as f:
                 f.write(encode_replay(header, bytes(RECORD_BYTES)))
@@ -137,6 +138,42 @@ class CraftReplaysTest(unittest.TestCase):
             with open(replay, "rb") as f:
                 record = decode_replay(f.read())[1]
             self.assertEqual(record[0x25 : 0x25 + 6], b"\x0589.92")
+
+    def test_set_distance_reads_the_last_snapshot(self) -> None:
+        self.check_set_distance("x.trace")
+
+    def test_set_distance_reads_a_compressed_trace(self) -> None:
+        self.check_set_distance("x.trace.gz")
+
+
+class TraceFileTest(unittest.TestCase):
+    SIZE = 64
+    RECORDS = (struct.pack("<IB", 7, 0) + bytes([0x11]) * SIZE, struct.pack("<IB", 8, 3) + bytes([0x22]) * SIZE)
+    PLAIN = b"DSJTRACE" + struct.pack("<III", 1, SIZE, 2) + b"".join(RECORDS)
+
+    def test_a_plain_name_writes_the_documented_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "a.trace")
+            write_trace(path, self.SIZE, list(self.RECORDS))
+            with open(path, "rb") as f:
+                self.assertEqual(f.read(), self.PLAIN)
+
+    def test_a_gz_name_writes_the_same_bytes_compressed(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "a.trace.gz")
+            write_trace(path, self.SIZE, list(self.RECORDS))
+            with open(path, "rb") as f:
+                raw = f.read()
+            self.assertEqual(raw[:2], b"\x1f\x8b")
+            self.assertEqual(gzip.decompress(raw), self.PLAIN)
+
+    def test_open_trace_reads_both_forms(self) -> None:
+        with tempfile.TemporaryDirectory() as d:
+            for name in ("a.trace", "a.trace.gz", "hills.hilltrace.gz"):
+                path = os.path.join(d, name)
+                write_trace(path, self.SIZE, list(self.RECORDS))
+                with open_trace(path) as f:
+                    self.assertEqual(f.read(), self.PLAIN, name)
 
 
 if __name__ == "__main__":

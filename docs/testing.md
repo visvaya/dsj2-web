@@ -8,7 +8,8 @@
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce; sprawdza też, że krok symulacji nie zmienia stanu, który dostał | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
-| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek) | wszędzie |
+| `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
+| `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, zapis śladów) | wszędzie |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
@@ -29,7 +30,8 @@ pokrycie jest wyższe. Progi są tylko podnoszone, gdy pokrycie rośnie, nigdy o
 
 Zmienne środowiskowe:
 
-- `DSJ2_TRACE_DIR`: katalog z plikami `<nazwa>.trace`, nazwanymi tak jak powtórka, którą zapisują.
+- `DSJ2_TRACE_DIR`: katalog z plikami `<nazwa>.trace` albo `<nazwa>.trace.gz`, nazwanymi tak jak powtórka, którą
+  zapisują.
 - `DSJ2_GAME_DIR`: katalog z plikami `.rpl` (wyszukiwanie bez rozróżniania wielkości liter).
 - `DSJ2_TRACE`: pojedynczy ślad, gdy nie podano katalogu.
 
@@ -62,10 +64,15 @@ python3 -I tools/re/trace_capture.py <katalog-gry> <katalog-roboczy> <numer-powt
 
 `<numer-powtórki>` to pozycja na liście w studiu powtórek (od 0, alfabetycznie).
 
+Ślad ma ok. 86 MB, a gzip zmniejsza go ok. 80 razy **[pomiar]**. Gdy nazwa wyjścia kończy się na `.gz`
+(`<nazwa>.trace.gz`, `hills.hilltrace.gz`), `trace_capture.py` i `hill_capture.py` zapisują ślad skompresowany;
+testy i `craft_replays.py set-distance` czytają obie postaci. Ten sam ślad w obu postaciach naraz w `DSJ2_TRACE_DIR`
+to błąd (jedna z nich jest nieaktualna): testy przerywają się z nazwą śladu.
+
 ### Skocznie
 
 ```sh
-python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace
+python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace.gz
 ```
 
 Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 30 s na skocznię); test
@@ -88,7 +95,7 @@ tworzy z powtórki z Karpacza warianty o zmienionym wejściu:
 ```sh
 python3 -I tools/re/craft_replays.py make <gra>/Karpacz.rpl <wyjście>
 # każdą powtórkę zapisać w osobnym katalogu gry (jedyna powtórka, numer 0), potem:
-python3 -I tools/re/craft_replays.py set-distance <NAZWA.trace> <NAZWA.RPL>
+python3 -I tools/re/craft_replays.py set-distance <NAZWA.trace.gz> <NAZWA.RPL>
 ```
 
 `set-distance` wpisuje do powtórki odległość zmierzoną przez oryginał (ostatnia migawka śladu), bo zmienione wejście

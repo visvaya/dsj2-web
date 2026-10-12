@@ -7,7 +7,8 @@ Usage:
       with trace_capture.py (one replay per game directory, index 0).
   python3 -I craft_replays.py set-distance <trace> <replay.rpl>
       Stores the distance the original game measured (last snapshot of the
-      trace) in the replay, so the golden tests can compare against it.
+      trace, plain or .gz) in the replay, so the golden tests can compare
+      against it.
 
 The input bytes and frame numbers are relative to the Karpacz replay of the
 v2.10P distribution (takeoff buttons from frame 308, flight input 322..614,
@@ -23,6 +24,7 @@ from collections.abc import Callable
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rpl_codec import decode_replay, encode_replay
+from trace_file import TRACE_MAGIC, open_trace
 
 LEFT_LANDING_FRAME = 0x46A
 RIGHT_LANDING_FRAME = 0x46E
@@ -33,7 +35,6 @@ MOTION_FRAMES = 250
 DISTANCE_TEXT = 0x25
 DISTANCE_TEXT_MAX = 6
 DISTANCE_OFFSET = 0x528E
-TRACE_MAGIC = b"DSJTRACE"
 
 
 def _no_landing(r: bytearray) -> None:
@@ -89,7 +90,7 @@ def make(source: str, out_dir: str) -> None:
 
 
 def last_snapshot_distance(trace_path: str) -> float:
-    with open(trace_path, "rb") as f:
+    with open_trace(trace_path) as f:
         if f.read(len(TRACE_MAGIC)) != TRACE_MAGIC:
             raise SystemExit(f"{trace_path}: not a trace")
         _version, size, count = struct.unpack("<III", f.read(12))

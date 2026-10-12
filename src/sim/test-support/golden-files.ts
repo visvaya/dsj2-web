@@ -1,9 +1,12 @@
 import { existsSync, readdirSync } from "node:fs";
 import { basename, join } from "node:path";
+import { GZIP_SUFFIX } from "./dsj-trace";
 
 /**
  * Which files the golden tests compare against. The files are derived from the original game and stay outside
  * the repository: DSJ2_TRACE_DIR holds the traces (or DSJ2_TRACE names a single one), DSJ2_GAME_DIR the game.
+ * A trace may be gzip-compressed (`.trace.gz`, `hills.hilltrace.gz`); the same trace in both forms is a
+ * problem, because one of the two is stale.
  * Without these variables the golden tests are skipped. Once one is set, every file it promises is required:
  * what is missing is reported as a problem, and a test fails on it, so that no comparison is lost quietly.
  */
@@ -31,12 +34,35 @@ function filesIn(dir: string): string[] | undefined {
   }
 }
 
-const traceName = (file: string): string => basename(file).replace(/\.trace$/, "");
+const TRACE_SUFFIX = ".trace";
+const HILL_TRACE_FILE = "hills.hilltrace";
+
+/** The file name without `suffix` or `suffix.gz`; undefined when it has neither. */
+function stripSuffix(file: string, suffix: string): string | undefined {
+  const plain = file.endsWith(GZIP_SUFFIX) ? file.slice(0, -GZIP_SUFFIX.length) : file;
+  return plain.endsWith(suffix) ? plain.slice(0, -suffix.length) : undefined;
+}
+
+const traceName = (file: string): string => stripSuffix(basename(file), TRACE_SUFFIX) ?? basename(file);
+
+/** The traces among the files of a directory, sorted by name, and the names present in both forms. */
+function tracesAmong(dir: string, files: readonly string[]): { traces: TraceFile[]; problems: string[] } {
+  const traces = files
+    .flatMap((file) => {
+      const name = stripSuffix(file, TRACE_SUFFIX);
+      return name === undefined ? [] : [{ name, path: join(dir, file) }];
+    })
+    .toSorted((one, other) => (one.name < other.name ? -1 : one.name > other.name ? 1 : 0));
+  const problems = traces
+    .filter((trace, i) => traces[i + 1]?.name === trace.name)
+    .map((trace) => `${trace.name}.trace exists both plain and gzip-compressed in ${dir}; remove one`);
+  return { traces, problems };
+}
 const shown = (dir: string): string => (dir === "" ? "not set" : dir);
 
 /**
- * Traces to test against: every *.trace in DSJ2_TRACE_DIR (named after the replay they record), or the single
- * file in DSJ2_TRACE when no directory is given.
+ * Traces to test against: every *.trace and *.trace.gz in DSJ2_TRACE_DIR (named after the replay they record),
+ * or the single file in DSJ2_TRACE when no directory is given.
  */
 export function goldenTraces(env: Env = process.env): GoldenTraces {
   const dir = env["DSJ2_TRACE_DIR"] ?? "";
@@ -46,11 +72,8 @@ export function goldenTraces(env: Env = process.env): GoldenTraces {
     if (files === undefined) {
       return { requested: true, traces: [], problems: [`DSJ2_TRACE_DIR (${dir}) cannot be read`] };
     }
-    const traces = files
-      .filter((file) => file.endsWith(".trace"))
-      .toSorted()
-      .map((file) => ({ name: traceName(file), path: join(dir, file) }));
-    const problems = traces.length === 0 ? [`DSJ2_TRACE_DIR (${dir}) holds no .trace file`] : [];
+    const { traces, problems: duplicates } = tracesAmong(dir, files);
+    const problems = traces.length === 0 ? [`DSJ2_TRACE_DIR (${dir}) holds no .trace file`] : duplicates;
     return { requested: true, traces, problems };
   }
   if (single !== "") {
@@ -97,7 +120,7 @@ interface HillGoldenFiles {
   requested: boolean;
   exe: string | undefined;
   dat: string | undefined;
-  /** Hill setup snapshots of tools/re/hill_capture.py: `hills.hilltrace` in DSJ2_TRACE_DIR. */
+  /** Hill setup snapshots of tools/re/hill_capture.py: `hills.hilltrace` or its `.gz` form in DSJ2_TRACE_DIR. */
   hillTrace: string | undefined;
   problems: string[];
 }
@@ -114,12 +137,20 @@ export function hillGoldenFiles(env: Env = process.env): HillGoldenFiles {
   }
   const exe = gameFile(gameDir, "Dsj.exe");
   const dat = gameFile(gameDir, "Dsj.dat");
-  const tracePath = join(traceDir, "hills.hilltrace");
-  const hillTrace = traceDir !== "" && existsSync(tracePath) ? tracePath : undefined;
+  const hillForms =
+    traceDir === ""
+      ? []
+      : [HILL_TRACE_FILE, HILL_TRACE_FILE + GZIP_SUFFIX]
+          .map((file) => join(traceDir, file))
+          .filter((p) => existsSync(p));
+  const hillTrace = hillForms.length === 1 ? hillForms[0] : undefined;
   const problems = [
     ...(exe === undefined ? [`no Dsj.exe in DSJ2_GAME_DIR (${shown(gameDir)})`] : []),
     ...(dat === undefined ? [`no Dsj.dat in DSJ2_GAME_DIR (${shown(gameDir)})`] : []),
-    ...(traceDir !== "" && hillTrace === undefined ? [`no hills.hilltrace in DSJ2_TRACE_DIR (${traceDir})`] : []),
+    ...(traceDir !== "" && hillForms.length === 0 ? [`no hills.hilltrace in DSJ2_TRACE_DIR (${traceDir})`] : []),
+    ...(hillForms.length > 1
+      ? [`${HILL_TRACE_FILE} exists both plain and gzip-compressed in ${traceDir}; remove one`]
+      : []),
   ];
   return { requested: true, exe, dat, hillTrace, problems };
 }

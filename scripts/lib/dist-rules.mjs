@@ -14,8 +14,8 @@ export const DIST_BUDGETS = {
 // and hashed bundles and fonts under assets/.
 const ALLOWED_PATH_PATTERNS = [/^index\.html$/, /^telemark\.html$/, /^assets\/[\w.-]+-[\w-]{8}\.(?:js|css|woff2?)$/];
 
-// Files of the original game and data derived from it are never shipped.
-const GAME_FILE_PATTERN = /\.(?:exe|dat|rpl|trace|hilltrace)$/i;
+// Files of the original game and data derived from it are never shipped. Traces may be gzip-compressed.
+const GAME_FILE_PATTERN = /\.(?:exe|dat|rpl|(?:trace|hilltrace)(?:\.gz)?)$/i;
 
 // "MZ", the first two bytes of a DOS or Windows executable.
 const MZ_SIGNATURE = [0x4d, 0x5a];
