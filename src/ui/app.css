@@ -560,6 +560,41 @@ h2 {
   outline-offset: 4px;
 }
 
+/* The settings on a screen of their own: the same buttons as in the menu of the jump screen, one under another. */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: min(100%, 420px);
+}
+
+.settings-list .pixel-button {
+  justify-content: center;
+  font-size: clamp(16px, 4.4vw, 20px);
+  background: #000000;
+  border-color: #787884;
+}
+
+.settings-list .stepper .stepper-value {
+  flex: 1;
+}
+
+.settings-list .stepper .pixel-button {
+  min-width: 56px;
+}
+
+/* The note under the button that could not close the tab: framed, so it is seen. */
+.quit-note {
+  padding: 10px 12px;
+  border: 3px solid var(--accent);
+  color: var(--text);
+}
+
+.quit-note:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
 /* The list of hills inside the menu of the jump screen. */
 .menu-hills {
   width: min(100%, 560px);
@@ -659,8 +694,9 @@ h2 {
 
 .game.wide .pause-button {
   position: fixed;
-  top: max(8px, var(--safe-top));
-  left: max(8px, var(--safe-left));
+  /* A little room from the corner of the picture, which starts where the cut-outs of the screen end. */
+  top: calc(max(8px, var(--safe-top)) + 6px);
+  left: calc(max(8px, var(--safe-left)) + 6px);
   z-index: 1;
   background: rgb(0 0 0 / 55%);
 }

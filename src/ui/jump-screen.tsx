@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
-import { canVibrate, feedbackEvents, vibrate } from "../game/haptics";
+import { feedbackEvents, vibrate } from "../game/haptics";
 import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
 import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
@@ -17,15 +17,7 @@ import {
   type ButtonSide,
 } from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
-import {
-  SENSITIVITY_MAX,
-  SENSITIVITY_MIN,
-  mouseGain,
-  sensitivityFor,
-  sensitivityGain,
-  stepSensitivity,
-  withSensitivity,
-} from "../game/sensitivity";
+import { mouseGain, sensitivityGain } from "../game/sensitivity";
 import {
   isJumpOver,
   newSeed,
@@ -38,9 +30,10 @@ import {
 import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, pictureScale, viewWidthFor, type ControlScheme } from "../render/jump-view";
-import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import type { HillRecord, Settings } from "../storage/save-data";
 import { HILL_LIST_TITLE, HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
+import { SettingsControls, TILT_REFUSED } from "./settings-controls";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
@@ -68,18 +61,6 @@ interface Props {
 }
 
 const PLAYER_NAME = "GRACZ 1";
-const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = {
-  varied: "day",
-  day: "dusk",
-  dusk: "night",
-  night: "varied",
-};
-const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = {
-  varied: "zmienna",
-  day: "dzień",
-  dusk: "zmierzch",
-  night: "noc",
-};
 /** From this device pixel ratio the view may scale by a fraction to fill the screen. */
 const DENSE_SCREEN_DPR = 2;
 /** How long a note about the motion sensor stays on screen. */
@@ -259,21 +240,6 @@ export function JumpScreen({
   useEffect(() => {
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
-  const fullscreenAvailable = document.fullscreenEnabled;
-  const [fullscreen, setFullscreen] = useState(() => document.fullscreenElement !== null);
-  useEffect(() => {
-    const onChange = () => setFullscreen(document.fullscreenElement !== null);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
-  }, []);
-  // Safari on iOS has no vibration for pages: a switch that does nothing is left out.
-  const vibrationAvailable = touch && canVibrate();
-  /** The sensitivity of the way of steering in use; the other two keep their own level. */
-  const sensitivity = sensitivityFor(settings.sensitivity, controls);
-  const changeSensitivity = (by: -1 | 1) => {
-    const level = stepSensitivity(sensitivity, by);
-    if (level !== sensitivity) onSettings({ sensitivity: withSensitivity(settings.sensitivity, controls, level) });
-  };
   /** With tilt steering: the halves of the screen being touched, in the order they were touched. */
   const thumbsRef = useRef<readonly ButtonSide[]>([]);
   /** A touch of a zone, or of a half of the screen with tilt steering, as game buttons. */
@@ -289,6 +255,25 @@ export function JumpScreen({
   const releaseTouch = () => {
     thumbsRef.current = [];
     inputRef.current.release("touch");
+  };
+  /** Switches between leaning with a finger and by tilting the phone, which the browser has to allow. */
+  const toggleTilt = () => {
+    if (tiltOn) {
+      tiltRef.current.on = false;
+      releaseTouch();
+      setTiltOn(false);
+      setTiltNote("");
+      onSettings({ leanControl: "drag" });
+      return;
+    }
+    void requestTiltPermission().then((granted) => {
+      tiltRef.current.on = granted;
+      tiltRef.current.follow = TILT_AT_REST;
+      releaseTouch();
+      setTiltOn(granted);
+      setTiltNote(granted ? "" : TILT_REFUSED);
+      if (granted) onSettings({ leanControl: "tilt" });
+    });
   };
 
   // Sound: one engine per jump screen; it only listens to the game.
@@ -701,104 +686,14 @@ export function JumpScreen({
             <button type="button" className="pixel-button" onClick={() => setPanel("hills")}>
               Skocznie
             </button>
-            {touch && (
-              <button
-                type="button"
-                className="pixel-button"
-                aria-pressed={tiltOn}
-                onClick={() => {
-                  if (tiltOn) {
-                    tiltRef.current.on = false;
-                    releaseTouch();
-                    setTiltOn(false);
-                    setTiltNote("");
-                    onSettings({ leanControl: "drag" });
-                    return;
-                  }
-                  void requestTiltPermission().then((granted) => {
-                    tiltRef.current.on = granted;
-                    tiltRef.current.follow = TILT_AT_REST;
-                    releaseTouch();
-                    setTiltOn(granted);
-                    setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
-                    if (granted) onSettings({ leanControl: "tilt" });
-                  });
-                }}
-              >
-                {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
-              </button>
-            )}
-            <div className="stepper" role="group" aria-label="Czułość sterowania">
-              <button
-                type="button"
-                className="pixel-button"
-                aria-label="Mniejsza czułość"
-                aria-disabled={sensitivity <= SENSITIVITY_MIN}
-                onClick={() => changeSensitivity(-1)}
-              >
-                -
-              </button>
-              <span className="stepper-value" role="status">
-                Czułość: {sensitivity}
-              </span>
-              <button
-                type="button"
-                className="pixel-button"
-                aria-label="Większa czułość"
-                aria-disabled={sensitivity >= SENSITIVITY_MAX}
-                onClick={() => changeSensitivity(1)}
-              >
-                +
-              </button>
-            </div>
-            <button
-              type="button"
-              className="pixel-button"
-              onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
-            >
-              Sceneria: {SCENERY_LABEL[settings.scenery]}
-            </button>
-            <button
-              type="button"
-              className="pixel-button"
-              aria-pressed={settings.sound}
-              onClick={() => onSettings({ sound: !settings.sound })}
-            >
-              {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
-            </button>
-            <button
-              type="button"
-              className="pixel-button"
-              aria-pressed={settings.hillHints}
-              onClick={() => onSettings({ hillHints: !settings.hillHints })}
-            >
-              {settings.hillHints ? "Podpowiedzi na skoczni: wł." : "Podpowiedzi na skoczni: wył."}
-            </button>
-            {fullscreenAvailable && (
-              <button
-                type="button"
-                className="pixel-button"
-                aria-pressed={fullscreen}
-                onClick={() => {
-                  const request = document.fullscreenElement
-                    ? document.exitFullscreen()
-                    : document.documentElement.requestFullscreen();
-                  request.catch(() => undefined);
-                }}
-              >
-                {fullscreen ? "Pełny ekran: wł." : "Pełny ekran: wył."}
-              </button>
-            )}
-            {vibrationAvailable && (
-              <button
-                type="button"
-                className="pixel-button"
-                aria-pressed={settings.vibration}
-                onClick={() => onSettings({ vibration: !settings.vibration })}
-              >
-                {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
-              </button>
-            )}
+            <SettingsControls
+              settings={settings}
+              onSettings={onSettings}
+              controls={controls}
+              touch={touch}
+              tiltOn={tiltOn}
+              onToggleTilt={toggleTilt}
+            />
             <button type="button" className="pixel-button" onClick={onExit}>
               Wyjdź do menu głównego
             </button>

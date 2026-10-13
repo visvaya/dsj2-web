@@ -11,6 +11,7 @@ import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 import { screenTitle } from "./screen-title";
+import { SettingsScreen } from "./settings-screen";
 import { useOfflineState } from "./use-offline-state";
 
 type Screen =
@@ -19,23 +20,25 @@ type Screen =
   | { kind: "outfit" }
   | { kind: "howto" }
   | { kind: "install" }
+  | { kind: "settings" }
   | { kind: "jump"; hill: HillChoice };
 
-interface InfoProps {
-  kind: "howto" | "install";
-  /** Whether a touch screen is steered by tilting the phone. */
-  tilt: boolean;
+interface SideProps {
+  kind: "howto" | "install" | "settings";
+  settings: Settings;
+  onSettings: (change: Partial<Settings>) => void;
   onBack: () => void;
   focusOnEntry: boolean;
 }
 
-/** The screens that only tell the player something and lead back to the menu. */
-function InfoScreen({ kind, tilt, onBack, focusOnEntry }: InfoProps) {
-  return kind === "howto" ? (
-    <HowToScreen tilt={tilt} onBack={onBack} focusOnEntry={focusOnEntry} />
-  ) : (
-    <InstallScreen onBack={onBack} focusOnEntry={focusOnEntry} />
-  );
+/** The screens beside the game itself: the two with instructions and the settings; each leads back to the menu. */
+function SideScreen({ kind, settings, onSettings, onBack, focusOnEntry }: SideProps) {
+  if (kind === "settings") {
+    return <SettingsScreen settings={settings} onSettings={onSettings} onBack={onBack} focusOnEntry={focusOnEntry} />;
+  }
+  if (kind === "install") return <InstallScreen onBack={onBack} focusOnEntry={focusOnEntry} />;
+  // The instructions speak of the steering in use: on a touch screen, a finger or the tilt of the phone.
+  return <HowToScreen tilt={settings.leanControl === "tilt"} onBack={onBack} focusOnEntry={focusOnEntry} />;
 }
 
 /** The screen shown, and how to show another one. */
@@ -87,7 +90,6 @@ export function App() {
     setGameFiles(files);
     void filesStore.save(files).then(() => setFilesStoreName(filesStore.name));
   };
-
   const onForgetFiles = () => {
     setGameFiles({});
     setOriginalHills([]);
@@ -142,9 +144,9 @@ export function App() {
       />
     );
   }
-  if (screen.kind === "howto" || screen.kind === "install") {
-    const tilt = save.settings.leanControl === "tilt";
-    return <InfoScreen kind={screen.kind} tilt={tilt} onBack={() => show({ kind: "menu" })} focusOnEntry={navigated} />;
+  if (screen.kind === "howto" || screen.kind === "install" || screen.kind === "settings") {
+    const side = { settings: save.settings, onSettings, onBack: () => show({ kind: "menu" }), focusOnEntry: navigated };
+    return <SideScreen kind={screen.kind} {...side} />;
   }
   if (screen.kind === "outfit") {
     return (
@@ -176,10 +178,7 @@ export function App() {
       onForgetFiles={onForgetFiles}
       persistent={persistent}
       offline={offline}
-      onTraining={() => show({ kind: "hills" })}
-      onOutfit={() => show({ kind: "outfit" })}
-      onHowTo={() => show({ kind: "howto" })}
-      onInstall={() => show({ kind: "install" })}
+      onOpen={(kind) => show({ kind })}
       focusOnEntry={navigated}
       onOriginalHills={setOriginalHills}
     />

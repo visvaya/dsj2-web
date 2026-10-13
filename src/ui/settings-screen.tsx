@@ -1,0 +1,63 @@
+import { useRef, useState } from "react";
+import { requestTiltPermission } from "../game/tilt-input";
+import type { Settings } from "../storage/save-data";
+import type { Steering } from "./how-to-jump-text";
+import { SettingsControls, TILT_REFUSED } from "./settings-controls";
+import { useEntryFocus } from "./use-entry-focus";
+import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
+
+interface Props {
+  settings: Settings;
+  onSettings: (change: Partial<Settings>) => void;
+  onBack: () => void;
+  /** Whether the heading takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
+}
+
+/** The settings of the game on a screen of their own, opened from the main menu. */
+export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
+  const touch = useMediaQuery(TOUCH_QUERY);
+  const tiltOn = settings.leanControl === "tilt";
+  const controls: Steering = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
+  const [tiltRefused, setTiltRefused] = useState(false);
+  const toggleTilt = () => {
+    if (tiltOn) {
+      onSettings({ leanControl: "drag" });
+      return;
+    }
+    // The browser has to hand out the motion sensor; on an iPhone it asks the player.
+    void requestTiltPermission().then((granted) => {
+      setTiltRefused(!granted);
+      if (granted) onSettings({ leanControl: "tilt" });
+    });
+  };
+  return (
+    <main className="screen">
+      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
+        Ustawienia
+      </h1>
+      <div className="settings-list">
+        <SettingsControls
+          settings={settings}
+          onSettings={onSettings}
+          controls={controls}
+          touch={touch}
+          tiltOn={tiltOn}
+          onToggleTilt={toggleTilt}
+        />
+        {tiltRefused && (
+          <p className="note error" role="status">
+            {TILT_REFUSED}
+          </p>
+        )}
+      </div>
+      <div>
+        <button type="button" className="pixel-button" onClick={onBack}>
+          Wstecz
+        </button>
+      </div>
+    </main>
+  );
+}

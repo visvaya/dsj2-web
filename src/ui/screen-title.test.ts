@@ -10,6 +10,7 @@ describe("page title of a screen", () => {
     expect(screenTitle({ kind: "hills" })).toBe("Wybór skoczni · Telemark");
     expect(screenTitle({ kind: "howto" })).toBe("Jak skakać · Telemark");
     expect(screenTitle({ kind: "install" })).toBe("Gra jako aplikacja · Telemark");
+    expect(screenTitle({ kind: "settings" })).toBe("Ustawienia · Telemark");
     expect(screenTitle({ kind: "outfit" })).toBe("Strój · Telemark");
   });
 

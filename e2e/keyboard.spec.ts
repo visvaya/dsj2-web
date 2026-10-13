@@ -6,15 +6,17 @@ test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where 
 
 test("the menu and the hill list are operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  expect(await tabThrough(page, 5)).toEqual([
+  expect(await tabThrough(page, 6)).toEqual([
     TEXT.training,
     TEXT.outfit,
+    TEXT.settings,
     TEXT.howTo,
     TEXT.install,
     "Wczytaj pliki gry",
   ]);
 
   // Back to the first button; Enter opens the hill list and the focus moves to its heading.
+  await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
