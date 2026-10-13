@@ -536,6 +536,57 @@ h2 {
   }
 }
 
+/*
+ * Tilt steering: no zones. The two halves of the screen are the buttons, unseen, and the picture takes the
+ * room the zones had. The pause button stays above them.
+ */
+.game.touch.tilt .touch-pad {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  height: auto;
+  border: 0;
+  background: transparent;
+}
+
+.game.touch.tilt .touch-pad:active {
+  background: transparent;
+}
+
+.game.touch.tilt .touch-pad-key {
+  display: none;
+}
+
+.game.touch.tilt .touch-pad-left {
+  left: 0;
+}
+
+.game.touch.tilt .touch-pad-right {
+  right: 0;
+}
+
+.game.touch.tilt .pause-button {
+  position: relative;
+  z-index: 1;
+}
+
+@media (orientation: landscape) {
+  .game.touch.tilt {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: "stage";
+  }
+
+  /* In the corner of the picture, clear of the cut-outs of the screen. */
+  .game.touch.tilt .pause-button {
+    position: fixed;
+    top: max(8px, var(--safe-top));
+    left: max(8px, var(--safe-left));
+    background: rgb(0 0 0 / 55%);
+  }
+}
+
 @media (orientation: portrait) {
   .game.touch {
     grid-template-columns: repeat(2, minmax(0, 1fr));

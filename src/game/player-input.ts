@@ -7,7 +7,7 @@ const KEY_LEAN_PER_FRAME = 6;
 
 /** Where a held button comes from; a button counts as held while any source holds it. */
 type ButtonSource = "mouse" | "keys" | "touch";
-type ButtonSide = "left" | "right";
+export type ButtonSide = "left" | "right";
 export interface ButtonState {
   left: boolean;
   right: boolean;
@@ -43,6 +43,30 @@ export function leftTouchLeansOnly(phase: number): boolean {
   return phase === PHASE.flightHold || phase === PHASE.flight;
 }
 
+/**
+ * With finger steering the left zone is busy leaning, so the second button of a telemark (it ends the
+ * preparation and so sets how wide the telemark is) is a second touch of the right zone.
+ */
+export function rightTouchEndsPreparation(phase: number): boolean {
+  return phase === PHASE.landingPrep;
+}
+
+/**
+ * With tilt steering there are no zones: the screen is two halves and, as in the Android version of the game,
+ * the thumb that touches first is the left button whichever half it is on, and the second one the right
+ * button. `down` lists the halves being touched, in the order they were touched.
+ */
+export function thumbButtons(down: readonly ButtonSide[]): ButtonState {
+  return { left: down.length > 0, right: down.length > 1 };
+}
+
+/** The halves being touched after one of them is touched or let go. */
+export function thumbsAfter(down: readonly ButtonSide[], half: ButtonSide, touched: boolean): readonly ButtonSide[] {
+  const others = down.filter((side) => side !== half);
+  if (!touched) return others;
+  return down.includes(half) ? down : [...others, half];
+}
+
 const nothingHeld = (): Record<ButtonSource, ButtonState> => ({
   mouse: { left: false, right: false },
   keys: { left: false, right: false },
@@ -64,6 +88,8 @@ interface PlayerInput {
    * goes off, a finger still on the zone stays unpressed until it lifts: only a new touch presses.
    */
   setLeftTouchLeansOnly: (on: boolean) => void;
+  /** While on, a new touch of the right zone presses the left button as well (see `rightTouchEndsPreparation`). */
+  setRightTouchIsBothButtons: (on: boolean) => void;
   /** Lets go of what a source held, for when its release can no longer arrive (capture or focus lost). */
   release: (source: ButtonSource) => void;
   addMotion: (dy: number) => void;
@@ -84,15 +110,17 @@ export function createPlayerInput(): PlayerInput {
   let leansOnly = false;
   /** Frames since a touch of the left zone began while it did not press; a chord with the right zone is recent. */
   let mutedLeftTouchAgeFrames = Number.POSITIVE_INFINITY;
+  let rightTouchIsBoth = false;
 
   const leftHeld = (): boolean => held.mouse.left || held.keys.left || (held.touch.left && !leftTouchMuted);
   const rightHeld = (): boolean => held.mouse.right || held.keys.right || held.touch.right;
   const setButtons = (source: ButtonSource, state: ButtonState): void => {
     if (source === "touch" && leftTouchMuted && state.left && !held.touch.left) mutedLeftTouchAgeFrames = 0;
+    const secondRightTouch = source === "touch" && rightTouchIsBoth && state.right && !held.touch.right;
     held = { ...held, [source]: { left: state.left, right: state.right } };
     if (source === "touch" && !state.left && !leansOnly) leftTouchMuted = false;
     const leftPressed = state.left && !(source === "touch" && leftTouchMuted);
-    pressed = { left: pressed.left || leftPressed, right: pressed.right || state.right };
+    pressed = { left: pressed.left || leftPressed || secondRightTouch, right: pressed.right || state.right };
   };
 
   return {
@@ -110,6 +138,9 @@ export function createPlayerInput(): PlayerInput {
       leansOnly = on;
       if (on) leftTouchMuted = true;
       else if (!held.touch.left) leftTouchMuted = false;
+    },
+    setRightTouchIsBothButtons(on) {
+      rightTouchIsBoth = on;
     },
     release(source) {
       setButtons(source, { left: false, right: false });
@@ -139,6 +170,7 @@ export function createPlayerInput(): PlayerInput {
       leftTouchMuted = false;
       leansOnly = false;
       mutedLeftTouchAgeFrames = Number.POSITIVE_INFINITY;
+      rightTouchIsBoth = false;
     },
   };
 }

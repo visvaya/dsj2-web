@@ -37,7 +37,7 @@ describe("haptic feedback", () => {
     expect(canVibrate({})).toBe(false);
   });
 
-  it("taps through the stand-in where the browser cannot vibrate: one tap, more for a harder event", () => {
+  it("taps through the stand-in where the browser cannot vibrate, for what does not happen under a thumb", () => {
     const taps: number[] = [];
     const later: { tap: () => void; afterMs: number }[] = [];
     const feedback = (event: "start" | "takeoff" | "landing" | "crash") => {
@@ -53,8 +53,8 @@ describe("haptic feedback", () => {
       for (const planned of later) planned.tap();
       return { immediate, total: taps.length, delaysMs: later.map((planned) => planned.afterMs) };
     };
-    expect(feedback("start")).toEqual({ immediate: 1, total: 1, delaysMs: [] });
-    expect(feedback("takeoff")).toEqual({ immediate: 1, total: 1, delaysMs: [] });
+    expect(feedback("start")).toEqual({ immediate: 0, total: 0, delaysMs: [] });
+    expect(feedback("takeoff")).toEqual({ immediate: 0, total: 0, delaysMs: [] });
     expect(feedback("landing")).toEqual({ immediate: 1, total: 2, delaysMs: [70] });
     expect(feedback("crash")).toEqual({ immediate: 1, total: 3, delaysMs: [70, 140] });
   });

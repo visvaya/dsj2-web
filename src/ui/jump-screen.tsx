@@ -7,7 +7,15 @@ import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
 import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltStep, type TiltState } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
-import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "../game/player-input";
+import {
+  createPlayerInput,
+  leftTouchLeansOnly,
+  mouseButtons,
+  rightTouchEndsPreparation,
+  thumbButtons,
+  thumbsAfter,
+  type ButtonSide,
+} from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   isJumpOver,
@@ -22,7 +30,7 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
-import { createHapticSwitch, hapticSwitchSupported } from "./haptic-switch";
+import { createHapticSwitch, type HapticSwitch } from "./haptic-switch";
 import { useEntryFocus } from "./use-entry-focus";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
@@ -185,8 +193,27 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
-  // Offered where the phone can answer: with vibration, or in Safari on iOS with the tap of a system switch.
-  const vibrationAvailable = touch && (canVibrate() || hapticSwitchSupported());
+  // On every touch screen: where the browser cannot vibrate, a stand-in is tried (./haptic-switch.ts).
+  const vibrationAvailable = touch;
+  const hapticRef = useRef<HapticSwitch | null>(null);
+  /** With tilt steering: the halves of the screen being touched, in the order they were touched. */
+  const thumbsRef = useRef<readonly ButtonSide[]>([]);
+  /** A touch of a zone, or of a half of the screen with tilt steering, as game buttons. */
+  const pressZone = (side: ButtonSide, down: boolean) => {
+    // Inside the gesture itself, where the stand-in for vibration is most likely to be allowed.
+    if (down && settings.vibration) hapticRef.current?.tap();
+    if (!tiltRef.current.on) {
+      inputRef.current.setButton("touch", side, down);
+      return;
+    }
+    thumbsRef.current = thumbsAfter(thumbsRef.current, side, down);
+    inputRef.current.setButtons("touch", thumbButtons(thumbsRef.current));
+  };
+  /** Lets go of the touch buttons when the way of steering changes under the player's fingers. */
+  const releaseTouch = () => {
+    thumbsRef.current = [];
+    inputRef.current.release("touch");
+  };
 
   // Sound: one engine per jump screen; it only listens to the game.
   useEffect(() => {
@@ -236,6 +263,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     input.reset();
     // Only where the browser cannot vibrate: the stand-in for it, or nothing.
     const hapticSwitch = canVibrate() ? null : createHapticSwitch();
+    hapticRef.current = hapticSwitch;
     let jump: TrainingJump = startTrainingJump(hill, newSeed());
     let view = makeView(viewWidthFor(stage.clientWidth, stage.clientHeight));
     let finished = false;
@@ -250,6 +278,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const restart = () => {
       jump = startTrainingJump(hill, newSeed());
       input.reset();
+      thumbsRef.current = [];
       tiltRef.current.follow = TILT_AT_REST;
       finished = false;
       newRecord = false;
@@ -305,7 +334,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const isRecord = !result.fell && result.distanceM > 0 && (!best || result.distanceM > best.distanceM);
       newRecord = isRecord;
       latest.current.onFinished(result);
-      setAnnouncement(resultAnnouncement(L, { newRecord: isRecord, touch: latest.current.controls !== "mouse" }));
+      setAnnouncement(resultAnnouncement(L, { newRecord: isRecord, controls: latest.current.controls }));
     };
 
     /** Notes as they appear, the record jingle after the last one, and the continuous layers. */
@@ -364,7 +393,10 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       let leftDown = input.left;
       for (let i = 0; i < plan.steps; i++) {
         const prev = jump.state;
-        input.setLeftTouchLeansOnly(leftTouchLeansOnly(prev.logic.phase));
+        // The rules of the touch zones belong to finger steering; with tilt steering the thumbs are plain buttons.
+        const zones = latest.current.controls === "touch";
+        input.setLeftTouchLeansOnly(zones && leftTouchLeansOnly(prev.logic.phase));
+        input.setRightTouchIsBothButtons(zones && rightTouchEndsPreparation(prev.logic.phase));
         const frameInput = input.takeFrame();
         leftDown ||= frameInput.left;
         jump = stepTrainingJump(jump, frameInput);
@@ -483,6 +515,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
       hapticSwitch?.remove();
+      hapticRef.current = null;
       resize.disconnect();
       restartRef.current = () => undefined;
       canvas.removeEventListener("pointerdown", onPointerDown);
@@ -496,7 +529,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   }, [hill]);
 
   return (
-    <div className={`game${touch ? " touch" : ""}${menuOpen ? " menu-open" : ""}`}>
+    <div className={`game${touch ? " touch" : ""}${controls === "tilt" ? " tilt" : ""}${menuOpen ? " menu-open" : ""}`}>
       {touch && (
         <button
           type="button"
@@ -553,6 +586,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             onClick={() => {
               if (tiltOn) {
                 tiltRef.current.on = false;
+                releaseTouch();
                 setTiltOn(false);
                 setTiltNote("");
                 onSettings({ leanControl: "drag" });
@@ -561,6 +595,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
               void requestTiltPermission().then((granted) => {
                 tiltRef.current.on = granted;
                 tiltRef.current.follow = TILT_AT_REST;
+                releaseTouch();
                 setTiltOn(granted);
                 setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
                 if (granted) onSettings({ leanControl: "tilt" });
@@ -619,11 +654,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         <TouchPad
           side="left"
           inert={menuOpen}
-          onPress={(down) => inputRef.current.setButton("touch", "left", down)}
-          hints={tiltOn ? ["przechyl telefon: pochylenie"] : ["przeciągnij: pochylenie"]}
+          onPress={(down) => pressZone("left", down)}
+          hints={tiltOn ? [] : ["przeciągnij: pochylenie"]}
           label={
             tiltOn
-              ? "Lewy przycisk: start i wybicie"
+              ? "Lewa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"
               : "Lewy przycisk: start i wybicie; w locie przesuwanie w pionie pochyla skoczka"
           }
           onDrag={(dy) => {
@@ -636,9 +671,13 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={["L+P: wybicie", "P: telemark", "L+P w locie: dwie nogi"]}
-          label="Prawy przycisk: wybicie razem z lewym; w locie telemark, a razem z lewym lądowanie na dwie nogi"
-          onPress={(down) => inputRef.current.setButton("touch", "right", down)}
+          hints={tiltOn ? [] : ["L+P: wybicie", "P: telemark", "L+P w locie: dwie nogi"]}
+          label={
+            tiltOn
+              ? "Prawa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"
+              : "Prawy przycisk: wybicie razem z lewym; w locie telemark, a razem z lewym lądowanie na dwie nogi"
+          }
+          onPress={(down) => pressZone("right", down)}
           onDrag={() => undefined}
         />
       )}

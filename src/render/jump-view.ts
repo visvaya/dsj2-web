@@ -31,6 +31,9 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 
 /** Frames per blink phase of the prompts (half a second). */
 const BLINK_FRAMES = 35;
+/** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
+const PROMPT_LINE_PX = 10;
+const PROMPT_BOTTOM_GAP_PX = 3;
 
 /** Where in the picture the jumper stands, as shares of its width and height. */
 export interface PreviewAnchor {
@@ -102,8 +105,12 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   const lines = prompt(m, nextJumpAllowed(s.logic, m.frame));
   const steady = s.logic.phase === PHASE.flight || s.logic.phase === PHASE.flightHold;
   if (steady || Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
+    // At the bottom of the picture, above the bar: the jumper is always in its upper part, and three lines in
+    // the middle of the sky covered him.
+    const firstLineY = groundBottom - PROMPT_BOTTOM_GAP_PX - lines.length * PROMPT_LINE_PX;
     lines.forEach((line, i) => {
-      drawText(fb, Math.round((fb.width - textWidth(line)) / 2), 34 + i * 10, line, color("white"), color("black"));
+      const x = Math.round((fb.width - textWidth(line)) / 2);
+      drawText(fb, x, firstLineY + i * PROMPT_LINE_PX, line, color("white"), color("black"));
     });
   }
   // A disqualified jump (no takeoff) is never scored, so there are no notes to show.

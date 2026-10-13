@@ -33,9 +33,10 @@ export function canVibrate(nav: { vibrate?: unknown } = navigator): boolean {
 
 /**
  * Taps of the stand-in for browsers without vibration. Safari on iOS cannot vibrate, but it gives one short tap
- * of its own when a system switch is toggled, always of the same strength; a harder event is more taps.
+ * of its own when a system switch is toggled, always of the same strength; a harder event is more taps. The
+ * start and the take-off get none here: they happen under the player's thumb, and the touch itself taps.
  */
-const STAND_IN_TAPS: Readonly<Record<FeedbackEvent, number>> = { start: 1, takeoff: 1, landing: 2, crash: 3 };
+const STAND_IN_TAPS: Readonly<Record<FeedbackEvent, number>> = { start: 0, takeoff: 0, landing: 2, crash: 3 };
 const STAND_IN_TAP_GAP_MS = 70;
 
 /**
@@ -57,6 +58,8 @@ export function vibrate(
     return;
   }
   if (tap === null) return;
-  tap();
-  for (let index = 1; index < STAND_IN_TAPS[event]; index++) later(tap, index * STAND_IN_TAP_GAP_MS);
+  for (let index = 0; index < STAND_IN_TAPS[event]; index++) {
+    if (index === 0) tap();
+    else later(tap, index * STAND_IN_TAP_GAP_MS);
+  }
 }

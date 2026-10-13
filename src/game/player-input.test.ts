@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { PHASE } from "../sim/jump-logic";
-import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "./player-input";
+import {
+  createPlayerInput,
+  leftTouchLeansOnly,
+  mouseButtons,
+  rightTouchEndsPreparation,
+  thumbButtons,
+  thumbsAfter,
+} from "./player-input";
 
 describe("player input", () => {
   it("hands the accumulated motion to one frame and clamps it like the original", () => {
@@ -167,6 +174,42 @@ describe("player input", () => {
     input.setButton("touch", "right", true);
     expect(input.takeFrame()).toMatchObject({ left: false, right: true });
     expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+  });
+
+  it("ends the preparation of a telemark with a second touch of the right zone, while that is asked for", () => {
+    expect(rightTouchEndsPreparation(PHASE.flight)).toBe(false);
+    expect(rightTouchEndsPreparation(PHASE.landingPrep)).toBe(true);
+    expect(rightTouchEndsPreparation(PHASE.landing)).toBe(false);
+    const input = createPlayerInput();
+    // The touch that started the landing is still down when the preparation begins: it is not a second one.
+    input.setButton("touch", "right", true);
+    input.takeFrame();
+    input.setRightTouchIsBothButtons(true);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+    input.setButton("touch", "right", false);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+    // The second touch is the other button as well.
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: true, right: true });
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+    // Without the rule a touch of the right zone is the right button only.
+    input.reset();
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+  });
+
+  it("makes the first thumb the left button and the second the right one, whichever side each touches", () => {
+    expect(thumbButtons([])).toEqual({ left: false, right: false });
+    expect(thumbButtons(["right"])).toEqual({ left: true, right: false });
+    expect(thumbButtons(["left"])).toEqual({ left: true, right: false });
+    expect(thumbButtons(["right", "left"])).toEqual({ left: true, right: true });
+    expect(thumbsAfter([], "right", true)).toEqual(["right"]);
+    expect(thumbsAfter(["right"], "left", true)).toEqual(["right", "left"]);
+    // A side reported twice is still one thumb.
+    expect(thumbsAfter(["right"], "right", true)).toEqual(["right"]);
+    // The thumb that stays becomes the first one.
+    expect(thumbsAfter(["right", "left"], "right", false)).toEqual(["left"]);
+    expect(thumbsAfter(["left"], "left", false)).toEqual([]);
   });
 
   it("forgets leaning only on a reset", () => {
