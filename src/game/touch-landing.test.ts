@@ -81,6 +81,23 @@ describe("landing on touch zones", () => {
     expect(phase()).toBe(PHASE.landing);
   });
 
+  it("lands on two feet when both zones are touched together in flight", () => {
+    const { input, phase, steps, state } = flyWithLeftZoneHeld();
+    input.setButton("touch", "left", false);
+    steps(10);
+    expect(phase()).toBe(PHASE.flight);
+    // The left zone two frames before the right one, as two thumbs do.
+    input.setButton("touch", "left", true);
+    steps(2);
+    input.setButton("touch", "right", true);
+    steps(1);
+    // Both buttons in one frame: the preparation for a telemark ends as it begins.
+    expect(phase()).toBe(PHASE.landing);
+    expect(state().logic.landingPrepS).toBeLessThan(0.05);
+    steps(10);
+    expect(state().logic.landingPrepS).toBeLessThan(0.05);
+  });
+
   it("still lands with either button of the keyboard or the mouse", () => {
     const { input, phase, steps } = flyWithLeftZoneHeld();
     input.setButton("touch", "left", false);

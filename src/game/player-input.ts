@@ -13,6 +13,12 @@ export interface ButtonState {
   right: boolean;
 }
 
+/**
+ * How long before the right zone a touch of the left zone still counts as pressed together with it, in
+ * simulation frames (a tenth of a second). Fingers of two hands never land in the same frame.
+ */
+const TOUCH_CHORD_FRAMES = 7;
+
 const MASK_LEFT = 1;
 const MASK_RIGHT = 2;
 
@@ -29,7 +35,9 @@ export function mouseButtons(mask: number): ButtonState {
  * In flight the left touch zone only leans. Any button pressed in flight starts the landing, and the left zone
  * is also where a finger drags to lean: were it a button there, a finger lifted from it could not come back
  * without landing. The right zone starts the landing; the left one is a button again once the landing has
- * begun, where the second button ends the preparation early.
+ * begun, where the second button ends the preparation early. Both zones touched together are both buttons
+ * at once, the landing on two feet: the collector takes a touch of the left zone that began just before the
+ * right one for that, and a finger that has been leaning there for longer not.
  */
 export function leftTouchLeansOnly(phase: number): boolean {
   return phase === PHASE.flightHold || phase === PHASE.flight;
@@ -74,10 +82,13 @@ export function createPlayerInput(): PlayerInput {
   /** The left touch zone does not press: leaning only is on, or it ended under a finger that has not lifted. */
   let leftTouchMuted = false;
   let leansOnly = false;
+  /** Frames since a touch of the left zone began while it did not press; a chord with the right zone is recent. */
+  let mutedLeftTouchAgeFrames = Number.POSITIVE_INFINITY;
 
   const leftHeld = (): boolean => held.mouse.left || held.keys.left || (held.touch.left && !leftTouchMuted);
   const rightHeld = (): boolean => held.mouse.right || held.keys.right || held.touch.right;
   const setButtons = (source: ButtonSource, state: ButtonState): void => {
+    if (source === "touch" && leftTouchMuted && state.left && !held.touch.left) mutedLeftTouchAgeFrames = 0;
     held = { ...held, [source]: { left: state.left, right: state.right } };
     if (source === "touch" && !state.left && !leansOnly) leftTouchMuted = false;
     const leftPressed = state.left && !(source === "touch" && leftTouchMuted);
@@ -113,8 +124,11 @@ export function createPlayerInput(): PlayerInput {
       const raw = Math.round(pendingDy) + leanKeys * KEY_LEAN_PER_FRAME;
       pendingDy = 0;
       const dy = Math.max(-MOTION_LIMIT - 1, Math.min(MOTION_LIMIT, raw));
-      const frame = { left: leftHeld() || pressed.left, right: rightHeld() || pressed.right, dy };
+      const right = rightHeld() || pressed.right;
+      const chord = leftTouchMuted && right && mutedLeftTouchAgeFrames <= TOUCH_CHORD_FRAMES;
+      const frame = { left: leftHeld() || pressed.left || chord, right, dy };
       pressed = { left: false, right: false };
+      mutedLeftTouchAgeFrames += 1;
       return frame;
     },
     reset() {
@@ -124,6 +138,7 @@ export function createPlayerInput(): PlayerInput {
       leanKeys = 0;
       leftTouchMuted = false;
       leansOnly = false;
+      mutedLeftTouchAgeFrames = Number.POSITIVE_INFINITY;
     },
   };
 }

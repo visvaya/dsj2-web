@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeBot } from "../sim/test-support/synthetic";
 import { canVibrate, feedbackEvents, vibrate } from "./haptics";
 import { OWN_HILLS } from "./hill-choice";
-import { neutralPitch, pitchDeg, requestTiltPermission, tiltMotion } from "./tilt-input";
+import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltStep } from "./tilt-input";
 import { isJumpOver, startTrainingJump, stepTrainingJump } from "./training-session";
 
 function run(landingHeightM: number | null): string[] {
@@ -37,6 +37,39 @@ describe("haptic feedback", () => {
     expect(canVibrate({})).toBe(false);
   });
 
+  it("taps through the stand-in where the browser cannot vibrate: one tap, more for a harder event", () => {
+    const taps: number[] = [];
+    const later: { tap: () => void; afterMs: number }[] = [];
+    const feedback = (event: "start" | "takeoff" | "landing" | "crash") => {
+      taps.length = 0;
+      later.length = 0;
+      vibrate(
+        event,
+        {},
+        () => taps.push(taps.length),
+        (tap, afterMs) => later.push({ tap, afterMs }),
+      );
+      const immediate = taps.length;
+      for (const planned of later) planned.tap();
+      return { immediate, total: taps.length, delaysMs: later.map((planned) => planned.afterMs) };
+    };
+    expect(feedback("start")).toEqual({ immediate: 1, total: 1, delaysMs: [] });
+    expect(feedback("takeoff")).toEqual({ immediate: 1, total: 1, delaysMs: [] });
+    expect(feedback("landing")).toEqual({ immediate: 1, total: 2, delaysMs: [70] });
+    expect(feedback("crash")).toEqual({ immediate: 1, total: 3, delaysMs: [70, 140] });
+  });
+
+  it("prefers real vibration to the stand-in, and does nothing with neither", () => {
+    const calls: number[][] = [];
+    let taps = 0;
+    vibrate("landing", { vibrate: (p) => (calls.push(p), true) }, () => {
+      taps++;
+    });
+    vibrate("landing", {});
+    expect(calls).toEqual([[45]]);
+    expect(taps).toBe(0);
+  });
+
   it("vibrates only where the browser can", () => {
     const calls: number[][] = [];
     vibrate("crash", { vibrate: (p) => (calls.push(p), true) });
@@ -46,28 +79,50 @@ describe("haptic feedback", () => {
 });
 
 describe("tilt steering", () => {
-  it("maps the tilt axis to the screen orientation", () => {
-    expect(pitchDeg(30, 10, 0)).toBe(30);
-    expect(pitchDeg(30, 10, 90)).toBe(-10);
-    expect(pitchDeg(30, 10, 270)).toBe(10);
+  it("reads the tilt towards and away from the player for the screen orientation", () => {
+    expect(pitchDeg(30, 0, 0)).toBeCloseTo(30, 9);
+    expect(pitchDeg(30, 0, 180)).toBeCloseTo(-30, 9);
+    expect(pitchDeg(30, 10, 90)).toBeCloseTo(-10, 9);
+    expect(pitchDeg(30, 10, 270)).toBeCloseTo(10, 9);
     expect(pitchDeg(null, 10, 0)).toBeNull();
   });
 
-  it("ignores small tilts and limits large ones", () => {
-    expect(tiltMotion(42, 40)).toBe(0);
-    expect(tiltMotion(50, 40)).toBe(11);
-    expect(tiltMotion(-60, 40)).toBe(-60);
+  it("keeps the angle continuous when a phone held sideways is tilted past upright", () => {
+    // The browser reports the same turn as a jump of beta by 180 degrees and a folded gamma.
+    const before = pitchDeg(0, 85, 90);
+    const after = pitchDeg(180, -85, 90);
+    expect(before).toBeCloseTo(-85, 9);
+    expect(after).toBeCloseTo(-95, 9);
   });
 
-  it("takes the angle the phone is held at when the flight begins as no lean", () => {
-    // Before the flight the neutral angle follows the phone, whatever it was before.
-    expect(neutralPitch(false, 25, null)).toBe(25);
-    expect(neutralPitch(false, 40, 25)).toBe(40);
-    // In flight it stays, so tilting away from it leans.
-    expect(neutralPitch(true, 55, 40)).toBe(40);
-    expect(tiltMotion(55, neutralPitch(true, 55, 40))).toBe(18);
-    // Steering switched on in mid-flight starts from where the phone is.
-    expect(neutralPitch(true, 55, null)).toBe(55);
+  it("leans by as much as the phone has turned since the last frame, like a moving mouse", () => {
+    // The first reading only sets where the phone is.
+    const first = tiltStep(TILT_AT_REST, 40);
+    expect(first.motion).toBe(0);
+    // One degree is a little over three steps of the mouse; the rest is carried to the next frame.
+    const second = tiltStep(first.state, 41);
+    expect(second.motion).toBe(3);
+    // A phone held still does not lean, however far from its first angle it is.
+    expect(tiltStep(second.state, 41).motion).toBe(0);
+    // Turning back leans back.
+    expect(tiltStep(second.state, 39).motion).toBe(-6);
+  });
+
+  it("does not lose a slow tilt: fractions of a step add up over the frames", () => {
+    let state = tiltStep(TILT_AT_REST, 10).state;
+    let total = 0;
+    for (let frame = 1; frame <= 20; frame++) {
+      const step = tiltStep(state, 10 + frame * 0.1);
+      state = step.state;
+      total += step.motion;
+    }
+    // Two degrees in all, at a tenth of a degree a frame.
+    expect(total).toBe(6);
+  });
+
+  it("follows the short way round when the angle wraps", () => {
+    const state = tiltStep(TILT_AT_REST, 179).state;
+    expect(tiltStep(state, -179).motion).toBe(6);
   });
 
   it("asks for permission only where required", async () => {

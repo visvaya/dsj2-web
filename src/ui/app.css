@@ -493,8 +493,13 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom))
-    max(16px, var(--safe-left));
+  padding: 16px;
+  /*
+   * The cut-outs and the system bar of the phone stay outside the scrolling area: a transparent border as wide
+   * as each of them, so a button that is scrolled away is cut off at their edge and never shows under them.
+   */
+  border: solid transparent;
+  border-width: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;

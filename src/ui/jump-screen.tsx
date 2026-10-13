@@ -5,7 +5,7 @@ import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
 import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
-import { neutralPitch, pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
+import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltStep, type TiltState } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
@@ -22,6 +22,7 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import { createHapticSwitch, hapticSwitchSupported } from "./haptic-switch";
 import { useEntryFocus } from "./use-entry-focus";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
@@ -169,11 +170,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     else if (menuWasOpenRef.current) pauseButtonRef.current?.focus();
     menuWasOpenRef.current = menuOpen;
   }, [menuOpen]);
-  /** Latest phone pitch and the neutral pitch, the one held when the flight begins (`neutralPitch`). */
-  const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({
+  /** Latest phone pitch, and where the phone was a frame ago (`tiltStep`). */
+  const tiltRef = useRef<{ on: boolean; pitch: number | null; follow: TiltState }>({
     on: false,
     pitch: null,
-    neutral: null,
+    follow: TILT_AT_REST,
   });
   const controls: ControlScheme = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
   // The look is drawn once per visit to the hill (not per jump), from its own seed.
@@ -184,8 +185,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
-  // Safari on iOS has no vibration: a switch that does nothing is left out.
-  const vibrationAvailable = touch && canVibrate();
+  // Offered where the phone can answer: with vibration, or in Safari on iOS with the tap of a system switch.
+  const vibrationAvailable = touch && (canVibrate() || hapticSwitchSupported());
 
   // Sound: one engine per jump screen; it only listens to the game.
   useEffect(() => {
@@ -215,7 +216,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     void requestTiltPermission().then((granted) => {
       if (cancelled) return;
       tiltRef.current.on = granted;
-      tiltRef.current.neutral = tiltRef.current.pitch;
+      tiltRef.current.follow = TILT_AT_REST;
       setTiltOn(granted);
       setTiltNote(granted ? "" : "Dotknij „Pochylanie”, aby włączyć przechył.");
     });
@@ -233,6 +234,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
 
     const input = inputRef.current;
     input.reset();
+    // Only where the browser cannot vibrate: the stand-in for it, or nothing.
+    const hapticSwitch = canVibrate() ? null : createHapticSwitch();
     let jump: TrainingJump = startTrainingJump(hill, newSeed());
     let view = makeView(viewWidthFor(stage.clientWidth, stage.clientHeight));
     let finished = false;
@@ -247,7 +250,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const restart = () => {
       jump = startTrainingJump(hill, newSeed());
       input.reset();
-      tiltRef.current.neutral = tiltRef.current.pitch;
+      tiltRef.current.follow = TILT_AT_REST;
       finished = false;
       newRecord = false;
       heardUpTo = 0;
@@ -351,20 +354,22 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       last = now;
       acc = plan.accumulatorS;
       const tilt = tiltRef.current;
+      if (tilt.on && tilt.pitch !== null) {
+        // The phone is followed while the game is paused too, so what it did meanwhile does not arrive at once.
+        const turned = tiltStep(tilt.follow, tilt.pitch);
+        tilt.follow = turned.state;
+        if (plan.steps > 0) input.addMotion(turned.motion);
+      }
       // A click shorter than a frame is held only inside the frames taken below.
       let leftDown = input.left;
       for (let i = 0; i < plan.steps; i++) {
-        if (tilt.on && tilt.pitch !== null) {
-          tilt.neutral = neutralPitch(jump.state.logic.phase >= PHASE.flightHold, tilt.pitch, tilt.neutral);
-          input.addMotion(tiltMotion(tilt.pitch, tilt.neutral));
-        }
         const prev = jump.state;
         input.setLeftTouchLeansOnly(leftTouchLeansOnly(prev.logic.phase));
         const frameInput = input.takeFrame();
         leftDown ||= frameInput.left;
         jump = stepTrainingJump(jump, frameInput);
         for (const event of feedbackEvents(prev, jump.state)) {
-          if (latest.current.settings.vibration) vibrate(event);
+          if (latest.current.settings.vibration) vibrate(event, navigator, hapticSwitch?.tap ?? null);
           soundRef.current?.play(event);
           if (event === "start") setAnnouncement(JUMP_STARTED_ANNOUNCEMENT);
         }
@@ -477,6 +482,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
+      hapticSwitch?.remove();
       resize.disconnect();
       restartRef.current = () => undefined;
       canvas.removeEventListener("pointerdown", onPointerDown);
@@ -512,7 +518,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, po skoku lewy przycisk: jeszcze raz, Esc: lista skoczni.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: lista skoczni.`}
         />
       </div>
       <div className="game-toolbar">
@@ -554,7 +560,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
               }
               void requestTiltPermission().then((granted) => {
                 tiltRef.current.on = granted;
-                tiltRef.current.neutral = tiltRef.current.pitch;
+                tiltRef.current.follow = TILT_AT_REST;
                 setTiltOn(granted);
                 setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
                 if (granted) onSettings({ leanControl: "tilt" });
@@ -630,8 +636,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={["L+P: wybicie", "P: telemark"]}
-          label="Prawy przycisk: wybicie razem z lewym; w locie telemark"
+          hints={["L+P: wybicie", "P: telemark", "L+P w locie: dwie nogi"]}
+          label="Prawy przycisk: wybicie razem z lewym; w locie telemark, a razem z lewym lądowanie na dwie nogi"
           onPress={(down) => inputRef.current.setButton("touch", "right", down)}
           onDrag={() => undefined}
         />

@@ -98,6 +98,7 @@ describe("player input", () => {
     input.setButton("touch", "left", false);
     expect(input.takeFrame()).toMatchObject({ left: false, right: false });
     // The right zone, the keyboard and the mouse press as always.
+    for (let frame = 0; frame < 10; frame++) input.takeFrame();
     input.setButton("touch", "right", true);
     expect(input.takeFrame()).toMatchObject({ left: false, right: true });
     input.setButton("keys", "left", true);
@@ -131,6 +132,41 @@ describe("player input", () => {
     input.setLeftTouchLeansOnly(false);
     input.setButton("touch", "left", true);
     expect(input.takeFrame()).toMatchObject({ left: true });
+  });
+
+  it("counts the left zone touched together with the right one as both buttons, even while it leans only", () => {
+    const input = createPlayerInput();
+    input.setLeftTouchLeansOnly(true);
+    // The same frame.
+    input.setButton("touch", "left", true);
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: true, right: true });
+    input.reset();
+    // The left zone a few frames before the right one: fingers of two hands never land in the same frame.
+    input.setLeftTouchLeansOnly(true);
+    input.setButton("touch", "left", true);
+    for (let frame = 0; frame < 5; frame++) expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: true, right: true });
+    input.reset();
+    // Two quick taps, both over before the frame is taken.
+    input.setLeftTouchLeansOnly(true);
+    input.setButton("touch", "left", true);
+    input.setButton("touch", "left", false);
+    input.setButton("touch", "right", true);
+    input.setButton("touch", "right", false);
+    expect(input.takeFrame()).toMatchObject({ left: true, right: true });
+    expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+  });
+
+  it("does not take a finger that has been leaning on the left zone for a chord with the right one", () => {
+    const input = createPlayerInput();
+    input.setLeftTouchLeansOnly(true);
+    input.setButton("touch", "left", true);
+    for (let frame = 0; frame < 20; frame++) input.takeFrame();
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
   });
 
   it("forgets leaning only on a reset", () => {
