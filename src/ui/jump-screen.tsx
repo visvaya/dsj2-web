@@ -230,12 +230,11 @@ export function JumpScreen({
   const menuWasOpenRef = useRef(false);
   useEffect(() => {
     pausedRef.current = menuOpen;
-    // The controls cover everything else, so the focus goes into them. After them it returns to the pause
-    // button on a touch screen and to the picture on a desktop, where the menu is a matter of the Escape key.
+    // The controls cover everything else, so the focus goes into them and returns to the pause button after.
     if (menuOpen) resumeButtonRef.current?.focus();
-    else if (menuWasOpenRef.current) (touch ? pauseButtonRef : canvasRef).current?.focus();
+    else if (menuWasOpenRef.current) pauseButtonRef.current?.focus();
     menuWasOpenRef.current = menuOpen;
-  }, [menuOpen, touch]);
+  }, [menuOpen]);
   /** Latest phone pitch, and where the phone was a frame ago (`tiltStep`). */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; follow: TiltState }>({
     on: false,

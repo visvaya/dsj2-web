@@ -9,7 +9,7 @@ import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
 /** Said when the browser does not let the page close its own window. */
-const QUIT_REFUSED = "Tę kartę zamyka przeglądarka: użyj jej krzyżyka albo Ctrl+W.";
+const QUIT_REFUSED = "Tej karty gra nie może zamknąć sama. Zamknij ją krzyżykiem karty albo klawiszami Ctrl+W.";
 /** A window that closes is gone before this; one that stays gets the note. */
 const QUIT_NOTE_AFTER_MS = 300;
 
@@ -57,15 +57,14 @@ export function MenuScreen({
   // Started from its own icon the game is installed already, and the instructions for that are left out.
   const installed = useMediaQuery(INSTALLED_QUERY);
   const touch = useMediaQuery(TOUCH_QUERY);
+  const [quitRefused, setQuitRefused] = useState(false);
   /**
    * Closes the window of the game. A browser lets a page do that only for a window it has nowhere to go back
    * in (the installed game, a tab opened for it); where it refuses, the player is told how to close the tab.
    */
   const quit = () => {
     window.close();
-    window.setTimeout(() => {
-      setMessage({ text: QUIT_REFUSED, error: false });
-    }, QUIT_NOTE_AFTER_MS);
+    window.setTimeout(() => setQuitRefused(true), QUIT_NOTE_AFTER_MS);
   };
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
@@ -117,6 +116,11 @@ export function MenuScreen({
           <button type="button" className="pixel-button" onClick={quit}>
             Wyłącz grę
           </button>
+        )}
+        {quitRefused && (
+          <p className="note" role="status">
+            {QUIT_REFUSED}
+          </p>
         )}
       </nav>
       <p className="note">
