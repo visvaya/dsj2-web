@@ -287,9 +287,10 @@ test("going back to the earlier release reaches a player who has the newer one, 
 });
 
 test.describe("when a page of the release before is still open", () => {
-  // The window that stands in for that page shows a text file, and a browser asks for the icon of such a page
-  // at /favicon.ico, which the game does not have.
-  test.use({ expectedProblems: /Failed to load resource.*404/ });
+  // The window that stands in for that page shows a text file. A browser asks for the icon of such a page at
+  // /favicon.ico, which the game does not have, and one engine shows the text with a stylesheet of its own,
+  // which the policy of the game refuses.
+  test.use({ expectedProblems: /Failed to load resource.*404|Refused to apply a stylesheet/ });
 
   // What a browser can do right after an update: one more launch gets the page of the outgoing release, and the
   // worker of the new release takes over under it. The page then asks that worker for its script, which the
