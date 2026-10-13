@@ -10,6 +10,10 @@ export interface ServerFault {
 export interface ServedRequest {
   method: string;
   path: string;
+  /** HTTP status of the answer; absent when the request got none (the server was offline). */
+  status?: number;
+  /** Bytes of the body as sent, after compression: 0 for a 304 and for HEAD. Absent with `status`. */
+  bodyBytes?: number;
 }
 
 export interface StaticServer {
