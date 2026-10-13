@@ -119,9 +119,9 @@ describe("jump view", () => {
       }
     }
     expect([...inFlight]).toEqual([
-      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK",
-      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK",
-      "mouse: MYSZ: POCHYLENIE / LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / L+P: NA DWIE NOGI",
+      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / L+P: NA DWIE NOGI",
+      "mouse: MYSZ: POCHYLENIE / LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK / OBA NARAZ: NA DWIE NOGI",
     ]);
     // The notes are up while the jumper is still sliding out: that is when the next jump can already start.
     expect([...notesUpWhileMoving]).toEqual([

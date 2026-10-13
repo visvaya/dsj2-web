@@ -75,9 +75,14 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   if (phase === PHASE.inrun || phase === PHASE.crouch)
     return [touch ? "L+P NA PROGU: WYBICIE" : "OBA PRZYCISKI NA PROGU"];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
-  // best. On touch zones only the right one lands: the left one leans in flight.
+  // best. Both buttons at once land on two feet: safer on a very long jump, with lower notes. On touch zones
+  // only the right one starts a telemark: the left one leans in flight.
   if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    return [LEAN_PROMPT[m.controls], touch ? "P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK"];
+    return [
+      LEAN_PROMPT[m.controls],
+      touch ? "P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+      touch ? "L+P: NA DWIE NOGI" : "OBA NARAZ: NA DWIE NOGI",
+    ];
   }
   return [];
 }

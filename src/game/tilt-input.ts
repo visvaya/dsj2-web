@@ -1,41 +1,68 @@
 /**
- * Leaning by tilting the phone: the tilt away from the angle held when the flight begins acts like holding the
- * mouse moving, i.e. it sets the lean rate.
+ * Leaning by tilting the phone, the way the Android version of the game does it: the phone turning is the mouse
+ * moving. Each frame the change of the tilt angle since the previous frame becomes mouse motion, so the jumper
+ * leans by as much as the phone has turned and stays there while the phone is held still. There is no neutral
+ * angle and no dead zone; the lean starts from wherever the phone is when the flight begins, because the
+ * simulation reads the motion only in flight.
  */
-const TILT_DEAD_ZONE_DEG = 3;
-const TILT_GAIN_PER_DEG = 1.5;
-const TILT_MAX_MOTION = 60;
 
-/** Tilt towards and away from the player, in degrees, for the current screen orientation. */
+/**
+ * Mouse steps per degree of tilt: 2 * 1.1^5, the Android version's formula at its default sensitivity (5 on its
+ * scale of 1 to 10). The whole range of the lean is then under nine degrees of tilt.
+ */
+const TILT_MOTION_PER_DEG = 2 * 1.1 ** 5;
+const DEG = Math.PI / 180;
+
+/**
+ * Tilt towards and away from the player, in degrees, for the current screen orientation. It is the angle of
+ * "up" around the axis that lies across the screen, read from the direction of gravity, so it runs through
+ * the whole circle without a break; the browser's own gamma folds at 90 degrees, when a phone held sideways
+ * passes upright.
+ */
 export function pitchDeg(beta: number | null, gamma: number | null, screenAngle: number): number | null {
   if (beta === null || gamma === null) return null;
+  // "Up" in the device's own axes: x to the right of the upright phone, y to its top, z out of the screen.
+  const upX = -Math.cos(beta * DEG) * Math.sin(gamma * DEG);
+  const upY = Math.sin(beta * DEG);
+  const upZ = Math.cos(beta * DEG) * Math.cos(gamma * DEG);
+  const upright = Math.atan2(upY, upZ) / DEG;
+  const sideways = Math.atan2(upX, upZ) / DEG;
   switch (((screenAngle % 360) + 360) % 360) {
     case 90:
-      return -gamma;
+      return sideways;
     case 270:
-      return gamma;
+      return -sideways;
     case 180:
-      return -beta;
+      return -upright;
     default:
-      return beta;
+      return upright;
   }
 }
 
-/**
- * The pitch that counts as no lean. Until the jumper is in the air it follows the phone, so the angle the
- * phone is held at when the flight begins is the neutral one, however it was held at the gate; from then on
- * it stays, and only tilting away from it leans.
- */
-export function neutralPitch(inFlight: boolean, pitch: number, neutral: number | null): number {
-  return inFlight && neutral !== null ? neutral : pitch;
+/** Where the phone was a frame ago, and the part of a mouse step not yet handed to the game. */
+export interface TiltState {
+  readonly previousDeg: number | null;
+  readonly carry: number;
 }
 
-/** Motion for one frame (the mouse's dy) from the tilt relative to the neutral position. */
-export function tiltMotion(pitch: number, neutral: number): number {
-  const d = pitch - neutral;
-  if (Math.abs(d) <= TILT_DEAD_ZONE_DEG) return 0;
-  const v = (d - Math.sign(d) * TILT_DEAD_ZONE_DEG) * TILT_GAIN_PER_DEG;
-  return Math.max(-TILT_MAX_MOTION, Math.min(TILT_MAX_MOTION, Math.round(v)));
+export const TILT_AT_REST: TiltState = { previousDeg: null, carry: 0 };
+
+/** The change of an angle the short way round, in degrees. */
+function turnDeg(from: number, to: number): number {
+  const turn = (to - from) % 360;
+  if (turn > 180) return turn - 360;
+  return turn < -180 ? turn + 360 : turn;
+}
+
+/**
+ * Mouse motion (the mouse's dy) for the tilt angle of this frame, and the state for the next one. Whole steps
+ * go to the game; the fraction is carried over, so a slow tilt is not lost.
+ */
+export function tiltStep(state: TiltState, angleDeg: number): { state: TiltState; motion: number } {
+  if (state.previousDeg === null) return { state: { previousDeg: angleDeg, carry: state.carry }, motion: 0 };
+  const pending = state.carry + turnDeg(state.previousDeg, angleDeg) * TILT_MOTION_PER_DEG;
+  const motion = Math.trunc(pending);
+  return { state: { previousDeg: angleDeg, carry: pending - motion }, motion };
 }
 
 /** iOS asks for permission (from a tap, over HTTPS); other browsers allow it directly. */

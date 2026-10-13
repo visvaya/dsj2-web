@@ -31,12 +31,32 @@ export function canVibrate(nav: { vibrate?: unknown } = navigator): boolean {
   return typeof nav.vibrate === "function";
 }
 
-/** Vibrates where the browser supports it (not Safari on iOS); silently does nothing otherwise. */
-export function vibrate(event: FeedbackEvent, nav: { vibrate?: (pattern: number[]) => boolean } = navigator): void {
-  if (typeof nav.vibrate !== "function") return;
-  try {
-    nav.vibrate([...VIBRATION_MS[event]]);
-  } catch {
-    // Some browsers throw when vibration is blocked by a permission policy.
+/**
+ * Taps of the stand-in for browsers without vibration. Safari on iOS cannot vibrate, but it gives one short tap
+ * of its own when a system switch is toggled, always of the same strength; a harder event is more taps.
+ */
+const STAND_IN_TAPS: Readonly<Record<FeedbackEvent, number>> = { start: 1, takeoff: 1, landing: 2, crash: 3 };
+const STAND_IN_TAP_GAP_MS = 70;
+
+/**
+ * Vibrates where the browser supports it. Elsewhere it uses the stand-in when there is one (`tap`, see
+ * src/ui/haptic-switch.ts), and silently does nothing otherwise.
+ */
+export function vibrate(
+  event: FeedbackEvent,
+  nav: { vibrate?: (pattern: number[]) => boolean } = navigator,
+  tap: (() => void) | null = null,
+  later: (run: () => void, afterMs: number) => unknown = setTimeout,
+): void {
+  if (typeof nav.vibrate === "function") {
+    try {
+      nav.vibrate([...VIBRATION_MS[event]]);
+    } catch {
+      // Some browsers throw when vibration is blocked by a permission policy.
+    }
+    return;
   }
+  if (tap === null) return;
+  tap();
+  for (let index = 1; index < STAND_IN_TAPS[event]; index++) later(tap, index * STAND_IN_TAP_GAP_MS);
 }
