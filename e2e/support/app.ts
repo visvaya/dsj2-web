@@ -7,6 +7,7 @@ export const TEXT = {
   training: "Trening",
   outfit: "Strój",
   howTo: "Jak skakać",
+  install: "Gra jako aplikacja",
   back: "Wstecz",
   hillListTitle: "Wybierz skocznię do treningu",
   outfitTitle: "Edycja kolorów stroju",
@@ -15,6 +16,7 @@ export const TEXT = {
   resume: "Wróć do gry",
   jumpAgain: /^Jeszcze raz/,
   toHills: /^Skocznie/,
+  toMainMenu: "Wyjdź do menu głównego",
   scenery: /^Sceneria: /,
   sound: /^Dźwięk: /,
   leftPad: /^Lewy przycisk/,
@@ -87,6 +89,7 @@ export async function closeJumpControls(page: Page, traits: DeviceTraits): Promi
   await expect(button(page, TEXT.resume)).toBeHidden();
 }
 
+/** Opens the list of hills from the menu of the jump screen; the list is shown over the jump. */
 export async function leaveJumpForHills(page: Page, traits: DeviceTraits): Promise<void> {
   await openJumpControls(page, traits);
   await press(button(page, TEXT.toHills), traits);
@@ -102,8 +105,8 @@ export async function storedSave(page: Page): Promise<unknown> {
 type ScreenCheck = (screen: string) => Promise<void>;
 
 /**
- * Opens the menu, the outfit screen, the instructions and the hill list in turn and runs `check` on each; ends on
- * the hill list.
+ * Opens the menu, the outfit screen, the two screens of instructions and the hill list in turn and runs `check`
+ * on each; ends on the hill list.
  */
 export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
   await openMenu(page);
@@ -114,6 +117,10 @@ export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: 
   await press(button(page, TEXT.howTo), traits);
   await expect(page.getByRole("heading", { name: TEXT.howTo })).toBeVisible();
   await check("how to jump");
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.install), traits);
+  await expect(page.getByRole("heading", { name: TEXT.install })).toBeVisible();
+  await check("install");
   await press(button(page, TEXT.back), traits);
   await openHillList(page, traits);
   await check("hill list");

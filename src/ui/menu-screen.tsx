@@ -6,6 +6,7 @@ import type { GameFiles } from "../storage/game-files-store";
 import { gameFilesOutcome } from "./game-files-choice";
 import { OfflineNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
+import { INSTALLED_QUERY, useMediaQuery } from "./use-media-query";
 
 interface Props {
   originalCount: number;
@@ -20,6 +21,7 @@ interface Props {
   onTraining: () => void;
   onOutfit: () => void;
   onHowTo: () => void;
+  onInstall: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -41,11 +43,14 @@ export function MenuScreen({
   onTraining,
   onOutfit,
   onHowTo,
+  onInstall,
   onOriginalHills,
   focusOnEntry,
 }: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEntryFocus(headingRef, focusOnEntry);
+  // Started from its own icon the game is installed already, and the instructions for that are left out.
+  const installed = useMediaQuery(INSTALLED_QUERY);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +87,11 @@ export function MenuScreen({
         <button type="button" className="pixel-button" onClick={onHowTo}>
           Jak skakać
         </button>
+        {!installed && (
+          <button type="button" className="pixel-button" onClick={onInstall}>
+            Gra jako aplikacja
+          </button>
+        )}
         <label className="pixel-button file-label">
           Wczytaj pliki gry
           {/* No accept filter: iOS does not know .dat and greys such files out. The names are checked instead. */}

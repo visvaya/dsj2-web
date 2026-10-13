@@ -69,6 +69,8 @@ interface Prompts {
   takeoff: string;
   lean: string;
   telemark: string;
+  /** The second button: it ends the preparation, so the later it comes the wider the telemark. */
+  width: string;
   twoFeet: string;
 }
 
@@ -78,7 +80,8 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     start: "LEWY PRZYCISK: START",
     takeoff: "OBA PRZYCISKI NA PROGU",
     lean: "MYSZ: POCHYLENIE",
-    telemark: "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+    telemark: "PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK",
+    width: "DRUGI PO CHWILI: IM PÓŹNIEJ, TYM SZERSZY",
     twoFeet: "OBA NARAZ: NA DWIE NOGI",
   },
   touch: {
@@ -87,6 +90,7 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     takeoff: "L+P NA PROGU: WYBICIE",
     lean: "PRZECIĄGAJ W POLU L: POCHYLENIE",
     telemark: "P TUŻ NAD ZIEMIĄ: TELEMARK",
+    width: "ZNOWU P: IM PÓŹNIEJ, TYM SZERSZY",
     twoFeet: "L+P: NA DWIE NOGI",
   },
   tilt: {
@@ -95,6 +99,7 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     takeoff: "DWA KCIUKI NA PROGU: WYBICIE",
     lean: "PRZECHYLAJ TELEFON: POCHYLENIE",
     telemark: "KCIUK TUŻ NAD ZIEMIĄ: TELEMARK",
+    width: "DRUGI: IM PÓŹNIEJ, TYM SZERSZY",
     twoFeet: "DWA KCIUKI NARAZ: NA DWIE NOGI",
   },
 };
@@ -107,8 +112,11 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   if (phase === PHASE.gate) return [text.start];
   if (phase === PHASE.inrun || phase === PHASE.crouch) return [text.takeoff];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
-  // best. Both buttons at once land on two feet: safer on a very long jump, with lower notes.
-  if (phase === PHASE.flightHold || phase === PHASE.flight) return [text.lean, text.telemark, text.twoFeet];
+  // best. The other button then ends the preparation: the later it comes, the wider the telemark. Both buttons
+  // at once land on two feet: safer on a very long jump, with lower notes.
+  if (phase === PHASE.flightHold || phase === PHASE.flight) {
+    return [text.lean, text.telemark, text.width, text.twoFeet];
+  }
   return [];
 }
 

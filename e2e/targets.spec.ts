@@ -9,7 +9,7 @@ test("every control is a large enough target and nothing covers it", async ({ pa
     expect(await targetProblems(page), `targets on "${screen}"`).toEqual([]);
     checked.push(screen);
   });
-  expect(checked.length).toBe(6);
+  expect(checked.length).toBe(7);
 });
 
 test.describe("the controls behind the pause button", () => {

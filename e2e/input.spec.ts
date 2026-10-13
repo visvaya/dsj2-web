@@ -189,7 +189,7 @@ test("a press shorter than one simulation step still starts the jump", async ({ 
   expect(shortClicks.filter((click) => !click.started)).toEqual([]);
 });
 
-test("one press of Escape stops a running jump and opens the menu, which leads to the hill list", async ({
+test("one press of Escape stops a running jump and opens the menu, which leads out of the training", async ({
   page,
   traits,
 }, testInfo) => {
@@ -213,7 +213,7 @@ test("one press of Escape stops a running jump and opens the menu, which leads t
   expect(await page.evaluate(() => document.pointerLockElement)).toBeNull();
 
   // Leaving is a position of the menu.
-  await press(button(page, TEXT.toHills), traits);
-  await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeVisible();
+  await press(button(page, TEXT.toMainMenu), traits);
+  await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
   await expect(jumpCanvas(page)).toHaveCount(0);
 });

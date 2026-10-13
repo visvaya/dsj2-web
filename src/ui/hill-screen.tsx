@@ -37,15 +37,10 @@ function HillList({ title, hills, records, onPick }: Pick<Props, "hills" | "reco
   );
 }
 
-export function HillScreen({ hills, records, onPick, onBack, focusOnEntry }: Props) {
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  useEntryFocus(headingRef, focusOnEntry);
+/** The hills to choose from: the game's own, then the original's when the player has loaded them. */
+export function HillLists({ hills, records, onPick }: Pick<Props, "hills" | "records" | "onPick">) {
   return (
-    <main className="screen">
-      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
-        Wybierz skocznię do treningu
-      </h1>
-      <hr className="rule" />
+    <>
       <HillList
         title="Skocznie własne"
         hills={hills.filter((h) => h.source === "own")}
@@ -58,6 +53,23 @@ export function HillScreen({ hills, records, onPick, onBack, focusOnEntry }: Pro
         records={records}
         onPick={onPick}
       />
+    </>
+  );
+}
+
+/** The title of the list, on its screen and where the list is shown over a jump. */
+export const HILL_LIST_TITLE = "Wybierz skocznię do treningu";
+
+export function HillScreen({ hills, records, onPick, onBack, focusOnEntry }: Props) {
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
+  return (
+    <main className="screen">
+      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
+        {HILL_LIST_TITLE}
+      </h1>
+      <hr className="rule" />
+      <HillLists hills={hills} records={records} onPick={onPick} />
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
           Wstecz
