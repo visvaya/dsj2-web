@@ -1,4 +1,4 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
 import type { OfflineState } from "../pwa/offline-state";
@@ -9,7 +9,8 @@ import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
 /** Said when the browser does not let the page close its own window. */
-const QUIT_REFUSED = "Tej karty gra nie może zamknąć sama. Zamknij ją krzyżykiem karty albo klawiszami Ctrl+W.";
+const QUIT_REFUSED =
+  "Gra nie może zamknąć tej karty sama. Zamknij ją krzyżykiem karty albo klawiszami Ctrl+W. Możesz wyjść z trybu pełnoekranowego przyciskiem F11.";
 /** A window that closes is gone before this; one that stays gets the note. */
 const QUIT_NOTE_AFTER_MS = 300;
 
@@ -23,10 +24,8 @@ interface Props {
   persistent: boolean;
   /** Whether the game can start without a network; null where it has no offline mode. */
   offline: OfflineState | null;
-  onTraining: () => void;
-  onOutfit: () => void;
-  onHowTo: () => void;
-  onInstall: () => void;
+  /** Opens another screen of the game. */
+  onOpen: (screen: "hills" | "outfit" | "settings" | "howto" | "install") => void;
   onOriginalHills: (hills: HillChoice[]) => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -45,10 +44,7 @@ export function MenuScreen({
   onForgetFiles,
   persistent,
   offline,
-  onTraining,
-  onOutfit,
-  onHowTo,
-  onInstall,
+  onOpen,
   onOriginalHills,
   focusOnEntry,
 }: Props) {
@@ -58,6 +54,11 @@ export function MenuScreen({
   const installed = useMediaQuery(INSTALLED_QUERY);
   const touch = useMediaQuery(TOUCH_QUERY);
   const [quitRefused, setQuitRefused] = useState(false);
+  const quitNoteRef = useRef<HTMLParagraphElement>(null);
+  // The note takes the focus, so it is not missed: the eyes are on the button that was just pressed.
+  useEffect(() => {
+    if (quitRefused) quitNoteRef.current?.focus();
+  }, [quitRefused]);
   /**
    * Closes the window of the game. A browser lets a page do that only for a window it has nowhere to go back
    * in (the installed game, a tab opened for it); where it refuses, the player is told how to close the tab.
@@ -93,17 +94,20 @@ export function MenuScreen({
       <hr className="rule" />
       <nav className="menu" aria-label="Główne menu">
         <h2>Główne menu</h2>
-        <button type="button" className="pixel-button" onClick={onTraining}>
+        <button type="button" className="pixel-button" onClick={() => onOpen("hills")}>
           Trening
         </button>
-        <button type="button" className="pixel-button" onClick={onOutfit}>
+        <button type="button" className="pixel-button" onClick={() => onOpen("outfit")}>
           Strój
         </button>
-        <button type="button" className="pixel-button" onClick={onHowTo}>
+        <button type="button" className="pixel-button" onClick={() => onOpen("settings")}>
+          Ustawienia
+        </button>
+        <button type="button" className="pixel-button" onClick={() => onOpen("howto")}>
           Jak skakać
         </button>
         {!installed && (
-          <button type="button" className="pixel-button" onClick={onInstall}>
+          <button type="button" className="pixel-button" onClick={() => onOpen("install")}>
             Gra jako aplikacja
           </button>
         )}
@@ -118,7 +122,7 @@ export function MenuScreen({
           </button>
         )}
         {quitRefused && (
-          <p className="note" role="status">
+          <p className="note quit-note" role="status" tabIndex={-1} ref={quitNoteRef}>
             {QUIT_REFUSED}
           </p>
         )}

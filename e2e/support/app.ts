@@ -7,6 +7,7 @@ export const TEXT = {
   training: "Trening",
   outfit: "Strój",
   howTo: "Jak skakać",
+  settings: "Ustawienia",
   install: "Gra jako aplikacja",
   back: "Wstecz",
   hillListTitle: "Wybierz skocznię do treningu",
@@ -121,6 +122,10 @@ export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: 
   await press(button(page, TEXT.install), traits);
   await expect(page.getByRole("heading", { name: TEXT.install })).toBeVisible();
   await check("install");
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.settings), traits);
+  await expect(page.getByRole("heading", { name: TEXT.settings })).toBeVisible();
+  await check("settings");
   await press(button(page, TEXT.back), traits);
   await openHillList(page, traits);
   await check("hill list");
