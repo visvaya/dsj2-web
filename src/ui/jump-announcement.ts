@@ -8,9 +8,15 @@ type ScoredJump = Pick<JumpLogicState, "distanceM" | "fallType" | "points" | "ju
 
 interface ResultContext {
   newRecord: boolean;
-  /** Touch controls: the next jump starts from the L zone instead of the mouse or the R key. */
-  touch: boolean;
+  /** How the game is played: it decides what starts the next jump. */
+  controls: "mouse" | "touch" | "tilt";
 }
+
+const NEXT_JUMP = {
+  mouse: "Lewy przycisk lub R: jeszcze raz.",
+  touch: "Pole L: jeszcze raz.",
+  tilt: "Dotknięcie ekranu: jeszcze raz.",
+} as const;
 
 /** A number as Polish text writes it, with a decimal comma. */
 export function formatDecimal(value: number, digits: number): string {
@@ -37,7 +43,7 @@ export function resultAnnouncement(jump: ScoredJump, context: ResultContext): st
     ...(jump.distanceM === 0 ? [] : [`Noty: ${notes}.`]),
     `Wynik: ${formatDecimal(jump.points, 1)} punktu.`,
     ...(context.newRecord ? ["Nowy rekord skoczni."] : []),
-    context.touch ? "Pole L: jeszcze raz." : "Lewy przycisk lub R: jeszcze raz.",
+    NEXT_JUMP[context.controls],
   ];
   return parts.join(" ");
 }

@@ -8,7 +8,7 @@ import {
 
 const judges = [16, 16.5, 16, 15.5, 16].map((note) => ({ note, counted: true, showFrame: 0 }));
 const clean = { distanceM: 67.37999725341797, fallType: 0, points: 62, judges };
-const mouse = { newRecord: false, touch: false };
+const mouse = { newRecord: false, controls: "mouse" } as const;
 
 describe("jump announcements", () => {
   it("writes numbers with a decimal comma and a fixed number of digits", () => {
@@ -41,8 +41,12 @@ describe("jump announcements", () => {
   });
 
   it("mentions a new record and names the touch zone on touch screens", () => {
-    expect(resultAnnouncement(clean, { newRecord: true, touch: true })).toBe(
+    expect(resultAnnouncement(clean, { newRecord: true, controls: "touch" })).toBe(
       "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Nowy rekord skoczni. Pole L: jeszcze raz.",
+    );
+    // With tilt steering there are no zones to name.
+    expect(resultAnnouncement(clean, { newRecord: false, controls: "tilt" })).toBe(
+      "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Dotknięcie ekranu: jeszcze raz.",
     );
   });
 

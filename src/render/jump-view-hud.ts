@@ -59,31 +59,56 @@ function phaseLabel(s: JumpSimState): string {
   return "WYBIEG";
 }
 
-const LEAN_PROMPT: Readonly<Record<ControlScheme, string>> = {
-  mouse: "MYSZ: POCHYLENIE",
-  touch: "PRZECIĄGAJ W POLU L: POCHYLENIE",
-  tilt: "PRZECHYLAJ TELEFON: POCHYLENIE",
+/**
+ * What the screen asks for, per way of playing. With finger steering the buttons are the zones L and P; with
+ * tilt steering there are no zones: the first thumb on the screen is the left button and the second the right.
+ */
+interface Prompts {
+  nextJump: string;
+  start: string;
+  takeoff: string;
+  lean: string;
+  telemark: string;
+  twoFeet: string;
+}
+
+const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
+  mouse: {
+    nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE",
+    start: "LEWY PRZYCISK: START",
+    takeoff: "OBA PRZYCISKI NA PROGU",
+    lean: "MYSZ: POCHYLENIE",
+    telemark: "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+    twoFeet: "OBA NARAZ: NA DWIE NOGI",
+  },
+  touch: {
+    nextJump: "L: JESZCZE RAZ",
+    start: "L: START",
+    takeoff: "L+P NA PROGU: WYBICIE",
+    lean: "PRZECIĄGAJ W POLU L: POCHYLENIE",
+    telemark: "P TUŻ NAD ZIEMIĄ: TELEMARK",
+    twoFeet: "L+P: NA DWIE NOGI",
+  },
+  tilt: {
+    nextJump: "DOTKNIJ EKRANU: JESZCZE RAZ",
+    start: "DOTKNIJ EKRANU: START",
+    takeoff: "DWA KCIUKI NA PROGU: WYBICIE",
+    lean: "PRZECHYLAJ TELEFON: POCHYLENIE",
+    telemark: "KCIUK TUŻ NAD ZIEMIĄ: TELEMARK",
+    twoFeet: "DWA KCIUKI NARAZ: NA DWIE NOGI",
+  },
 };
 
 export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly string[] {
-  const s = m.state;
-  const phase = s.logic.phase;
-  const touch = m.controls !== "mouse";
+  const phase = m.state.logic.phase;
+  const text = PROMPTS[m.controls];
   // The next jump can start as soon as the notes are up; the jumper may still be sliding out.
-  if (nextJumpAllowed) return touch ? ["L: JESZCZE RAZ"] : ["KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE"];
-  if (phase === PHASE.gate) return [touch ? "L: START" : "LEWY PRZYCISK: START"];
-  if (phase === PHASE.inrun || phase === PHASE.crouch)
-    return [touch ? "L+P NA PROGU: WYBICIE" : "OBA PRZYCISKI NA PROGU"];
+  if (nextJumpAllowed) return [text.nextJump];
+  if (phase === PHASE.gate) return [text.start];
+  if (phase === PHASE.inrun || phase === PHASE.crouch) return [text.takeoff];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
-  // best. Both buttons at once land on two feet: safer on a very long jump, with lower notes. On touch zones
-  // only the right one starts a telemark: the left one leans in flight.
-  if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    return [
-      LEAN_PROMPT[m.controls],
-      touch ? "P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
-      touch ? "L+P: NA DWIE NOGI" : "OBA NARAZ: NA DWIE NOGI",
-    ];
-  }
+  // best. Both buttons at once land on two feet: safer on a very long jump, with lower notes.
+  if (phase === PHASE.flightHold || phase === PHASE.flight) return [text.lean, text.telemark, text.twoFeet];
   return [];
 }
 
