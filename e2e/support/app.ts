@@ -48,10 +48,11 @@ export async function fontsReady(page: Page): Promise<void> {
 /**
  * Loads the game from the start, which is also how a test reloads it. One navigation per load: a second one
  * right after the first cuts the icon requests of the page it leaves, and Firefox reports a request cut while
- * the service worker answers it as an error of the worker.
+ * the service worker answers it as an error of the worker. `address` is for the tests of what the query string
+ * of the page switches on.
  */
-export async function openMenu(page: Page): Promise<void> {
-  await page.goto("/");
+export async function openMenu(page: Page, address = "/"): Promise<void> {
+  await page.goto(address);
   await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
   await fontsReady(page);
 }
@@ -73,8 +74,8 @@ export async function openJump(page: Page, traits: DeviceTraits): Promise<void> 
 }
 
 /** From a fresh page straight to the jump screen. */
-export async function openJumpFromStart(page: Page, traits: DeviceTraits): Promise<void> {
-  await openMenu(page);
+export async function openJumpFromStart(page: Page, traits: DeviceTraits, address = "/"): Promise<void> {
+  await openMenu(page, address);
   await openHillList(page, traits);
   await openJump(page, traits);
 }

@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
+import { MARK_FIRST_SCREEN, markOnce } from "../game/performance-marks";
 import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
@@ -60,8 +61,22 @@ function useScreens(): { screen: Screen; navigated: boolean; show: (next: Screen
   return { screen, navigated, show };
 }
 
-export function App() {
+/** Marks when the first screen reaches the display, for whoever measures the start of the game. */
+function useFirstScreenMark(): void {
+  useEffect(() => {
+    const raf = requestAnimationFrame(() => markOnce(MARK_FIRST_SCREEN));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+}
+
+interface AppProps {
+  /** Whether the address of the page asked for the diagnostics of the jump loop. */
+  diagnostics: boolean;
+}
+
+export function App({ diagnostics }: AppProps) {
   const { screen, navigated, show } = useScreens();
+  useFirstScreenMark();
   const offline = useOfflineState();
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
@@ -141,6 +156,7 @@ export function App() {
         onPickHill={(picked) => show({ kind: "jump", hill: picked })}
         onExit={() => show({ kind: "menu" })}
         focusOnEntry={navigated}
+        diagnostics={diagnostics}
       />
     );
   }

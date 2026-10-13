@@ -6,6 +6,9 @@
   --muted: #a0a8c0;
   --accent: #f8d038;
   --danger: #d4241c;
+  --overlay-bg: rgb(0 0 0 / 55%);
+  --overlay-gap: 4px;
+  --overlay-font-size: 11px;
 
   /*
    * Parts of the screen the device covers: a camera cut-out, rounded corners, the bar of system gestures.
@@ -376,6 +379,24 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+}
+
+/* Measurements of the jump loop, shown on request over the corner of the picture area; never in the way. */
+.jump-diagnostics {
+  position: absolute;
+  left: var(--overlay-gap);
+  bottom: var(--overlay-gap);
+  max-width: calc(100% - 2 * var(--overlay-gap));
+  margin: 0;
+  padding: var(--overlay-gap);
+  background: var(--overlay-bg);
+  color: var(--text);
+  font-family: ui-monospace, monospace;
+  font-size: var(--overlay-font-size);
+  line-height: 1.3;
+  white-space: pre-wrap;
+  pointer-events: none;
 }
 
 .game-toolbar {

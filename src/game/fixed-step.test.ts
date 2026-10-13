@@ -17,10 +17,25 @@ describe("fixed simulation step", () => {
   });
 
   it("drops the backlog after a long pause", () => {
-    expect(planSteps(0, 5, 1 / 70, 8)).toEqual({ steps: 8, accumulatorS: 0 });
+    const plan = planSteps(0, 5, 1 / 70, 8);
+    expect(plan.steps).toBe(8);
+    expect(plan.accumulatorS).toBe(0);
+  });
+
+  it("tells how much time it dropped: what had gathered, less the steps it still takes", () => {
+    expect(planSteps(0, 5, 0.25, 8).droppedS).toBe(3);
+    expect(planSteps(0.5, 2.5, 0.25, 8).droppedS).toBe(1);
+    // The remainder under one step is dropped with the backlog, as the accumulator starts again from zero.
+    expect(planSteps(0, 2.375, 0.25, 8).droppedS).toBe(0.375);
+  });
+
+  it("drops nothing while the steps keep up", () => {
+    expect(planSteps(0, 2, 0.25, 8)).toEqual({ steps: 8, accumulatorS: 0, droppedS: 0 });
+    expect(planSteps(0, 0.3, 0.25, 8).droppedS).toBe(0);
+    expect(planSteps(0, 0, 0.25, 8).droppedS).toBe(0);
   });
 
   it("ignores negative time", () => {
-    expect(planSteps(0.001, -1, 1 / 70)).toEqual({ steps: 0, accumulatorS: 0.001 });
+    expect(planSteps(0.001, -1, 1 / 70)).toEqual({ steps: 0, accumulatorS: 0.001, droppedS: 0 });
   });
 });
