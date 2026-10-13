@@ -120,6 +120,7 @@ describe("jump view", () => {
     /** Every distinct prompt seen in flight and once the notes are up, per control scheme. */
     const inFlight = new Set<string>();
     const notesUpWhileMoving = new Set<string>();
+    const withoutHints = new Set<string>();
     for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
       jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
       const frame = presentationFrame(jump);
@@ -129,14 +130,24 @@ describe("jump view", () => {
       for (const controls of schemes) {
         const lines = prompt({ ...model, state: jump.state, controls, frame, over: false }, notesShown);
         if (flying) inFlight.add(`${controls}: ${lines.join(" / ")}`);
+        if (flying) {
+          const hidden = prompt(
+            { ...model, state: jump.state, controls, frame, over: false, flightHints: false },
+            notesShown,
+          );
+          withoutHints.add(hidden.join(" / "));
+        }
         if (notesShown) notesUpWhileMoving.add(`${controls}: ${lines.join(" / ")}`);
       }
     }
+    const inFlightWithoutHints = [...withoutHints];
     expect([...inFlight]).toEqual([
       "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / ZNOWU P: IM PÓŹNIEJ, TYM SZERSZY / L+P: NA DWIE NOGI",
       "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / KCIUK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI: IM PÓŹNIEJ, TYM SZERSZY / DWA KCIUKI NARAZ: NA DWIE NOGI",
       "mouse: MYSZ: POCHYLENIE / PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI PO CHWILI: IM PÓŹNIEJ, TYM SZERSZY / OBA NARAZ: NA DWIE NOGI",
     ]);
+    // A player who knows the flight can switch its lines off; nothing else goes with them.
+    expect(inFlightWithoutHints).toEqual([""]);
     // Every line fits the narrowest picture its way of playing has: a phone held upright, a small window.
     for (const seen of [...inFlight, ...notesUpWhileMoving]) {
       const [controls = "", ...rest] = seen.split(": ");

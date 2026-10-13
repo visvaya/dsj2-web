@@ -119,12 +119,11 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await page.keyboard.press("Enter");
   await expect(resume).toBeVisible();
 
-  // Escape closes the menu; the focus returns to the pause button, which opens it again.
+  // Escape closes the menu; the focus returns to the picture, and Escape opens the menu again.
   await page.keyboard.press("Escape");
   await expect(resume).toBeHidden();
-  const pause = button(page, TEXT.pause);
-  await expect(pause).toBeFocused();
-  await page.keyboard.press("Enter");
+  await expect(jumpCanvas(page)).toBeFocused();
+  await page.keyboard.press("Escape");
   await expect(resume).toBeFocused();
 
   // The hill list opens in the menu and takes the focus; the way out of the training is another position.

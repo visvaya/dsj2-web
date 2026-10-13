@@ -1,7 +1,7 @@
 import { DEFAULT_OUTFIT, type Outfit } from "../game/outfit";
 import { nextJumpAllowed } from "../game/training-session";
 import type { HillProfile } from "../sim/hill-profile";
-import { PHASE, notesShownBy } from "../sim/jump-logic";
+import { notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import { backdropFor, drawBackdrop, drawBirds, drawSnowfall } from "./jump-view-backdrop";
@@ -34,7 +34,7 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
   return Math.min(VIEW_MAX_WIDTH_PX, Math.max(VIEW_MIN_WIDTH_PX, w));
 }
 
-/** Frames per blink phase of the prompts (half a second). */
+/** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
 /** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
 const PROMPT_LINE_PX = 10;
@@ -108,8 +108,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);
   const lines = prompt(m, nextJumpAllowed(s.logic, m.frame));
-  const steady = s.logic.phase === PHASE.flight || s.logic.phase === PHASE.flightHold;
-  if (steady || Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
+  {
     // At the bottom of the picture, above the bar: the jumper is always in its upper part, and three lines in
     // the middle of the sky covered him.
     const firstLineY = groundBottom - PROMPT_BOTTOM_GAP_PX - lines.length * PROMPT_LINE_PX;

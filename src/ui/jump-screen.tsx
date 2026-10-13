@@ -230,11 +230,12 @@ export function JumpScreen({
   const menuWasOpenRef = useRef(false);
   useEffect(() => {
     pausedRef.current = menuOpen;
-    // The controls cover everything else, so the focus goes into them and returns to the pause button after.
+    // The controls cover everything else, so the focus goes into them. After them it returns to the pause
+    // button on a touch screen and to the picture on a desktop, where the menu is a matter of the Escape key.
     if (menuOpen) resumeButtonRef.current?.focus();
-    else if (menuWasOpenRef.current) pauseButtonRef.current?.focus();
+    else if (menuWasOpenRef.current) (touch ? pauseButtonRef : canvasRef).current?.focus();
     menuWasOpenRef.current = menuOpen;
-  }, [menuOpen]);
+  }, [menuOpen, touch]);
   /** Latest phone pitch, and where the phone was a frame ago (`tiltStep`). */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; follow: TiltState }>({
     on: false,
@@ -260,6 +261,12 @@ export function JumpScreen({
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = document.fullscreenEnabled;
+  const [fullscreen, setFullscreen] = useState(() => document.fullscreenElement !== null);
+  useEffect(() => {
+    const onChange = () => setFullscreen(document.fullscreenElement !== null);
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
   // Safari on iOS has no vibration for pages: a switch that does nothing is left out.
   const vibrationAvailable = touch && canVibrate();
   /** The sensitivity of the way of steering in use; the other two keep their own level. */
@@ -500,6 +507,7 @@ export function JumpScreen({
         state: jump.state,
         controls: latest.current.controls,
         titleInsetPx,
+        flightHints: latest.current.settings.flightHints,
         frame: clock,
         over,
         newRecord,
@@ -615,10 +623,15 @@ export function JumpScreen({
         ref={pauseButtonRef}
         onClick={openMenu}
       >
-        <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
-          <rect x="0" y="0" width="2" height="6" fill="currentColor" />
-          <rect x="4" y="0" width="2" height="6" fill="currentColor" />
-        </svg>
+        {touch ? (
+          <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
+            <rect x="0" y="0" width="2" height="6" fill="currentColor" />
+            <rect x="4" y="0" width="2" height="6" fill="currentColor" />
+          </svg>
+        ) : (
+          // With the mouse captured, or in full screen, the key is the way out: it is what the button says.
+          <span aria-hidden="true">ESC: MENU</span>
+        )}
       </button>
       <div className="game-stage" ref={stageRef}>
         <canvas
@@ -670,7 +683,7 @@ export function JumpScreen({
                 ref={resumeButtonRef}
                 onClick={() => setMenuOpen(false)}
               >
-                Wróć do gry
+                Wróć do gry{touch ? "" : " (Esc)"}
               </button>
             )}
             <button
@@ -754,10 +767,19 @@ export function JumpScreen({
             >
               {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
             </button>
+            <button
+              type="button"
+              className="pixel-button"
+              aria-pressed={settings.flightHints}
+              onClick={() => onSettings({ flightHints: !settings.flightHints })}
+            >
+              {settings.flightHints ? "Podpowiedzi w locie: wł." : "Podpowiedzi w locie: wył."}
+            </button>
             {fullscreenAvailable && (
               <button
                 type="button"
                 className="pixel-button"
+                aria-pressed={fullscreen}
                 onClick={() => {
                   const request = document.fullscreenElement
                     ? document.exitFullscreen()
@@ -765,7 +787,7 @@ export function JumpScreen({
                   request.catch(() => undefined);
                 }}
               >
-                Pełny ekran
+                {fullscreen ? "Pełny ekran: wł." : "Pełny ekran: wył."}
               </button>
             )}
             {vibrationAvailable && (
@@ -810,7 +832,7 @@ export function JumpScreen({
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={tiltOn ? [] : ["L+P: wybicie", "P: telemark", "L+P w locie: dwie nogi"]}
+          hints={tiltOn ? [] : ["L+P: wybicie", "P: telemark", "drugie P później: szerszy", "L+P w locie: dwie nogi"]}
           label={
             tiltOn
               ? "Prawa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"

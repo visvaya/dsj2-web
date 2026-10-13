@@ -95,7 +95,7 @@ const SCENARIOS: readonly Scenario[] = [
     newRecord: true,
     moments: [
       { name: "waiting on the start gate", when: (j, f) => phaseOf(j) === PHASE.gate && f === 20 },
-      { name: "start gate, prompt blinked off", when: (j, f) => phaseOf(j) === PHASE.gate && f === 40 },
+      { name: "start gate, half a second in", when: (j, f) => phaseOf(j) === PHASE.gate && f === 40 },
       {
         name: "inrun",
         when: (j, f) =>
@@ -120,7 +120,7 @@ const SCENARIOS: readonly Scenario[] = [
         when: (j, f) => isJumpOver(j) && allNotesShown(j, f) && blinkOn(f),
       },
       {
-        name: "after the jump, blinking texts off",
+        name: "after the jump, record line blinked off",
         when: (j, f) => isJumpOver(j) && allNotesShown(j, f) && !blinkOn(f),
       },
     ],

@@ -6,7 +6,12 @@ import type { GameFiles } from "../storage/game-files-store";
 import { gameFilesOutcome } from "./game-files-choice";
 import { OfflineNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
-import { INSTALLED_QUERY, useMediaQuery } from "./use-media-query";
+import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
+
+/** Said when the browser does not let the page close its own window. */
+const QUIT_REFUSED = "Tę kartę zamyka przeglądarka: użyj jej krzyżyka albo Ctrl+W.";
+/** A window that closes is gone before this; one that stays gets the note. */
+const QUIT_NOTE_AFTER_MS = 300;
 
 interface Props {
   originalCount: number;
@@ -51,6 +56,17 @@ export function MenuScreen({
   useEntryFocus(headingRef, focusOnEntry);
   // Started from its own icon the game is installed already, and the instructions for that are left out.
   const installed = useMediaQuery(INSTALLED_QUERY);
+  const touch = useMediaQuery(TOUCH_QUERY);
+  /**
+   * Closes the window of the game. A browser lets a page do that only for a window it has nowhere to go back
+   * in (the installed game, a tab opened for it); where it refuses, the player is told how to close the tab.
+   */
+  const quit = () => {
+    window.close();
+    window.setTimeout(() => {
+      setMessage({ text: QUIT_REFUSED, error: false });
+    }, QUIT_NOTE_AFTER_MS);
+  };
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
 
   const onFiles = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -97,6 +113,11 @@ export function MenuScreen({
           {/* No accept filter: iOS does not know .dat and greys such files out. The names are checked instead. */}
           <input type="file" multiple onChange={(e) => void onFiles(e)} />
         </label>
+        {!touch && (
+          <button type="button" className="pixel-button" onClick={quit}>
+            Wyłącz grę
+          </button>
+        )}
       </nav>
       <p className="note">
         Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje
