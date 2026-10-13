@@ -22,6 +22,8 @@ const config: KnipConfig = {
     // Browser tests (Playwright): the specs, the set-up that bundles the simulation harness, and the page
     // script of that harness, which only Vite's build API is pointed at.
     "e2e/**/*.spec.ts",
+    // The measurements, run only by `pnpm test:browser:perf`.
+    "e2e/**/*.perf.ts",
     "e2e/**/*.setup.ts",
     "e2e/sim-harness/entry.ts",
   ],

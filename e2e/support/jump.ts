@@ -153,8 +153,11 @@ export async function finishedOutcome(page: Page): Promise<JumpOutcome> {
   return parseOutcome((await announcement(page).textContent()) ?? "");
 }
 
-/** One whole jump with the input the device has, from the gate until the jumper has stopped. */
-async function playJump(page: Page, traits: DeviceTraits, options: JumpOptions): Promise<JumpOutcome> {
+/**
+ * One whole jump with the input the device has, from the gate until the jumper has stopped. However it ends,
+ * the outcome is returned: a fall is a whole jump too.
+ */
+export async function playJump(page: Page, traits: DeviceTraits, options: JumpOptions = {}): Promise<JumpOutcome> {
   await (traits.touch ? driveWithTouch(page, options) : driveWithMouse(page, options));
   return finishedOutcome(page);
 }

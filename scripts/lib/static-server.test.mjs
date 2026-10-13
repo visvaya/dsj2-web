@@ -197,7 +197,32 @@ test("requests are recorded and announced before they are answered", async () =>
   server.setRoot(rootA);
   assert.deepEqual(seen, ["/manifest.webmanifest", "/"]);
   assert.match(page, /release b/);
-  assert.deepEqual(server.requests.at(-1), { method: "GET", path: "/" });
+  const last = server.requests.at(-1);
+  assert.equal(last.method, "GET");
+  assert.equal(last.path, "/");
+});
+
+test("a recorded request tells the status and the bytes of the body that was sent", async () => {
+  const script = "/assets/index-AAAAAAAA.js";
+  const plain = await fetch(`${server.origin}${script}`, { headers: { "Accept-Encoding": "identity" } });
+  const stored = Buffer.from(await plain.arrayBuffer());
+  assert.deepEqual(server.requests.at(-1), { method: "GET", path: script, status: 200, bodyBytes: stored.length });
+
+  // Compressed: the bytes on the wire, not the size of the file.
+  const packed = await fetch(`${server.origin}${script}`, { headers: { "Accept-Encoding": "gzip" } });
+  await packed.arrayBuffer();
+  const sent = server.requests.at(-1);
+  assert.equal(sent.status, 200);
+  assert.ok(sent.bodyBytes > 0 && sent.bodyBytes < stored.length, `${sent.bodyBytes} of ${stored.length} bytes`);
+
+  await fetch(`${server.origin}${script}`, { headers: { "If-None-Match": plain.headers.get("etag") } });
+  assert.deepEqual(server.requests.at(-1), { method: "GET", path: script, status: 304, bodyBytes: 0 });
+
+  await fetch(`${server.origin}${script}`, { method: "HEAD" });
+  assert.deepEqual(server.requests.at(-1), { method: "HEAD", path: script, status: 200, bodyBytes: 0 });
+
+  await fetch(`${server.origin}/no-such-file`);
+  assert.deepEqual(server.requests.at(-1), { method: "GET", path: "/no-such-file", status: 404, bodyBytes: 0 });
 });
 
 test("offline drops every connection but still records what was asked, and coming back answers again", async () => {

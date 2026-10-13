@@ -6,6 +6,8 @@
     "*.md",
     "playwright-report",
     "test-results",
+    "playwright-report-perf",
+    "test-results-perf",
     "e2e/.sim-harness",
     "e2e/.pwa-releases",
     "dist-single"

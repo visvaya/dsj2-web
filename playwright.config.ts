@@ -9,6 +9,11 @@ import { defineConfig, devices, type Project } from "@playwright/test";
  * In CI every project runs with the browsers Playwright installs. With BROWSER_TESTS_EDGE set (the local mode,
  * `pnpm test:browser:edge`) only the Chromium-based projects run, in the Microsoft Edge already on the machine,
  * so nothing has to be downloaded; Firefox and WebKit are then not exercised at all.
+ *
+ * With BROWSER_TESTS_PERF set (`pnpm test:browser:perf`) none of the above runs. One project, `perf-chromium`,
+ * then runs the measurements in e2e/perf (`*.perf.ts`), one test at a time: they time the game, and a test
+ * running beside them would be measured too. They have a report and a results directory of their own, so a run
+ * of them leaves the traces of the ordinary run alone. Without the variable those files are not run at all.
  */
 const PORT = 4317;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -16,6 +21,7 @@ const BUILD = "node node_modules/vite/bin/vite.js build && node scripts/write-re
 const SERVE = `node scripts/serve-dist.mjs --port ${PORT}`;
 const inCi = Boolean(process.env["CI"]);
 const localEdge = Boolean(process.env["BROWSER_TESTS_EDGE"]);
+const measuring = Boolean(process.env["BROWSER_TESTS_PERF"]);
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 720 };
 /**
@@ -57,6 +63,22 @@ const firefoxAndWebkitProjects: Project[] = [
   { name: "tablet-landscape", use: { ...devices["iPad (gen 7) landscape"] } },
 ];
 
+const functionalProjects: Project[] = [
+  { name: HARNESS_PROJECT, testMatch: "**/sim-harness.setup.ts" },
+  { name: RELEASES_PROJECT, testMatch: "**/releases.setup.ts" },
+  ...chromiumProjects,
+  ...(localEdge ? [] : firefoxAndWebkitProjects),
+];
+
+/** The measurements: Chromium only, because they steer the processor and read the heap through its protocol. */
+const measuringProjects: Project[] = [
+  {
+    name: "perf-chromium",
+    testMatch: "**/*.perf.ts",
+    use: { ...devices["Desktop Chrome"], viewport: DESKTOP_VIEWPORT, ...chromiumChannel },
+  },
+];
+
 export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.spec.ts",
@@ -67,8 +89,13 @@ export default defineConfig({
   retries: inCi ? 1 : 0,
   // The game keeps real time, so a crowded machine makes it drop simulation steps: one worker fewer than the
   // runner has processors, two on a developer's machine.
-  workers: inCi ? 3 : 2,
-  reporter: [["list"], ["html", { open: "never" }]],
+  workers: measuring ? 1 : inCi ? 3 : 2,
+  fullyParallel: false,
+  outputDir: measuring ? "test-results-perf" : "test-results",
+  reporter: [
+    ["list"],
+    ["html", { open: "never", outputFolder: measuring ? "playwright-report-perf" : "playwright-report" }],
+  ],
   use: {
     baseURL: BASE_URL,
     locale: "pl-PL",
@@ -78,12 +105,7 @@ export default defineConfig({
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
-  projects: [
-    { name: HARNESS_PROJECT, testMatch: "**/sim-harness.setup.ts" },
-    { name: RELEASES_PROJECT, testMatch: "**/releases.setup.ts" },
-    ...chromiumProjects,
-    ...(localEdge ? [] : firefoxAndWebkitProjects),
-  ],
+  projects: measuring ? measuringProjects : functionalProjects,
   // The tests run against the production build. CI has built it in an earlier step and serves exactly the files
   // it has just checked; the local mode builds first, so a stale dist/ is never tested.
   webServer: {

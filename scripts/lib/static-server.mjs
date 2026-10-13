@@ -118,8 +118,13 @@ function handle(state, request, response) {
   }
   state.listener?.(entry);
   const answer = withCustomHeaders(answerFor(state, request, url), state.rules, url.pathname);
+  const body = request.method === "HEAD" ? Buffer.alloc(0) : answer.body;
+  // What went out: the status and the bytes of the body as sent, compressed where it was. A request that got
+  // no answer keeps neither field.
+  entry.status = answer.status;
+  entry.bodyBytes = body.length;
   response.writeHead(answer.status, { ...answer.headers, "Content-Length": answer.body.length });
-  response.end(request.method === "HEAD" ? undefined : answer.body);
+  response.end(body);
 }
 
 // Starts a server for the files under `root`. Port 0 picks a free port; `origin` then tells which.
@@ -157,7 +162,8 @@ export async function startStaticServer({ root, port = 0, host = "127.0.0.1" }) 
     setOffline(offline) {
       state.offline = offline;
     },
-    // Called with { method, path } before each answer, so a test can change the server between two requests.
+    // Called with { method, path } before each answer, so a test can change the server between two requests;
+    // the status and the size of the answer are added to the same record once it is known.
     onRequest(listener) {
       state.listener = listener;
     },
