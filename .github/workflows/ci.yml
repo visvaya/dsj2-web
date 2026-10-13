@@ -103,12 +103,6 @@ jobs:
       - name: The game works in real browsers
         if: steps.browser.outputs.needed == 'true'
         run: pnpm test:browser
-      # Temporary: reproduces the service worker error seen once in Firefox. Removed before this is merged.
-      - name: Repeat the file refusal tests in Firefox
-        if: steps.browser.outputs.needed == 'true'
-        run: >-
-          pnpm exec playwright test e2e/player-files.spec.ts --project=desktop-firefox --no-deps
-          -g "is refused in Polish" --repeat-each=40 --retries=0 --reporter=list --output=test-results/repeat
       # A test that failed and then passed on its retry leaves the run green; the trace of the failed attempt is
       # the only record of what went wrong, so it is kept as well.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
