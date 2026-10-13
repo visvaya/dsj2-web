@@ -10,7 +10,8 @@
 //       package of the restored release is not at hand, and when the deployed content is already the
 //       package's, built from an earlier commit
 //
-// A plain-HTTP <url> (the local test server) skips the check of the redirect to HTTPS.
+// A plain-HTTP <url> (the local test server) skips the check of the redirect to HTTPS. An address under a
+// top-level domain that browsers open only over HTTPS may answer plain HTTP without a redirect; the report says so.
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,6 +25,7 @@ import {
   findResponseProblems,
   findStartPageAliasProblems,
   notServedUrls,
+  plainHttpNote,
   releaseOfWorker,
 } from "./lib/deployment-rules.mjs";
 import { parseHeadersFile } from "./lib/headers-rules.mjs";
@@ -136,7 +138,10 @@ async function checkAgainstServedRelease(origin, values) {
 async function notes(origin) {
   const missingAsset = await get(`${origin}/assets/index-00000000.js`);
   const startPage = await get(`${origin}/`);
+  const httpUrl = `${origin.replace(/^https:/, "http:")}/`;
+  const plainHttp = origin.startsWith("https:") === true ? [plainHttpNote(httpUrl, await get(httpUrl))] : [];
   return [
+    ...plainHttp,
     `a missing file under /assets/ answers with Cache-Control "${missingAsset.headers["cache-control"] ?? "none"}"`,
     `Strict-Transport-Security on the start page: "${startPage.headers["strict-transport-security"] ?? "none"}"`,
   ];

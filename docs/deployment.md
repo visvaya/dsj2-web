@@ -91,7 +91,10 @@ Workflow `CI` (`.github/workflows/ci.yml`), zadanie `deploy`:
    tekst bez identyfikatorów konta.
 5. Kontrola HTTP (`scripts/check-deployment.mjs`): każdy plik pakietu odpowiada tymi samymi bajtami, z typem
    i nagłówkami z `_headers`; paczki są skompresowane; `release.json` wskazuje ten commit; `/index.html`
-   przekierowuje na `/`; nieznane ścieżki i `_headers` dają 404; adres HTTP przekierowuje na HTTPS.
+   przekierowuje na `/`; nieznane ścieżki i `_headers` dają 404; adres HTTP przekierowuje na HTTPS. Wyjątek:
+   adres w domenie najwyższego poziomu, którą przeglądarki otwierają wyłącznie przez HTTPS (lista HSTS preload,
+   np. `.dev`), może odpowiadać po HTTP bez przekierowania. Tak robi `workers.dev`, gdzie nie ma ustawienia
+   wymuszającego przekierowanie; kontrola odnotowuje to wtedy w raporcie jako uwagę.
 6. Podsumowanie zadania podaje commit, `contentId`, skrót listy `dist.sha256` i identyfikator wersji do wycofania.
 
 Ustawienia repozytorium, których używa workflow:

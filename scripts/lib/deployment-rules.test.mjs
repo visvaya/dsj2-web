@@ -7,12 +7,14 @@ import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
+  browsersForceHttps,
   expectedResponses,
   findHttpsRedirectProblems,
   findNotServedProblems,
   findReleaseProblems,
   findResponseProblems,
   findStartPageAliasProblems,
+  plainHttpNote,
   releaseOfWorker,
   servesContent,
 } from "./deployment-rules.mjs";
@@ -136,6 +138,26 @@ test("plain HTTP redirects to the same address under HTTPS", () => {
   assert.deepEqual(findHttpsRedirectProblems(url, { status: 301, headers: { location: "https://other.example/" } }), [
     'http://game.example/: redirects to "https://other.example/"',
   ]);
+});
+
+test("plain HTTP without a redirect is accepted only where browsers use HTTPS for the whole domain", () => {
+  const answered = { status: 200, headers: {} };
+  assert.equal(browsersForceHttps("game.workers.dev"), true);
+  assert.equal(browsersForceHttps("dev"), true);
+  assert.equal(browsersForceHttps("game.example"), false);
+  assert.equal(browsersForceHttps("dev.example"), false);
+  assert.equal(browsersForceHttps("gamedev"), false);
+  assert.deepEqual(findHttpsRedirectProblems("http://game.workers.dev/", answered), []);
+  // A redirect that is there must still lead to the same address.
+  assert.deepEqual(
+    findHttpsRedirectProblems("http://game.workers.dev/", { status: 301, headers: { location: "https://other.dev/" } }),
+    ['http://game.workers.dev/: redirects to "https://other.dev/"'],
+  );
+  assert.equal(
+    plainHttpNote("http://game.workers.dev/", answered),
+    "plain HTTP answers with HTTP 200; browsers use HTTPS for every address under .dev, so no page is opened that way",
+  );
+  assert.equal(plainHttpNote("http://game.example/", { status: 301, headers: {} }), "plain HTTP answers with HTTP 301");
 });
 
 test("the served release is compared with the commit and the content expected", () => {
