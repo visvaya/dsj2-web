@@ -127,7 +127,7 @@ describe("jump view", () => {
     expect([...notesUpWhileMoving]).toEqual([
       "touch: L: JESZCZE RAZ",
       "tilt: DOTKNIJ EKRANU: JESZCZE RAZ",
-      "mouse: KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE",
+      "mouse: KLIKNIJ: JESZCZE RAZ   ESC: MENU",
     ]);
   });
 

@@ -1,0 +1,49 @@
+import { useRef } from "react";
+import { howToJump, STEERING_NAME, type Steering } from "./how-to-jump-text";
+import { useEntryFocus } from "./use-entry-focus";
+import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
+
+/** The steps of a jump in the words of one way of steering. */
+export function HowToJump({ steering }: { steering: Steering }) {
+  return (
+    <dl className="how-to">
+      {howToJump(steering).map((step) => (
+        <div key={step.title} className="how-to-step">
+          <dt>{step.title}</dt>
+          <dd>{step.text}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+interface Props {
+  /** Whether a touch screen is steered by tilting the phone rather than with the zones. */
+  tilt: boolean;
+  onBack: () => void;
+  /** Whether the heading takes the keyboard focus when the screen appears. */
+  focusOnEntry: boolean;
+}
+
+/** The instructions as a screen of their own, opened from the main menu. */
+export function HowToScreen({ tilt, onBack, focusOnEntry }: Props) {
+  // The instructions speak of what the player has in hand.
+  const touch = useMediaQuery(TOUCH_QUERY);
+  const steering: Steering = touch ? (tilt ? "tilt" : "touch") : "mouse";
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
+  return (
+    <main className="screen">
+      <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
+        Jak skakać
+      </h1>
+      <p className="note">Sterowanie: {STEERING_NAME[steering]}</p>
+      <HowToJump steering={steering} />
+      <div>
+        <button type="button" className="pixel-button" onClick={onBack}>
+          Wstecz
+        </button>
+      </div>
+    </main>
+  );
+}

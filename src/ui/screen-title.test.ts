@@ -8,6 +8,7 @@ describe("page title of a screen", () => {
 
   it("names the hill list and the outfit screen before the game", () => {
     expect(screenTitle({ kind: "hills" })).toBe("Wybór skoczni · Telemark");
+    expect(screenTitle({ kind: "howto" })).toBe("Jak skakać · Telemark");
     expect(screenTitle({ kind: "outfit" })).toBe("Strój · Telemark");
   });
 

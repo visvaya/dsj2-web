@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test";
-import { announcement, jumpCanvas, openJumpFromStart, TEXT } from "./support/app";
+import { announcement, button, jumpCanvas, openJumpFromStart, press, TEXT } from "./support/app";
 import { expect, test } from "./support/fixtures";
 import {
   centerOf,
@@ -189,7 +189,10 @@ test("a press shorter than one simulation step still starts the jump", async ({ 
   expect(shortClicks.filter((click) => !click.started)).toEqual([]);
 });
 
-test("one press of Escape leaves a running jump for the hill list", async ({ page, traits }, testInfo) => {
+test("one press of Escape stops a running jump and opens the menu, which leads to the hill list", async ({
+  page,
+  traits,
+}, testInfo) => {
   await openJumpFromStart(page, traits);
   await startWithMouse(page);
 
@@ -199,11 +202,18 @@ test("one press of Escape leaves a running jump for the hill list", async ({ pag
   testInfo.annotations.push({
     type: "mouse capture",
     description: captured
-      ? "captured: Escape left the jump while the mouse was captured"
-      : "refused by this engine: leaving through a released capture was not exercised",
+      ? "captured: Escape opened the menu while the mouse was captured"
+      : "refused by this engine: opening the menu through a released capture was not exercised",
   });
 
   await page.keyboard.press("Escape");
+  const resume = button(page, TEXT.resume);
+  await expect(resume).toBeVisible();
+  await expect(jumpCanvas(page)).toHaveCount(1);
+  expect(await page.evaluate(() => document.pointerLockElement)).toBeNull();
+
+  // Leaving is a position of the menu.
+  await press(button(page, TEXT.toHills), traits);
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeVisible();
   await expect(jumpCanvas(page)).toHaveCount(0);
 });

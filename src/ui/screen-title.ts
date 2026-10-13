@@ -5,6 +5,7 @@ export type TitledScreen =
   | { kind: "menu" }
   | { kind: "hills" }
   | { kind: "outfit" }
+  | { kind: "howto" }
   | { kind: "jump"; hill: { name: string; kPointM: number } };
 
 /**
@@ -15,5 +16,6 @@ export function screenTitle(screen: TitledScreen): string {
   if (screen.kind === "menu") return APP_NAME;
   if (screen.kind === "hills") return `Wybór skoczni · ${APP_NAME}`;
   if (screen.kind === "outfit") return `Strój · ${APP_NAME}`;
+  if (screen.kind === "howto") return `Jak skakać · ${APP_NAME}`;
   return `Skok: ${screen.hill.name} K${screen.hill.kPointM} · ${APP_NAME}`;
 }

@@ -32,6 +32,17 @@ export function withSensitivity(levels: Sensitivity, controls: Controls, level: 
   return { ...levels, [LEVEL_OF[controls]]: level };
 }
 
+/**
+ * The mouse at the default level leans by three quarters of its motion: counted one to one, as the original
+ * counts a DOS mouse, a modern mouse was found a little too quick.
+ */
+const MOUSE_MOTION_SCALE = 0.75;
+
+/** The factor a level applies to the motion of the mouse. */
+export function mouseGain(level: number): number {
+  return MOUSE_MOTION_SCALE * sensitivityGain(level);
+}
+
 /** The factor a level applies to the motion. */
 export function sensitivityGain(level: number): number {
   return GAIN_PER_LEVEL ** (level - SENSITIVITY_DEFAULT);

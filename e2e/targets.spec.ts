@@ -9,13 +9,11 @@ test("every control is a large enough target and nothing covers it", async ({ pa
     expect(await targetProblems(page), `targets on "${screen}"`).toEqual([]);
     checked.push(screen);
   });
-  expect(checked.length).toBe(traits.touch ? 5 : 4);
+  expect(checked.length).toBe(6);
 });
 
 test.describe("the controls behind the pause button", () => {
-  test.skip(({ traits }) => !traits.touch, "the pause button exists only for coarse pointers");
-
-  // A tablet with a keyboard: the open controls cover the picture, the zones and the pause button, so the
+  // A keyboard on any device: the open controls cover the picture, the zones and the pause button, so the
   // focus must stay on the controls and never go to an element underneath them.
   test("keep the keyboard focus on top while they are open", async ({ page, traits }) => {
     await openJumpFromStart(page, traits);

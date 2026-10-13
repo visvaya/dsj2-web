@@ -5,6 +5,7 @@ import { boxOf, LAYOUT_SLACK_PX } from "./support/geometry";
 const TITLES: Readonly<Record<string, string>> = {
   menu: "Telemark",
   outfit: "Strój · Telemark",
+  "how to jump": "Jak skakać · Telemark",
   "hill list": "Wybór skoczni · Telemark",
   jump: "Skok: Ćwiczebna K90 · Telemark",
   // Opening the controls of the jump screen does not change where the player is.
@@ -27,7 +28,15 @@ test("each screen has its own title and the page background is set on the root e
     expect(colours.root, `root background on "${screen}"`).not.toBe(TRANSPARENT);
     expect(colours.root).toBe(colours.body);
   });
-  expect(new Set([titles.get("menu"), titles.get("outfit"), titles.get("hill list"), titles.get("jump")]).size).toBe(4);
+  expect(
+    new Set([
+      titles.get("menu"),
+      titles.get("outfit"),
+      titles.get("how to jump"),
+      titles.get("hill list"),
+      titles.get("jump"),
+    ]).size,
+  ).toBe(5);
 });
 
 // A window too short for the menu and for the hill list, so that both scroll on every device profile. The hill
