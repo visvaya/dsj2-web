@@ -20,6 +20,7 @@ import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   SENSITIVITY_MAX,
   SENSITIVITY_MIN,
+  mouseGain,
   sensitivityFor,
   sensitivityGain,
   stepSensitivity,
@@ -38,7 +39,9 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import { HowToJump } from "./how-to-jump";
 import { useEntryFocus } from "./use-entry-focus";
+import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
 export interface JumpResult {
@@ -84,17 +87,6 @@ interface View {
 function makeView(width: number): View {
   const fb = new FrameBuffer(width, VIEW_HEIGHT_PX);
   return { fb, image: new ImageData(fb.bytes, width, VIEW_HEIGHT_PX) };
-}
-
-function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
-  useEffect(() => {
-    const mql = window.matchMedia(query);
-    const onChange = () => setMatches(mql.matches);
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, [query]);
-  return matches;
 }
 
 /** Game pixels between the pause button and the name of the hill beside it. */
@@ -185,7 +177,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   const inputRef = useRef(createPlayerInput());
   const restartRef = useRef<() => void>(() => undefined);
   const [announcement, setAnnouncement] = useState("");
-  const touch = useMediaQuery("(pointer: coarse)");
+  const touch = useMediaQuery(TOUCH_QUERY);
   const [tiltOn, setTiltOn] = useState(false);
   const [tiltNote, setTiltNote] = useState("");
   // Notes about the motion sensor go away on their own.
@@ -196,6 +188,16 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   }, [tiltNote]);
   /** In phone landscape the buttons sit behind a pause button; the jump stops while they are open. */
   const [menuOpen, setMenuOpen] = useState(false);
+  /** The instructions, shown in place of the menu's buttons. */
+  const [helpOpen, setHelpOpen] = useState(false);
+  const helpHeadingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (helpOpen) helpHeadingRef.current?.focus();
+  }, [helpOpen]);
+  const openMenu = () => {
+    setHelpOpen(false);
+    setMenuOpen(true);
+  };
   const pausedRef = useRef(false);
   const soundRef = useRef<SoundEngine | null>(null);
   const pauseButtonRef = useRef<HTMLButtonElement>(null);
@@ -218,11 +220,21 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   // The look is drawn once per visit to the hill (not per jump), from its own seed.
   const [visitSeed] = useState(newSeed);
   const scenery = useMemo(() => pickScenery(settings.scenery, visitSeed), [settings.scenery, visitSeed]);
+  /** For the listeners of the jump loop, which outlive a render. */
+  const openMenuRef = useRef(openMenu);
+  const toggleMenuRef = useRef(() => undefined as void);
+  useEffect(() => {
+    openMenuRef.current = openMenu;
+    toggleMenuRef.current = () => {
+      setHelpOpen(false);
+      setMenuOpen((open) => !open);
+    };
+  });
   const latest = useRef({ onExit, onFinished, record, settings, controls, scenery });
   useEffect(() => {
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
-  const fullscreenAvailable = touch && document.fullscreenEnabled;
+  const fullscreenAvailable = document.fullscreenEnabled;
   // Safari on iOS has no vibration for pages: a switch that does nothing is left out.
   const vibrationAvailable = touch && canVibrate();
   /** The sensitivity of the way of steering in use; the other two keep their own level. */
@@ -336,7 +348,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       input.release("mouse");
       const loss = { releasedByGame: releasingLock, focused: document.hasFocus(), hidden: document.hidden };
       releasingLock = false;
-      if (lockLossAction(loss) === "exit") latest.current.onExit();
+      if (lockLossAction(loss) === "menu") openMenuRef.current();
     };
     document.addEventListener("pointerlockchange", onLockChange);
 
@@ -486,9 +498,9 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     };
     // A second button pressed or released while one is held arrives as a move, so moves carry the buttons too.
     const onPointerMove = (e: PointerEvent) => {
-      if (e.pointerType !== "mouse") return;
+      if (e.pointerType !== "mouse" || pausedRef.current) return;
       input.setButtons("mouse", mouseButtons(e.buttons));
-      input.addMotion(e.movementY * sensitivityGain(latest.current.settings.sensitivity.mouse));
+      input.addMotion(e.movementY * mouseGain(latest.current.settings.sensitivity.mouse));
     };
     // Key and button releases are lost while another window has the focus.
     const onBlur = () => {
@@ -498,6 +510,9 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     };
     const onContextMenu = (e: Event) => e.preventDefault();
     const onKey = (e: KeyboardEvent, down: boolean) => {
+      // While the menu is open the keys belong to its buttons; Escape still closes it, and a key let go still
+      // counts, so nothing stays held.
+      if (pausedRef.current && down && e.code !== "Escape") return;
       switch (e.code) {
         case "KeyZ":
           input.setButton("keys", "left", down);
@@ -516,10 +531,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           break;
         case "Escape":
           // Not every browser keeps Escape to itself while the mouse is captured; where the key arrives, it
-          // frees the mouse and leaves in one press. The browser's own handling of the key is left alone.
+          // frees the mouse and opens the menu, or closes it, in one press. The browser's own handling of the
+          // key is left alone.
           if (down) {
             releaseLock();
-            latest.current.onExit();
+            toggleMenuRef.current();
           }
           return;
         default:
@@ -561,148 +577,165 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   }, [hill]);
 
   return (
-    <div className={`game${touch ? " touch" : ""}${controls === "tilt" ? " tilt" : ""}${menuOpen ? " menu-open" : ""}`}>
-      {touch && (
-        <button
-          type="button"
-          className="pause-button"
-          aria-label="Pauza i ustawienia"
-          aria-expanded={menuOpen}
-          inert={menuOpen}
-          ref={pauseButtonRef}
-          onClick={() => setMenuOpen(true)}
-        >
-          <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
-            <rect x="0" y="0" width="2" height="6" fill="currentColor" />
-            <rect x="4" y="0" width="2" height="6" fill="currentColor" />
-          </svg>
-        </button>
-      )}
+    <div
+      className={`game${touch ? " touch" : ""}${controls === "tilt" ? " tilt" : ""}${controls === "touch" ? "" : " wide"}${menuOpen ? " menu-open" : ""}`}
+    >
+      <button
+        type="button"
+        className="pause-button"
+        aria-label="Pauza i ustawienia"
+        aria-expanded={menuOpen}
+        inert={menuOpen}
+        ref={pauseButtonRef}
+        onClick={openMenu}
+      >
+        <svg viewBox="0 0 6 6" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
+          <rect x="0" y="0" width="2" height="6" fill="currentColor" />
+          <rect x="4" y="0" width="2" height="6" fill="currentColor" />
+        </svg>
+      </button>
       <div className="game-stage" ref={stageRef}>
         <canvas
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: lista skoczni.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
         />
       </div>
       <div className="game-toolbar">
-        {menuOpen && (
-          <button
-            type="button"
-            className="pixel-button resume-button"
-            ref={resumeButtonRef}
-            onClick={() => setMenuOpen(false)}
-          >
-            Wróć do gry
-          </button>
-        )}
-        <button
-          type="button"
-          className="pixel-button"
-          onClick={() => {
-            restartRef.current();
-            setMenuOpen(false);
-          }}
-        >
-          Jeszcze raz{touch ? "" : " (R)"}
-        </button>
-        <button type="button" className="pixel-button" onClick={onExit}>
-          Skocznie{touch ? "" : " (Esc)"}
-        </button>
-        {touch && (
-          <button
-            type="button"
-            className="pixel-button"
-            aria-pressed={tiltOn}
-            onClick={() => {
-              if (tiltOn) {
-                tiltRef.current.on = false;
-                releaseTouch();
-                setTiltOn(false);
-                setTiltNote("");
-                onSettings({ leanControl: "drag" });
-                return;
-              }
-              void requestTiltPermission().then((granted) => {
-                tiltRef.current.on = granted;
-                tiltRef.current.follow = TILT_AT_REST;
-                releaseTouch();
-                setTiltOn(granted);
-                setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
-                if (granted) onSettings({ leanControl: "tilt" });
-              });
-            }}
-          >
-            {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
-          </button>
-        )}
-        <div className="stepper" role="group" aria-label="Czułość sterowania">
-          <button
-            type="button"
-            className="pixel-button"
-            aria-label="Mniejsza czułość"
-            aria-disabled={sensitivity <= SENSITIVITY_MIN}
-            onClick={() => changeSensitivity(-1)}
-          >
-            -
-          </button>
-          <span className="stepper-value" role="status">
-            Czułość: {sensitivity}
-          </span>
-          <button
-            type="button"
-            className="pixel-button"
-            aria-label="Większa czułość"
-            aria-disabled={sensitivity >= SENSITIVITY_MAX}
-            onClick={() => changeSensitivity(1)}
-          >
-            +
-          </button>
-        </div>
-        <button
-          type="button"
-          className="pixel-button"
-          onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
-        >
-          Sceneria: {SCENERY_LABEL[settings.scenery]}
-        </button>
-        <button
-          type="button"
-          className="pixel-button"
-          aria-pressed={settings.sound}
-          onClick={() => onSettings({ sound: !settings.sound })}
-        >
-          {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
-        </button>
-        {fullscreenAvailable && (
-          <button
-            type="button"
-            className="pixel-button"
-            onClick={() => {
-              const request = document.fullscreenElement
-                ? document.exitFullscreen()
-                : document.documentElement.requestFullscreen();
-              request.catch(() => undefined);
-            }}
-          >
-            Pełny ekran
-          </button>
-        )}
-        {vibrationAvailable && (
-          <button
-            type="button"
-            className="pixel-button"
-            aria-pressed={settings.vibration}
-            onClick={() => onSettings({ vibration: !settings.vibration })}
-          >
-            {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
-          </button>
-        )}
-        {tiltNote !== "" && (
-          <p className="note error" role="status">
-            {tiltNote}
-          </p>
+        {helpOpen ? (
+          <>
+            <h2 className="how-to-title" tabIndex={-1} ref={helpHeadingRef}>
+              Jak skakać
+            </h2>
+            <HowToJump steering={controls} />
+            <button type="button" className="pixel-button" onClick={() => setHelpOpen(false)}>
+              Wstecz
+            </button>
+          </>
+        ) : (
+          <>
+            {menuOpen && (
+              <button
+                type="button"
+                className="pixel-button resume-button"
+                ref={resumeButtonRef}
+                onClick={() => setMenuOpen(false)}
+              >
+                Wróć do gry
+              </button>
+            )}
+            <button
+              type="button"
+              className="pixel-button"
+              onClick={() => {
+                restartRef.current();
+                setMenuOpen(false);
+              }}
+            >
+              Jeszcze raz{touch ? "" : " (R)"}
+            </button>
+            <button type="button" className="pixel-button" onClick={() => setHelpOpen(true)}>
+              Jak skakać
+            </button>
+            <button type="button" className="pixel-button" onClick={onExit}>
+              Skocznie
+            </button>
+            {touch && (
+              <button
+                type="button"
+                className="pixel-button"
+                aria-pressed={tiltOn}
+                onClick={() => {
+                  if (tiltOn) {
+                    tiltRef.current.on = false;
+                    releaseTouch();
+                    setTiltOn(false);
+                    setTiltNote("");
+                    onSettings({ leanControl: "drag" });
+                    return;
+                  }
+                  void requestTiltPermission().then((granted) => {
+                    tiltRef.current.on = granted;
+                    tiltRef.current.follow = TILT_AT_REST;
+                    releaseTouch();
+                    setTiltOn(granted);
+                    setTiltNote(granted ? "" : "Brak zgody na czujnik ruchu: pochylanie palcem.");
+                    if (granted) onSettings({ leanControl: "tilt" });
+                  });
+                }}
+              >
+                {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
+              </button>
+            )}
+            <div className="stepper" role="group" aria-label="Czułość sterowania">
+              <button
+                type="button"
+                className="pixel-button"
+                aria-label="Mniejsza czułość"
+                aria-disabled={sensitivity <= SENSITIVITY_MIN}
+                onClick={() => changeSensitivity(-1)}
+              >
+                -
+              </button>
+              <span className="stepper-value" role="status">
+                Czułość: {sensitivity}
+              </span>
+              <button
+                type="button"
+                className="pixel-button"
+                aria-label="Większa czułość"
+                aria-disabled={sensitivity >= SENSITIVITY_MAX}
+                onClick={() => changeSensitivity(1)}
+              >
+                +
+              </button>
+            </div>
+            <button
+              type="button"
+              className="pixel-button"
+              onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
+            >
+              Sceneria: {SCENERY_LABEL[settings.scenery]}
+            </button>
+            <button
+              type="button"
+              className="pixel-button"
+              aria-pressed={settings.sound}
+              onClick={() => onSettings({ sound: !settings.sound })}
+            >
+              {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
+            </button>
+            {fullscreenAvailable && (
+              <button
+                type="button"
+                className="pixel-button"
+                onClick={() => {
+                  const request = document.fullscreenElement
+                    ? document.exitFullscreen()
+                    : document.documentElement.requestFullscreen();
+                  request.catch(() => undefined);
+                }}
+              >
+                Pełny ekran
+              </button>
+            )}
+            {vibrationAvailable && (
+              <button
+                type="button"
+                className="pixel-button"
+                aria-pressed={settings.vibration}
+                onClick={() => onSettings({ vibration: !settings.vibration })}
+              >
+                {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
+              </button>
+            )}
+            {tiltNote !== "" && (
+              <p className="note error" role="status">
+                {tiltNote}
+              </p>
+            )}
+          </>
         )}
       </div>
       {touch && (

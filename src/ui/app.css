@@ -473,17 +473,17 @@ h2 {
   border-color: var(--accent);
 }
 
-/* Touch screens: the buttons open from the pause button, so the field and the pads keep their space. */
-.game.touch .pause-button {
+/* The buttons open from the pause button (and from Escape), so the picture keeps its space. */
+.game .pause-button {
   display: flex;
 }
 
-.game.touch .game-toolbar {
+.game .game-toolbar {
   display: none;
 }
 
 /* The menu scrolls when it does not fit (short landscape screens); it is centred when it does. */
-.game.touch.menu-open .game-toolbar {
+.game.menu-open .game-toolbar {
   position: fixed;
   inset: 0;
   z-index: 1;
@@ -506,12 +506,46 @@ h2 {
   background: rgb(0 0 0 / 88%);
 }
 
-.game.touch.menu-open .game-toolbar > :first-child {
+.game.menu-open .game-toolbar > :first-child {
   margin-top: auto;
 }
 
-.game.touch.menu-open .game-toolbar > :last-child {
+.game.menu-open .game-toolbar > :last-child {
   margin-bottom: auto;
+}
+
+/* The instructions: a term and what it means, one under the other, as wide as the menu. */
+.how-to {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: min(100%, 560px);
+  margin: 0;
+  text-align: left;
+}
+
+.how-to-step dt {
+  color: var(--accent);
+  font-size: clamp(16px, 4.4vw, 20px);
+}
+
+.how-to-step dd {
+  margin: 4px 0 0;
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.how-to-title {
+  margin: 0;
+  font-size: clamp(20px, 5.6vw, 28px);
+  font-weight: normal;
+  color: var(--text);
+}
+
+.how-to-title:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 4px;
 }
 
 /* A value with a button on each side to lower and to raise it. The value keeps its width whatever it reads. */
@@ -529,29 +563,29 @@ h2 {
   color: var(--text);
 }
 
-.game.touch.menu-open .game-toolbar .stepper {
+.game.menu-open .game-toolbar .stepper {
   flex: none;
   width: min(100%, 420px);
 }
 
-.game.touch.menu-open .game-toolbar .stepper .stepper-value {
+.game.menu-open .game-toolbar .stepper .stepper-value {
   flex: 1;
 }
 
 /* All menu buttons share one width, so the column reads as a list. */
-.game.touch.menu-open .game-toolbar .pixel-button {
+.game.menu-open .game-toolbar .pixel-button {
   flex: none;
   width: min(100%, 420px);
   justify-content: center;
 }
 
 /* The two buttons of a stepper stay as wide as a finger needs. */
-.game.touch.menu-open .game-toolbar .stepper .pixel-button {
+.game.menu-open .game-toolbar .stepper .pixel-button {
   width: auto;
   min-width: 56px;
 }
 
-.game.touch.menu-open .game-toolbar .note {
+.game.menu-open .game-toolbar .note {
   width: min(100%, 420px);
   text-align: center;
 }
@@ -596,25 +630,22 @@ h2 {
   right: 0;
 }
 
-.game.touch.tilt .pause-button {
-  position: relative;
-  z-index: 1;
+/*
+ * No touch zones (a mouse, or tilt steering): the picture has the whole screen, centred, and the pause button
+ * lies in its corner, above the halves of the screen and clear of the cut-outs.
+ */
+.game.touch.wide {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas: "stage";
 }
 
-@media (orientation: landscape) {
-  .game.touch.tilt {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-areas: "stage";
-  }
-
-  /* In the corner of the picture, clear of the cut-outs of the screen. */
-  .game.touch.tilt .pause-button {
-    position: fixed;
-    top: max(8px, var(--safe-top));
-    left: max(8px, var(--safe-left));
-    background: rgb(0 0 0 / 55%);
-  }
+.game.wide .pause-button {
+  position: fixed;
+  top: max(8px, var(--safe-top));
+  left: max(8px, var(--safe-left));
+  z-index: 1;
+  background: rgb(0 0 0 / 55%);
 }
 
 @media (orientation: portrait) {

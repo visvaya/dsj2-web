@@ -5,15 +5,22 @@ import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../st
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { readOriginalHills } from "../original/original-hills";
 import { HillScreen } from "./hill-screen";
+import { HowToScreen } from "./how-to-jump";
 import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 import { screenTitle } from "./screen-title";
 import { useOfflineState } from "./use-offline-state";
 
-type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
+type Screen =
+  | { kind: "menu" }
+  | { kind: "hills" }
+  | { kind: "outfit" }
+  | { kind: "howto" }
+  | { kind: "jump"; hill: HillChoice };
 
-export function App() {
+/** The screen shown, and how to show another one. */
+function useScreens(): { screen: Screen; navigated: boolean; show: (next: Screen) => void } {
   const [screen, setScreen] = useState<Screen>({ kind: "menu" });
   // The first screen leaves the focus where the browser put it; every later one takes it (see useEntryFocus).
   const [navigated, setNavigated] = useState(false);
@@ -28,6 +35,11 @@ export function App() {
     document.title = screenTitle(screen);
     window.scrollTo(0, 0);
   }, [screen]);
+  return { screen, navigated, show };
+}
+
+export function App() {
+  const { screen, navigated, show } = useScreens();
   const offline = useOfflineState();
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
@@ -107,6 +119,10 @@ export function App() {
       />
     );
   }
+  if (screen.kind === "howto") {
+    const back = () => show({ kind: "menu" });
+    return <HowToScreen tilt={save.settings.leanControl === "tilt"} onBack={back} focusOnEntry={navigated} />;
+  }
   if (screen.kind === "outfit") {
     return (
       <OutfitScreen
@@ -139,6 +155,7 @@ export function App() {
       offline={offline}
       onTraining={() => show({ kind: "hills" })}
       onOutfit={() => show({ kind: "outfit" })}
+      onHowTo={() => show({ kind: "howto" })}
       focusOnEntry={navigated}
       onOriginalHills={setOriginalHills}
     />

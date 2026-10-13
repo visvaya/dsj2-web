@@ -3,7 +3,7 @@ import { lockLossAction, requestMouseCapture } from "./pointer-lock";
 
 describe("losing the mouse capture", () => {
   it("leaves the jump when the player took the mouse back with Escape", () => {
-    expect(lockLossAction({ releasedByGame: false, focused: true, hidden: false })).toBe("exit");
+    expect(lockLossAction({ releasedByGame: false, focused: true, hidden: false })).toBe("menu");
   });
 
   it("stays when the game let the mouse go itself", () => {

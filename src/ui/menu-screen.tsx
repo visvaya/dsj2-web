@@ -19,6 +19,7 @@ interface Props {
   offline: OfflineState | null;
   onTraining: () => void;
   onOutfit: () => void;
+  onHowTo: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -39,6 +40,7 @@ export function MenuScreen({
   offline,
   onTraining,
   onOutfit,
+  onHowTo,
   onOriginalHills,
   focusOnEntry,
 }: Props) {
@@ -76,6 +78,9 @@ export function MenuScreen({
         </button>
         <button type="button" className="pixel-button" onClick={onOutfit}>
           Strój
+        </button>
+        <button type="button" className="pixel-button" onClick={onHowTo}>
+          Jak skakać
         </button>
         <label className="pixel-button file-label">
           Wczytaj pliki gry

@@ -13,7 +13,7 @@ Telemark is a working title.
 As of 2026-10-13: in active development.
 
 - Playable: training mode on the built-in hill and on the 37 original hills.
-- Not there yet: competitions, a replay viewer, an instructions screen.
+- Not there yet: competitions, a replay viewer.
 - Playable at <https://telemark.visvaya.workers.dev> since 2026-10-13. The page can be installed and works
   offline after the first visit; every change on the default branch is published there once its checks pass
   (`docs/deployment.md`). Not yet checked on real phones. No releases.

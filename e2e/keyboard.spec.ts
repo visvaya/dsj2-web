@@ -6,9 +6,10 @@ test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where 
 
 test("the menu and the hill list are operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  expect(await tabThrough(page, 3)).toEqual([TEXT.training, TEXT.outfit, "Wczytaj pliki gry"]);
+  expect(await tabThrough(page, 4)).toEqual([TEXT.training, TEXT.outfit, "Jak skakać", "Wczytaj pliki gry"]);
 
   // Back to the first button; Enter opens the hill list and the focus moves to its heading.
+  await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await expect(button(page, TEXT.training)).toBeFocused();
@@ -56,7 +57,7 @@ test("the outfit screen is operated with the keyboard alone", async ({ page }) =
   await expect(page.getByRole("heading", { name: "Telemark" })).toBeFocused();
 });
 
-test("the jump screen is operated with the keyboard alone and Escape leaves it", async ({ page }) => {
+test("the jump screen is operated with the keyboard alone: Escape opens its menu and closes it", async ({ page }) => {
   await openMenu(page);
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
@@ -68,9 +69,16 @@ test("the jump screen is operated with the keyboard alone and Escape leaves it",
   await expect(jumpCanvas(page)).toBeFocused();
   await expectVisibleFocus(page);
 
-  const visited = await tabThrough(page, 6);
+  // Escape opens the menu, and the focus goes to its first button.
+  await page.keyboard.press("Escape");
+  const resume = button(page, TEXT.resume);
+  await expect(resume).toBeFocused();
+  await expectVisibleFocus(page);
+
+  const visited = await tabThrough(page, 7);
   expect(visited).toEqual([
     expect.stringMatching(TEXT.jumpAgain),
+    "Jak skakać",
     expect.stringMatching(TEXT.toHills),
     "Mniejsza czułość",
     "Większa czułość",
@@ -93,7 +101,28 @@ test("the jump screen is operated with the keyboard alone and Escape leaves it",
   await expect(scenery).not.toHaveText(before ?? "");
   await expect(scenery).toBeFocused();
 
+  // The instructions open in place of the buttons, take the focus and speak of the keyboard and the mouse.
+  await button(page, "Jak skakać").focus();
+  await page.keyboard.press("Enter");
+  const instructions = page.getByRole("heading", { name: "Jak skakać" });
+  await expect(instructions).toBeFocused();
+  await expect(page.getByText(/F11/)).toBeVisible();
+  await expect(resume).toBeHidden();
+  await button(page, TEXT.back).focus();
+  await page.keyboard.press("Enter");
+  await expect(resume).toBeVisible();
+
+  // Escape closes the menu; the focus returns to the pause button, which opens it again.
   await page.keyboard.press("Escape");
+  await expect(resume).toBeHidden();
+  const pause = button(page, TEXT.pause);
+  await expect(pause).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(resume).toBeFocused();
+
+  // Leaving for the hill list is a position of the menu.
+  await button(page, TEXT.toHills).focus();
+  await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeFocused();
   expect(await expectVisibleFocus(page)).toBe(TEXT.hillListTitle);
 });

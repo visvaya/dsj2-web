@@ -13,9 +13,9 @@ export interface LockLoss {
  * the key. A capture that ends on a focused, visible page without the game asking is therefore read as Escape
  * and leaves the jump. Switching windows or tabs also ends the capture; the jump then just waits.
  */
-export function lockLossAction(loss: LockLoss): "exit" | "stay" {
+export function lockLossAction(loss: LockLoss): "menu" | "stay" {
   if (loss.releasedByGame) return "stay";
-  return loss.focused && !loss.hidden ? "exit" : "stay";
+  return loss.focused && !loss.hidden ? "menu" : "stay";
 }
 
 /**

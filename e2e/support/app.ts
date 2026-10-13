@@ -6,6 +6,7 @@ export const TEXT = {
   menuHeading: "Główne menu",
   training: "Trening",
   outfit: "Strój",
+  howTo: "Jak skakać",
   back: "Wstecz",
   hillListTitle: "Wybierz skocznię do treningu",
   outfitTitle: "Edycja kolorów stroju",
@@ -75,16 +76,14 @@ export async function openJumpFromStart(page: Page, traits: DeviceTraits): Promi
   await openJump(page, traits);
 }
 
-/** On touch screens the buttons of the jump screen sit behind the pause button. */
+/** The buttons of the jump screen sit in a menu behind the pause button, on every device. */
 export async function openJumpControls(page: Page, traits: DeviceTraits): Promise<void> {
-  if (!traits.touch) return;
-  await button(page, TEXT.pause).tap();
+  await press(button(page, TEXT.pause), traits);
   await expect(button(page, TEXT.resume)).toBeVisible();
 }
 
 export async function closeJumpControls(page: Page, traits: DeviceTraits): Promise<void> {
-  if (!traits.touch) return;
-  await button(page, TEXT.resume).tap();
+  await press(button(page, TEXT.resume), traits);
   await expect(button(page, TEXT.resume)).toBeHidden();
 }
 
@@ -102,23 +101,29 @@ export async function storedSave(page: Page): Promise<unknown> {
 
 type ScreenCheck = (screen: string) => Promise<void>;
 
-/** Opens the menu, the outfit screen and the hill list in turn and runs `check` on each; ends on the hill list. */
+/**
+ * Opens the menu, the outfit screen, the instructions and the hill list in turn and runs `check` on each; ends on
+ * the hill list.
+ */
 export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
   await openMenu(page);
   await check("menu");
   await openOutfit(page, traits);
   await check("outfit");
   await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.howTo), traits);
+  await expect(page.getByRole("heading", { name: TEXT.howTo })).toBeVisible();
+  await check("how to jump");
+  await press(button(page, TEXT.back), traits);
   await openHillList(page, traits);
   await check("hill list");
 }
 
-/** As `onEachMenuScreen`, then the jump screen, on touch screens also with its controls open. */
+/** As `onEachMenuScreen`, then the jump screen, also with its controls open. */
 export async function onEveryScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
   await onEachMenuScreen(page, traits, check);
   await openJump(page, traits);
   await check("jump");
-  if (!traits.touch) return;
   await openJumpControls(page, traits);
   await check("jump with the controls open");
   await closeJumpControls(page, traits);

@@ -74,7 +74,7 @@ interface Prompts {
 
 const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
   mouse: {
-    nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE",
+    nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: MENU",
     start: "LEWY PRZYCISK: START",
     takeoff: "OBA PRZYCISKI NA PROGU",
     lean: "MYSZ: POCHYLENIE",
