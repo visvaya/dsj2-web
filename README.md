@@ -16,7 +16,8 @@ As of 2026-10-13: in active development.
 - Not there yet: competitions, a replay viewer.
 - Playable at <https://telemark.visvaya.workers.dev> since 2026-10-13. The page can be installed and works
   offline after the first visit; every change on the default branch is published there once its checks pass
-  (`docs/deployment.md`). Not yet checked on real phones. No releases.
+  (`docs/deployment.md`). Checked by hand on one iPhone and in one desktop browser; not yet on Android. No
+  releases.
 
 ## Features
 
