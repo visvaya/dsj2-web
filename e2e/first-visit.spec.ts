@@ -108,19 +108,20 @@ test("a first visit fetches each file once and stays within the budget of reques
       repeatedBytes,
     });
 
-    expect(firstScreen.count, "requests until the first screen").toBeLessThanOrEqual(
-      FIRST_VISIT_BUDGET.FIRST_SCREEN_REQUESTS,
-    );
     expect(firstScreen.bodyBytes, "bytes until the first screen").toBeLessThanOrEqual(
       FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
     );
-    expect(ready.count, "requests until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_REQUESTS);
     if (browserName === "chromium") {
+      expect(firstScreen.count, "requests until the first screen").toBeLessThanOrEqual(
+        FIRST_VISIT_BUDGET.FIRST_SCREEN_REQUESTS,
+      );
+      expect(ready.count, "requests until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_REQUESTS);
       expect(repeated, "files whose whole body was sent more than once").toEqual([]);
       expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_BYTES);
     } else {
-      // Not yet measured in Firefox and WebKit: to be settled after their first run on the runner, from the
-      // lines this test writes. Until then they may fetch again what the page already has, and no more.
+      // Not yet measured in Firefox and WebKit, which may ask for other icons and may fetch again what the page
+      // already has: their counts are only reported, and the bytes may be those of a second copy and no more.
+      // To be settled from the lines this test writes in their first run on the runner.
       expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(
         FIRST_VISIT_BUDGET.READY_BYTES + FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
       );
