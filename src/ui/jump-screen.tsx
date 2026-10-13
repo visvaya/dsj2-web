@@ -7,7 +7,7 @@ import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
 import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
-import { createPlayerInput, mouseButtons } from "../game/player-input";
+import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   isJumpOver,
@@ -88,7 +88,10 @@ interface TouchPadProps {
   onDrag: (dy: number) => void;
 }
 
-/** A touch zone standing in for a mouse button; dragging in the left one leans like the mouse. */
+/**
+ * A touch zone standing in for a mouse button; dragging in the left one leans like the mouse. In flight the
+ * left zone only leans and the right one lands (`leftTouchLeansOnly`).
+ */
 function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
   const lastY = useRef(new Map<number, number>());
   const release = (e: ReactPointerEvent<HTMLButtonElement>) => {
@@ -100,7 +103,11 @@ function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
       type="button"
       className={`touch-pad touch-pad-${side}`}
       inert={inert}
-      aria-label={side === "left" ? "Lewy przycisk; przesuwanie w pionie pochyla skoczka" : "Prawy przycisk"}
+      aria-label={
+        side === "left"
+          ? "Lewy przycisk: start i wybicie; w locie tylko pochyla skoczka, przesuwaniem w pionie"
+          : "Prawy przycisk: wybicie razem z lewym; w locie lądowanie"
+      }
       onPointerDown={(e) => {
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -121,7 +128,9 @@ function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <span className="touch-pad-key">{side === "left" ? "L" : "P"}</span>
-      <span className="touch-pad-hint">{side === "left" ? "przeciągnij: pochylenie" : "L+P: wybicie"}</span>
+      <span className="touch-pad-hint">
+        {side === "left" ? "przeciągnij: pochylenie" : "L+P: wybicie, P: lądowanie"}
+      </span>
     </button>
   );
 }
@@ -345,6 +354,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           input.addMotion(tiltMotion(tilt.pitch, tilt.neutral));
         }
         const prev = jump.state;
+        input.setLeftTouchLeansOnly(leftTouchLeansOnly(prev.logic.phase));
         const frameInput = input.takeFrame();
         leftDown ||= frameInput.left;
         jump = stepTrainingJump(jump, frameInput);

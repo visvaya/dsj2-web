@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { createPlayerInput, mouseButtons } from "./player-input";
+import { PHASE } from "../sim/jump-logic";
+import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "./player-input";
 
 describe("player input", () => {
   it("hands the accumulated motion to one frame and clamps it like the original", () => {
@@ -72,6 +73,72 @@ describe("player input", () => {
     input.setButton("keys", "right", false);
     expect(input.takeFrame()).toMatchObject({ left: false, right: true });
     expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+  });
+
+  it("makes the left touch zone lean only in flight, from the hold after the take-off until the landing starts", () => {
+    expect(leftTouchLeansOnly(PHASE.gate)).toBe(false);
+    expect(leftTouchLeansOnly(PHASE.crouch)).toBe(false);
+    expect(leftTouchLeansOnly(PHASE.takeoff)).toBe(false);
+    expect(leftTouchLeansOnly(PHASE.afterTakeoff)).toBe(false);
+    expect(leftTouchLeansOnly(PHASE.flightHold)).toBe(true);
+    expect(leftTouchLeansOnly(PHASE.flight)).toBe(true);
+    expect(leftTouchLeansOnly(PHASE.landingPrep)).toBe(false);
+    expect(leftTouchLeansOnly(PHASE.outrun)).toBe(false);
+  });
+
+  it("does not press the left button for a touch while the left zone leans only", () => {
+    const input = createPlayerInput();
+    input.setLeftTouchLeansOnly(true);
+    input.setButton("touch", "left", true);
+    expect(input.left).toBe(false);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+    // A tap shorter than a frame is not a press either.
+    input.setButton("touch", "left", false);
+    input.setButton("touch", "left", true);
+    input.setButton("touch", "left", false);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: false });
+    // The right zone, the keyboard and the mouse press as always.
+    input.setButton("touch", "right", true);
+    expect(input.takeFrame()).toMatchObject({ left: false, right: true });
+    input.setButton("keys", "left", true);
+    expect(input.takeFrame()).toMatchObject({ left: true, right: true });
+  });
+
+  it("lets go of the left button for a finger that stays on the left zone when it turns to leaning only", () => {
+    const input = createPlayerInput();
+    input.setButton("touch", "left", true);
+    expect(input.takeFrame()).toMatchObject({ left: true });
+    input.setLeftTouchLeansOnly(true);
+    expect(input.left).toBe(false);
+    expect(input.takeFrame()).toMatchObject({ left: false });
+  });
+
+  it("presses the left button again only with a new touch once the left zone stops leaning only", () => {
+    const input = createPlayerInput();
+    input.setLeftTouchLeansOnly(true);
+    input.setButton("touch", "left", true);
+    input.setLeftTouchLeansOnly(false);
+    // The finger that was leaning is still down: it must not turn into a press by itself.
+    expect(input.takeFrame()).toMatchObject({ left: false });
+    expect(input.takeFrame()).toMatchObject({ left: false });
+    input.setButton("touch", "left", false);
+    expect(input.takeFrame()).toMatchObject({ left: false });
+    input.setButton("touch", "left", true);
+    expect(input.takeFrame()).toMatchObject({ left: true });
+    // With no finger down when leaning only ends, the next touch presses at once.
+    input.reset();
+    input.setLeftTouchLeansOnly(true);
+    input.setLeftTouchLeansOnly(false);
+    input.setButton("touch", "left", true);
+    expect(input.takeFrame()).toMatchObject({ left: true });
+  });
+
+  it("forgets leaning only on a reset", () => {
+    const input = createPlayerInput();
+    input.setLeftTouchLeansOnly(true);
+    input.reset();
+    input.setButton("touch", "left", true);
+    expect(input.takeFrame()).toMatchObject({ left: true });
   });
 
   it("lets go of everything a source held when that source is lost", () => {

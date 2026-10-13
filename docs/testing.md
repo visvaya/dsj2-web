@@ -12,6 +12,7 @@
 | `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
+| `src/game/touch-landing.test.ts` | skok polami dotykowymi krokowany jak na ekranie skoku: w locie pole L tylko pochyla, lądowanie zaczyna pole P, a nowe dotknięcie L kończy przygotowanie lądowania; klawiatura i mysz bez zmian | wszędzie, także w CI |
 | `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
 | `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
@@ -120,7 +121,7 @@ komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo �
 | 5 | Pauza, „Pochylanie: palec” | iPhone pyta o dostęp do czujnika ruchu; po zgodzie etykieta „Pochylanie: przechył”, po odmowie komunikat i pochylanie palcem | tylko urządzenie |
 | 6 | Skok z pochylaniem przechyłem telefonu | skoczek pochyla się zgodnie z ruchem telefonu w obu orientacjach | tylko urządzenie |
 | 7 | Android: skok z włączonymi wibracjami, potem „Wibracje: wył.” | krótka wibracja przy starcie, wybiciu i lądowaniu; po wyłączeniu brak (iPhone nie wibruje) | tylko urządzenie |
-| 8 | Cały skok polami L i P w pionie, potem w poziomie | pola nie zasłaniają obrazu, rekord pojawia się na liście skoczni | `jump.spec.ts`, `touch-layout.spec.ts` |
+| 8 | Cały skok polami L i P w pionie, potem w poziomie; w locie oderwij palec od pola L i przyłóż go ponownie, ląduj polem P | pola nie zasłaniają obrazu; w locie pole L tylko pochyla i powrót palca nie zaczyna lądowania; lądowanie zaczyna pole P; rekord pojawia się na liście skoczni | `jump.spec.ts`, `touch-layout.spec.ts`; reguła pola L w locie: `src/game/touch-landing.test.ts` (symulacja, bez przeglądarki) |
 | 9 | Obróć telefon w trakcie najazdu | układ przestawia się, skok da się dokończyć | `interruption.spec.ts` |
 | 10 | W poziomie obejrzyj okolice wycięcia ekranu i paska gestów | nic ważnego pod wycięciem ani pod paskiem, brak białych pasów obok obrazu | `page-basics.spec.ts` (tło); wycięcie i pasek: tylko urządzenie |
 | 11 | W trakcie skoku przejdź do innej aplikacji na kilka sekund i wróć | dźwięk milknie od razu, po powrocie skok trwa dalej od tego samego miejsca | tylko urządzenie (`interruption.spec.ts` pomija ten test) |
