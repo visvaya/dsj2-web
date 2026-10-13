@@ -61,8 +61,6 @@ interface Props {
 }
 
 const PLAYER_NAME = "GRACZ 1";
-/** From this device pixel ratio the view may scale by a fraction to fill the screen. */
-const DENSE_SCREEN_DPR = 2;
 /** How long a note about the motion sensor stays on screen. */
 const TILT_NOTE_MS = 5000;
 
@@ -74,14 +72,6 @@ interface View {
 function makeView(width: number): View {
   const fb = new FrameBuffer(width, VIEW_HEIGHT_PX);
   return { fb, image: new ImageData(fb.bytes, width, VIEW_HEIGHT_PX) };
-}
-
-/**
- * Whether the page has the whole screen: through its own full screen, or through the browser's (F11), which
- * the display mode tells where the browser reports it.
- */
-function fillsTheScreen(): boolean {
-  return document.fullscreenElement !== null || window.matchMedia("(display-mode: fullscreen)").matches;
 }
 
 /** Game pixels between the pause button and the name of the hill beside it. */
@@ -373,12 +363,11 @@ export function JumpScreen({
       if (width !== view.fb.width) view = makeView(width);
       canvas.width = width;
       canvas.height = VIEW_HEIGHT_PX;
-      // Whole device pixels per game pixel keep every pixel the same size. On dense screens
-      // (phones) a fractional scale fills the space; the uneven pixels are then below one device pixel. In full
-      // screen the picture goes to the edges as well: a frame around it is worse than pixels a fifth uneven.
+      // The picture goes to the edges of its area, in a window as in full screen: a frame around it is worse
+      // than game pixels that differ by a fraction of a device pixel.
       const dpr = window.devicePixelRatio || 1;
       const fill = Math.min((stage.clientWidth * dpr) / width, (stage.clientHeight * dpr) / VIEW_HEIGHT_PX);
-      const scale = pictureScale(fill, dpr >= DENSE_SCREEN_DPR || fillsTheScreen());
+      const scale = pictureScale(fill);
       canvas.style.width = `${(width * scale) / dpr}px`;
       canvas.style.height = `${(VIEW_HEIGHT_PX * scale) / dpr}px`;
       titleInsetPx = titleInsetFor(canvas, pauseButtonRef.current, width);

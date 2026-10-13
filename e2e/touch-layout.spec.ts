@@ -25,6 +25,9 @@ test("the pause button can be reached and opens and closes the controls", async 
   expect(pauseBox.height).toBeGreaterThanOrEqual(MIN_TOUCH_TARGET_PX);
   expect(await receivesPointer(pause)).toBe(true);
   expect(overlap(pauseBox, await boxOf(jumpCanvas(page)))).toBe(false);
+  // On the left in portrait and in landscape alike.
+  const screenWidthPx = page.viewportSize()?.width ?? 0;
+  expect(pauseBox.x + pauseBox.width).toBeLessThan(screenWidthPx / 2);
   await expect(pause).toHaveAttribute("aria-expanded", "false");
 
   await pause.tap();

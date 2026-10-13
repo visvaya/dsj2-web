@@ -47,11 +47,10 @@ describe("jump view", () => {
     expect(viewWidthFor(0, 0)).toBe(356);
   });
 
-  it("scales the picture by whole pixels, or by all the room there is where the screen is to be filled", () => {
-    expect(pictureScale(5.4, false)).toBe(5);
-    expect(pictureScale(5.4, true)).toBe(5.4);
-    expect(pictureScale(0.6, false)).toBe(1);
-    expect(pictureScale(0.6, true)).toBe(1);
+  it("scales the picture by all the room there is, and never under one device pixel per game pixel", () => {
+    expect(pictureScale(5.4)).toBe(5.4);
+    expect(pictureScale(3)).toBe(3);
+    expect(pictureScale(0.6)).toBe(1);
   });
 
   it.each<[string, Scenery]>([
