@@ -103,6 +103,12 @@ jobs:
       - name: The game works in real browsers
         if: steps.browser.outputs.needed == 'true'
         run: pnpm test:browser
+      # Temporary: repeats the rollback test, which failed twice on a loaded machine. Removed before this is merged.
+      - name: Repeat the rollback test in Chromium
+        if: steps.browser.outputs.needed == 'true'
+        run: >-
+          pnpm exec playwright test e2e/offline.spec.ts --project=desktop-chromium --no-deps
+          -g "going back to the earlier release" --repeat-each=30 --retries=0 --reporter=list --output=test-results/repeat
       # A test that failed and then passed on its retry leaves the run green; the trace of the failed attempt is
       # the only record of what went wrong, so it is kept as well.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
