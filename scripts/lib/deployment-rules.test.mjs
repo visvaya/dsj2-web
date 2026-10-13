@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   browsersForceHttps,
   expectedResponses,
+  expectedResponsesOfRelease,
   findHttpsRedirectProblems,
   findNotServedProblems,
   findReleaseProblems,
@@ -56,6 +57,14 @@ test("every file but the headers file is expected at its address, with the heade
   );
   assert.equal(expectedFor("/").compressed, false);
   assert.equal(expectedFor("/assets/index-AAAAAAAA.js").compressed, true);
+});
+
+test("the addresses a served worker lists are expected like the files they stand for", () => {
+  const listed = [
+    { url: "/", sha256: sha256Hex(PAGE) },
+    { url: "/assets/index-AAAAAAAA.js", sha256: sha256Hex(SCRIPT) },
+  ];
+  assert.deepEqual(expectedResponsesOfRelease(listed, RULES), expectedResponses(FILES, RULES));
 });
 
 test("a response that matches has no problems", () => {
@@ -251,6 +260,25 @@ test("the check against the served release can require the content of a package"
   const other = await runCheck([server.origin, "--served-release", "--content-id", "d".repeat(64)]);
   assert.equal(other.code, 1);
   assert.match(other.stderr, /release.json: content [0-9a-f]{64}, expected d{64}/);
+});
+
+test("the check against the served release applies a headers file it is given, to the worker as well", async () => {
+  const served = await runCheck([server.origin, "--served-release", "--headers", join(distDir, "_headers")]);
+  assert.equal(served.code, 0, served.stderr);
+  assert.match(served.stdout, /4 files checked, no problems/);
+
+  const stricter = join(parent, "stricter-headers");
+  writeFileSync(
+    stricter,
+    `${HEADERS_TEXT}/sw.js
+  Cache-Control: no-cache
+`,
+  );
+  const result = await runCheck([server.origin, "--served-release", "--headers", stricter]);
+  assert.equal(result.code, 1);
+  // The server answers with the host's default there, which the stricter file does not accept.
+  assert.match(result.stderr, /\/sw\.js: Cache-Control is "[^"]+", expected "no-cache"/);
+  assert.match(result.stderr, /1 problems at/);
 });
 
 test("the check waits out a deployment that has not reached every machine yet", async () => {

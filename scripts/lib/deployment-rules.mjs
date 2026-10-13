@@ -5,7 +5,7 @@
 // A listing entry is { path, sha256 }; a response seen is { status, headers, sha256 }, where `headers` is an
 // object with lowercase names and `sha256` is of the decoded body.
 import { headersForPath } from "./headers-rules.mjs";
-import { RELEASE_FILES, urlOfPath } from "./release-rules.mjs";
+import { RELEASE_FILES, pathOfUrl, urlOfPath } from "./release-rules.mjs";
 
 const CONTENT_TYPE_PATTERNS = [
   [/\.html$/, /^text\/html\b/],
@@ -28,16 +28,24 @@ const WORKER_RELEASE_PATTERN = /const RELEASE = (\{[\s\S]*?\n\});/;
 export function expectedResponses(files, rules) {
   return files
     .filter((file) => file.path !== RELEASE_FILES.HEADERS)
-    .map((file) => {
-      const url = urlOfPath(file.path);
-      return {
-        url,
-        sha256: file.sha256,
-        headers: headersForPath(rules, url),
-        contentType: CONTENT_TYPE_PATTERNS.find(([path]) => path.test(file.path))?.[1] ?? null,
-        compressed: COMPRESSED_PATH_PATTERN.test(file.path),
-      };
-    });
+    .map((file) => expectedResponse(file.path, file.sha256, rules));
+}
+
+function expectedResponse(path, sha256, rules) {
+  const url = urlOfPath(path);
+  return {
+    url,
+    sha256,
+    headers: headersForPath(rules, url),
+    contentType: CONTENT_TYPE_PATTERNS.find(([pattern]) => pattern.test(path))?.[1] ?? null,
+    compressed: COMPRESSED_PATH_PATTERN.test(path),
+  };
+}
+
+// The same for the addresses a served worker lists ([{ url, sha256 }]), when the package is not at hand but
+// the headers file of the commit it was built from is.
+export function expectedResponsesOfRelease(precache, rules) {
+  return precache.map((entry) => expectedResponse(pathOfUrl(entry.url), entry.sha256, rules));
 }
 
 // Addresses that must answer 404: the headers file, the single-file page, and files that do not exist, in the

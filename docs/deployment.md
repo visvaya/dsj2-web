@@ -139,6 +139,34 @@ Skutki dla graczy: zapis nie jest ruszany. Gracz, który ma już nowsze wydanie,
 aktualizację, po zamknięciu wszystkich okien gry. Wycofanie nie usuwa kopii, które już działają offline.
 Wydania przed i po muszą czytać ten sam zapis; wycofanie przez zmianę schematu zapisu wymaga osobnego testu.
 
+## Monitor
+
+Workflow `Monitor` (`.github/workflows/monitor.yml`) sprawdza opublikowaną grę spoza hostingu cztery razy na dobę
+(01:23, 07:23, 13:23 i 19:23 UTC) oraz na żądanie. Uruchamia `scripts/monitor-deployment.mjs`, który tylko czyta:
+
+1. `release.json` pod adresem gry podaje commit. Musi to być commit z historii `master`; wydanie przywrócone
+   wycofaniem też spełnia ten warunek. Raport podaje, ile commitów `master` ma po nim.
+2. Kontrola HTTP względem wydania zapisanego w serwowanym `sw.js` (ta sama co po wycofaniu), z plikiem
+   `public/_headers` z commita wydania: bajty każdego pliku, typ, kompresja paczek i nagłówki, także dla `sw.js`;
+   nieznane ścieżki dają 404, `/index.html` przekierowuje na `/`. Trwające wdrożenie: kontrola czeka do 120 s,
+   a gdy wydanie zmieni się w trakcie, zaczyna raz od nowa.
+3. Certyfikat jest zaufany, wystawiony na nazwę hosta i ma co najmniej 14 dni do końca.
+4. Strona startowa odpowiada w czasie: mediana z 5 prób do 1500 ms.
+
+Nieudany przebieg to alarm. GitHub powiadamia osobę, która ostatnio zmieniła harmonogram w pliku workflow (przy
+ręcznym uruchomieniu: tę, która je uruchomiła), według jej ustawień powiadomień Actions. Próba alarmu bez
+ruszania gry: `gh workflow run monitor.yml -f address=https://example.com`.
+
+Ograniczenia:
+
+- Zaplanowane przebiegi startują z opóźnieniem, a w repozytorium publicznym GitHub wyłącza je po 60 dniach bez
+  aktywności w repozytorium.
+- Monitor pyta z centrum danych i bez service workera: nie widzi tego, co widzi gracz z zainstalowaną grą.
+- Treść jest porównywana z wydaniem, które adres sam podaje, nie z pakietem zbudowanym od nowa; zgodność pakietu
+  z commitem sprawdza zadanie `deploy` przy publikacji.
+- Progi (14 dni, 1500 ms) są w `scripts/lib/monitor-rules.mjs`; próg czasu jest ustawiony z zapasem na adres,
+  który ledwo odpowiada, a nie na wolniejszy dzień.
+
 ## Lokalnie
 
 ```sh
@@ -146,6 +174,7 @@ pnpm build                              # pakiet w dist/ i dist.sha256
 pnpm check:dist
 node scripts/serve-dist.mjs             # dist/ pod http://127.0.0.1:4317, z nagłówkami z _headers
 node scripts/check-deployment.mjs http://127.0.0.1:4317   # ta sama kontrola co po wdrożeniu
+node scripts/monitor-deployment.mjs <adres gry>           # to, co robi workflow Monitor; same odczyty
 node scripts/make-icons.mjs             # ikony od nowa, po zmianie obrazka (src/pwa/icon-picture.ts)
 ```
 

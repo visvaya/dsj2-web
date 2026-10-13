@@ -1,0 +1,52 @@
+name: Monitor
+
+# Checks the deployed game from outside its host, on a schedule: the address answers with a release built from
+# a commit of the default branch, every file of that release is served with its bytes, its type and the headers
+# that commit asks for, the certificate is not about to end, and the start page answers in time. The checks are
+# in scripts/monitor-deployment.mjs; they only read.
+#
+# A failed run is the alarm: GitHub notifies whoever last changed the schedule below, or whoever started the
+# run by hand. Nothing here publishes, rolls back or needs a credential.
+on:
+  schedule:
+    # Four times a day, off the full hour, when scheduled runs start latest.
+    - cron: "23 1,7,13,19 * * *"
+  workflow_dispatch:
+    inputs:
+      address:
+        description: Address to check instead of the deployed game (one that fails shows what an alarm looks like)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+# A run that is still waiting for a deployment to settle is replaced by the next one.
+concurrency:
+  group: monitor
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    name: monitor
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ADDRESS: ${{ inputs.address || vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The served commit is looked up in the history of the default branch.
+          fetch-depth: 0
+      # The scripts use nothing but Node itself, so no package is installed.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          package-manager-cache: false
+      - name: The deployed game answers, whole and in time
+        run: |
+          if [ -z "$ADDRESS" ]; then
+            echo "The repository variable PRODUCTION_URL is not set."; exit 1
+          fi
+          node scripts/monitor-deployment.mjs "$ADDRESS"
