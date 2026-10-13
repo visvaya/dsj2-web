@@ -1,4 +1,5 @@
 import { DEFAULT_OUTFIT, parseOutfit, type Outfit } from "../game/outfit";
+import { DEFAULT_SENSITIVITY, parseSensitivity, type Sensitivity } from "../game/sensitivity";
 
 /** Persistent data of the game, versioned so older saves can be migrated. */
 const SAVE_SCHEMA_VERSION = 2;
@@ -24,6 +25,8 @@ export interface Settings {
   outfit: Outfit;
   /** Game sounds (added after version 2 too; on by default). */
   sound: boolean;
+  /** How strongly the mouse, a dragged finger and the tilt lean the jumper (added after version 2 too). */
+  sensitivity: Sensitivity;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   scenery: "varied",
   outfit: DEFAULT_OUTFIT,
   sound: true,
+  sensitivity: DEFAULT_SENSITIVITY,
 };
 
 export interface SaveData {
@@ -97,6 +101,7 @@ function parseSettings(v: unknown): Settings {
         : DEFAULT_SETTINGS.scenery,
     outfit: parseOutfit(field(v, "outfit")),
     sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
+    sensitivity: parseSensitivity(field(v, "sensitivity")),
   };
 }
 

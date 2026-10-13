@@ -26,40 +26,20 @@ export function feedbackEvents(prev: JumpSimState, next: JumpSimState): Feedback
   return events;
 }
 
-/** Whether the browser can vibrate at all (Safari on iOS cannot). */
+/**
+ * Whether the browser can vibrate at all. Safari on iOS cannot, and nothing a page does stands in for it: the
+ * tap that Safari gives when a system switch is toggled was tried and was not felt on a real phone.
+ */
 export function canVibrate(nav: { vibrate?: unknown } = navigator): boolean {
   return typeof nav.vibrate === "function";
 }
 
-/**
- * Taps of the stand-in for browsers without vibration. Safari on iOS cannot vibrate, but it gives one short tap
- * of its own when a system switch is toggled, always of the same strength; a harder event is more taps. The
- * start and the take-off get none here: they happen under the player's thumb, and the touch itself taps.
- */
-const STAND_IN_TAPS: Readonly<Record<FeedbackEvent, number>> = { start: 0, takeoff: 0, landing: 2, crash: 3 };
-const STAND_IN_TAP_GAP_MS = 70;
-
-/**
- * Vibrates where the browser supports it. Elsewhere it uses the stand-in when there is one (`tap`, see
- * src/ui/haptic-switch.ts), and silently does nothing otherwise.
- */
-export function vibrate(
-  event: FeedbackEvent,
-  nav: { vibrate?: (pattern: number[]) => boolean } = navigator,
-  tap: (() => void) | null = null,
-  later: (run: () => void, afterMs: number) => unknown = setTimeout,
-): void {
-  if (typeof nav.vibrate === "function") {
-    try {
-      nav.vibrate([...VIBRATION_MS[event]]);
-    } catch {
-      // Some browsers throw when vibration is blocked by a permission policy.
-    }
-    return;
-  }
-  if (tap === null) return;
-  for (let index = 0; index < STAND_IN_TAPS[event]; index++) {
-    if (index === 0) tap();
-    else later(tap, index * STAND_IN_TAP_GAP_MS);
+/** Vibrates where the browser supports it (not Safari on iOS); silently does nothing otherwise. */
+export function vibrate(event: FeedbackEvent, nav: { vibrate?: (pattern: number[]) => boolean } = navigator): void {
+  if (typeof nav.vibrate !== "function") return;
+  try {
+    nav.vibrate([...VIBRATION_MS[event]]);
+  } catch {
+    // Some browsers throw when vibration is blocked by a permission policy.
   }
 }

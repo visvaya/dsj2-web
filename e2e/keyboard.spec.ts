@@ -68,10 +68,12 @@ test("the jump screen is operated with the keyboard alone and Escape leaves it",
   await expect(jumpCanvas(page)).toBeFocused();
   await expectVisibleFocus(page);
 
-  const visited = await tabThrough(page, 4);
+  const visited = await tabThrough(page, 6);
   expect(visited).toEqual([
     expect.stringMatching(TEXT.jumpAgain),
     expect.stringMatching(TEXT.toHills),
+    "Mniejsza czułość",
+    "Większa czułość",
     expect.stringMatching(TEXT.scenery),
     expect.stringMatching(TEXT.sound),
   ]);

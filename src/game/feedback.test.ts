@@ -37,39 +37,6 @@ describe("haptic feedback", () => {
     expect(canVibrate({})).toBe(false);
   });
 
-  it("taps through the stand-in where the browser cannot vibrate, for what does not happen under a thumb", () => {
-    const taps: number[] = [];
-    const later: { tap: () => void; afterMs: number }[] = [];
-    const feedback = (event: "start" | "takeoff" | "landing" | "crash") => {
-      taps.length = 0;
-      later.length = 0;
-      vibrate(
-        event,
-        {},
-        () => taps.push(taps.length),
-        (tap, afterMs) => later.push({ tap, afterMs }),
-      );
-      const immediate = taps.length;
-      for (const planned of later) planned.tap();
-      return { immediate, total: taps.length, delaysMs: later.map((planned) => planned.afterMs) };
-    };
-    expect(feedback("start")).toEqual({ immediate: 0, total: 0, delaysMs: [] });
-    expect(feedback("takeoff")).toEqual({ immediate: 0, total: 0, delaysMs: [] });
-    expect(feedback("landing")).toEqual({ immediate: 1, total: 2, delaysMs: [70] });
-    expect(feedback("crash")).toEqual({ immediate: 1, total: 3, delaysMs: [70, 140] });
-  });
-
-  it("prefers real vibration to the stand-in, and does nothing with neither", () => {
-    const calls: number[][] = [];
-    let taps = 0;
-    vibrate("landing", { vibrate: (p) => (calls.push(p), true) }, () => {
-      taps++;
-    });
-    vibrate("landing", {});
-    expect(calls).toEqual([[45]]);
-    expect(taps).toBe(0);
-  });
-
   it("vibrates only where the browser can", () => {
     const calls: number[][] = [];
     vibrate("crash", { vibrate: (p) => (calls.push(p), true) });

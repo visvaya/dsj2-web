@@ -152,8 +152,11 @@ export function createPlayerInput(): PlayerInput {
       leanKeys = direction;
     },
     takeFrame() {
-      const raw = Math.round(pendingDy) + leanKeys * KEY_LEAN_PER_FRAME;
-      pendingDy = 0;
+      // Whole steps go to the game. The fraction waits for the next frame, so motion scaled by the player's
+      // sensitivity, or a finger moving less than a step a frame, is not lost.
+      const whole = Math.trunc(pendingDy);
+      pendingDy -= whole;
+      const raw = whole + leanKeys * KEY_LEAN_PER_FRAME;
       const dy = Math.max(-MOTION_LIMIT - 1, Math.min(MOTION_LIMIT, raw));
       const right = rightHeld() || pressed.right;
       const chord = leftTouchMuted && right && mutedLeftTouchAgeFrames <= TOUCH_CHORD_FRAMES;

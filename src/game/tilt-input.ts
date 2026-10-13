@@ -56,11 +56,12 @@ function turnDeg(from: number, to: number): number {
 
 /**
  * Mouse motion (the mouse's dy) for the tilt angle of this frame, and the state for the next one. Whole steps
- * go to the game; the fraction is carried over, so a slow tilt is not lost.
+ * go to the game; the fraction is carried over, so a slow tilt is not lost. `gain` is the player's sensitivity
+ * (see ./sensitivity.ts).
  */
-export function tiltStep(state: TiltState, angleDeg: number): { state: TiltState; motion: number } {
+export function tiltStep(state: TiltState, angleDeg: number, gain = 1): { state: TiltState; motion: number } {
   if (state.previousDeg === null) return { state: { previousDeg: angleDeg, carry: state.carry }, motion: 0 };
-  const pending = state.carry + turnDeg(state.previousDeg, angleDeg) * TILT_MOTION_PER_DEG;
+  const pending = state.carry + turnDeg(state.previousDeg, angleDeg) * TILT_MOTION_PER_DEG * gain;
   const motion = Math.trunc(pending);
   return { state: { previousDeg: angleDeg, carry: pending - motion }, motion };
 }
