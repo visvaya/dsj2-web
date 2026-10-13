@@ -24,7 +24,9 @@ test.describe("the controls behind the pause button", () => {
     const visited = new Set<string>();
     const hiddenBehind: string[] = [];
     for (let i = 0; i < controls + 4; i++) {
-      await page.keyboard.press("Tab");
+      // The first button has the focus as the controls open; it counts without waiting for the focus to come
+      // round again, which takes a browser with a window of its own more presses than there are to spare.
+      if (i > 0) await page.keyboard.press("Tab");
       const focus = await focusReport(page);
       if (focus.onBody) continue;
       visited.add(focus.name);
