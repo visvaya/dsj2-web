@@ -507,7 +507,7 @@ export function JumpScreen({
         state: jump.state,
         controls: latest.current.controls,
         titleInsetPx,
-        flightHints: latest.current.settings.flightHints,
+        hints: latest.current.settings.hillHints,
         frame: clock,
         over,
         newRecord,
@@ -638,7 +638,7 @@ export function JumpScreen({
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk po chwili ustala jego szerokość, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
         />
       </div>
       <div className="game-toolbar">
@@ -770,10 +770,10 @@ export function JumpScreen({
             <button
               type="button"
               className="pixel-button"
-              aria-pressed={settings.flightHints}
-              onClick={() => onSettings({ flightHints: !settings.flightHints })}
+              aria-pressed={settings.hillHints}
+              onClick={() => onSettings({ hillHints: !settings.hillHints })}
             >
-              {settings.flightHints ? "Podpowiedzi w locie: wł." : "Podpowiedzi w locie: wył."}
+              {settings.hillHints ? "Podpowiedzi na skoczni: wł." : "Podpowiedzi na skoczni: wył."}
             </button>
             {fullscreenAvailable && (
               <button
@@ -832,7 +832,9 @@ export function JumpScreen({
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={tiltOn ? [] : ["L+P: wybicie", "P: telemark", "drugie P później: szerszy", "L+P w locie: dwie nogi"]}
+          hints={
+            tiltOn ? [] : ["L+P: wybicie", "P: telemark", "szybko drugie P: wąski telemark", "L+P w locie: dwie nogi"]
+          }
           label={
             tiltOn
               ? "Prawa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"

@@ -69,7 +69,7 @@ interface Prompts {
   takeoff: string;
   lean: string;
   telemark: string;
-  /** The second button: it ends the preparation, so the later it comes the wider the telemark. */
+  /** The second button: it ends the preparation, so pressed quickly after the first it gives a narrow telemark. */
   width: string;
   twoFeet: string;
 }
@@ -81,7 +81,7 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     takeoff: "OBA PRZYCISKI NA PROGU",
     lean: "MYSZ: POCHYLENIE",
     telemark: "PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "DRUGI PO CHWILI: IM PÓŹNIEJ, TYM SZERSZY",
+    width: "SZYBKO DRUGI PRZYCISK: WĄSKI TELEMARK",
     twoFeet: "OBA NARAZ: NA DWIE NOGI",
   },
   touch: {
@@ -90,7 +90,7 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     takeoff: "L+P NA PROGU: WYBICIE",
     lean: "PRZECIĄGAJ W POLU L: POCHYLENIE",
     telemark: "P TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "ZNOWU P: IM PÓŹNIEJ, TYM SZERSZY",
+    width: "SZYBKO ZNOWU P: WĄSKI TELEMARK",
     twoFeet: "L+P: NA DWIE NOGI",
   },
   tilt: {
@@ -99,12 +99,14 @@ const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
     takeoff: "DWA KCIUKI NA PROGU: WYBICIE",
     lean: "PRZECHYLAJ TELEFON: POCHYLENIE",
     telemark: "KCIUK TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "DRUGI: IM PÓŹNIEJ, TYM SZERSZY",
+    width: "SZYBKO DRUGI: WĄSKI TELEMARK",
     twoFeet: "DWA KCIUKI NARAZ: NA DWIE NOGI",
   },
 };
 
 export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly string[] {
+  // A player who knows the game can switch every prompt on the hill off.
+  if (m.hints === false) return [];
   const phase = m.state.logic.phase;
   const text = PROMPTS[m.controls];
   // The next jump can start as soon as the notes are up; the jumper may still be sliding out.
@@ -112,11 +114,11 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   if (phase === PHASE.gate) return [text.start];
   if (phase === PHASE.inrun || phase === PHASE.crouch) return [text.takeoff];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
-  // best. The other button then ends the preparation: the later it comes, the wider the telemark. Both buttons
+  // best. The other button then ends the preparation: quickly after the first it gives a narrow telemark, later a
+  // wider one. Both buttons
   // at once land on two feet: safer on a very long jump, with lower notes.
   if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    // A player who knows them can switch these four lines off; the others are one short line each.
-    return m.flightHints === false ? [] : [text.lean, text.telemark, text.width, text.twoFeet];
+    return [text.lean, text.telemark, text.width, text.twoFeet];
   }
   return [];
 }

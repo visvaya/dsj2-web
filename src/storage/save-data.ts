@@ -27,8 +27,8 @@ export interface Settings {
   sound: boolean;
   /** How strongly the mouse, a dragged finger and the tilt lean the jumper (added after version 2 too). */
   sensitivity: Sensitivity;
-  /** Whether the picture tells how to steer and land during the flight (added after version 2 too; on). */
-  flightHints: boolean;
+  /** Whether the picture tells what to press and when on the hill (added after version 2 too; on). */
+  hillHints: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -38,7 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   outfit: DEFAULT_OUTFIT,
   sound: true,
   sensitivity: DEFAULT_SENSITIVITY,
-  flightHints: true,
+  hillHints: true,
 };
 
 export interface SaveData {
@@ -95,7 +95,8 @@ function parseSettings(v: unknown): Settings {
   const vibration = field(v, "vibration");
   const scenery = field(v, "scenery");
   const sound = field(v, "sound");
-  const flightHints = field(v, "flightHints");
+  // The name the setting had for a day, when it covered the flight only.
+  const hillHints = field(v, "hillHints") ?? field(v, "flightHints");
   return {
     leanControl: lean === "tilt" || lean === "drag" ? lean : DEFAULT_SETTINGS.leanControl,
     vibration: typeof vibration === "boolean" ? vibration : DEFAULT_SETTINGS.vibration,
@@ -106,7 +107,7 @@ function parseSettings(v: unknown): Settings {
     outfit: parseOutfit(field(v, "outfit")),
     sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
     sensitivity: parseSensitivity(field(v, "sensitivity")),
-    flightHints: typeof flightHints === "boolean" ? flightHints : DEFAULT_SETTINGS.flightHints,
+    hillHints: typeof hillHints === "boolean" ? hillHints : DEFAULT_SETTINGS.hillHints,
   };
 }
 
