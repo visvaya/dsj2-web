@@ -99,6 +99,9 @@ Tryb lokalny (zmienna `BROWSER_TESTS_EDGE`) niczego nie pobiera: używa przeglą
 buduje grę. Firefox i WebKit działają tylko w CI. `pnpm test:browser` bez zmiennej uruchamia wszystkie projekty
 i wymaga przeglądarek Playwrighta (`pnpm exec playwright install chromium firefox webkit`); w CI testuje `dist/`
 zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
+W trybie lokalnym testy odmawiają grze przechwycenia myszy: przeglądarka bez okna potrafi mimo to zabrać kursor
+całej maszyny na czas skoku. Gra działa wtedy bez przechwycenia; ścieżkę z przechwyconą myszą sprawdza CI,
+o ile silnik na nią pozwala.
 Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/`. CI zapisuje oba
 katalogi jako artefakt `playwright-report` (7 dni), gdy testy nie przeszły, a także wtedy, gdy test przeszedł
 dopiero w powtórce: przebieg jest wtedy zielony, a ślad nieudanej próby jest jedynym zapisem przyczyny.

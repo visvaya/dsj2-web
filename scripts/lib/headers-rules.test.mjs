@@ -103,9 +103,16 @@ test("the shipped file sets no header twice for any path of the game", () => {
 
 const cacheControl = (path) => value(headersForPath(SHIPPED, path), "Cache-Control");
 
-test("the shipped file caches hashed files for good and revalidates the rest", () => {
-  assert.equal(cacheControl("/assets/index-DpkSeCJQ.js"), "public, max-age=31536000, immutable");
-  for (const path of ["/", "/sw.js", "/release.json", "/manifest.webmanifest", "/icons/icon-192.png"]) {
+test("the shipped file has every file revalidated, the hashed ones too", () => {
+  // A hashed file is not cached for good: the host puts the header on a missing file as well.
+  for (const path of [
+    "/assets/index-DpkSeCJQ.js",
+    "/",
+    "/sw.js",
+    "/release.json",
+    "/manifest.webmanifest",
+    "/icons/icon-192.png",
+  ]) {
     assert.equal(cacheControl(path), "no-cache", path);
   }
 });
