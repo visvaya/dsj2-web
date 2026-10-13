@@ -87,11 +87,33 @@ export function findStartPageAliasProblems(seen) {
   return seen.headers["location"] === "/" ? [] : [`/index.html: redirects to "${seen.headers["location"]}"`];
 }
 
-// The plain-HTTP address: a redirect to the same address under HTTPS.
+// Top-level domains that browsers reach only over HTTPS: the whole domain is on their HSTS preload list, with
+// every subdomain. A page under one is never opened over plain HTTP, whatever the host answers there, and a
+// workers.dev address has no setting that would make the host redirect.
+const HTTPS_ONLY_TOP_LEVEL_DOMAINS = new Set(["dev"]);
+
+export function browsersForceHttps(hostname) {
+  return HTTPS_ONLY_TOP_LEVEL_DOMAINS.has(hostname.split(".").at(-1));
+}
+
+// The plain-HTTP address: a redirect to the same address under HTTPS, or no redirect at all where browsers
+// use HTTPS regardless.
 export function findHttpsRedirectProblems(httpUrl, seen) {
   const target = httpUrl.replace(/^http:/, "https:");
-  if (seen.status < 300 || seen.status > 399) return [`${httpUrl}: HTTP ${seen.status}, expected a redirect to HTTPS`];
+  if (seen.status < 300 || seen.status > 399) {
+    if (browsersForceHttps(new URL(httpUrl).hostname) === true) return [];
+    return [`${httpUrl}: HTTP ${seen.status}, expected a redirect to HTTPS`];
+  }
   return seen.headers["location"] === target ? [] : [`${httpUrl}: redirects to "${seen.headers["location"]}"`];
+}
+
+// What the plain-HTTP address answered, for the report.
+export function plainHttpNote(httpUrl, seen) {
+  const hostname = new URL(httpUrl).hostname;
+  const answer = `plain HTTP answers with HTTP ${seen.status}`;
+  if (browsersForceHttps(hostname) !== true || (seen.status >= 300 && seen.status <= 399)) return answer;
+  const domain = hostname.split(".").at(-1);
+  return `${answer}; browsers use HTTPS for every address under .${domain}, so no page is opened that way`;
 }
 
 // release.json as served, against the commit and the content expected.
