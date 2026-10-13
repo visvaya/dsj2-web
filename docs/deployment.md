@@ -131,6 +131,10 @@ Workflow `Rollback` (`.github/workflows/rollback.yml`), uruchamiany ręcznie na 
    odpowiada bajtami o podanym skrócie, a `release.json` wskazuje podany commit.
 4. Włączenie publikacji z powrotem jest osobnym, świadomym krokiem, gdy `master` zawiera wydanie do publikacji.
 
+Sprawdzone próbą 2026-10-13 (cofnięcie o jedną wersję i powrót, każde około 30 s): host przywraca wersję razem
+z jej plikami statycznymi. Po cofnięciu `/release.json` podawał commit i zawartość wcześniejszego wydania,
+a strona wskazywała jego skrypt, który odpowiadał kodem 200.
+
 Skutki dla graczy: zapis nie jest ruszany. Gracz, który ma już nowsze wydanie, dostaje starsze jako kolejną
 aktualizację, po zamknięciu wszystkich okien gry. Wycofanie nie usuwa kopii, które już działają offline.
 Wydania przed i po muszą czytać ten sam zapis; wycofanie przez zmianę schematu zapisu wymaga osobnego testu.
@@ -151,5 +155,5 @@ node scripts/make-icons.mjs             # ikony od nowa, po zmianie obrazka (src
   żaden silnik w testach tego nie ma; lista ręcznego odbioru jest w `docs/testing.md`.
 - Zachowania hosta, którego serwer testów tylko naśladuje. Kontrola HTTP po wdrożeniu jest dowodem dla
   prawdziwego hosta; wypisuje też jako uwagę, jaki `Cache-Control` dostaje odpowiedź 404 pod `/assets/`.
-- Tego, czy wycofanie wersji na hoście przywraca także zasoby statyczne tej wersji: do wykazania na dwóch
-  wersjach przed pierwszym użyciem w razie awarii.
+- Tego, jak wycofanie dociera do gracza z zainstalowanym nowszym wydaniem na prawdziwym telefonie (w testach
+  robi to `offline.spec.ts`), i wycofania o więcej niż jedną wersję.
