@@ -15,18 +15,34 @@ import { OFFLINE_NOTE, openGame, requireServiceWorkers } from "./support/pwa";
 test.skip(({ traits }) => !traits.desktop, "the first visit is measured once per engine, on the desktop profiles");
 
 /**
- * Measured 2026-10-13 in Microsoft Edge 155 (Chromium) on a laptop, the same in every run: 4 requests and
- * 127 540 bytes until the first screen (the page, its script, its stylesheet and one icon); 15 requests and
- * 142 278 bytes until the game is stored, four of them answered 304 without a body, because the worker asks
- * again for what the page has just fetched and the browser's cache answers. The byte limits are the measured
- * values plus 15%, and so is the larger count; 15% of four requests is less than one request.
+ * Measured 2026-10-13: in Microsoft Edge 155 on a laptop and, the same day, in the Chromium, Firefox and WebKit
+ * of the browser tests on the CI runner. Chromium gave the same numbers in both places.
+ *
+ * - Chromium: 4 requests and 127 540 bytes until the first screen (the page, its script, its stylesheet and one
+ *   icon); 15 requests and 142 275 bytes until the game is stored, four of them answered 304 without a body,
+ *   because the worker asks again for what the page has just fetched and the browser's cache answers.
+ * - Firefox: 5 requests (a second icon) and 128 679 bytes; then 16 requests and 142 275 bytes, five answered 304.
+ * - WebKit: 4 requests (the manifest instead of an icon) and 126 565 bytes; then 15 requests and 268 840 bytes,
+ *   none answered 304. Its cache does not answer the worker, so the page, the manifest, the script and the
+ *   stylesheet go out whole a second time: 126 565 bytes more.
+ *
+ * The byte limits are the Chromium values plus 15%, and so is the count until the game is stored.
  */
 const FIRST_VISIT_BUDGET = {
-  FIRST_SCREEN_REQUESTS: 4,
   FIRST_SCREEN_BYTES: 146_700,
   READY_REQUESTS: 17,
   READY_BYTES: 163_600,
 } as const;
+
+/** Requests until the first screen, as measured in each engine; 15% of four requests is less than one request. */
+const FIRST_SCREEN_REQUESTS = { chromium: 4, firefox: 5, webkit: 4 } as const;
+
+/**
+ * The engines in which the worker gets whole files again for what the page already has. Seen in the WebKit of
+ * the browser tests; whether Safari does the same on a phone has not been measured. There the second copy is
+ * allowed, and nothing beyond it.
+ */
+const FETCHES_AGAIN_FOR_THE_WORKER: ReadonlySet<string> = new Set(["webkit"]);
 
 const HTTP_OK = 200;
 
@@ -108,23 +124,21 @@ test("a first visit fetches each file once and stays within the budget of reques
       repeatedBytes,
     });
 
+    expect(firstScreen.count, "requests until the first screen").toBeLessThanOrEqual(
+      FIRST_SCREEN_REQUESTS[browserName],
+    );
     expect(firstScreen.bodyBytes, "bytes until the first screen").toBeLessThanOrEqual(
       FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
     );
-    if (browserName === "chromium") {
-      expect(firstScreen.count, "requests until the first screen").toBeLessThanOrEqual(
-        FIRST_VISIT_BUDGET.FIRST_SCREEN_REQUESTS,
-      );
-      expect(ready.count, "requests until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_REQUESTS);
-      expect(repeated, "files whose whole body was sent more than once").toEqual([]);
-      expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_BYTES);
-    } else {
-      // Not yet measured in Firefox and WebKit, which may ask for other icons and may fetch again what the page
-      // already has: their counts are only reported, and the bytes may be those of a second copy and no more.
-      // To be settled from the lines this test writes in their first run on the runner.
+    expect(ready.count, "requests until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_REQUESTS);
+    if (FETCHES_AGAIN_FOR_THE_WORKER.has(browserName)) {
+      expect(repeatedBytes, "bytes sent a second time").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES);
       expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(
         FIRST_VISIT_BUDGET.READY_BYTES + FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
       );
+    } else {
+      expect(repeated, "files whose whole body was sent more than once").toEqual([]);
+      expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_BYTES);
     }
   } finally {
     await server.close();

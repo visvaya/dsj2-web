@@ -73,10 +73,12 @@ wysłanych, po kompresji (304 i HEAD to 0 bajtów; żądanie bez odpowiedzi nie 
 
 Test liczy też pliki, których pełne ciało serwer wysłał więcej niż raz. Worker pobiera przy instalacji każdy plik
 wydania w trybie `no-cache`: pamięć przeglądarki może odpowiedzieć dopiero po zapytaniu serwera. W Chromium
-przeglądarka pyta wtedy warunkowo i dostaje 304 dla tego, co strona już pobrała, więc żaden plik nie idzie dwa
-razy, i test tego pilnuje. Dla Firefoksa
-i WebKitu wynik nie był znany przed pierwszym przebiegiem w CI: test wypisuje tam dane i sprawdza budżety
-z zapasem na powtórne pobranie plików strony. Budżety: `FIRST_VISIT_BUDGET` w pliku testu.
+i w Firefoksie przeglądarka pyta wtedy warunkowo i dostaje 304 dla tego, co strona już pobrała, więc żaden plik
+nie idzie dwa razy, i test tego pilnuje. WebKit z testów przeglądarkowych nie odpowiada workerowi ze swojej
+pamięci: strona, manifest, skrypt i arkusz stylów idą w całości drugi raz (zmierzone 2026-10-13 w CI: 268 840
+bajtów do gotowości bez sieci zamiast 142 275). Test dopuszcza tam tę jedną dodatkową kopię i nic ponad nią.
+Czy Safari na telefonie robi to samo, nie zostało zmierzone. Budżety i zmierzone wartości każdego silnika:
+`FIRST_VISIT_BUDGET` i stałe obok niego w pliku testu.
 
 **Czas i pamięć** (`e2e/perf/*.perf.ts`, osobny tryb, tylko Chromium). Testy czasu nie mogą biec obok innych
 testów, bo zajęta maszyna gubi kroki symulacji; zmienna `BROWSER_TESTS_PERF` przełącza więc konfigurację na jeden
@@ -109,6 +111,12 @@ spowolnionym 4 razy gra pokazuje 20 klatek na sekundę zamiast 60, bo samo rysow
 (mediana) przy odstępie 16,7 ms, i gubi 20 do 35 kroków symulacji na skok. Bez spowolnienia trzyma 59,9 klatki
 na sekundę; jedyną klatką, która bywa spóźniona o ponad 114 ms i gubi wtedy od 1 do 5 kroków, jest ta przy
 pierwszym naciśnięciu na obrazie (jedno zadanie 85 do 130 ms, raz 187 ms, ok. 0,2 s po otwarciu ekranu skoku).
+
+Ten sam zestaw na maszynie CI tego samego dnia (jeden przebieg, Chromium z Playwrighta na Linuksie): maszyna jest
+około 2,5 razy szybsza od tamtego laptopa (rysowanie 2,4 do 2,7 ms bez spowolnienia), więc przy procesorze
+spowolnionym 4 razy gra trzyma tam 59,9 klatki na sekundę (rysowanie 11,4 ms, mediana) i nie gubi kroków,
+a zadania przy pierwszym naciśnięciu nie ma wcale. Budżety ustawione z laptopa są więc w CI luźne: przebieg w CI
+łapie regresję rzędu wielkości, a stan „20 klatek na sekundę” widać tylko na wolniejszej maszynie.
 
 Czego te pomiary nie mówią:
 
@@ -159,7 +167,7 @@ Co sprawdzają pliki w `e2e/`:
 | `sound.spec.ts` | żaden kontekst audio nie działa przed pierwszym gestem, jeden po nim; wyłączony dźwięk to cisza na wyjściu, także po przeładowaniu (`AudioContext` obserwowany z testu) | wszystkie |
 | `player-files.spec.ts` | plik, który nie jest grą: komunikat po polsku, nic nie zostaje zapisane, skocznia wbudowana dostępna | wszystkie |
 | `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html`; nowy ekran otwiera się od góry, bez pozycji przewinięcia poprzedniego | wszystkie |
-| `first-visit.spec.ts` | pierwsze wejście: liczba żądań i bajty do pierwszego ekranu i do gotowości bez sieci wobec budżetu; w Chromium żaden plik nie jest pobierany w całości dwa razy (opis w „Pomiar wydajności”) | komputery (trzy silniki) |
+| `first-visit.spec.ts` | pierwsze wejście: liczba żądań i bajty do pierwszego ekranu i do gotowości bez sieci wobec budżetu; w Chromium i Firefoksie żaden plik nie jest pobierany w całości dwa razy, w WebKicie najwyżej raz więcej (opis w „Pomiar wydajności”) | komputery (trzy silniki) |
 | `offline.spec.ts` | po jednej wizycie gra startuje i daje się rozegrać bez sieci (cały skok, rekord po przeładowaniu); pierwsza wizyta bez sieci nie daje gry; nowe wydanie czeka, dopóki otwarte jest choć jedno okno, potem przejmuje stronę, a zapis zostaje; wydanie z brakującym albo uszkodzonym plikiem i wydanie podmienione w trakcie pobierania nie zostawiają żadnej części i nie ruszają działającego; wycofanie do starszego wydania dociera do gracza z nowszym; po przejęciu przez nowe wydanie strona poprzedniego nadal dostaje swój skrypt, a poprzednie wydanie znika dopiero po starcie strony nowego; brak skryptu przy pierwszej wizycie zostawia tekst z linkiem, bez pętli przeładowań | komputery (trzy silniki) |
 | `http-policy.spec.ts` | serwer testów przechodzi tę samą kontrolę co wdrożenie (`scripts/check-deployment.mjs`); polityka treści, typy i reguły cache strony, workera, manifestu i licencji; strona nie blokuje powiększania | `desktop-chromium` |
 | `single-file.spec.ts` | strona jednoplikowa nie pobiera niczego poza sobą, nie rejestruje workera także pod bezpiecznym adresem, działa bez sieci i w ramce | komputery |
