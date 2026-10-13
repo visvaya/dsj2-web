@@ -54,7 +54,6 @@ test("with sound switched off in the saved settings a new visit stays silent", a
   await press(button(page, TEXT.sound), traits);
   await expect(button(page, TEXT.sound)).toHaveAttribute("aria-pressed", "false");
 
-  await page.reload();
   await openJumpFromStart(page, traits);
   await firstGesture(page, traits);
   // A context may run, but nothing reaches its output.

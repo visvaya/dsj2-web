@@ -41,6 +41,11 @@ export async function fontsReady(page: Page): Promise<void> {
   });
 }
 
+/**
+ * Loads the game from the start, which is also how a test reloads it. One navigation per load: a second one
+ * right after the first cuts the icon requests of the page it leaves, and Firefox reports a request cut while
+ * the service worker answers it as an error of the worker.
+ */
 export async function openMenu(page: Page): Promise<void> {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();

@@ -60,8 +60,7 @@ for (const { name, file, message } of CASES) {
       .setInputFiles({ name: file.name, mimeType: file.mimeType, buffer: Buffer.from(file.text, "utf8") });
     await expectRefusal(page, message);
 
-    // Nothing comes back after a reload, and the built-in hill is still there to jump on.
-    await page.reload();
+    // Nothing comes back when the page is loaded again, and the built-in hill is still there to jump on.
     await openMenu(page);
     expect(await storedGameFiles(page)).toEqual([]);
     await expect(page.getByText(/Skocznie z oryginału: \d/)).toHaveCount(0);

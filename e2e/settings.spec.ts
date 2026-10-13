@@ -25,7 +25,6 @@ test("sound and scenery chosen on the jump screen survive a reload", async ({ pa
 
   await expect.poll(() => storedSave(page)).toMatchObject({ settings: { sound: false, scenery: "day" } });
 
-  await page.reload();
   await openJumpFromStart(page, traits);
   await openJumpControls(page, traits);
   await expect(button(page, TEXT.sound)).toHaveText("Dźwięk: wył.");
