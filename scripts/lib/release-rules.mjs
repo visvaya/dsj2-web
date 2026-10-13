@@ -62,6 +62,11 @@ export function urlOfPath(path) {
   return path === RELEASE_FILES.START_PAGE ? "/" : `/${path}`;
 }
 
+// The file behind an address, the other way round.
+export function pathOfUrl(url) {
+  return url === "/" ? RELEASE_FILES.START_PAGE : url.slice(1);
+}
+
 // What the service worker keeps: every file the browser can ask for, release.json among them.
 export function precacheOf(files) {
   return files

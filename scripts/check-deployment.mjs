@@ -7,9 +7,11 @@
 //       compares the deployment with the package in dist/ (after `pnpm build`); with --wait-s the check is
 //       repeated for that long until it passes, because a fresh deployment is not everywhere at once
 //   node scripts/check-deployment.mjs <url> --served-release [--source-sha <commit>] [--content-id <id>]
+//       [--headers <file>]
 //       checks the deployment against the release its own service worker carries: after a rollback, when the
 //       package of the restored release is not at hand, and when the deployed content is already the
-//       package's, built from an earlier commit
+//       package's, built from an earlier commit; with --headers (the `_headers` file of the commit the release
+//       was built from) the types, the compression and the headers of the answers are checked as well
 //
 // A plain-HTTP <url> (the local test server) skips the check of the redirect to HTTPS. An address under a
 // top-level domain that browsers open only over HTTPS may answer plain HTTP without a redirect; the report says so.
@@ -20,6 +22,7 @@ import { parseArgs } from "node:util";
 
 import {
   expectedResponses,
+  expectedResponsesOfRelease,
   findHttpsRedirectProblems,
   findNotServedProblems,
   findReleaseProblems,
@@ -112,6 +115,17 @@ async function checkAgainstPackage(origin, values) {
   return { problems, checked: expected.length, release: expectedRelease };
 }
 
+// What the files of a served release have to answer. Without a headers file only their bytes are known. With
+// one, the worker is checked too: it is not on its own list, so its body is taken as served.
+function expectedOfServedRelease(release, worker, headersFile) {
+  if (headersFile === undefined) {
+    return release.precache.map((entry) => ({ ...entry, headers: [], contentType: null, compressed: false }));
+  }
+  const rules = parseHeadersFile(readFileSync(headersFile, "utf8"));
+  const served = [...release.precache, { url: `/${RELEASE_FILES.SERVICE_WORKER}`, sha256: worker.sha256 }];
+  return expectedResponsesOfRelease(served, rules);
+}
+
 async function checkAgainstServedRelease(origin, values) {
   const asked = { sourceSha: values["source-sha"], contentId: values["content-id"] };
   await waitForRelease(origin, asked, Number(values["wait-s"]));
@@ -123,16 +137,16 @@ async function checkAgainstServedRelease(origin, values) {
     contentId: values["content-id"] ?? release.contentId,
   };
   const problems = [];
-  for (const entry of release.precache) {
-    const expected = { url: entry.url, sha256: entry.sha256, headers: [], contentType: null, compressed: false };
+  const listed = expectedOfServedRelease(release, worker, values.headers);
+  for (const expected of listed) {
     // oxlint-disable-next-line no-await-in-loop -- one request at a time: a check, not a load test
-    problems.push(...findResponseProblems(expected, await get(`${origin}${entry.url}`)));
+    problems.push(...findResponseProblems(expected, await get(`${origin}${expected.url}`)));
   }
   const startPageSha256 = release.precache.find((entry) => entry.url === "/")?.sha256 ?? "";
   problems.push(...(await commonProblems(origin, startPageSha256)));
   const served = await get(`${origin}/${RELEASE_FILES.RELEASE_JSON}`);
   problems.push(...findReleaseProblems(served.text, expectedRelease));
-  return { problems, checked: release.precache.length, release: expectedRelease };
+  return { problems, checked: listed.length, release: expectedRelease };
 }
 
 // What cannot fail the check but belongs in its report.
@@ -157,6 +171,7 @@ async function main() {
       "content-id": { type: "string" },
       "wait-s": { type: "string", default: "0" },
       "served-release": { type: "boolean", default: false },
+      headers: { type: "string" },
     },
   });
   const address = positionals[0];
