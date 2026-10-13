@@ -6,6 +6,15 @@
   --muted: #a0a8c0;
   --accent: #f8d038;
   --danger: #d4241c;
+
+  /*
+   * Parts of the screen the device covers: a camera cut-out, rounded corners, the bar of system gestures.
+   * Zero on a plain screen. The page reaches under them (viewport-fit=cover), so the layout keeps clear itself.
+   */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
   color-scheme: dark;
 }
 
@@ -28,10 +37,39 @@ body,
   min-height: 100%;
   max-width: 960px;
   margin: 0 auto;
-  padding: clamp(24px, 6vw, 48px) clamp(20px, 6vw, 48px) clamp(32px, 8vw, 64px);
+  padding: calc(clamp(24px, 6vw, 48px) + var(--safe-top)) calc(clamp(20px, 6vw, 48px) + var(--safe-right))
+    calc(clamp(32px, 8vw, 64px) + var(--safe-bottom)) calc(clamp(20px, 6vw, 48px) + var(--safe-left));
   display: flex;
   flex-direction: column;
   gap: clamp(18px, 4vw, 28px);
+}
+
+/*
+ * What the page holds before the game starts (index.html). It stays hidden for a moment, so a normal start
+ * never shows it; it remains when a script of the game could not be fetched.
+ */
+.boot-note {
+  margin: 0;
+  padding: calc(24px + var(--safe-top)) calc(20px + var(--safe-right)) calc(24px + var(--safe-bottom))
+    calc(20px + var(--safe-left));
+  font-size: 16px;
+  line-height: 1.75;
+  color: var(--muted);
+  animation: boot-note-appear 0s linear 1.5s both;
+}
+
+.boot-note a {
+  color: var(--accent);
+}
+
+@keyframes boot-note-appear {
+  from {
+    visibility: hidden;
+  }
+
+  to {
+    visibility: visible;
+  }
 }
 
 .title {
@@ -267,6 +305,12 @@ h2 {
   color: var(--danger);
 }
 
+.offline-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .files-status {
   display: flex;
   flex-wrap: wrap;
@@ -303,6 +347,7 @@ h2 {
   align-items: center;
   justify-content: center;
   gap: 8px;
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
   background: var(--bg);
   touch-action: none;
   user-select: none;
@@ -355,7 +400,7 @@ h2 {
 .game.touch {
   display: grid;
   gap: 8px;
-  padding: 8px;
+  padding: max(8px, var(--safe-top)) max(8px, var(--safe-right)) max(8px, var(--safe-bottom)) max(8px, var(--safe-left));
 }
 
 .game.touch .game-stage {
@@ -448,7 +493,8 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: 16px;
+  padding: max(16px, var(--safe-top)) max(16px, var(--safe-right)) max(16px, var(--safe-bottom))
+    max(16px, var(--safe-left));
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;

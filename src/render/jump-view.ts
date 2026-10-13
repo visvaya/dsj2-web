@@ -31,18 +31,27 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 /** Frames per blink phase of the prompts (half a second). */
 const BLINK_FRAMES = 35;
 
-/** The jumper on the hill without the interface, the camera on the jumper (outfit preview). */
+/** Where in the picture the jumper stands, as shares of its width and height. */
+export interface PreviewAnchor {
+  xShare: number;
+  yShare: number;
+}
+
+const PREVIEW_ANCHOR: PreviewAnchor = { xShare: 0.5, yShare: 0.55 };
+
+/** The jumper on the hill without the interface, the camera on the jumper (outfit preview, icons). */
 export function drawJumperPreview(
   fb: FrameBuffer,
   m: { profile: HillProfile; state: JumpSimState; outfit: Outfit },
+  anchor: PreviewAnchor = PREVIEW_ANCHOR,
 ): void {
   withLook({ lighting: "day", fog: false }, () => {
     const s = m.state;
     const cam: Camera = {
       x: s.jumper.xM,
       y: s.jumper.yM,
-      cx: Math.round(fb.width / 2),
-      cy: Math.round(fb.height * 0.55),
+      cx: Math.round(fb.width * anchor.xShare),
+      cy: Math.round(fb.height * anchor.yShare),
     };
     const backdrop = backdropFor(m.profile, cam);
     drawBackdrop(fb, backdrop, cam, fb.height, false, 0);

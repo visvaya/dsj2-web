@@ -1,20 +1,41 @@
 // Rules for the production build output, as pure functions over a listing of dist/.
-// A listing entry is { path, gzipBytes, head }: the path relative to dist/ with forward
-// slashes, the gzip size of the file and its first bytes.
+// A listing entry is { path, bytes, gzipBytes, head }: the path relative to dist/ with forward
+// slashes, the size of the file, its gzip size and its first bytes.
 
-// Gzip budgets, about 15% above the sizes measured on 2026-10-12 after `pnpm build`
-// (JavaScript 102179 bytes, CSS 15170 bytes; zlib default level). Tighten them when the
-// bundle shrinks; raise one only together with the change that explains the growth.
-// The stylesheet carries the fonts: before that it was 8512 bytes and the browser fetched
-// a font file of 8404 bytes next to it, so the two together were 16916 bytes.
+// Budgets, about 15% above the sizes measured after `pnpm build`. Tighten them when the package shrinks;
+// raise one only together with the change that explains the growth.
+//
+// JavaScript and CSS are the bundles under assets/, gzip (zlib default level), measured on 2026-10-12:
+// JavaScript 102179 bytes, CSS 15170 bytes. The stylesheet carries the fonts: before that it was 8512 bytes
+// and the browser fetched a font file of 8404 bytes next to it, so the two together were 16916 bytes.
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 117_500,
   CSS_GZIP_BUDGET_BYTES: 17_500,
+  // Measured on 2026-10-13: the service worker 3160 bytes gzip, the four icons 9682 bytes.
+  SERVICE_WORKER_GZIP_BUDGET_BYTES: 3_700,
+  // The icons are PNG, which gzip does not shrink, so their budget is in stored bytes.
+  ICONS_BUDGET_BYTES: 11_200,
 };
 
-// What the build produces: the page, the single-file page (only after `pnpm build:single`)
-// and hashed bundles under assets/. Fonts are inside the stylesheet, so a font file is unexpected.
-const ALLOWED_PATH_PATTERNS = [/^index\.html$/, /^telemark\.html$/, /^assets\/[\w.-]+-[\w-]{8}\.(?:js|css)$/];
+// What the build produces, by exact name: the page, what makes it installable and usable without a network,
+// the host's headers file and the licence of the fonts. Fonts themselves are inside the stylesheet, so a font
+// file is unexpected. Every one of these must be there.
+export const REQUIRED_PATHS = [
+  "index.html",
+  "_headers",
+  "sw.js",
+  "release.json",
+  "manifest.webmanifest",
+  "icons/icon-192.png",
+  "icons/icon-512.png",
+  "icons/icon-maskable-512.png",
+  "icons/apple-touch-icon.png",
+  "licenses/silkscreen-ofl.txt",
+];
+
+// Bundles with a content hash in their name; at least one of each kind must be there.
+const BUNDLE_PATTERN = /^assets\/[\w.-]+-[\w-]{8}\.(?:js|css)$/;
+const REQUIRED_BUNDLE_EXTENSIONS = [".js", ".css"];
 
 // Files of the original game and data derived from it are never shipped. Traces may be gzip-compressed.
 const GAME_FILE_PATTERN = /\.(?:exe|dat|rpl|(?:trace|hilltrace)(?:\.gz)?)$/i;
@@ -22,26 +43,86 @@ const GAME_FILE_PATTERN = /\.(?:exe|dat|rpl|(?:trace|hilltrace)(?:\.gz)?)$/i;
 // "MZ", the first two bytes of a DOS or Windows executable.
 const MZ_SIGNATURE = [0x4d, 0x5a];
 
+// The host never serves `_headers`, and it is not a file the browser gets.
+const NOT_DOWNLOADED_PATHS = new Set(["_headers"]);
+// Already compressed: sent as stored.
+const STORED_AS_SENT_PATTERN = /\.png$/;
+
+function isBundle(path) {
+  return BUNDLE_PATTERN.test(path);
+}
+
 function isAllowedPath(path) {
-  return ALLOWED_PATH_PATTERNS.some((pattern) => pattern.test(path));
+  return REQUIRED_PATHS.includes(path) || isBundle(path);
 }
 
 function startsWithMzSignature(head) {
   return MZ_SIGNATURE.every((byte, index) => head[index] === byte);
 }
 
-export function sumGzipBytes(files, extension) {
-  return files.filter((file) => file.path.endsWith(extension)).reduce((sum, file) => sum + file.gzipBytes, 0);
+function sum(files, sizeOf) {
+  return files.reduce((total, file) => total + sizeOf(file), 0);
+}
+
+const gzipOf = (file) => file.gzipBytes;
+const bytesOf = (file) => file.bytes;
+
+// The sizes the budgets are about, in bytes.
+export function measureDist(files) {
+  const bundles = files.filter((file) => isBundle(file.path));
+  const downloaded = files.filter((file) => !NOT_DOWNLOADED_PATHS.has(file.path));
+  return {
+    jsGzipBytes: sum(
+      bundles.filter((file) => file.path.endsWith(".js")),
+      gzipOf,
+    ),
+    cssGzipBytes: sum(
+      bundles.filter((file) => file.path.endsWith(".css")),
+      gzipOf,
+    ),
+    serviceWorkerGzipBytes: sum(
+      files.filter((file) => file.path === "sw.js"),
+      gzipOf,
+    ),
+    iconsBytes: sum(
+      files.filter((file) => file.path.startsWith("icons/")),
+      bytesOf,
+    ),
+    // What a first visit transfers before the game works without a network: everything, compressed where
+    // the host compresses.
+    offlineTransferBytes: sum(downloaded, (file) =>
+      STORED_AS_SENT_PATTERN.test(file.path) ? file.bytes : file.gzipBytes,
+    ),
+  };
 }
 
 function findBudgetProblems(files, budgets) {
+  const sizes = measureDist(files);
   const sums = [
-    { label: "JavaScript", bytes: sumGzipBytes(files, ".js"), budgetBytes: budgets.JS_GZIP_BUDGET_BYTES },
-    { label: "CSS", bytes: sumGzipBytes(files, ".css"), budgetBytes: budgets.CSS_GZIP_BUDGET_BYTES },
+    { label: "JavaScript gzip size", bytes: sizes.jsGzipBytes, budgetBytes: budgets.JS_GZIP_BUDGET_BYTES },
+    { label: "CSS gzip size", bytes: sizes.cssGzipBytes, budgetBytes: budgets.CSS_GZIP_BUDGET_BYTES },
+    {
+      label: "Service worker gzip size",
+      bytes: sizes.serviceWorkerGzipBytes,
+      budgetBytes: budgets.SERVICE_WORKER_GZIP_BUDGET_BYTES,
+    },
+    { label: "Icons size", bytes: sizes.iconsBytes, budgetBytes: budgets.ICONS_BUDGET_BYTES },
   ];
   return sums
-    .filter((sum) => sum.bytes > sum.budgetBytes)
-    .map((sum) => `${sum.label} gzip size ${sum.bytes} bytes exceeds the budget of ${sum.budgetBytes} bytes`);
+    .filter((entry) => entry.bytes > entry.budgetBytes)
+    .map((entry) => `${entry.label} ${entry.bytes} bytes exceeds the budget of ${entry.budgetBytes} bytes`);
+}
+
+function findMissing(files) {
+  const present = new Set(files.map((file) => file.path));
+  const missingPaths = REQUIRED_PATHS.filter((path) => !present.has(path));
+  const missingBundles = REQUIRED_BUNDLE_EXTENSIONS.filter(
+    (extension) => files.some((file) => isBundle(file.path) && file.path.endsWith(extension) === true) !== true,
+  );
+  return [
+    ...missingPaths.map((path) => `missing: ${path}`),
+    ...missingBundles.map((extension) => `missing: a hashed ${extension} bundle under assets/`),
+  ];
 }
 
 // Returns one message per problem; an empty list means the build output is acceptable.
@@ -53,15 +134,18 @@ export function findDistProblems(files, budgets) {
     ...gameFiles.map((file) => `game file extension: ${file.path}`),
     ...executables.map((file) => `MZ executable signature: ${file.path}`),
     ...unexpected.map((file) => `not on the allow-list: ${file.path}`),
+    ...findMissing(files),
     ...findBudgetProblems(files, budgets),
   ];
 }
 
 export function formatDistSummary(files, budgets) {
-  const jsBytes = sumGzipBytes(files, ".js");
-  const cssBytes = sumGzipBytes(files, ".css");
+  const sizes = measureDist(files);
   return (
-    `${files.length} files; JavaScript gzip ${jsBytes} of ${budgets.JS_GZIP_BUDGET_BYTES} bytes; ` +
-    `CSS gzip ${cssBytes} of ${budgets.CSS_GZIP_BUDGET_BYTES} bytes`
+    `${files.length} files; JavaScript gzip ${sizes.jsGzipBytes} of ${budgets.JS_GZIP_BUDGET_BYTES} bytes; ` +
+    `CSS gzip ${sizes.cssGzipBytes} of ${budgets.CSS_GZIP_BUDGET_BYTES} bytes; ` +
+    `service worker gzip ${sizes.serviceWorkerGzipBytes} of ${budgets.SERVICE_WORKER_GZIP_BUDGET_BYTES} bytes; ` +
+    `icons ${sizes.iconsBytes} of ${budgets.ICONS_BUDGET_BYTES} bytes; ` +
+    `first visit transfers ${sizes.offlineTransferBytes} bytes`
   );
 }

@@ -12,6 +12,8 @@
 | `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
+| `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
+| `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
@@ -23,9 +25,13 @@ Diff migawki pokazuje, które sceny się zmieniły; zmiana w scenie, której nie
 
 ## Testy w przeglądarkach
 
-`pnpm test:browser` uruchamia Playwright na zbudowanej grze (`vite preview` na katalogu `dist/`, port 4317), nie na
-serwerze deweloperskim. Każdy test zaczyna od czystego kontekstu przeglądarki i kończy się błędem, gdy strona zgłosi
-nieobsłużony wyjątek albo wypisze błąd na konsoli. Środowisko jest ustalone w `playwright.config.ts`: język `pl-PL`,
+`pnpm test:browser` uruchamia Playwright na zbudowanej grze, nie na serwerze deweloperskim. Katalog `dist/` podaje
+`scripts/serve-dist.mjs` (port 4317) tak, jak robi to hosting: z nagłówkami z `public/_headers`, w tym z polityką
+bezpieczeństwa treści, z prawdziwym 404 dla nieznanej ścieżki i z service workerem, który rejestruje się jak
+u gracza. Każdy test zaczyna od czystego kontekstu przeglądarki i kończy się błędem, gdy którakolwiek strona tego
+kontekstu zgłosi nieobsłużony wyjątek albo wypisze błąd na konsoli. Test, który celowo coś psuje (brak skryptu,
+brak pliku workera), podaje wzorzec oczekiwanego komunikatu przez `test.use({ expectedProblems })`; inne błędy
+nadal go oblewają. Środowisko jest ustalone w `playwright.config.ts`: język `pl-PL`,
 strefa `Europe/Warsaw`, ciemny schemat kolorów, ograniczony ruch.
 
 Projekty (profile urządzeń):
@@ -48,7 +54,7 @@ Co sprawdzają pliki w `e2e/`:
 | `a11y.spec.ts` | axe, WCAG 2.2 AA, zero naruszeń na każdym ekranie; test pilnuje, że żaden ekran nie został pominięty | `desktop-chromium`, `android-portrait` |
 | `settings.spec.ts` | dźwięk i sceneria zostają po przeładowaniu | `desktop-chromium`, `android-portrait` |
 | `sim-engines.spec.ts` | symulacja daje w silniku przeglądarki bit w bit wynik z migawki `jump-sim.regression.test.ts` (klatki, odległość, punkty, noty, typ upadku, skrót stanu) | komputery |
-| `reflow.spec.ts` | menu, lista skoczni i strój przy szerokości 320 px i przy powiększeniu 200%: brak przewijania w bok, uciętych i nachodzących elementów; odstępy tekstu z WCAG 1.4.12; wymuszone kolory: kontrolki, kolory próbek i fokus widoczne | komputery, `android-portrait` |
+| `reflow.spec.ts` | menu, lista skoczni i strój przy szerokości 320 px i przy powiększeniu 200%: brak przewijania w bok, uciętych i nachodzących elementów; odstępy tekstu z WCAG 1.4.12; wymuszone kolory: kontrolki, kolory próbek i fokus widoczne (bez WebKita: Playwright naśladuje je tam elementem stylu, którego polityka treści strony nie dopuszcza) | komputery, `android-portrait` |
 | `layout-stability.spec.ts` | zmiana ustawienia oraz otwarcie i zamknięcie pauzy nie przesuwają obrazu ani pól dotykowych (różnice w pikselach trafiają do raportu); pierwszy ekran jest od razu narysowany czcionkami gry, a przeglądarka nie pobiera ich osobno; przyciski pod obrazem na komputerze przesuwają się przy zmianie etykiety: znany błąd, `test.fixme` | wszystkie |
 | `targets.spec.ts` | każda kontrolka spełnia WCAG 2.5.8 (24 na 24 px albo odstęp) i nic jej nie zasłania; przy otwartej pauzie fokus klawiatury nie wchodzi pod nią | wszystkie; fokus: dotykowe |
 | `input.spec.ts` | oba przyciski myszy jako akord w obu kolejnościach naciśnięcia i puszczenia; naciśnięcie krótsze niż krok symulacji; jedno Esc wychodzi ze skoku | komputery |
@@ -56,6 +62,11 @@ Co sprawdzają pliki w `e2e/`:
 | `sound.spec.ts` | żaden kontekst audio nie działa przed pierwszym gestem, jeden po nim; wyłączony dźwięk to cisza na wyjściu, także po przeładowaniu (`AudioContext` obserwowany z testu) | wszystkie |
 | `player-files.spec.ts` | plik, który nie jest grą: komunikat po polsku, nic nie zostaje zapisane, skocznia wbudowana dostępna | wszystkie |
 | `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html`; nowy ekran otwiera się od góry, bez pozycji przewinięcia poprzedniego | wszystkie |
+| `offline.spec.ts` | po jednej wizycie gra startuje i daje się rozegrać bez sieci (cały skok, rekord po przeładowaniu); pierwsza wizyta bez sieci nie daje gry; nowe wydanie czeka, dopóki otwarte jest choć jedno okno, potem przejmuje stronę, a zapis zostaje; wydanie z brakującym albo uszkodzonym plikiem i wydanie podmienione w trakcie pobierania nie zostawiają żadnej części i nie ruszają działającego; wycofanie do starszego wydania dociera do gracza z nowszym; brak skryptu przy pierwszej wizycie zostawia tekst z linkiem, bez pętli przeładowań | komputery (trzy silniki) |
+| `http-policy.spec.ts` | serwer testów przechodzi tę samą kontrolę co wdrożenie (`scripts/check-deployment.mjs`); polityka treści, typy i reguły cache strony, workera, manifestu i licencji; strona nie blokuje powiększania | `desktop-chromium` |
+| `single-file.spec.ts` | strona jednoplikowa nie pobiera niczego poza sobą, nie rejestruje workera także pod bezpiecznym adresem, działa bez sieci i w ramce | komputery |
+| `safe-area.spec.ts` | przy ustawionych wcięciach ekranu (wartości telefonu w poziomie) żadna treść nie leży pod zasłoniętą krawędzią, na każdym ekranie | wszystkie |
+| `storage-blocked.spec.ts` | przy zablokowanym magazynie gra ostrzega, działa i trzyma ustawienia do końca wizyty, bez nieobsłużonych błędów | `desktop-chromium`, `android-portrait` |
 
 Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,
 liczonego od komunikatu „Skok rozpoczęty.” w regionie `aria-live` obok obrazu. Chwile naciśnięć leżą w środku okien
@@ -65,6 +76,13 @@ najwyżej trzy razy, tak jak zrobiłby to gracz.
 Scenariusze regresyjne symulacji są w `src/sim/test-support/regression-scenarios.ts`; korzysta z nich test Vitest
 i strona testowa. Stronę buduje Vite projektu przed testami (`e2e/sim-harness.setup.ts`) do ignorowanego katalogu
 `e2e/.sim-harness/`; do `dist/` nie trafia.
+
+Testy trybu offline mają własne serwery (`scripts/lib/static-server.mjs`), po jednym na test, więc mogą odciąć
+sieć, uszkodzić odpowiedź albo podstawić inne wydanie pod tym samym adresem. Dwa wydania i stronę jednoplikową
+przygotowuje `e2e/releases.setup.ts` z testowanego `dist/`, krokiem wydania projektu, w ignorowanym katalogu
+`e2e/.pwa-releases/`. Kontekst przeglądarki to jeden profil: zamknięcie strony i otwarcie nowej w tym samym
+kontekście odpowiada zamknięciu gry i ponownemu uruchomieniu. Zapis gracza w tych testach to dane syntetyczne;
+żaden plik oryginalnej gry nie bierze w nich udziału.
 
 Wyniki axe oznaczone jako „incomplete” nie są ani naruszeniem, ani zaliczeniem: test zapisuje je do pliku
 `axe-incomplete.json` w `test-results/` i dołącza do raportu.
@@ -82,7 +100,9 @@ zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
 Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/`.
 
 Emulacja to nie urządzenie: profile telefonów i tabletu ustawiają rozmiar okna, gęstość pikseli, dotyk i nagłówek
-przeglądarki, ale silnik pozostaje desktopowy. Czego testy nie widzą, sprawdza się ręcznie (niżej).
+przeglądarki, ale silnik pozostaje desktopowy. Żaden silnik w testach nie instaluje strony na ekranie głównym, nie
+ma prawdziwych wcięć ekranu ani trybu bez paska przeglądarki; testy sprawdzają manifest, ikony i to, co układ robi
+z podanymi wcięciami. Czego testy nie widzą, sprawdza się ręcznie (niżej).
 
 ### Odbiór ręczny na urządzeniu
 
@@ -108,9 +128,15 @@ komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo �
 | 15 | Z czytnikiem ekranu oddaj jeden skok | słychać „Skok rozpoczęty.”, potem lądowanie albo upadek z odległością, na końcu noty i wynik z przecinkiem dziesiętnym | treść komunikatów: `jump.spec.ts`; mowa czytnika: tylko urządzenie |
 | 16 | Komputer: skok myszą (oba przyciski na progu), Esc w trakcie | mysz przechwycona na czas skoku, jedno Esc wraca do listy skoczni | `input.spec.ts`; zachowanie Esc w prawdziwym przechwyceniu myszy: tylko urządzenie |
 | 17 | Komputer: przejdź całą grę samą klawiaturą; powiększ stronę do 200% | fokus zawsze widoczny, nic nie ucieka poza ekran | `keyboard.spec.ts`, `reflow.spec.ts` |
+| 18 | Telefon: dodaj grę do ekranu głównego i uruchom ją z ikony | ikona ze skoczkiem bez białych rogów i bez ucięcia postaci, nazwa „Telemark”, gra bez paska adresu | manifest i ikony: `pnpm test:scripts`; instalacja i wygląd ikony: tylko urządzenie |
+| 19 | Poczekaj w menu na „Gotowe do gry bez internetu.”, zamknij grę, włącz tryb samolotowy, uruchom ją z ikony i oddaj skok | gra startuje, skok i rekord działają, dźwięk po pierwszym dotknięciu | `offline.spec.ts` (Chromium, Firefox, WebKit na komputerze); telefon: tylko urządzenie |
+| 20 | Uruchomiona z ikony: obie orientacje, okolice wcięcia i paska gestów, pola L i P, pauza | nic pod wcięciem ani pod paskiem, czarne tło do krawędzi | `safe-area.spec.ts` (wcięcia podane przez test); prawdziwe wcięcia: tylko urządzenie |
+| 21 | Po opublikowaniu nowego wydania: otwórz grę, poczekaj na „Nowa wersja jest gotowa.”, zamknij wszystkie okna gry i uruchom ją ponownie | do zamknięcia działa stare wydanie, potem nowe; ustawienia, rekordy i zapamiętane pliki gry zostają | `offline.spec.ts`; na telefonie i z prawdziwym plikiem gry: tylko urządzenie |
+| 22 | Uruchomiona z ikony: przejdź do innej aplikacji i wróć; zablokuj i odblokuj ekran | gra wraca tam, gdzie była, bez białego ekranu i bez ponownego wczytywania w trakcie skoku | tylko urządzenie |
 
-Gdy coś zawiedzie, zanotuj: numer kroku, urządzenie i wersję systemu, przeglądarkę z wersją, orientację, czy
-strona była otwarta z ekranu głównego, co było widać albo słychać (zrzut ekranu lub nagranie) oraz czy błąd
+Przy odbiorze zapisz model urządzenia, wersję systemu, przeglądarkę z wersją i wydanie gry (commit z adresu
+`/release.json`). Gdy coś zawiedzie, zanotuj: numer kroku, urządzenie i wersję systemu, przeglądarkę z wersją,
+orientację, czy strona była otwarta z ekranu głównego, co było widać albo słychać (zrzut ekranu lub nagranie) oraz czy błąd
 powtarza się po przeładowaniu strony.
 
 ## Pokrycie kodu symulacji

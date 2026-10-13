@@ -10,11 +10,13 @@ Telemark is a working title.
 
 ## Status
 
-As of 2026-10-12: in active development.
+As of 2026-10-13: in active development.
 
 - Playable: training mode on the built-in hill and on the 37 original hills.
 - Not there yet: competitions, a replay viewer, an instructions screen.
-- Not deployed anywhere; it runs locally with `pnpm dev`. No releases.
+- Not deployed yet; it runs locally with `pnpm dev`. The build is installable and works offline, and the
+  pipeline that publishes it to Cloudflare Workers is in place but switched off (`docs/deployment.md`).
+  No releases.
 
 ## Features
 
@@ -25,6 +27,7 @@ As of 2026-10-12: in active development.
 - Pixel graphics with a responsive width, time of day (day, dusk, night) and weather (snow, fog).
 - Synthesised sound (Web Audio, no recordings).
 - Hill records, outfit colours and settings saved locally.
+- Installable on a phone's home screen; after the first visit it starts and plays without a network.
 
 ## Development
 
@@ -42,8 +45,11 @@ pnpm test
 pnpm test:coverage  # the tests with the coverage floor for src/sim, as in CI
 pnpm test:browser:edge  # the built game in Microsoft Edge on desktop and phone profiles (Playwright)
 pnpm test:browser   # the same in Chromium, Firefox and WebKit, as in CI; needs Playwright's browsers
-pnpm build          # production build in dist/
-pnpm build:single   # the build packed into one HTML file
+pnpm test:scripts   # tests of the build, release and deployment scripts
+pnpm build          # production build in dist/, with the service worker and the release record
+pnpm check:dist     # dist/ holds exactly the build's files, within the size budgets
+node scripts/serve-dist.mjs  # the build at http://127.0.0.1:4317, served the way the host serves it
+pnpm build:single   # the build packed into one HTML file, in dist-single/
 ```
 
 Tests that compare the port with the original game need its files and recorded traces; without them they are
@@ -57,9 +63,12 @@ skipped. See `docs/testing.md`.
 | `src/original` | readers for the player's original files |
 | `src/game`, `src/render`, `src/audio`, `src/ui` | game session, pixel renderer, sound, React screens |
 | `src/storage` | local saves |
+| `src/pwa` | service worker registration, offline state, the picture the icons are made of |
+| `public` | web manifest, icons, the host's headers file |
 | `tools/re` | reverse-engineering tools (disassembler, headless DOS emulator, trace capture) |
 | `tools/font` | generator of the Polish letters for the Silkscreen font |
-| `scripts` | the single-file build |
+| `scripts` | the release step and service worker, checks of the build and of a deployment, the test server, the single-file build |
+| `deploy` | the pinned deployment tool and its configuration |
 | `docs` | specifications and guides, see below |
 
 ## Documentation
@@ -73,6 +82,7 @@ The notes in `docs` are mostly in Polish.
 | `docs/jumper-figure.md` | How is the jumper drawn from a pose? |
 | `docs/replay-format.md` | How are the original `.rpl` replays encoded? |
 | `docs/testing.md` | Which tests exist, what do they need and how are they run? |
+| `docs/deployment.md` | What is in a release, how does the game work offline and update, how is it deployed and rolled back? |
 
 ## Contributing
 
@@ -81,7 +91,8 @@ and becomes the commit. CI runs the checks above, including the search for unuse
 and for duplicates (`pnpm check:duplicates`), verifies the formatting (`pnpm format:check`), tests the build scripts
 (`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), runs the built game in Chromium,
 Firefox and WebKit on desktop, phone and tablet profiles (`pnpm test:browser`), and adds a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
-dashes and emoji. Security reports: see `SECURITY.md`.
+dashes and emoji. On `master`, the same run can then publish the package it has just tested (`docs/deployment.md`).
+Security reports: see `SECURITY.md`.
 
 ## Legal
 
@@ -89,7 +100,8 @@ This is an independent project, not affiliated with or endorsed by the authors o
 Deluxe Ski Jump is a name of its respective owner and is used here only to describe compatibility. The repository
 contains no files from the original game; the game reads them from the player's own copy, locally.
 
-The pixel font is Silkscreen with added Polish letters, under the SIL Open Font License 1.1 (`src/ui/fonts/OFL.txt`).
+The pixel font is Silkscreen with added Polish letters, under the SIL Open Font License 1.1 (`src/ui/fonts/OFL.txt`;
+the built game carries the same text as `licenses/silkscreen-ofl.txt`).
 
 ## License
 

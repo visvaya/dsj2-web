@@ -43,7 +43,13 @@ test("at 200% zoom nothing scrolls sideways, is cut off or overlaps", async ({ p
 
 test("with the text spacing of WCAG 1.4.12 no text is cut off", async ({ page, traits }) => {
   await expectSoundLayouts(page, traits, async () => {
-    await page.addStyleTag({ content: TEXT_SPACING_CSS });
+    // A style sheet made through the style object model, as a reader's own style sheet or an extension adds
+    // one. The page's content security policy refuses a <style> element put into the document.
+    await page.evaluate((css) => {
+      const sheet = new CSSStyleSheet();
+      sheet.replaceSync(css);
+      document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet];
+    }, TEXT_SPACING_CSS);
   });
 });
 
@@ -104,7 +110,14 @@ async function focusChangesPixels(page: Page): Promise<boolean> {
   return !focused.equals(blurred);
 }
 
-test("with forced colours every control is still visible and so is the focus", async ({ page, traits }) => {
+test("with forced colours every control is still visible and so is the focus", async ({
+  page,
+  traits,
+  browserName,
+}) => {
+  // WebKit has no forced colours of its own. The test runner imitates them there with a style element put into
+  // the page, which the page's content security policy refuses, so nothing would be checked.
+  test.skip(browserName === "webkit", "forced colours are imitated in WebKit by a style element the policy refuses");
   await page.emulateMedia({ forcedColors: "active" });
   await page.goto("/");
   const forced = await page.evaluate(() => matchMedia("(forced-colors: active)").matches);
