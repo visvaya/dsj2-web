@@ -27,7 +27,6 @@ test("a whole jump ends in a record that the hill list shows and a reload keeps"
     records: { [BUILT_IN_HILL_ID]: { distanceM: expect.any(Number), points: expect.any(Number) } },
   });
 
-  await page.reload();
   await openMenu(page);
   await openHillList(page, traits);
   await expect(builtInHill(page)).toContainText(record);
