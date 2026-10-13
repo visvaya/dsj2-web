@@ -198,6 +198,12 @@
       }
     },
     {
+      "files": ["scripts/**/*.test.mjs"],
+      "rules": {
+        "no-await-in-loop": "off"
+      }
+    },
+    {
       "files": ["**/*.test.ts", "scripts/**"],
       "rules": {
         "no-console": "off"
@@ -228,6 +234,8 @@
     ".scratch",
     "playwright-report",
     "test-results",
-    "e2e/.sim-harness"
+    "e2e/.sim-harness",
+    "e2e/.pwa-releases",
+    "dist-single"
   ]
 }

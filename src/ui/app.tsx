@@ -9,6 +9,7 @@ import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 import { screenTitle } from "./screen-title";
+import { useOfflineState } from "./use-offline-state";
 
 type Screen = { kind: "menu" } | { kind: "hills" } | { kind: "outfit" } | { kind: "jump"; hill: HillChoice };
 
@@ -27,6 +28,7 @@ export function App() {
     document.title = screenTitle(screen);
     window.scrollTo(0, 0);
   }, [screen]);
+  const offline = useOfflineState();
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
   const [filesStore] = useState<GameFilesStore>(detectGameFilesStore);
@@ -134,6 +136,7 @@ export function App() {
       onGameFiles={onGameFiles}
       onForgetFiles={onForgetFiles}
       persistent={persistent}
+      offline={offline}
       onTraining={() => show({ kind: "hills" })}
       onOutfit={() => show({ kind: "outfit" })}
       focusOnEntry={navigated}

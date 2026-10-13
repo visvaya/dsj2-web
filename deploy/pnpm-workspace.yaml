@@ -1,0 +1,13 @@
+# This directory is a project of its own, so the game's install never brings the deployment tool in.
+
+# Supply-chain guards: refuse a version published with weaker provenance than an earlier one of the same
+# package, and any version younger than a week (in minutes).
+trustPolicy: no-downgrade
+minimumReleaseAge: 10080
+
+# Build scripts of dependencies run only when allowed here. Neither of these is needed: each only prepares a
+# binary that the package of the platform already provides, and publishing static files runs neither a bundler
+# nor the local runtime.
+allowBuilds:
+  esbuild: false
+  workerd: false

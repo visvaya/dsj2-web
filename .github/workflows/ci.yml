@@ -4,6 +4,8 @@ on:
   push:
     branches: [master]
   pull_request:
+  # A run started by hand on the default branch goes through the same checks and, like a push, may publish.
+  workflow_dispatch:
   schedule:
     # Weekly secret scan of the full history and workflow audit, Mondays 05:17 UTC.
     - cron: "17 5 * * 1"
@@ -11,8 +13,10 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels the run before it. Runs on the default branch are never cancelled:
+# one of them may be publishing, and a run cut off in the middle of that would leave no record of what it did.
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
@@ -22,6 +26,8 @@ jobs:
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      browser_tests: ${{ steps.browser.outputs.needed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -49,8 +55,9 @@ jobs:
       # coverage thresholds for src/sim set in vite.config.ts.
       - run: pnpm test:coverage
       - run: pnpm test:scripts
+      # The package that is tested below and, on the default branch, published: built once, never rebuilt.
       - run: pnpm build
-      - name: Only the build's own files in dist/, within the size budget
+      - name: Exactly the build's own files in dist/, within the size budget
         run: pnpm check:dist
       # Browser tests of the build that was just checked, in Chromium, Firefox and WebKit on desktop, phone and
       # tablet profiles. They take several minutes, so a pull request that cannot change what the browser gets
@@ -61,14 +68,20 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: |
           needed=true
+          deploy_tool=false
           if [ "$EVENT_NAME" = "pull_request" ]; then
             # Files that reach the browser or the tests of it, without unit tests and their support files.
             relevant=$(git diff --name-only HEAD^1 HEAD |
               grep -E '^(src/|e2e/|public/|scripts/|\.github/workflows/|index\.html$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.json$|vite\.config\.ts$|playwright\.config\.ts$)' |
               grep -vE '(\.test\.ts$|\.snap$|^src/sim/test-support/|^src/original/test-support/)' || true)
             if [ -z "$relevant" ]; then needed=false; fi
+            # The deployment tool is tried only by pull requests that change it or the way it is run.
+            if git diff --name-only HEAD^1 HEAD | grep -qE '^(deploy/|\.github/workflows/|scripts/run-wrangler\.mjs$)'; then
+              deploy_tool=true
+            fi
           fi
           echo "needed=$needed" | tee -a "$GITHUB_OUTPUT"
+          echo "deploy_tool=$deploy_tool" | tee -a "$GITHUB_OUTPUT"
       # The browsers are cached per Playwright version; the system packages they need are not, so a cache hit
       # still installs those.
       - name: Read the Playwright version
@@ -99,11 +112,39 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+      # The deployment job runs only on the default branch, after a merge. A pull request that changes the tool,
+      # its configuration or the workflows tries them here, without credentials: the tool installs from its own
+      # lockfile and accepts the configuration and the package.
+      - name: The deployment tool installs and accepts the package
+        if: steps.browser.outputs.deploy_tool == 'true'
+        working-directory: deploy
+        env:
+          WRANGLER_SEND_METRICS: "false"
+        run: |
+          pnpm install --frozen-lockfile
+          # The arguments of the real publication, plus the one that stops short of it.
+          pnpm exec wrangler deploy --dry-run --message "$GITHUB_SHA"
+      - name: The package is still byte for byte what was built
+        run: sha256sum --check --strict --quiet dist.sha256
+      # Named after the commit, so the deployment job can only take the package of its own run and commit.
+      - name: Keep the tested package for the deployment
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: telemark-dist-${{ github.sha }}
+          path: |
+            dist/
+            dist.sha256
+          if-no-files-found: error
+          # A job that is run again replaces the package of its earlier attempt.
+          overwrite: true
+          retention-days: 90
 
   tools:
     name: tools
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: tools/re
@@ -125,6 +166,7 @@ jobs:
   hygiene:
     name: hygiene
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     env:
       GITLEAKS_VERSION: 8.30.1
       GITLEAKS_SHA256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
@@ -185,3 +227,123 @@ jobs:
           if [ "$status" -ne 1 ]; then
             echo "Found forbidden characters, or the search itself failed (exit $status)"; exit 1
           fi
+
+  # Publishes the package that the jobs above built, checked and tested, for the same commit and in the same
+  # run. It runs only on the default branch and only while the repository variable DEPLOY_ENABLED is "true";
+  # setting it to anything else pauses automatic publishing (before a rollback, for example). A pull request
+  # and the weekly schedule never reach it. Every needed job has to succeed: a skipped or cancelled one skips
+  # this job too.
+  deploy:
+    name: deploy
+    needs: [web, tools, hygiene]
+    if: >-
+      (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+      github.ref == 'refs/heads/master' && vars.DEPLOY_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The credentials live in this environment, which is restricted to the default branch in the repository
+    # settings, so no other job and no other branch can read them.
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    # One publication or rollback at a time, and none is cancelled once it has started. A run that waits here
+    # is replaced by a newer one that starts to wait; the check for the head of the branch below covers the rest.
+    concurrency:
+      group: production-deployment
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    env:
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: The browser tests ran for this commit and the address of the game is known
+        env:
+          BROWSER_TESTS: ${{ needs.web.outputs.browser_tests }}
+        run: |
+          if [ "$BROWSER_TESTS" != "true" ]; then
+            echo "The browser tests did not run for this commit; nothing is published."; exit 1
+          fi
+          if [ -z "$PRODUCTION_URL" ]; then
+            echo "The repository variable PRODUCTION_URL is not set; nothing is published."; exit 1
+          fi
+      # A run that was waiting, or is run again later, must not put an older commit over a newer one.
+      - name: This commit is still the head of the default branch
+        id: head
+        run: |
+          head=$(git ls-remote origin refs/heads/master | cut -f1)
+          # An empty answer is a failed question, not a branch that has moved on.
+          if [ -z "$head" ]; then
+            echo "The head of the default branch could not be read; nothing is published."; exit 1
+          fi
+          if [ "$head" = "$GITHUB_SHA" ]; then
+            echo "current=true" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "current=false" | tee -a "$GITHUB_OUTPUT"
+            echo "::notice::The default branch has moved on from this commit; nothing is published."
+          fi
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: telemark-dist-${{ github.sha }}
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+      # No cache: what is restored into this job would run next to the credentials.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: The package is the one that was built and tested, for this commit
+        run: |
+          sha256sum --check --strict --quiet dist.sha256
+          # Every file is on the list, and the list names nothing else.
+          test "$(find dist -type f | wc -l)" -eq "$(wc -l < dist.sha256)"
+          node scripts/check-dist.mjs
+          test "$(node -p 'JSON.parse(require("node:fs").readFileSync("dist/release.json", "utf8")).sourceSha')" = "$GITHUB_SHA"
+      - name: Install the deployment tool from its lockfile
+        working-directory: deploy
+        run: pnpm install --frozen-lockfile
+      # A commit that changes nothing in the game builds the same content. Publishing it again would make every
+      # player's browser fetch the whole game once more, so it is not published.
+      - name: Compare the package with what is deployed
+        id: compare
+        if: steps.head.outputs.current == 'true'
+        run: node scripts/compare-release.mjs "$PRODUCTION_URL"
+      - name: Publish the package
+        id: publish
+        if: steps.head.outputs.current == 'true' && steps.compare.outputs.same_content != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/run-wrangler.mjs deploy --message "$GITHUB_SHA"
+      - name: The deployed game answers with this package
+        if: steps.publish.outcome == 'success'
+        run: node scripts/check-deployment.mjs "$PRODUCTION_URL" --source-sha "$GITHUB_SHA" --wait-s 120
+      - name: The deployed game still answers with this content
+        if: steps.head.outputs.current == 'true' && steps.compare.outputs.same_content == 'true'
+        run: |
+          content=$(node -p 'JSON.parse(require("node:fs").readFileSync("dist/release.json", "utf8")).contentId')
+          node scripts/check-deployment.mjs "$PRODUCTION_URL" --served-release --content-id "$content"
+      - name: Report
+        if: ${{ !cancelled() }}
+        env:
+          CURRENT: ${{ steps.head.outputs.current }}
+          SAME_CONTENT: ${{ steps.compare.outputs.same_content }}
+          PUBLISHED: ${{ steps.publish.outcome }}
+          VERSION_ID: ${{ steps.publish.outputs.version_id }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          if [ "$CURRENT" != "true" ]; then result="not published: the default branch has moved on"
+          elif [ "$SAME_CONTENT" = "true" ]; then result="not published: the deployed content is already this one"
+          elif [ "$PUBLISHED" = "success" ]; then result="published"
+          else result="not published: see the failed step"; fi
+          content=$(node -p 'JSON.parse(require("node:fs").readFileSync("dist/release.json", "utf8")).contentId' 2>/dev/null || echo unknown)
+          checksum=$(sha256sum dist.sha256 2>/dev/null | cut -d' ' -f1)
+          {
+            echo "### Deployment"
+            echo
+            echo "- Result: $result (job $JOB_STATUS)"
+            echo "- Commit: $GITHUB_SHA"
+            echo "- Content: $content"
+            echo "- Package checksum (SHA-256 of dist.sha256): ${checksum:-unknown}"
+            echo "- Version, for a rollback: ${VERSION_ID:-none}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,8 +1,10 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { readOriginalHills } from "../original/original-hills";
+import type { OfflineState } from "../pwa/offline-state";
 import type { GameFiles } from "../storage/game-files-store";
 import { gameFilesOutcome } from "./game-files-choice";
+import { OfflineNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
@@ -13,6 +15,8 @@ interface Props {
   onGameFiles: (files: GameFiles) => void;
   onForgetFiles: () => void;
   persistent: boolean;
+  /** Whether the game can start without a network; null where it has no offline mode. */
+  offline: OfflineState | null;
   onTraining: () => void;
   onOutfit: () => void;
   onOriginalHills: (hills: HillChoice[]) => void;
@@ -32,6 +36,7 @@ export function MenuScreen({
   onGameFiles,
   onForgetFiles,
   persistent,
+  offline,
   onTraining,
   onOutfit,
   onOriginalHills,
@@ -112,6 +117,7 @@ export function MenuScreen({
           {message.text}
         </p>
       )}
+      <OfflineNotice state={offline} />
     </main>
   );
 }
