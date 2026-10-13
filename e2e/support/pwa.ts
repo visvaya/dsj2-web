@@ -64,6 +64,18 @@ export function sourceShaSeenBy(page: Page): Promise<string> {
   });
 }
 
+/** What the page gets for a path: the HTTP status and the body as text, or null when the request fails. */
+export function fileSeenBy(page: Page, path: string): Promise<{ status: number; body: string } | null> {
+  return page.evaluate(
+    (target) =>
+      fetch(target).then(
+        async (response) => ({ status: response.status, body: await response.text() }),
+        () => null,
+      ),
+    path,
+  );
+}
+
 /** The HTTP status the page gets for a path, or null when the request fails altogether. */
 export function statusSeenBy(page: Page, path: string): Promise<number | null> {
   return page.evaluate(
@@ -209,6 +221,23 @@ export const PLANTED_DATA: PlayerData = { save: PLANTED_SAVE, filesRecord: "kept
 const scriptOf = (page: Page): Promise<string | null> =>
   page.evaluate(() => document.querySelector("script[src]")?.getAttribute("src") ?? null);
 
+/** Opens a window, again and again, until `arrived` says the window is the one that was wanted. */
+async function reopenUntil(
+  context: BrowserContext,
+  release: TestRelease,
+  arrived: (page: Page) => Promise<boolean>,
+): Promise<Page> {
+  for (let attempt = 0; attempt < REOPEN_LIMIT; attempt++) {
+    const page = await context.newPage();
+    if (await arrived(page)) return page;
+    await page.close();
+    await new Promise((resolve) => {
+      setTimeout(resolve, REOPEN_WAIT_MS);
+    });
+  }
+  throw new Error(`The release ${release.sourceSha} did not take over after ${REOPEN_LIMIT} launches`);
+}
+
 /**
  * Launches the game again, as a player does after closing every window of it, until the given release is the
  * one that runs: its worker answers and the page itself was started from its files.
@@ -217,21 +246,32 @@ const scriptOf = (page: Page): Promise<string | null> =>
  * closes. A launch in that moment may still be started from the old release, even while the new worker is
  * already the one that answers afterwards; such a launch is closed and repeated, as a player's next one is.
  */
-export async function relaunchUntil(context: BrowserContext, origin: string, release: TestRelease): Promise<Page> {
-  for (let attempt = 0; attempt < REOPEN_LIMIT; attempt++) {
-    const page = await context.newPage();
+export function relaunchUntil(context: BrowserContext, origin: string, release: TestRelease): Promise<Page> {
+  return reopenUntil(context, release, async (page) => {
     await openGame(page, origin);
-    const runs =
+    return (
       (await controlled(page)) &&
       (await sourceShaSeenBy(page)) === release.sourceSha &&
-      (await scriptOf(page)) === scriptPathOf(release);
-    if (runs) return page;
-    await page.close();
-    await new Promise((resolve) => {
-      setTimeout(resolve, REOPEN_WAIT_MS);
-    });
-  }
-  throw new Error(`The release ${release.sourceSha} did not take over after ${REOPEN_LIMIT} launches`);
+      (await scriptOf(page)) === scriptPathOf(release)
+    );
+  });
+}
+
+/**
+ * Opens a file of the game that is not its start page, in a window of its own, until the worker of the given
+ * release is the one that answers for that window. No page of the release has started by then: the window
+ * stands where a page of the release before stands when the browser switches workers under it.
+ */
+export function openFileUntil(
+  context: BrowserContext,
+  origin: string,
+  path: string,
+  release: TestRelease,
+): Promise<Page> {
+  return reopenUntil(context, release, async (page) => {
+    await page.goto(`${origin}${path}`);
+    return (await controlled(page)) && (await sourceShaSeenBy(page)) === release.sourceSha;
+  });
 }
 
 /** Path of the script the release's page loads, for example "/assets/index-abc.js". */

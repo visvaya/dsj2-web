@@ -11,8 +11,9 @@
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 117_500,
   CSS_GZIP_BUDGET_BYTES: 17_500,
-  // Measured on 2026-10-13: the service worker 3160 bytes gzip, the four icons 9682 bytes.
-  SERVICE_WORKER_GZIP_BUDGET_BYTES: 3_700,
+  // Measured on 2026-10-13: the service worker 3890 bytes gzip (3160 before it kept the release before for the
+  // pages that still need it), the four icons 9682 bytes.
+  SERVICE_WORKER_GZIP_BUDGET_BYTES: 4_500,
   // The icons are PNG, which gzip does not shrink, so their budget is in stored bytes.
   ICONS_BUDGET_BYTES: 11_200,
 };

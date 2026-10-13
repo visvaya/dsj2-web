@@ -10,8 +10,13 @@
 // - the new worker then waits. It never takes over a page that an older worker serves (no skipWaiting, no
 //   clients.claim): a page always gets its document and its scripts from one release, and a jump is never
 //   interrupted. The browser activates the new worker once every window of the game is closed.
-// - activate removes the caches of other releases. Only caches with this game's prefix are touched; the
-//   player's records and files live in localStorage and IndexedDB, which the worker never reads or writes.
+// - the release before stays stored until a page of this release starts. The browser may answer one more
+//   launch with the page of the outgoing release and switch workers under it; that page then asks this worker
+//   for its script, which the server no longer has, and gets it from the release it belongs to.
+// - the start page of this release, answered from its own cache, removes the caches of other releases, unless
+//   a newer release is being stored or waits for its turn: that cache is the one it will answer from. Only
+//   caches with this game's prefix are touched; the player's records and files live in localStorage and
+//   IndexedDB, which the worker never reads or writes.
 const RELEASE = self.TELEMARK_RELEASE_PLACEHOLDER;
 
 const CACHE_NAME = `${RELEASE.cachePrefix}${RELEASE.cacheId}`;
@@ -19,6 +24,7 @@ const START_URL = "/";
 // The start page under its file name too: the host redirects it to the root, the worker answers both alike.
 const START_PATHS = new Set(["/", "/index.html"]);
 const KEPT_URLS = new Set(RELEASE.precache.map((entry) => entry.url));
+const STORED_COPY = { ignoreSearch: true, ignoreVary: true };
 const RELEASE_MESSAGE = "telemark:release";
 // Left out of a stored copy: the body is kept decoded, so these would describe bytes that are not there.
 const TRANSPORT_HEADERS = ["content-encoding", "content-length", "vary"];
@@ -64,7 +70,7 @@ async function install() {
       // oxlint-disable-next-line no-await-in-loop -- one write at a time, so a full disk fails at one known file
       await cache.put(entry.url, responses[index]);
     }
-    // Another worker of the game, activated meanwhile, removes every cache but its own.
+    // Another worker of the game, tidying up meanwhile, removes every cache but its own.
     if ((await isComplete()) !== true) throw new Error("the stored release was removed while it was written");
   } catch (error) {
     await caches.delete(CACHE_NAME);
@@ -72,26 +78,45 @@ async function install() {
   }
 }
 
-async function activate() {
+// Set once this release is the only one stored: from then on a path it does not have is left to the browser.
+let onlyThisReleaseIsStored = false;
+
+async function otherReleaseCaches() {
   const names = await caches.keys();
-  const outdated = names.filter((name) => name.startsWith(RELEASE.cachePrefix) && name !== CACHE_NAME);
-  await Promise.all(outdated.map((name) => caches.delete(name)));
+  return names.filter((name) => name.startsWith(RELEASE.cachePrefix) && name !== CACHE_NAME);
 }
 
-// The kept address that answers a request, or null when the request is not the worker's business: another
-// origin, another method, a path the release does not have. Query strings are ignored, so they make no copies.
-function keptUrlFor(request) {
+async function removeOtherReleases() {
+  if (onlyThisReleaseIsStored) return;
+  // A release that is being stored, or waits for its turn, answers from its cache once it takes over. Anything
+  // but a plain "none" keeps the caches: one release too many is stored then, and nothing is lost.
+  const { installing, waiting } = self.registration;
+  if (installing !== null || waiting !== null) return;
+  const outdated = await otherReleaseCaches();
+  await Promise.all(outdated.map((name) => caches.delete(name)));
+  onlyThisReleaseIsStored = true;
+}
+
+// The path a request asks for, or null when the request is not the worker's business: another origin or
+// another method. Query strings are left out, so they make no copies.
+function ownPathOf(request) {
   if (request.method !== "GET") return null;
   const url = new URL(request.url);
-  if (url.origin !== self.location.origin) return null;
-  if (request.mode === "navigate" && START_PATHS.has(url.pathname)) return START_URL;
-  return KEPT_URLS.has(url.pathname) ? url.pathname : null;
+  return url.origin === self.location.origin ? url.pathname : null;
 }
 
-async function respond(keptUrl, request) {
-  const kept = await caches.match(keptUrl, { cacheName: CACHE_NAME, ignoreSearch: true, ignoreVary: true });
-  // The browser may drop a cache when the device runs out of room; the game then needs the network again.
-  return kept ?? fetch(request);
+// The stored copy of a file of this release. The browser may drop a cache when the device runs out of room;
+// there is no copy then, and the game needs the network again.
+function fromThisRelease(keptUrl) {
+  return caches.match(keptUrl, { ...STORED_COPY, cacheName: CACHE_NAME });
+}
+
+// The stored copy of a file this release does not have, from another release that is still stored.
+async function fromOtherRelease(path) {
+  const names = await otherReleaseCaches();
+  if (names.length === 0) onlyThisReleaseIsStored = true;
+  const copies = await Promise.all(names.map((name) => caches.match(path, { ...STORED_COPY, cacheName: name })));
+  return copies.find((copy) => copy !== undefined);
 }
 
 async function describeRelease() {
@@ -107,14 +132,28 @@ self.addEventListener("install", (event) => {
   event.waitUntil(install());
 });
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(activate());
-});
-
 self.addEventListener("fetch", (event) => {
-  const keptUrl = keptUrlFor(event.request);
-  if (keptUrl === null) return;
-  event.respondWith(respond(keptUrl, event.request));
+  const request = event.request;
+  const path = ownPathOf(request);
+  if (path === null) return;
+  const page = request.mode === "navigate";
+  if (page && START_PATHS.has(path)) {
+    const start = fromThisRelease(START_URL);
+    event.respondWith(start.then((kept) => kept ?? fetch(request)));
+    // A page of this release starts: the launch that could still get the page of the release before is over.
+    // A removal that fails is tried again with the next page; the answer does not wait for it.
+    event.waitUntil(
+      start.then((kept) => (kept === undefined ? undefined : removeOtherReleases())).catch(() => undefined),
+    );
+    return;
+  }
+  if (KEPT_URLS.has(path)) {
+    event.respondWith(fromThisRelease(path).then((kept) => kept ?? fetch(request)));
+    return;
+  }
+  // A page always comes from this release or from the network, never from another release.
+  if (page || onlyThisReleaseIsStored) return;
+  event.respondWith(fromOtherRelease(path).then((kept) => kept ?? fetch(request)));
 });
 
 // A page asks which release this worker holds and whether all of it is stored.
