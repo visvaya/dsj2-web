@@ -24,7 +24,7 @@ describe("how to jump", () => {
   it("says how the width of a telemark is set, in every way of steering", () => {
     for (const steering of ALL) {
       const telemark = howToJump(steering).find((step) => step.title === "Telemark");
-      expect(telemark?.text).toContain("im dłuższa przerwa, tym szerszy telemark");
+      expect(telemark?.text).toContain("zaraz po pierwszym daje wąski telemark; im dłuższa przerwa, tym szerszy");
     }
   });
 

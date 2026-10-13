@@ -130,24 +130,19 @@ describe("jump view", () => {
       for (const controls of schemes) {
         const lines = prompt({ ...model, state: jump.state, controls, frame, over: false }, notesShown);
         if (flying) inFlight.add(`${controls}: ${lines.join(" / ")}`);
-        if (flying) {
-          const hidden = prompt(
-            { ...model, state: jump.state, controls, frame, over: false, flightHints: false },
-            notesShown,
-          );
-          withoutHints.add(hidden.join(" / "));
-        }
+        // From the gate to the last note: with the prompts switched off nothing is said at any point.
+        const hidden = prompt({ ...model, state: jump.state, controls, frame, over: false, hints: false }, notesShown);
+        withoutHints.add(hidden.join(" / "));
         if (notesShown) notesUpWhileMoving.add(`${controls}: ${lines.join(" / ")}`);
       }
     }
-    const inFlightWithoutHints = [...withoutHints];
     expect([...inFlight]).toEqual([
-      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / ZNOWU P: IM PÓŹNIEJ, TYM SZERSZY / L+P: NA DWIE NOGI",
-      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / KCIUK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI: IM PÓŹNIEJ, TYM SZERSZY / DWA KCIUKI NARAZ: NA DWIE NOGI",
-      "mouse: MYSZ: POCHYLENIE / PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI PO CHWILI: IM PÓŹNIEJ, TYM SZERSZY / OBA NARAZ: NA DWIE NOGI",
+      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / SZYBKO ZNOWU P: WĄSKI TELEMARK / L+P: NA DWIE NOGI",
+      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / KCIUK TUŻ NAD ZIEMIĄ: TELEMARK / SZYBKO DRUGI: WĄSKI TELEMARK / DWA KCIUKI NARAZ: NA DWIE NOGI",
+      "mouse: MYSZ: POCHYLENIE / PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK / SZYBKO DRUGI PRZYCISK: WĄSKI TELEMARK / OBA NARAZ: NA DWIE NOGI",
     ]);
-    // A player who knows the flight can switch its lines off; nothing else goes with them.
-    expect(inFlightWithoutHints).toEqual([""]);
+    // A player who knows the game can switch the prompts off.
+    expect([...withoutHints]).toEqual([""]);
     // Every line fits the narrowest picture its way of playing has: a phone held upright, a small window.
     for (const seen of [...inFlight, ...notesUpWhileMoving]) {
       const [controls = "", ...rest] = seen.split(": ");

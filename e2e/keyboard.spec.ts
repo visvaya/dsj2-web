@@ -119,10 +119,10 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await page.keyboard.press("Enter");
   await expect(resume).toBeVisible();
 
-  // Escape closes the menu; the focus returns to the picture, and Escape opens the menu again.
+  // Escape closes the menu; the focus returns to the button of the menu, and Escape opens the menu again.
   await page.keyboard.press("Escape");
   await expect(resume).toBeHidden();
-  await expect(jumpCanvas(page)).toBeFocused();
+  await expect(button(page, TEXT.pause)).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(resume).toBeFocused();
 
