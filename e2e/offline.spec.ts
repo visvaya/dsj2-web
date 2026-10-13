@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import type { Page } from "@playwright/test";
 import { startStaticServer, type StaticServer } from "../scripts/lib/static-server.mjs";
 import { RELEASE_A, RELEASE_B } from "./releases/paths";
 import { BUILT_IN_HILL_ID, builtInHill, leaveJumpForHills, openHillList, openJump, storedSave } from "./support/app";
@@ -7,7 +10,9 @@ import {
   cacheNames,
   checkForUpdate,
   controlled,
+  fileSeenBy,
   OFFLINE_NOTE,
+  openFileUntil,
   openGame,
   PLANTED_DATA,
   plantPlayerData,
@@ -56,6 +61,10 @@ const NO_NETWORK =
 const NO_WORKER_SCRIPT = /bad HTTP response code \(404\)|Failed to load resource.*404|sw\.js/;
 const either = (...patterns: RegExp[]): RegExp => new RegExp(patterns.map((pattern) => pattern.source).join("|"));
 const gameCaches = (names: readonly string[]): string[] => names.filter((name) => GAME_CACHE.test(name));
+/** The releases of the game the browser has stored; the one before goes a moment after a new page has started. */
+const storedReleases = async (page: Page): Promise<string[]> => gameCaches(await cacheNames(page));
+/** A file of the game that is not its start page. */
+const LICENCE_PATH = "/licenses/silkscreen-ofl.txt";
 
 test.describe("without a network", () => {
   test.use({ expectedProblems: NO_NETWORK });
@@ -166,13 +175,15 @@ test("a new release waits until every window is closed, then takes over and keep
   expect(await sourceShaSeenBy(third)).toBe(RELEASE_A.sourceSha);
   await expect(third.getByText(OFFLINE_NOTE.updateWaiting)).toBeVisible();
   expect(await workerStates(third)).toEqual({ installing: false, waiting: true, active: true });
+  // The page that started just now belongs to the running release; the waiting one keeps what it has stored.
+  expect(await storedReleases(third)).toHaveLength(2);
 
   await second.close();
   await third.close();
   const updated = await relaunchUntil(context, server.origin, RELEASE_B);
   await expect(updated.getByText(OFFLINE_NOTE.ready)).toBeVisible();
   await expect(updated.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
-  expect(gameCaches(await cacheNames(updated))).toHaveLength(1);
+  await expect.poll(() => storedReleases(updated)).toHaveLength(1);
   expect(await playerData(updated)).toEqual(PLANTED_DATA);
 });
 
@@ -261,7 +272,7 @@ test("going back to the earlier release reaches a player who has the newer one, 
 
   const back = await relaunchUntil(context, server.origin, RELEASE_A);
   await expect(back.getByText(OFFLINE_NOTE.ready)).toBeVisible();
-  expect(gameCaches(await cacheNames(back))).toHaveLength(1);
+  await expect.poll(() => storedReleases(back)).toHaveLength(1);
   expect(await playerData(back)).toEqual(PLANTED_DATA);
 
   // A player who comes for the first time gets release A too.
@@ -273,6 +284,48 @@ test("going back to the earlier release reaches a player who has the newer one, 
   } finally {
     await freshContext.close();
   }
+});
+
+test.describe("when a page of the release before is still open", () => {
+  // The window that stands in for that page shows a text file. A browser asks for the icon of such a page at
+  // /favicon.ico, which the game does not have, and one engine shows the text with a stylesheet of its own,
+  // which the policy of the game refuses.
+  test.use({ expectedProblems: /Failed to load resource.*404|Refused to apply a stylesheet/ });
+
+  // What a browser can do right after an update: one more launch gets the page of the outgoing release, and the
+  // worker of the new release takes over under it. The page then asks that worker for its script, which the
+  // server no longer has. Here a window that is not the start page stands in for that page, so the moment does
+  // not depend on timing.
+  test("after a release has taken over, a page of the one before still gets its files", async ({ page, context }) => {
+    const server = testServer();
+    server.setRoot(RELEASE_B.dir);
+    await openGame(page, server.origin);
+    await requireServiceWorkers(page);
+    await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+    await page.close();
+    const before = await relaunchUntil(context, server.origin, RELEASE_B);
+
+    server.setRoot(RELEASE_A.dir);
+    expect(await checkForUpdate(before)).toBe("installed");
+    await before.close();
+
+    const script = scriptPathOf(RELEASE_B);
+    const askedOfServer = (): number => server.requests.filter((request) => request.path === script).length;
+    const aside = await openFileUntil(context, server.origin, LICENCE_PATH, RELEASE_A);
+    const askedBefore = askedOfServer();
+    const seen = await fileSeenBy(aside, script);
+    expect(seen?.status).toBe(200);
+    // Compared here, not by the assertion: a mismatch would print both scripts in full.
+    const whole = seen?.body === readFileSync(join(RELEASE_B.dir, script), "utf8");
+    expect(whole, "the body is the script of the release before").toBe(true);
+    expect(askedOfServer(), "the server, which no longer has the file, is not asked").toBe(askedBefore);
+    expect(await storedReleases(aside)).toHaveLength(2);
+
+    // A page of the new release starts; the release before is not needed any more.
+    const launched = await relaunchUntil(context, server.origin, RELEASE_A);
+    await expect.poll(() => storedReleases(launched)).toHaveLength(1);
+    await expect(launched.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+  });
 });
 
 test.describe("when a script of the game cannot be fetched on a first visit", () => {

@@ -39,7 +39,7 @@ const sorted = (names) => [...names].toSorted((a, b) => a.localeCompare(b));
 const cacheNameOf = (release) => `${CACHE_PREFIX}${cacheIdOf(precacheFor(release))}`;
 
 // Cache storage as the worker uses it. `failPutAt` makes the n-th write fail, as a full disk would;
-// `dropAtPut` removes every cache at the n-th write, as another worker of the game does when it activates.
+// `dropAtPut` removes every cache at the n-th write, as another worker of the game does when it tidies up.
 function makeCacheStorage({ failPutAt = Infinity, dropAtPut = Infinity } = {}) {
   const stores = new Map();
   let puts = 0;
@@ -107,12 +107,14 @@ function makeNetwork(served) {
   return network;
 }
 
-// Loads the worker of `release` and returns the means to send it events.
-function startWorker(release, { caches, network }) {
+// Loads the worker of `release` and returns the means to send it events. `registration` is what the worker
+// sees of the workers beside it: one that is being stored, one that waits for its turn.
+function startWorker(release, { caches, network, registration = { installing: null, waiting: null } }) {
   const handlers = new Map();
   const forbidden = [];
   const scope = {
     location: { origin: ORIGIN },
+    registration,
     addEventListener: (type, handler) => handlers.set(type, handler),
     skipWaiting: () => forbidden.push("skipWaiting"),
     clients: { claim: () => forbidden.push("clients.claim") },
@@ -126,24 +128,30 @@ function startWorker(release, { caches, network }) {
 
   const lifecycle = async (type) => {
     const pending = [];
-    handlers.get(type)({ waitUntil: (promise) => pending.push(promise) });
+    // A worker without a listener for the event has nothing to do at that point.
+    handlers.get(type)?.({ waitUntil: (promise) => pending.push(promise) });
     await Promise.all(pending);
   };
   return {
     forbidden,
     install: () => lifecycle("install"),
     activate: () => lifecycle("activate"),
-    // The response the worker answers with, or null when it leaves the request to the browser.
-    fetch(path, { method = "GET", mode = "cors", origin = ORIGIN } = {}) {
+    // The response the worker answers with, or null when it leaves the request to the browser; returned once
+    // everything the worker started for the request has finished.
+    async fetch(path, { method = "GET", mode = "cors", origin = ORIGIN } = {}) {
       let answer = null;
+      const pending = [];
       const request = { method, mode, url: `${origin}${path}` };
       handlers.get("fetch")({
         request,
         respondWith: (promise) => {
           answer = promise;
         },
+        waitUntil: (promise) => pending.push(promise),
       });
-      return Promise.resolve(answer);
+      const response = await Promise.resolve(answer);
+      await Promise.all(pending);
+      return response;
     },
     async message(data) {
       const pending = [];
@@ -293,21 +301,110 @@ test("a stored release with a file gone is fetched again", async () => {
   assert.equal(world.caches.stores.get(cacheNameOf(RELEASE_A)).has("/manifest.webmanifest"), true);
 });
 
-test("activate removes the caches of other releases and nothing else", async () => {
+// Release A runs, release B is on the server and stored; the worker of B has taken over.
+async function afterTakeover() {
   const world = { caches: makeCacheStorage(), network: makeNetwork(RELEASE_A) };
   const workerA = await installed(RELEASE_A, world);
   await workerA.activate();
   world.caches.stores.set("someone-elses-cache", new Map());
   world.network.served = { ...RELEASE_B };
-
   const workerB = await installed(RELEASE_B, world);
-  assert.deepEqual(
-    sorted(world.caches.stores.keys()),
-    sorted([cacheNameOf(RELEASE_A), cacheNameOf(RELEASE_B), "someone-elses-cache"]),
-    "both releases are kept while the new worker waits",
-  );
   await workerB.activate();
+  world.network.calls.length = 0;
+  return { world, workerA, workerB };
+}
+
+const BOTH_RELEASES = sorted([cacheNameOf(RELEASE_A), cacheNameOf(RELEASE_B), "someone-elses-cache"]);
+
+test("taking over removes nothing: the release before stays stored", async () => {
+  const { world } = await afterTakeover();
+  assert.deepEqual(sorted(world.caches.stores.keys()), BOTH_RELEASES);
+});
+
+// What the browser can do right after an update: one more launch gets the page of the outgoing release, and
+// then asks the worker that has taken over for that page's script, which the server no longer has.
+test("a page of the release before gets its files from that release, not from the network", async () => {
+  const { world, workerB } = await afterTakeover();
+  for (const path of ["/assets/index-AAAAAAAA.js", "/assets/index-AAAAAAAA.js?v=2"]) {
+    const response = await workerB.fetch(path);
+    assert.notEqual(response, null, path);
+    assert.equal(await response.text(), RELEASE_A["/assets/index-AAAAAAAA.js"], path);
+  }
+  assert.equal(world.network.calls.length, 0);
+  assert.deepEqual(sorted(world.caches.stores.keys()), BOTH_RELEASES);
+});
+
+test("a file both releases have comes from the release of the worker", async () => {
+  const { workerB } = await afterTakeover();
+  const response = await workerB.fetch("/release.json");
+  assert.equal(await response.text(), RELEASE_B["/release.json"]);
+});
+
+test("a path no stored release has goes to the network, and no other owner's cache answers it", async () => {
+  const { world, workerB } = await afterTakeover();
+  world.caches.stores.get("someone-elses-cache").set("/api/scores", new Response("not the game's"));
+  const response = await workerB.fetch("/api/scores");
+  assert.equal(response.status, 404);
+  assert.deepEqual(
+    world.network.calls.map((call) => call.path),
+    ["/api/scores"],
+  );
+});
+
+test("a page is never answered from another release", async () => {
+  const { workerB } = await afterTakeover();
+  assert.equal(await workerB.fetch("/assets/index-AAAAAAAA.js", { mode: "navigate" }), null);
+});
+
+test("the start page of this release removes the other releases and nothing else", async () => {
+  const { world, workerB } = await afterTakeover();
+  const page = await workerB.fetch("/", { mode: "navigate" });
+  assert.equal(await page.text(), RELEASE_B["/"]);
   assert.deepEqual(sorted(world.caches.stores.keys()), sorted([cacheNameOf(RELEASE_B), "someone-elses-cache"]));
+  assert.equal(await workerB.fetch("/assets/index-AAAAAAAA.js"), null, "left to the browser from now on");
+});
+
+test("only a page that starts removes the other releases, not a request for the same file", async () => {
+  const { world, workerB } = await afterTakeover();
+  await workerB.fetch("/");
+  await workerB.fetch("/manifest.webmanifest", { mode: "navigate" });
+  assert.deepEqual(sorted(world.caches.stores.keys()), BOTH_RELEASES);
+});
+
+for (const pending of ["installing", "waiting"]) {
+  test(`a release that is ${pending} keeps its cache when the running one starts a page`, async () => {
+    const registration = { installing: null, waiting: null };
+    const world = { caches: makeCacheStorage(), network: makeNetwork(RELEASE_A), registration };
+    const workerA = await installed(RELEASE_A, world);
+    await workerA.activate();
+    world.network.served = { ...RELEASE_B };
+    await installed(RELEASE_B, world);
+    registration[pending] = {};
+
+    const page = await workerA.fetch("/", { mode: "navigate" });
+    assert.equal(await page.text(), RELEASE_A["/"]);
+    assert.deepEqual(sorted(world.caches.stores.keys()), sorted([cacheNameOf(RELEASE_A), cacheNameOf(RELEASE_B)]));
+  });
+}
+
+test("a start page that had to come from the network removes nothing", async () => {
+  const { world, workerB } = await afterTakeover();
+  world.caches.stores.delete(cacheNameOf(RELEASE_B));
+  const page = await workerB.fetch("/", { mode: "navigate" });
+  assert.equal(await page.text(), RELEASE_B["/"]);
+  assert.deepEqual(sorted(world.caches.stores.keys()), sorted([cacheNameOf(RELEASE_A), "someone-elses-cache"]));
+});
+
+test("going back to a release that is still stored fetches nothing and keeps both until its page starts", async () => {
+  const { world } = await afterTakeover();
+  world.network.served = { ...RELEASE_A };
+  world.network.offline = true;
+  const back = await installed(RELEASE_A, world);
+  await back.activate();
+  assert.equal(world.network.calls.length, 0);
+  assert.deepEqual(sorted(world.caches.stores.keys()), BOTH_RELEASES);
+  await back.fetch("/", { mode: "navigate" });
+  assert.deepEqual(sorted(world.caches.stores.keys()), sorted([cacheNameOf(RELEASE_A), "someone-elses-cache"]));
 });
 
 test("the worker never takes over pages on its own", async () => {
@@ -342,6 +439,8 @@ test("a file of the release is answered from the store, whatever its query", asy
 test("requests that are not files of the release are left to the browser", async () => {
   const world = { caches: makeCacheStorage(), network: makeNetwork(RELEASE_A) };
   const worker = await installed(RELEASE_A, world);
+  // The page of the release has started; nothing but this release is stored.
+  await worker.fetch("/", { mode: "navigate" });
   const untouched = [
     { path: "/assets/index-BBBBBBBB.js", options: {} },
     { path: "/sw.js", options: {} },
@@ -356,6 +455,20 @@ test("requests that are not files of the release are left to the browser", async
   for (const { path, options } of untouched) {
     assert.equal(await worker.fetch(path, options), null, `${options.method ?? "GET"} ${path}`);
   }
+});
+
+test("requests of another origin or another method are never the worker's, whatever is stored", async () => {
+  const { world, workerB } = await afterTakeover();
+  const untouched = [
+    { path: "/assets/index-AAAAAAAA.js", options: { method: "HEAD" } },
+    { path: "/assets/index-AAAAAAAA.js", options: { method: "POST" } },
+    { path: "/assets/index-AAAAAAAA.js", options: { origin: "https://elsewhere.example" } },
+    { path: "/some/page", options: { mode: "navigate" } },
+  ];
+  for (const { path, options } of untouched) {
+    assert.equal(await workerB.fetch(path, options), null, `${options.method ?? "GET"} ${path}`);
+  }
+  assert.equal(world.network.calls.length, 0);
 });
 
 test("when the browser has dropped the store, the network answers", async () => {

@@ -40,19 +40,27 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   przeładowuje. Strona dostaje dokument i skrypty zawsze z jednego wydania, a skok nie jest przerywany. Nowe
   wydanie przejmuje stronę przy kolejnym uruchomieniu po zamknięciu wszystkich okien gry; menu pokazuje wtedy
   „Nowa wersja jest gotowa. Zamknij wszystkie okna gry i uruchom ją ponownie.”
-- **Aktywacja** usuwa cache innych wydań, tylko z prefiksem gry. Zapis gracza (localStorage, IndexedDB) nie jest
-  nigdy czytany ani zmieniany przez workera.
-- **Obsługa żądań:** tylko GET z własnego adresu i tylko pliki z listy wydania; `/` i `/index.html` dają stronę
-  startową, parametry zapytania są ignorowane. Nieznana ścieżka nie dostaje strony w zastępstwie.
+- **Poprzednie wydanie zostaje zapisane, dopóki nie wystartuje strona nowego.** Przejęcie przez nowego workera
+  niczego nie usuwa. Cache innych wydań (tylko z prefiksem gry) znika, gdy worker poda własną stronę startową
+  z własnego cache, o ile żadne nowsze wydanie właśnie się nie zapisuje ani nie czeka: jego cache musi zostać.
+  Zapis gracza (localStorage, IndexedDB) nie jest nigdy czytany ani zmieniany przez workera.
+- **Obsługa żądań:** tylko GET z własnego adresu; `/` i `/index.html` dają stronę startową, parametry
+  zapytania są ignorowane. Plik z listy wydania pochodzi z jego cache. Plik spoza listy, dopóki zapisane jest
+  jeszcze inne wydanie, pochodzi z tamtego wydania, a gdy go tam nie ma, z sieci; strona (nawigacja) nigdy nie
+  pochodzi z innego wydania. Gdy zapisane jest tylko własne wydanie, żądania spoza listy worker zostawia
+  przeglądarce. Nieznana ścieżka nie dostaje strony w zastępstwie.
 - **Rejestracja** (`src/pwa/`, `src/ui/use-offline-state.ts`): tylko w buildzie produkcyjnym, pod bezpiecznym
   adresem i gdy strona ma znacznik `<meta name="telemark-offline">`. Podgląd jednoplikowy go nie ma. Menu pokazuje
   „Gotowe do gry bez internetu.” dopiero wtedy, gdy aktywny worker potwierdzi komplet plików.
 - Pierwsza strona pierwszej wizyty nie jest przejmowana przez workera; gra startuje bez sieci od następnego
   uruchomienia.
-- Uruchomienie tuż po zamknięciu ostatniego okna może jeszcze raz wystartować ze starego wydania, zanim
-  przeglądarka przełączy workera (zaobserwowane w Chromium); nowe działa od kolejnego uruchomienia. Strona
-  ładuje wtedy wszystkie swoje pliki ze starego wydania, a gra niczego nie doładowuje później, więc wydania się
-  nie mieszają. Przy podziale kodu na części ładowane w trakcie gry trzeba do tego wrócić.
+- Uruchomienie tuż po zamknięciu ostatniego okna może jeszcze raz dostać stronę starego wydania, a przeglądarka
+  przełącza pod nią workera (zaobserwowane w Chromium). Skrypt tej strony podaje wtedy nowy worker z zapisanego
+  jeszcze starego wydania, bo serwer już go nie ma; nowe wydanie działa od kolejnego uruchomienia. Gra niczego
+  nie doładowuje później, więc wydania się nie mieszają; przy podziale kodu na części ładowane w trakcie gry
+  trzeba do tego wrócić. Znana luka: dwa okna uruchomione w tej samej chwili, z których pierwsze dostało starą
+  stronę, a drugie już nową; start drugiego usuwa stare wydanie i pierwsze może nie dostać skryptu (zostaje
+  wtedy tekst z linkiem ponownego wczytania).
 
 Gdy skryptu gry nie da się pobrać (strona z jednego wydania, skrypt już z następnego), zostaje statyczny tekst
 z `index.html` z linkiem ponownego wczytania. Strona nie przeładowuje się sama.
