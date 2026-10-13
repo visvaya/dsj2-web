@@ -17,15 +17,10 @@ import { LAYOUT_SLACK_PX, scrollState } from "./support/geometry";
 const VIEW_HEIGHT_PX = 200;
 const VIEW_MIN_WIDTH_PX = 256;
 const VIEW_MAX_WIDTH_PX = 432;
-/** From this device pixel ratio the game lets the picture scale by a fraction to fill the screen. */
-const DENSE_SCREEN_DPR = 2;
 /** A drawn frame has sky, snow, the hill, the jumper and text; a blank or failed one has a single colour. */
 const MIN_COLOURS_IN_A_FRAME = 8;
 
-test("the page opens in Polish, the screens connect and the picture is drawn to whole pixels", async ({
-  page,
-  traits,
-}) => {
+test("the page opens in Polish, the screens connect and the picture fills its area", async ({ page, traits }) => {
   await openMenu(page);
   await expect(page.locator("html")).toHaveAttribute("lang", "pl");
   await expect(page.getByRole("navigation", { name: TEXT.menuHeading })).toBeVisible();
@@ -72,9 +67,9 @@ test("the page opens in Polish, the screens connect and the picture is drawn to 
   expect(fit.scaleX).toBeGreaterThanOrEqual(1);
   expect(fit.shownWidth).toBeLessThanOrEqual(fit.stageWidth + LAYOUT_SLACK_PX);
   expect(fit.shownHeight).toBeLessThanOrEqual(fit.stageHeight + LAYOUT_SLACK_PX);
-  // A whole number of device pixels per game pixel. Dense screens are the game's stated exception: there the
-  // picture fills the area and the uneven pixels are smaller than one device pixel.
-  expect(fit.dpr >= DENSE_SCREEN_DPR || Math.abs(fit.scaleX - Math.round(fit.scaleX)) < 0.001).toBe(true);
+  // The picture reaches the edges of its area in at least one direction, in a window as in full screen.
+  const roomLeftPx = Math.min(fit.stageWidth - fit.shownWidth, fit.stageHeight - fit.shownHeight);
+  expect(roomLeftPx).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
 
   expect(await scrollState(page)).toEqual({ overflowXPx: 0, overflowYPx: 0, scrolledXPx: 0, scrolledYPx: 0 });
 

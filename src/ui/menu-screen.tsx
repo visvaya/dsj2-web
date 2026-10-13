@@ -8,9 +8,20 @@ import { OfflineNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
-/** Said when the browser does not let the page close its own window. */
+/** Written by number: as characters in the source they could not be told from nothing and from a space. */
+const SOFT_HYPHEN = String.fromCodePoint(0xad);
+const NO_BREAK_SPACE = String.fromCodePoint(0xa0);
+
+/**
+ * Said when the browser does not let the page close its own window. The note is set flush to both edges of its
+ * frame, so the long words carry the places where they may be divided at the end of a line ("|", shown as a
+ * hyphen only where a word is divided), and "~" keeps a one-letter word with the word after it. Browsers divide
+ * Polish words on their own only where they have a dictionary for it, which not every one has.
+ */
 const QUIT_REFUSED =
-  "Gra nie może zamknąć tej karty sama. Zamknij ją krzyżykiem karty albo klawiszami Ctrl+W. Możesz wyjść z trybu pełnoekranowego przyciskiem F11.";
+  "Gra nie może za|mknąć tej karty sama. Za|mknij ją krzy|ży|kiem karty albo kla|wi|sza|mi Ctrl+W. Możesz wyjść z~trybu peł|no|ekra|no|we|go przy|ci|skiem F11."
+    .replaceAll("|", SOFT_HYPHEN)
+    .replaceAll("~", NO_BREAK_SPACE);
 /** A window that closes is gone before this; one that stays gets the note. */
 const QUIT_NOTE_AFTER_MS = 300;
 
