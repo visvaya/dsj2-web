@@ -253,6 +253,23 @@ test("the check against the served release can require the content of a package"
   assert.match(other.stderr, /release.json: content [0-9a-f]{64}, expected d{64}/);
 });
 
+test("the check waits out a deployment that has not reached every machine yet", async () => {
+  // For some seconds after a deployment a request can be answered from the release before it: the new
+  // release.json is there, a file it lists is not.
+  const stale = [{ path: "/assets/index-AAAAAAAA.js", kind: "missing" }];
+  server.setFaults(stale);
+  const atOnce = await runCheck([server.origin, "--dist", distDir]);
+  assert.equal(atOnce.code, 1);
+  assert.match(atOnce.stderr, /index-AAAAAAAA\.js: HTTP 404, expected 200/);
+
+  const settled = setTimeout(() => server.setFaults([]), 1000);
+  const waited = await runCheck([server.origin, "--dist", distDir, "--wait-s", "30"]);
+  clearTimeout(settled);
+  server.setFaults([]);
+  assert.equal(waited.code, 0, waited.stderr);
+  assert.match(waited.stdout, /4 files checked, no problems/);
+});
+
 test("the comparison tells an address that serves the package from one that does not", async () => {
   const same = await runScript(COMPARE_FILE, [server.origin, "--dist", distDir]);
   assert.equal(same.code, 0, same.stderr);

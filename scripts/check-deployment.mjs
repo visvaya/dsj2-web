@@ -4,7 +4,8 @@
 //
 // Usage:
 //   node scripts/check-deployment.mjs <url> [--dist <dir>] [--source-sha <commit>] [--wait-s <seconds>]
-//       compares the deployment with the package in dist/ (after `pnpm build`)
+//       compares the deployment with the package in dist/ (after `pnpm build`); with --wait-s the check is
+//       repeated for that long until it passes, because a fresh deployment is not everywhere at once
 //   node scripts/check-deployment.mjs <url> --served-release [--source-sha <commit>] [--content-id <id>]
 //       checks the deployment against the release its own service worker carries: after a rollback, when the
 //       package of the restored release is not at hand, and when the deployed content is already the
@@ -164,10 +165,25 @@ async function main() {
     return 1;
   }
   const origin = address.replace(/\/$/, "");
-  const result =
-    values["served-release"] === true
-      ? await checkAgainstServedRelease(origin, values)
-      : await checkAgainstPackage(origin, values);
+  const deadline = Date.now() + Number(values["wait-s"]) * 1000;
+  const check = () => {
+    const remaining = { ...values, "wait-s": String(Math.max(0, (deadline - Date.now()) / 1000)) };
+    return values["served-release"] === true
+      ? checkAgainstServedRelease(origin, remaining)
+      : checkAgainstPackage(origin, remaining);
+  };
+  // A deployment reaches the host's machines one after another: for some seconds one request can be answered
+  // from the new release and the next from the one before it. The whole check is repeated until it passes or
+  // the wait is over; only what is still wrong then is a problem.
+  let result = await check();
+  while (result.problems.length > 0 && Date.now() < deadline) {
+    // oxlint-disable-next-line no-await-in-loop -- one attempt at a time, until the release has settled
+    await new Promise((resolve) => {
+      setTimeout(resolve, POLL_INTERVAL_MS);
+    });
+    // oxlint-disable-next-line no-await-in-loop -- as above
+    result = await check();
+  }
   for (const problem of result.problems) console.error(`check-deployment: ${problem}`);
   if (result.problems.length > 0) {
     console.error(`check-deployment: ${result.problems.length} problems at ${origin}`);

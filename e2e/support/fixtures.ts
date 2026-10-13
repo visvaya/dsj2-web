@@ -25,8 +25,25 @@ interface Options {
   expectedProblems: RegExp | null;
 }
 
+/**
+ * The local mode runs a real browser without a window, and such a browser can still take the mouse of the
+ * machine when the game captures it for a jump: the cursor of whoever is working there freezes. In that mode the
+ * capture is refused in the page, which the game allows for (it plays without it). The runner has no cursor
+ * to take, so the capture is left alone there.
+ */
+const REFUSE_MOUSE_CAPTURE = Boolean(process.env["BROWSER_TESTS_EDGE"]);
+
 export const test = base.extend<Fixtures & Options>({
   expectedProblems: [null, { option: true }],
+  context: async ({ context }, provide) => {
+    if (REFUSE_MOUSE_CAPTURE) {
+      await context.addInitScript(() => {
+        Element.prototype.requestPointerLock = () =>
+          Promise.reject(new DOMException("The mouse is not captured in local tests", "NotSupportedError"));
+      });
+    }
+    await provide(context);
+  },
   traits: async ({ hasTouch, viewport }, provide, testInfo) => {
     await provide({
       project: testInfo.project.name,

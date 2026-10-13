@@ -64,7 +64,10 @@ Jedno źródło: `public/_headers` (format statycznych zasobów Cloudflare). Ser
 
 - Wszystkie odpowiedzi: `Content-Security-Policy` (tylko własny adres, bez skryptów i stylów wpisanych w stronę,
   czcionki wyłącznie jako `data:`), `Permissions-Policy`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`.
-- `/assets/*`: `Cache-Control: public, max-age=31536000, immutable`.
+- `/assets/*`: `Cache-Control: no-cache`, jak reszta plików. Długi cache (`immutable`) został zdjęty: host dokleja
+  nagłówek także do odpowiedzi 404, a przez kilka sekund po wdrożeniu plik nowego wydania może być niedostępny na
+  serwerze, który akurat odpowiada (zaobserwowane); przeglądarka trzymałaby taką odpowiedź rok. Po pierwszej
+  wizycie te pliki i tak podaje service worker.
 - Strona, `sw.js`, `release.json`, manifest, ikony, licencja: `Cache-Control: no-cache`.
 - Reguły pasujące do tej samej ścieżki sumują się, a ten sam nagłówek z dwóch reguł zostałby sklejony
   przecinkiem, więc żadne dwie reguły nie ustawiają tego samego nagłówka dla jednej ścieżki (pilnuje tego test).
