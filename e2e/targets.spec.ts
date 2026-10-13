@@ -1,4 +1,4 @@
-import { button, onEveryScreen, openJumpControls, openJumpFromStart, TEXT } from "./support/app";
+import { button, jumpCanvas, onEveryScreen, openJumpControls, openJumpFromStart, TEXT } from "./support/app";
 import { expect, test } from "./support/fixtures";
 import { focusReport } from "./support/focus";
 import { targetProblems } from "./support/layout-audit";
@@ -35,10 +35,11 @@ test.describe("the controls behind the pause button", () => {
     expect(hiddenBehind, "focused while covered by the controls").toEqual([]);
     expect(visited.size).toBe(controls);
 
-    // Closing with the keyboard returns the focus to the pause button.
+    // Closing with the keyboard returns the focus to the pause button on a touch screen, and to the picture on
+    // a desktop, where the menu belongs to the Escape key.
     await button(page, TEXT.resume).focus();
     await page.keyboard.press("Enter");
     await expect(button(page, TEXT.resume)).toBeHidden();
-    await expect(button(page, TEXT.pause)).toBeFocused();
+    await expect(traits.touch ? button(page, TEXT.pause) : jumpCanvas(page)).toBeFocused();
   });
 });

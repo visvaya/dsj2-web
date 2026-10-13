@@ -21,9 +21,9 @@ describe("sensitivity of the lean", () => {
     expect(sensitivityGain(SENSITIVITY_MIN)).toBeCloseTo(1.1 ** -4, 12);
   });
 
-  it("counts the mouse at three quarters of its motion at the default level", () => {
-    expect(mouseGain(SENSITIVITY_DEFAULT)).toBe(0.75);
-    expect(mouseGain(SENSITIVITY_DEFAULT + 1)).toBeCloseTo(0.825, 12);
+  it("counts the mouse at a little less than its motion at the default level", () => {
+    expect(mouseGain(SENSITIVITY_DEFAULT)).toBe(0.85);
+    expect(mouseGain(SENSITIVITY_DEFAULT + 1)).toBeCloseTo(0.935, 12);
   });
 
   it("steps within its scale", () => {

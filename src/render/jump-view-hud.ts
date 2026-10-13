@@ -115,7 +115,8 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   // best. The other button then ends the preparation: the later it comes, the wider the telemark. Both buttons
   // at once land on two feet: safer on a very long jump, with lower notes.
   if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    return [text.lean, text.telemark, text.width, text.twoFeet];
+    // A player who knows them can switch these four lines off; the others are one short line each.
+    return m.flightHints === false ? [] : [text.lean, text.telemark, text.width, text.twoFeet];
   }
   return [];
 }

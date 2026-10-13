@@ -431,6 +431,11 @@ h2 {
   -webkit-touch-callout: none;
 }
 
+/* The browser's own flash over a touched button would dim half of the screen with tilt steering. */
+.touch-pad {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .touch-pad:active {
   background: #1c2c64;
 }
@@ -467,6 +472,13 @@ h2 {
   border: 3px solid #787884;
   color: var(--text);
   cursor: pointer;
+}
+
+/* On a desktop the button names the key that opens the menu. */
+.game:not(.touch) .pause-button {
+  width: auto;
+  padding: 0 10px;
+  font-size: 14px;
 }
 
 .pause-button:focus-visible {
