@@ -13,6 +13,7 @@
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 | `src/game/touch-landing.test.ts` | skok polami dotykowymi krokowany jak na ekranie skoku: w locie pole L tylko pochyla, pole P zaczyna telemark, nowe dotknięcie L kończy jego przygotowanie, a oba pola naraz lądują na dwie nogi; klawiatura i mysz bez zmian | wszędzie, także w CI |
+| `src/render/frame-time.budget.test.ts` | czas kroku symulacji i rysowania najszerszego obrazu wobec budżetu (opis w „Pomiar wydajności”) | wszędzie, także w CI |
 | `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
 | `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
@@ -23,6 +24,38 @@ działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy te
 
 Celowa zmiana wyglądu wymaga odświeżenia migawki pikseli: `pnpm test -u src/render/jump-view.pixels.test.ts`.
 Diff migawki pokazuje, które sceny się zmieniły; zmiana w scenie, której nie dotyczyła praca, to błąd.
+
+## Pomiar wydajności
+
+Tryb diagnostyczny włącza klucz `diag` w adresie strony (`https://adres-gry/?diag`; wartość klucza nie ma
+znaczenia). Adres jest czytany raz, przy wczytaniu strony; tryb nie ma przełącznika w ustawieniach i niczego nie
+zapisuje. Bez niego pętla skoku nie mierzy niczego.
+
+W trybie diagnostycznym w lewym dolnym rogu obszaru obrazu widać nakładkę odświeżaną raz na sekundę:
+
+| Linia | Znaczenie |
+|---|---|
+| `60.0 kl./s` | klatki na sekundę, policzone z mediany odstępu klatek |
+| `klatka 16.7 / 17.0 / 33.4 ms` | odstęp między klatkami według zegara klatek przeglądarki: mediana / 95. percentyl / maksimum |
+| `sym. 0.1 / 0.2 / 0.6 · rys. 1.2 / 1.6 / 4.0 ms` | czas wszystkich kroków symulacji w klatce oraz czas rysowania do bufora i wysłania obrazu na canvas, w tym samym układzie |
+| `zgubione kroki 0.0 · długie klatki 0` | czas, którego gra nie nadrobiła (ponad 8 kroków na klatkę), przeliczony na kroki 1/70 s, oraz liczba klatek z odstępem ponad 50 ms |
+
+Rozkłady pochodzą z ostatnich 4096 klatek, liczniki są od wejścia na ekran skoku (kolejny skok ich nie zeruje).
+Klatki zatrzymanej gry (otwarte menu) nie są liczone, a pierwsza klatka po powrocie strony z tła jest pomijana.
+Przeglądarki zaokrąglają zegar strony (do 0,1 ms albo do 1 ms), więc czasy symulacji bliskie zera są przybliżone.
+Te same liczby są w atrybucie `data-stats` nakładki (JSON z polami `frames`, `steps`, `droppedSteps`,
+`cappedFrames`, `longFrames`, `intervalMs`, `simMs`, `drawMs`); czytają go testy przeglądarkowe.
+
+Niezależnie od trybu strona stawia dwa znaczniki User Timing, każdy raz na wczytanie strony:
+`telemark:first-screen` (pierwsza klatka animacji po pokazaniu pierwszego ekranu) i `telemark:first-jump-frame`
+(pierwszy obraz skoku wysłany na canvas). Odczyt w konsoli: `performance.getEntriesByName("telemark:first-screen")`;
+widać je też w zakładce wydajności narzędzi przeglądarki.
+
+`src/render/frame-time.budget.test.ts` mierzy medianę czasu kroku symulacji (skoki na skoczni wbudowanej, paczki
+po 100 kroków) i medianę czasu rysowania obrazu 432 x 200 i porównuje je z budżetami ustawionymi na dziesięciokrotność
+pomiaru z dnia i maszyny podanych w pliku. To potykacz na regresję o rząd wielkości (pętla w pętli, alokacja na
+piksel), nie gwarancja płynności: czas w Node na komputerze nie mówi, ile klatek gra ma na telefonie. Działanie
+nakładki i znaczników (nie wydajność) sprawdza `e2e/diagnostics.spec.ts`.
 
 ## Testy w przeglądarkach
 
@@ -147,6 +180,9 @@ komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo �
 | 20 | Uruchomiona z ikony: obie orientacje, okolice wcięcia i paska gestów, pola L i P, pauza | nic pod wcięciem ani pod paskiem, czarne tło do krawędzi | `safe-area.spec.ts` (wcięcia podane przez test); prawdziwe wcięcia: tylko urządzenie |
 | 21 | Po opublikowaniu nowego wydania: otwórz grę, poczekaj na „Nowa wersja jest gotowa.”, zamknij wszystkie okna gry i uruchom ją ponownie | do zamknięcia działa stare wydanie, potem nowe; ustawienia, rekordy i zapamiętane pliki gry zostają | `offline.spec.ts`; na telefonie i z prawdziwym plikiem gry: tylko urządzenie |
 | 22 | Uruchomiona z ikony: przejdź do innej aplikacji i wróć; zablokuj i odblokuj ekran | gra wraca tam, gdzie była, bez białego ekranu i bez ponownego wczytywania w trakcie skoku | tylko urządzenie |
+| 23 | Otwórz grę w przeglądarce telefonu z `?diag` na końcu adresu, oddaj trzy skoki i po trzecim zapisz liczby z nakładki w rogu obrazu | zgubione kroki 0.0; odstęp klatki zgodny z odświeżaniem ekranu (około 16.7 ms przy 60 Hz, 8.3 ms przy 120 Hz) | tylko urządzenie (działanie nakładki: `diagnostics.spec.ts`) |
+
+Gra uruchomiona z ikony nie ma paska adresu, więc pomiar z punktu 23 robi się w karcie przeglądarki.
 
 Przy odbiorze zapisz model urządzenia, wersję systemu, przeglądarkę z wersją i wydanie gry (commit z adresu
 `/release.json`). Gdy coś zawiedzie, zanotuj: numer kroku, urządzenie i wersję systemu, przeglądarkę z wersją,

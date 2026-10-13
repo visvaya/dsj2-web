@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
+import { MARK_FIRST_JUMP_FRAME, markOnce } from "../game/performance-marks";
 import { feedbackEvents, vibrate } from "../game/haptics";
 import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
 import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
@@ -34,6 +35,7 @@ import type { HillRecord, Settings } from "../storage/save-data";
 import { HILL_LIST_TITLE, HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
 import { SettingsControls, TILT_REFUSED } from "./settings-controls";
+import { createJumpDiagnostics } from "./jump-diagnostics";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
@@ -58,6 +60,8 @@ interface Props {
   onExit: () => void;
   /** Whether the picture takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
+  /** Whether the frames of the jump are measured and the measurements shown over the picture. */
+  diagnostics: boolean;
 }
 
 const PLAYER_NAME = "GRACZ 1";
@@ -166,9 +170,11 @@ export function JumpScreen({
   onPickHill,
   onExit,
   focusOnEntry,
+  diagnostics,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const diagnosticsRef = useRef<HTMLPreElement>(null);
   useEntryFocus(canvasRef, focusOnEntry);
   const inputRef = useRef(createPlayerInput());
   const restartRef = useRef<() => void>(() => undefined);
@@ -324,6 +330,16 @@ export function JumpScreen({
     let acc = 0;
     let last = performance.now();
     let raf = 0;
+    let firstFrameMarked = false;
+    // The measurements exist only when asked for; without them the loop reads no clock of its own.
+    const overlay = diagnosticsRef.current;
+    const meter = overlay
+      ? createJumpDiagnostics((text, stats) => {
+          overlay.textContent = text;
+          // The same numbers for whoever reads them from the page, under the names the statistics have.
+          overlay.dataset["stats"] = JSON.stringify(stats);
+        })
+      : null;
 
     const restart = () => {
       jump = startTrainingJump(hill, newSeed());
@@ -414,6 +430,7 @@ export function JumpScreen({
     };
     // A hidden tab stops animation frames, so the continuous sounds are hushed right away.
     const onVisibility = () => {
+      meter?.discardNext();
       if (document.hidden) {
         soundRef.current?.update(
           soundMix({
@@ -442,6 +459,7 @@ export function JumpScreen({
       }
       // A click shorter than a frame is held only inside the frames taken below.
       let leftDown = input.left;
+      meter?.stepsBegin();
       for (let i = 0; i < plan.steps; i++) {
         const prev = jump.state;
         // The rules of the touch zones belong to finger steering; with tilt steering the thumbs are plain buttons.
@@ -460,6 +478,7 @@ export function JumpScreen({
         if (!prev.logic.finished && jump.state.logic.finished) setAnnouncement(touchdownAnnouncement(jump.state.logic));
         for (const event of soundEvents(prev, jump.state)) soundRef.current?.play(event);
       }
+      meter?.stepsEnd();
       const over = isJumpOver(jump);
       if (!finished && over) finish();
       // Once the notes are up (or a moment after a disqualification), a fresh press of the left button starts
@@ -472,6 +491,7 @@ export function JumpScreen({
       leftWasDown = leftDown;
       playSounds(clock);
       const best = latest.current.record;
+      meter?.drawBegin();
       drawJumpView(view.fb, {
         profile: hill.profile,
         kPointM: hill.kPointM,
@@ -490,6 +510,11 @@ export function JumpScreen({
         ...(best === undefined ? {} : { recordM: best.distanceM }),
       });
       ctx.putImageData(view.image, 0, 0);
+      meter?.frameEnd(now, plan, pausedRef.current);
+      if (!firstFrameMarked) {
+        firstFrameMarked = true;
+        markOnce(MARK_FIRST_JUMP_FRAME);
+      }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
@@ -613,6 +638,7 @@ export function JumpScreen({
           role="img"
           aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
         />
+        {diagnostics && <pre className="jump-diagnostics" aria-hidden="true" ref={diagnosticsRef} />}
       </div>
       <div className="game-toolbar">
         {panel === "help" ? (

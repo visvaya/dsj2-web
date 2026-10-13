@@ -8,6 +8,8 @@ const MAX_STEPS_PER_UPDATE = 8;
 export interface StepPlan {
   steps: number;
   accumulatorS: number;
+  /** Time thrown away in this update because the steps could not keep up, in seconds; zero when none was. */
+  droppedS: number;
 }
 
 /** How many fixed steps to run for the wall-clock time that has passed. */
@@ -19,11 +21,13 @@ export function planSteps(
 ): StepPlan {
   let acc = accumulatorS + Math.max(0, elapsedS);
   let steps = Math.floor(acc / stepS);
+  let droppedS = 0;
   if (steps > maxSteps) {
     steps = maxSteps;
+    droppedS = acc - maxSteps * stepS;
     acc = 0;
   } else {
     acc -= steps * stepS;
   }
-  return { steps, accumulatorS: acc };
+  return { steps, accumulatorS: acc, droppedS };
 }
