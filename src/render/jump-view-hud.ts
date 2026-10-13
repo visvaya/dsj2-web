@@ -65,20 +65,19 @@ const LEAN_PROMPT: Readonly<Record<ControlScheme, string>> = {
   tilt: "PRZECHYLAJ TELEFON: POCHYLENIE",
 };
 
-export function prompt(m: JumpViewModel, notesShown: boolean): readonly string[] {
+export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly string[] {
   const s = m.state;
   const phase = s.logic.phase;
   const touch = m.controls !== "mouse";
-  if (m.over && notesShown) return touch ? ["L: JESZCZE RAZ"] : ["KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE"];
+  // The next jump can start as soon as the notes are up; the jumper may still be sliding out.
+  if (nextJumpAllowed) return touch ? ["L: JESZCZE RAZ"] : ["KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE"];
   if (phase === PHASE.gate) return [touch ? "L: START" : "LEWY PRZYCISK: START"];
   if (phase === PHASE.inrun || phase === PHASE.crouch)
     return [touch ? "L+P NA PROGU: WYBICIE" : "OBA PRZYCISKI NA PROGU"];
-  // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores best.
+  // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
+  // best. On touch zones only the right one lands: the left one leans in flight.
   if (phase === PHASE.flightHold || phase === PHASE.flight) {
-    return [
-      LEAN_PROMPT[m.controls],
-      touch ? "L LUB P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
-    ];
+    return [LEAN_PROMPT[m.controls], touch ? "P TUŻ NAD ZIEMIĄ: TELEMARK" : "LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK"];
   }
   return [];
 }

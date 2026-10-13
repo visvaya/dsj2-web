@@ -1,6 +1,6 @@
 /**
- * Leaning by tilting the phone: the tilt away from the angle held at the
- * start acts like holding the mouse moving, i.e. it sets the lean rate.
+ * Leaning by tilting the phone: the tilt away from the angle held when the flight begins acts like holding the
+ * mouse moving, i.e. it sets the lean rate.
  */
 const TILT_DEAD_ZONE_DEG = 3;
 const TILT_GAIN_PER_DEG = 1.5;
@@ -19,6 +19,15 @@ export function pitchDeg(beta: number | null, gamma: number | null, screenAngle:
     default:
       return beta;
   }
+}
+
+/**
+ * The pitch that counts as no lean. Until the jumper is in the air it follows the phone, so the angle the
+ * phone is held at when the flight begins is the neutral one, however it was held at the gate; from then on
+ * it stays, and only tilting away from it leans.
+ */
+export function neutralPitch(inFlight: boolean, pitch: number, neutral: number | null): number {
+  return inFlight && neutral !== null ? neutral : pitch;
 }
 
 /** Motion for one frame (the mouse's dy) from the tilt relative to the neutral position. */

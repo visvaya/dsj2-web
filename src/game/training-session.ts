@@ -1,6 +1,6 @@
 import { BorlandRandom } from "../sim/borland-random";
 import { ORIGINAL_POSES } from "../sim/data/pose-table";
-import type { FrameInput } from "../sim/jump-logic";
+import { notesShownBy, type FrameInput, type JumpLogicState } from "../sim/jump-logic";
 import { createJump, jumpRunning, stepFrame, type JumpSetup, type JumpSimState } from "../sim/jump-sim";
 import { createStartWind } from "../sim/training-wind";
 import type { HillChoice } from "./hill-choice";
@@ -49,6 +49,23 @@ export function stepTrainingJump(jump: TrainingJump, input: FrameInput): Trainin
 /** Clock for presentation, in simulation frames; it keeps counting after the jump is over. */
 export function presentationFrame(jump: TrainingJump): number {
   return jump.state.logic.frame + jump.framesAfterEnd;
+}
+
+/** How long after a disqualification the next jump can start: long enough to read it, short enough not to wait. */
+const NEXT_JUMP_AFTER_DISQUALIFICATION_S = 0.5;
+/** The simulation sets the end of a disqualified jump this many frames before the frame that disqualified it. */
+const DISQUALIFICATION_END_LEAD_FRAMES = 30;
+
+/**
+ * Whether a press may start the next jump, at presentation frame `clock`. A scored jump allows it once every
+ * judge's note is up, which is while the jumper is still sliding out; a disqualified one (no distance, no notes)
+ * a moment after the disqualification, so the press that was meant for the jump does not start another.
+ */
+export function nextJumpAllowed(logic: JumpLogicState, clock: number): boolean {
+  if (!logic.finished) return false;
+  if (logic.distanceM > 0) return notesShownBy(logic, clock);
+  const disqualifiedAt = logic.endFrame + DISQUALIFICATION_END_LEAD_FRAMES;
+  return clock - disqualifiedAt >= Math.round(NEXT_JUMP_AFTER_DISQUALIFICATION_S / FRAME_S);
 }
 
 export function isJumpOver(jump: TrainingJump): boolean {

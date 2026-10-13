@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { planSteps } from "../game/fixed-step";
-import { feedbackEvents, vibrate } from "../game/haptics";
+import { canVibrate, feedbackEvents, vibrate } from "../game/haptics";
 import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
 import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
 import { displayedWindMPerS } from "../game/wind-display";
-import { pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
+import { neutralPitch, pitchDeg, requestTiltPermission, tiltMotion } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
 import { createPlayerInput, leftTouchLeansOnly, mouseButtons } from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
   isJumpOver,
   newSeed,
+  nextJumpAllowed,
   presentationFrame,
   startTrainingJump,
   stepTrainingJump,
@@ -82,6 +83,10 @@ function useMediaQuery(query: string): boolean {
 
 interface TouchPadProps {
   side: "left" | "right";
+  /** Accessible name; it starts with the name of the button the zone stands for. */
+  label: string;
+  /** What the zone does, one line each, under its letter. */
+  hints: readonly string[];
   /** Out of reach of the pointer and the keyboard while the pause controls cover the zone. */
   inert: boolean;
   onPress: (down: boolean) => void;
@@ -92,7 +97,7 @@ interface TouchPadProps {
  * A touch zone standing in for a mouse button; dragging in the left one leans like the mouse. In flight the
  * left zone only leans and the right one lands (`leftTouchLeansOnly`).
  */
-function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
+function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPadProps) {
   const lastY = useRef(new Map<number, number>());
   const release = (e: ReactPointerEvent<HTMLButtonElement>) => {
     lastY.current.delete(e.pointerId);
@@ -103,11 +108,7 @@ function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
       type="button"
       className={`touch-pad touch-pad-${side}`}
       inert={inert}
-      aria-label={
-        side === "left"
-          ? "Lewy przycisk: start i wybicie; w locie tylko pochyla skoczka, przesuwaniem w pionie"
-          : "Prawy przycisk: wybicie razem z lewym; w locie lądowanie"
-      }
+      aria-label={label}
       onPointerDown={(e) => {
         try {
           e.currentTarget.setPointerCapture(e.pointerId);
@@ -128,9 +129,11 @@ function TouchPad({ side, inert, onPress, onDrag }: TouchPadProps) {
       onContextMenu={(e) => e.preventDefault()}
     >
       <span className="touch-pad-key">{side === "left" ? "L" : "P"}</span>
-      <span className="touch-pad-hint">
-        {side === "left" ? "przeciągnij: pochylenie" : "L+P: wybicie, P: lądowanie"}
-      </span>
+      {hints.map((hint) => (
+        <span key={hint} className="touch-pad-hint">
+          {hint}
+        </span>
+      ))}
     </button>
   );
 }
@@ -166,7 +169,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     else if (menuWasOpenRef.current) pauseButtonRef.current?.focus();
     menuWasOpenRef.current = menuOpen;
   }, [menuOpen]);
-  /** Latest phone pitch and the neutral pitch captured at the start of the jump. */
+  /** Latest phone pitch and the neutral pitch, the one held when the flight begins (`neutralPitch`). */
   const tiltRef = useRef<{ on: boolean; pitch: number | null; neutral: number | null }>({
     on: false,
     pitch: null,
@@ -181,6 +184,8 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
+  // Safari on iOS has no vibration: a switch that does nothing is left out.
+  const vibrationAvailable = touch && canVibrate();
 
   // Sound: one engine per jump screen; it only listens to the game.
   useEffect(() => {
@@ -350,7 +355,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       let leftDown = input.left;
       for (let i = 0; i < plan.steps; i++) {
         if (tilt.on && tilt.pitch !== null) {
-          tilt.neutral ??= tilt.pitch;
+          tilt.neutral = neutralPitch(jump.state.logic.phase >= PHASE.flightHold, tilt.pitch, tilt.neutral);
           input.addMotion(tiltMotion(tilt.pitch, tilt.neutral));
         }
         const prev = jump.state;
@@ -369,9 +374,13 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       }
       const over = isJumpOver(jump);
       if (!finished && over) finish();
-      // After the notes, a fresh press of the left button starts the next jump.
+      // Once the notes are up (or a moment after a disqualification), a fresh press of the left button starts
+      // the next jump; the jumper may still be sliding out, and the result is final by then, so it is recorded first.
       const clock = presentationFrame(jump);
-      if (over && leftDown && !leftWasDown && notesShownBy(jump.state.logic, clock)) restart();
+      if (leftDown && !leftWasDown && nextJumpAllowed(jump.state.logic, clock)) {
+        if (!finished) finish();
+        restart();
+      }
       leftWasDown = leftDown;
       playSounds(clock);
       const best = latest.current.record;
@@ -584,7 +593,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             Pełny ekran
           </button>
         )}
-        {touch && (
+        {vibrationAvailable && (
           <button
             type="button"
             className="pixel-button"
@@ -605,13 +614,24 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           side="left"
           inert={menuOpen}
           onPress={(down) => inputRef.current.setButton("touch", "left", down)}
-          onDrag={(dy) => inputRef.current.addMotion(dy)}
+          hints={tiltOn ? ["przechyl telefon: pochylenie"] : ["przeciągnij: pochylenie"]}
+          label={
+            tiltOn
+              ? "Lewy przycisk: start i wybicie"
+              : "Lewy przycisk: start i wybicie; w locie przesuwanie w pionie pochyla skoczka"
+          }
+          onDrag={(dy) => {
+            // With tilt steering the phone leans; a finger resting on the zone must not add to it.
+            if (!tiltRef.current.on) inputRef.current.addMotion(dy);
+          }}
         />
       )}
       {touch && (
         <TouchPad
           side="right"
           inert={menuOpen}
+          hints={["L+P: wybicie", "P: telemark"]}
+          label="Prawy przycisk: wybicie razem z lewym; w locie telemark"
           onPress={(down) => inputRef.current.setButton("touch", "right", down)}
           onDrag={() => undefined}
         />
