@@ -26,6 +26,11 @@ export function feedbackEvents(prev: JumpSimState, next: JumpSimState): Feedback
   return events;
 }
 
+/** Whether the browser can vibrate at all (Safari on iOS cannot). */
+export function canVibrate(nav: { vibrate?: unknown } = navigator): boolean {
+  return typeof nav.vibrate === "function";
+}
+
 /** Vibrates where the browser supports it (not Safari on iOS); silently does nothing otherwise. */
 export function vibrate(event: FeedbackEvent, nav: { vibrate?: (pattern: number[]) => boolean } = navigator): void {
   if (typeof nav.vibrate !== "function") return;

@@ -1,4 +1,4 @@
-import type { FrameInput } from "../sim/jump-logic";
+import { PHASE, type FrameInput } from "../sim/jump-logic";
 
 /** The original clamps the mouse motion of one frame to a signed byte. */
 const MOTION_LIMIT = 127;
@@ -25,6 +25,16 @@ export function mouseButtons(mask: number): ButtonState {
   return { left: (mask & MASK_LEFT) !== 0, right: (mask & MASK_RIGHT) !== 0 };
 }
 
+/**
+ * In flight the left touch zone only leans. Any button pressed in flight starts the landing, and the left zone
+ * is also where a finger drags to lean: were it a button there, a finger lifted from it could not come back
+ * without landing. The right zone starts the landing; the left one is a button again once the landing has
+ * begun, where the second button ends the preparation early.
+ */
+export function leftTouchLeansOnly(phase: number): boolean {
+  return phase === PHASE.flightHold || phase === PHASE.flight;
+}
+
 const nothingHeld = (): Record<ButtonSource, ButtonState> => ({
   mouse: { left: false, right: false },
   keys: { left: false, right: false },
@@ -41,6 +51,11 @@ interface PlayerInput {
   readonly right: boolean;
   setButton: (source: ButtonSource, side: ButtonSide, down: boolean) => void;
   setButtons: (source: ButtonSource, state: ButtonState) => void;
+  /**
+   * While on, a touch on the left zone is not a press of the left button (see `leftTouchLeansOnly`). When it
+   * goes off, a finger still on the zone stays unpressed until it lifts: only a new touch presses.
+   */
+  setLeftTouchLeansOnly: (on: boolean) => void;
   /** Lets go of what a source held, for when its release can no longer arrive (capture or focus lost). */
   release: (source: ButtonSource) => void;
   addMotion: (dy: number) => void;
@@ -56,12 +71,17 @@ export function createPlayerInput(): PlayerInput {
   let pressed: ButtonState = { left: false, right: false };
   let pendingDy = 0;
   let leanKeys = 0;
+  /** The left touch zone does not press: leaning only is on, or it ended under a finger that has not lifted. */
+  let leftTouchMuted = false;
+  let leansOnly = false;
 
-  const leftHeld = (): boolean => held.mouse.left || held.keys.left || held.touch.left;
+  const leftHeld = (): boolean => held.mouse.left || held.keys.left || (held.touch.left && !leftTouchMuted);
   const rightHeld = (): boolean => held.mouse.right || held.keys.right || held.touch.right;
   const setButtons = (source: ButtonSource, state: ButtonState): void => {
     held = { ...held, [source]: { left: state.left, right: state.right } };
-    pressed = { left: pressed.left || state.left, right: pressed.right || state.right };
+    if (source === "touch" && !state.left && !leansOnly) leftTouchMuted = false;
+    const leftPressed = state.left && !(source === "touch" && leftTouchMuted);
+    pressed = { left: pressed.left || leftPressed, right: pressed.right || state.right };
   };
 
   return {
@@ -75,6 +95,11 @@ export function createPlayerInput(): PlayerInput {
       setButtons(source, { ...held[source], [side]: down });
     },
     setButtons,
+    setLeftTouchLeansOnly(on) {
+      leansOnly = on;
+      if (on) leftTouchMuted = true;
+      else if (!held.touch.left) leftTouchMuted = false;
+    },
     release(source) {
       setButtons(source, { left: false, right: false });
     },
@@ -97,6 +122,8 @@ export function createPlayerInput(): PlayerInput {
       pressed = { left: false, right: false };
       pendingDy = 0;
       leanKeys = 0;
+      leftTouchMuted = false;
+      leansOnly = false;
     },
   };
 }

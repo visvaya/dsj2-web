@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "../game/training-session";
+import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
 import {
@@ -13,6 +14,8 @@ import {
   type Scenery,
 } from "./jump-view";
 import { terrainYM } from "../sim/hill-profile";
+import { prompt } from "./jump-view-hud";
+import type { ControlScheme } from "./jump-view-model";
 import { color } from "./palette";
 import { fnv } from "./test-support/frame-hash";
 
@@ -89,6 +92,44 @@ describe("jump view", () => {
     },
     30_000,
   );
+
+  it("on touch prompts to land with the right zone, and for the next jump as soon as the notes are up", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    let jump = startTrainingJump(hill, 7);
+    const bot = makeBot(
+      hill.profile,
+      { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+      () => jump.state,
+    );
+    const schemes: readonly ControlScheme[] = ["touch", "tilt", "mouse"];
+    /** Every distinct prompt seen in flight and once the notes are up, per control scheme. */
+    const inFlight = new Set<string>();
+    const notesUpWhileMoving = new Set<string>();
+    for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
+      jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
+      const frame = presentationFrame(jump);
+      const notesShown = notesShownBy(jump.state.logic, frame);
+      const model = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1" };
+      const flying = jump.state.logic.phase === PHASE.flight;
+      for (const controls of schemes) {
+        const lines = prompt({ ...model, state: jump.state, controls, frame, over: false }, notesShown);
+        if (flying) inFlight.add(`${controls}: ${lines.join(" / ")}`);
+        if (notesShown) notesUpWhileMoving.add(`${controls}: ${lines.join(" / ")}`);
+      }
+    }
+    expect([...inFlight]).toEqual([
+      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK",
+      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK",
+      "mouse: MYSZ: POCHYLENIE / LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK",
+    ]);
+    // The notes are up while the jumper is still sliding out: that is when the next jump can already start.
+    expect([...notesUpWhileMoving]).toEqual([
+      "touch: L: JESZCZE RAZ",
+      "tilt: L: JESZCZE RAZ",
+      "mouse: KLIKNIJ: JESZCZE RAZ   ESC: SKOCZNIE",
+    ]);
+  });
 
   it("shows no judges' notes after a disqualification", () => {
     const hill = OWN_HILLS[0];

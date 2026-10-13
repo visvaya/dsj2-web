@@ -1,4 +1,5 @@
 import { DEFAULT_OUTFIT, type Outfit } from "../game/outfit";
+import { nextJumpAllowed } from "../game/training-session";
 import type { HillProfile } from "../sim/hill-profile";
 import { PHASE, notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
@@ -98,7 +99,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   drawWindBox(fb, s);
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);
-  const lines = prompt(m, notesShown);
+  const lines = prompt(m, nextJumpAllowed(s.logic, m.frame));
   const steady = s.logic.phase === PHASE.flight || s.logic.phase === PHASE.flightHold;
   if (steady || Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
     lines.forEach((line, i) => {

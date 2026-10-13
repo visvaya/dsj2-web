@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "./hill-choice";
-import { isJumpOver, presentationFrame, startTrainingJump, stepTrainingJump } from "./training-session";
+import { PHASE, notesShownBy } from "../sim/jump-logic";
+import {
+  isJumpOver,
+  nextJumpAllowed,
+  presentationFrame,
+  startTrainingJump,
+  stepTrainingJump,
+} from "./training-session";
 
 const hill = OWN_HILLS[0];
 
@@ -30,6 +37,41 @@ describe("training jump", () => {
     expect(jump.setup.wind.speedMPerS).toBeGreaterThanOrEqual(0);
     expect(jump.setup.wind.speedMPerS).toBeLessThanOrEqual(4.5);
     expect(jump.state.logic.frame).toBe(1);
+  });
+
+  it("allows the next jump half a second after a disqualification", () => {
+    if (!hill) throw new Error("no hill");
+    // Nobody presses start: the countdown runs out.
+    let jump = startTrainingJump(hill, 3);
+    for (let f = 0; f < 4000 && !jump.state.logic.finished; f++)
+      jump = stepTrainingJump(jump, { left: false, right: false, dy: 0 });
+    expect(jump.state.logic.finished).toBe(true);
+    expect(jump.state.logic.distanceM).toBe(0);
+    const disqualifiedAt = presentationFrame(jump);
+    expect(nextJumpAllowed(jump.state.logic, disqualifiedAt)).toBe(false);
+    expect(nextJumpAllowed(jump.state.logic, disqualifiedAt + 34)).toBe(false);
+    expect(nextJumpAllowed(jump.state.logic, disqualifiedAt + 35)).toBe(true);
+  });
+
+  it("allows the next jump once every note of a scored jump is up, not before", () => {
+    if (!hill) throw new Error("no hill");
+    let jump = startTrainingJump(hill, 12345);
+    let allowedAt: number | null = null;
+    let scoredAt: number | null = null;
+    for (let f = 0; f < 6000 && !isJumpOver(jump); f++) {
+      const frame = jump.state.logic.frame + 1;
+      const takeoff = jump.state.logic.phase === PHASE.crouch && jump.state.jumper.xM > hill.profile.takeoffXM - 4;
+      jump = stepTrainingJump(jump, { left: frame === 70 || takeoff, right: takeoff, dy: 0 });
+      const clock = presentationFrame(jump);
+      expect(nextJumpAllowed(jump.state.logic, clock)).toBe(notesShownBy(jump.state.logic, clock));
+      if (jump.state.logic.finished) scoredAt ??= clock;
+      if (nextJumpAllowed(jump.state.logic, clock)) allowedAt ??= clock;
+    }
+    expect(jump.state.logic.distanceM).toBeGreaterThan(0);
+    expect(scoredAt).not.toBeNull();
+    expect(allowedAt).toBeGreaterThan(scoredAt ?? 0);
+    // The jumper is still moving then.
+    expect(allowedAt).toBeLessThan(presentationFrame(jump));
   });
 
   it("keeps the presentation clock running after the jump is over", () => {

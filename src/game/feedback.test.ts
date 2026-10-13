@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { makeBot } from "../sim/test-support/synthetic";
-import { feedbackEvents, vibrate } from "./haptics";
+import { canVibrate, feedbackEvents, vibrate } from "./haptics";
 import { OWN_HILLS } from "./hill-choice";
-import { pitchDeg, requestTiltPermission, tiltMotion } from "./tilt-input";
+import { neutralPitch, pitchDeg, requestTiltPermission, tiltMotion } from "./tilt-input";
 import { isJumpOver, startTrainingJump, stepTrainingJump } from "./training-session";
 
 function run(landingHeightM: number | null): string[] {
@@ -32,6 +32,11 @@ describe("haptic feedback", () => {
     expect(run(null)).toEqual(["start", "takeoff", "crash"]);
   });
 
+  it("knows whether the browser can vibrate", () => {
+    expect(canVibrate({ vibrate: () => true })).toBe(true);
+    expect(canVibrate({})).toBe(false);
+  });
+
   it("vibrates only where the browser can", () => {
     const calls: number[][] = [];
     vibrate("crash", { vibrate: (p) => (calls.push(p), true) });
@@ -52,6 +57,17 @@ describe("tilt steering", () => {
     expect(tiltMotion(42, 40)).toBe(0);
     expect(tiltMotion(50, 40)).toBe(11);
     expect(tiltMotion(-60, 40)).toBe(-60);
+  });
+
+  it("takes the angle the phone is held at when the flight begins as no lean", () => {
+    // Before the flight the neutral angle follows the phone, whatever it was before.
+    expect(neutralPitch(false, 25, null)).toBe(25);
+    expect(neutralPitch(false, 40, 25)).toBe(40);
+    // In flight it stays, so tilting away from it leans.
+    expect(neutralPitch(true, 55, 40)).toBe(40);
+    expect(tiltMotion(55, neutralPitch(true, 55, 40))).toBe(18);
+    // Steering switched on in mid-flight starts from where the phone is.
+    expect(neutralPitch(true, 55, null)).toBe(55);
   });
 
   it("asks for permission only where required", async () => {
