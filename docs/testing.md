@@ -17,6 +17,7 @@
 | `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
 | `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
+| `e2e/perf/*.perf.ts` (`pnpm test:browser:perf`) | czas klatek na spowolnionym procesorze, pamięć po serii skoków, czas startu (opis w „Pomiar wydajności”) | CI: Chromium; lokalnie: Edge |
 
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
@@ -56,6 +57,67 @@ po 100 kroków) i medianę czasu rysowania obrazu 432 x 200 i porównuje je z bu
 pomiaru z dnia i maszyny podanych w pliku. To potykacz na regresję o rząd wielkości (pętla w pętli, alokacja na
 piksel), nie gwarancja płynności: czas w Node na komputerze nie mówi, ile klatek gra ma na telefonie. Działanie
 nakładki i znaczników (nie wydajność) sprawdza `e2e/diagnostics.spec.ts`.
+
+### Pomiary w przeglądarce
+
+Dwa zestawy mierzą zbudowaną grę w przeglądarce i porównują wynik z budżetem.
+
+**Pierwsze wejście** (`e2e/first-visit.spec.ts`, część zwykłego zestawu, profile komputera w trzech silnikach).
+Test stawia własny serwer na `dist/`; serwer zapisuje dla każdego żądania status i liczbę bajtów ciała faktycznie
+wysłanych, po kompresji (304 i HEAD to 0 bajtów; żądanie bez odpowiedzi nie ma tych pól). Dwa punkty pomiaru:
+
+- pierwszy ekran: żądania samej strony do chwili, gdy menu stoi, a sieć ucichła. Strona rejestruje service
+  workera zaraz po pokazaniu menu i jego żądania mieszałyby się z jej własnymi, więc ten punkt jest mierzony
+  w osobnym profilu przeglądarki, w którym worker nie może się zarejestrować;
+- gra gotowa bez sieci: wszystkie żądania świeżego profilu do komunikatu „Gotowe do gry bez internetu.”.
+
+Test liczy też pliki, których pełne ciało serwer wysłał więcej niż raz. Worker pobiera przy instalacji każdy plik
+wydania w trybie `no-cache`: pamięć przeglądarki może odpowiedzieć dopiero po zapytaniu serwera. W Chromium
+przeglądarka pyta wtedy warunkowo i dostaje 304 dla tego, co strona już pobrała, więc żaden plik nie idzie dwa
+razy, i test tego pilnuje. Dla Firefoksa
+i WebKitu wynik nie był znany przed pierwszym przebiegiem w CI: test wypisuje tam dane i sprawdza budżety
+z zapasem na powtórne pobranie plików strony. Budżety: `FIRST_VISIT_BUDGET` w pliku testu.
+
+**Czas i pamięć** (`e2e/perf/*.perf.ts`, osobny tryb, tylko Chromium). Testy czasu nie mogą biec obok innych
+testów, bo zajęta maszyna gubi kroki symulacji; zmienna `BROWSER_TESTS_PERF` przełącza więc konfigurację na jeden
+projekt `perf-chromium`, jeden test naraz, z własnym raportem (`playwright-report-perf/`) i katalogiem wyników
+(`test-results-perf/`). Bez tej zmiennej pliki `*.perf.ts` nie są uruchamiane.
+
+```sh
+pnpm test:browser:perf        # przeglądarka Playwrighta (tak działa CI)
+pnpm test:browser:perf:edge   # lokalnie: Microsoft Edge z systemu
+```
+
+| Plik | Co mierzy |
+|---|---|
+| `jump-frames.perf.ts` | jeden cały skok w trybie `?diag` przy procesorze spowolnionym 4 razy (`Emulation.setCPUThrottlingRate`) i, dla porównania w tym samym logu, trzy skoki bez spowolnienia (miarą jest środkowy): zgubione kroki, długie klatki, 95. percentyl odstępu klatek, czasu symulacji i rysowania (z `data-stats`) oraz liczba i najdłuższe z długich zadań (`PerformanceObserver`, `longtask`) od początku skoku |
+| `jump-cycles.perf.ts` | po 3 cyklach rozgrzewki 20 cykli „nowy skok z menu, wyjście do menu głównego, ponowne wejście na skocznię” (w co drugim skok biegnie sekundę); przed i po: sterta po wymuszonym odśmiecaniu, liczba nasłuchów zdarzeń, węzłów i dokumentów. Nasłuchy i węzły są miarą pewniejszą od sterty: ich przyrost to wyciek |
+| `start-times.perf.ts` | czas od początku nawigacji do `telemark:first-screen` przy pierwszym wejściu (procesor spowolniony 4 razy, sieć jak „Slow 4G” w Lighthouse: opóźnienie 150 ms, 1,6 Mb/s w dół, 750 kb/s w górę) i przy ponownym, gdy odpowiada service worker (tylko procesor); czas od naciśnięcia skoczni na liście do `telemark:first-jump-frame`. Po 5 prób, miarą jest mediana |
+
+Budżety są w jednym obiekcie `PERF_BUDGET` (`e2e/perf/perf-budget.ts`); przy każdej liczbie jest data, maszyna
+i zmierzone wartości. Czasy i liczniki zależne od obciążenia mają ok. trzykrotność mediany z trzech lokalnych
+przebiegów, bo maszyna CI jest inna i współdzielona. Liczniki, które w każdym przebiegu były takie same (przyrost
+nasłuchów i węzłów: zero; klatki ze zgubionym czasem bez spowolnienia: najwyżej jedna), mają budżet równy
+pomiarowi.
+
+Każdy pomiar, także w teście, który przeszedł, trafia do wyjścia przebiegu jako jedna linia zaczynająca się od
+`PERF ` z obiektem JSON (`measure` to nazwa pomiaru, `project` to projekt Playwrighta, dalej surowe wartości,
+w tym wszystkie próby) i jako załącznik `<nazwa>.json` w raporcie HTML. Odczyt z logu: `grep '^PERF ' <log>`.
+
+Wynik z dnia ustawienia budżetów (2026-10-13, laptop z Intel Core i7-6700HQ, Edge 155 bez okna): przy procesorze
+spowolnionym 4 razy gra pokazuje 20 klatek na sekundę zamiast 60, bo samo rysowanie klatki trwa wtedy 35 do 40 ms
+(mediana) przy odstępie 16,7 ms, i gubi 20 do 35 kroków symulacji na skok. Bez spowolnienia trzyma 59,9 klatki
+na sekundę; jedyną klatką, która bywa spóźniona o ponad 114 ms i gubi wtedy od 1 do 5 kroków, jest ta przy
+pierwszym naciśnięciu na obrazie (jedno zadanie 85 do 130 ms, raz 187 ms, ok. 0,2 s po otwarciu ekranu skoku).
+
+Czego te pomiary nie mówią:
+
+- spowolniony procesor to nie telefon: emulacja wydłuża pracę głównego wątku strony, nie naśladuje układu
+  graficznego, pamięci ani przegrzewania; płynność na urządzeniu sprawdza się na urządzeniu;
+- czasu, pamięci i długich zadań nie mierzy się w Firefoksie i WebKicie (sterowanie procesorem i odczyt sterty
+  idą przez protokół Chromium); te silniki mają tylko pomiar pierwszego wejścia;
+- liczby pochodzą z jednej maszyny, a budżet z mnożnikiem 3 łapie regresję kilkukrotną, nie kilkunastoprocentową;
+  mniejsze zmiany widać tylko przez porównanie linii `PERF ` z dwóch przebiegów na tej samej maszynie.
 
 ## Testy w przeglądarkach
 
@@ -97,6 +159,7 @@ Co sprawdzają pliki w `e2e/`:
 | `sound.spec.ts` | żaden kontekst audio nie działa przed pierwszym gestem, jeden po nim; wyłączony dźwięk to cisza na wyjściu, także po przeładowaniu (`AudioContext` obserwowany z testu) | wszystkie |
 | `player-files.spec.ts` | plik, który nie jest grą: komunikat po polsku, nic nie zostaje zapisane, skocznia wbudowana dostępna | wszystkie |
 | `page-basics.spec.ts` | osobny tytuł strony dla każdego ekranu; tło ustawione na `html`; nowy ekran otwiera się od góry, bez pozycji przewinięcia poprzedniego | wszystkie |
+| `first-visit.spec.ts` | pierwsze wejście: liczba żądań i bajty do pierwszego ekranu i do gotowości bez sieci wobec budżetu; w Chromium żaden plik nie jest pobierany w całości dwa razy (opis w „Pomiar wydajności”) | komputery (trzy silniki) |
 | `offline.spec.ts` | po jednej wizycie gra startuje i daje się rozegrać bez sieci (cały skok, rekord po przeładowaniu); pierwsza wizyta bez sieci nie daje gry; nowe wydanie czeka, dopóki otwarte jest choć jedno okno, potem przejmuje stronę, a zapis zostaje; wydanie z brakującym albo uszkodzonym plikiem i wydanie podmienione w trakcie pobierania nie zostawiają żadnej części i nie ruszają działającego; wycofanie do starszego wydania dociera do gracza z nowszym; po przejęciu przez nowe wydanie strona poprzedniego nadal dostaje swój skrypt, a poprzednie wydanie znika dopiero po starcie strony nowego; brak skryptu przy pierwszej wizycie zostawia tekst z linkiem, bez pętli przeładowań | komputery (trzy silniki) |
 | `http-policy.spec.ts` | serwer testów przechodzi tę samą kontrolę co wdrożenie (`scripts/check-deployment.mjs`); polityka treści, typy i reguły cache strony, workera, manifestu i licencji; strona nie blokuje powiększania | `desktop-chromium` |
 | `single-file.spec.ts` | strona jednoplikowa nie pobiera niczego poza sobą, nie rejestruje workera także pod bezpiecznym adresem, działa bez sieci i w ramce | komputery |
@@ -135,7 +198,8 @@ zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
 W trybie lokalnym testy odmawiają grze przechwycenia myszy: przeglądarka bez okna potrafi mimo to zabrać kursor
 całej maszyny na czas skoku. Gra działa wtedy bez przechwycenia; ścieżkę z przechwyconą myszą sprawdza CI,
 o ile silnik na nią pozwala.
-Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/`. CI zapisuje oba
+Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/` (w trybie pomiarów:
+`playwright-report-perf/` i `test-results-perf/`). CI zapisuje te
 katalogi jako artefakt `playwright-report` (7 dni), gdy testy nie przeszły, a także wtedy, gdy test przeszedł
 dopiero w powtórce: przebieg jest wtedy zielony, a ślad nieudanej próby jest jedynym zapisem przyczyny.
 

@@ -185,7 +185,7 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.mjs", "e2e/**/*.spec.ts"],
+      "files": ["**/*.test.ts", "**/*.test.tsx", "**/*.test.mjs", "e2e/**/*.spec.ts", "e2e/**/*.perf.ts"],
       "rules": {
         "max-lines-per-function": "off"
       }
@@ -234,6 +234,8 @@
     ".scratch",
     "playwright-report",
     "test-results",
+    "playwright-report-perf",
+    "test-results-perf",
     "e2e/.sim-harness",
     "e2e/.pwa-releases",
     "dist-single"
