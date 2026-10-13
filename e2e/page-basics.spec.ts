@@ -6,6 +6,7 @@ const TITLES: Readonly<Record<string, string>> = {
   menu: "Telemark",
   outfit: "Strój · Telemark",
   "how to jump": "Jak skakać · Telemark",
+  install: "Gra jako aplikacja · Telemark",
   "hill list": "Wybór skoczni · Telemark",
   jump: "Skok: Ćwiczebna K90 · Telemark",
   // Opening the controls of the jump screen does not change where the player is.
@@ -33,10 +34,11 @@ test("each screen has its own title and the page background is set on the root e
       titles.get("menu"),
       titles.get("outfit"),
       titles.get("how to jump"),
+      titles.get("install"),
       titles.get("hill list"),
       titles.get("jump"),
     ]).size,
-  ).toBe(5);
+  ).toBe(6);
 });
 
 // A window too short for the menu and for the hill list, so that both scroll on every device profile. The hill

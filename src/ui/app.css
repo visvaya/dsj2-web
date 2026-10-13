@@ -548,6 +548,11 @@ h2 {
   outline-offset: 4px;
 }
 
+/* The list of hills inside the menu of the jump screen. */
+.menu-hills {
+  width: min(100%, 560px);
+}
+
 /* A value with a button on each side to lower and to raise it. The value keeps its width whatever it reads. */
 .stepper {
   display: flex;

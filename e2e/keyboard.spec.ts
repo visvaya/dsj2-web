@@ -6,9 +6,16 @@ test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where 
 
 test("the menu and the hill list are operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  expect(await tabThrough(page, 4)).toEqual([TEXT.training, TEXT.outfit, "Jak skakać", "Wczytaj pliki gry"]);
+  expect(await tabThrough(page, 5)).toEqual([
+    TEXT.training,
+    TEXT.outfit,
+    TEXT.howTo,
+    TEXT.install,
+    "Wczytaj pliki gry",
+  ]);
 
   // Back to the first button; Enter opens the hill list and the focus moves to its heading.
+  await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
@@ -120,9 +127,14 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await page.keyboard.press("Enter");
   await expect(resume).toBeFocused();
 
-  // Leaving for the hill list is a position of the menu.
+  // The hill list opens in the menu and takes the focus; the way out of the training is another position.
   await button(page, TEXT.toHills).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeFocused();
   expect(await expectVisibleFocus(page)).toBe(TEXT.hillListTitle);
+  await button(page, TEXT.back).focus();
+  await page.keyboard.press("Enter");
+  await button(page, TEXT.toMainMenu).focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Telemark" })).toBeFocused();
 });

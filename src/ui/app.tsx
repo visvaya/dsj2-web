@@ -6,6 +6,7 @@ import { detectBackend, loadSave, saveSave, type StorageBackend } from "../stora
 import { readOriginalHills } from "../original/original-hills";
 import { HillScreen } from "./hill-screen";
 import { HowToScreen } from "./how-to-jump";
+import { InstallScreen } from "./install-screen";
 import { JumpScreen, type JumpResult } from "./jump-screen";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
@@ -17,7 +18,25 @@ type Screen =
   | { kind: "hills" }
   | { kind: "outfit" }
   | { kind: "howto" }
+  | { kind: "install" }
   | { kind: "jump"; hill: HillChoice };
+
+interface InfoProps {
+  kind: "howto" | "install";
+  /** Whether a touch screen is steered by tilting the phone. */
+  tilt: boolean;
+  onBack: () => void;
+  focusOnEntry: boolean;
+}
+
+/** The screens that only tell the player something and lead back to the menu. */
+function InfoScreen({ kind, tilt, onBack, focusOnEntry }: InfoProps) {
+  return kind === "howto" ? (
+    <HowToScreen tilt={tilt} onBack={onBack} focusOnEntry={focusOnEntry} />
+  ) : (
+    <InstallScreen onBack={onBack} focusOnEntry={focusOnEntry} />
+  );
+}
 
 /** The screen shown, and how to show another one. */
 function useScreens(): { screen: Screen; navigated: boolean; show: (next: Screen) => void } {
@@ -109,19 +128,23 @@ export function App() {
     const hill = screen.hill;
     return (
       <JumpScreen
+        key={hill.id}
         hill={hill}
         record={save.records[hill.id]}
         settings={save.settings}
         onSettings={onSettings}
         onFinished={(result) => onFinished(hill, result)}
-        onExit={() => show({ kind: "hills" })}
+        hills={[...OWN_HILLS, ...originalHills]}
+        records={save.records}
+        onPickHill={(picked) => show({ kind: "jump", hill: picked })}
+        onExit={() => show({ kind: "menu" })}
         focusOnEntry={navigated}
       />
     );
   }
-  if (screen.kind === "howto") {
-    const back = () => show({ kind: "menu" });
-    return <HowToScreen tilt={save.settings.leanControl === "tilt"} onBack={back} focusOnEntry={navigated} />;
+  if (screen.kind === "howto" || screen.kind === "install") {
+    const tilt = save.settings.leanControl === "tilt";
+    return <InfoScreen kind={screen.kind} tilt={tilt} onBack={() => show({ kind: "menu" })} focusOnEntry={navigated} />;
   }
   if (screen.kind === "outfit") {
     return (
@@ -156,6 +179,7 @@ export function App() {
       onTraining={() => show({ kind: "hills" })}
       onOutfit={() => show({ kind: "outfit" })}
       onHowTo={() => show({ kind: "howto" })}
+      onInstall={() => show({ kind: "install" })}
       focusOnEntry={navigated}
       onOriginalHills={setOriginalHills}
     />

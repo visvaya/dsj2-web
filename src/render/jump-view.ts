@@ -23,6 +23,11 @@ export const VIEW_MIN_WIDTH_PX = 256;
 export const VIEW_MAX_WIDTH_PX = 432;
 
 /** Logical width for a display area, keeping square pixels and the original height. */
+/** Device pixels per game pixel: all the room there is where that is asked for, whole pixels otherwise. */
+export function pictureScale(fill: number, exact: boolean): number {
+  return Math.max(1, exact ? fill : Math.floor(fill));
+}
+
 export function viewWidthFor(areaWidth: number, areaHeight: number): number {
   if (!(areaWidth > 0 && areaHeight > 0)) return 356;
   const w = Math.round((VIEW_HEIGHT_PX * areaWidth) / areaHeight);

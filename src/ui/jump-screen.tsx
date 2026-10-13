@@ -37,8 +37,9 @@ import {
 } from "../game/training-session";
 import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
-import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
+import { VIEW_HEIGHT_PX, drawJumpView, pictureScale, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
+import { HILL_LIST_TITLE, HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -56,6 +57,11 @@ interface Props {
   settings: Settings;
   onSettings: (change: Partial<Settings>) => void;
   onFinished: (result: JumpResult) => void;
+  /** The hills the menu offers, with their records, and what choosing one does. */
+  hills: readonly HillChoice[];
+  records: Readonly<Record<string, HillRecord>>;
+  onPickHill: (hill: HillChoice) => void;
+  /** Leaves the training for the main menu. */
   onExit: () => void;
   /** Whether the picture takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -87,6 +93,14 @@ interface View {
 function makeView(width: number): View {
   const fb = new FrameBuffer(width, VIEW_HEIGHT_PX);
   return { fb, image: new ImageData(fb.bytes, width, VIEW_HEIGHT_PX) };
+}
+
+/**
+ * Whether the page has the whole screen: through its own full screen, or through the browser's (F11), which
+ * the display mode tells where the browser reports it.
+ */
+function fillsTheScreen(): boolean {
+  return document.fullscreenElement !== null || window.matchMedia("(display-mode: fullscreen)").matches;
 }
 
 /** Game pixels between the pause button and the name of the hill beside it. */
@@ -170,7 +184,18 @@ function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPadProps)
 }
 
 // oxlint-disable-next-line max-lines-per-function -- to be split: sound and tilt set-up, the jump loop, the controls markup
-export function JumpScreen({ hill, record, settings, onSettings, onFinished, onExit, focusOnEntry }: Props) {
+export function JumpScreen({
+  hill,
+  record,
+  settings,
+  onSettings,
+  onFinished,
+  hills,
+  records,
+  onPickHill,
+  onExit,
+  focusOnEntry,
+}: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useEntryFocus(canvasRef, focusOnEntry);
@@ -188,14 +213,14 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   }, [tiltNote]);
   /** In phone landscape the buttons sit behind a pause button; the jump stops while they are open. */
   const [menuOpen, setMenuOpen] = useState(false);
-  /** The instructions, shown in place of the menu's buttons. */
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpHeadingRef = useRef<HTMLHeadingElement>(null);
+  /** What the open menu shows: its buttons, or the instructions or the list of hills in their place. */
+  const [panel, setPanel] = useState<"menu" | "help" | "hills">("menu");
+  const panelHeadingRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
-    if (helpOpen) helpHeadingRef.current?.focus();
-  }, [helpOpen]);
+    if (panel !== "menu") panelHeadingRef.current?.focus();
+  }, [panel]);
   const openMenu = () => {
-    setHelpOpen(false);
+    setPanel("menu");
     setMenuOpen(true);
   };
   const pausedRef = useRef(false);
@@ -226,7 +251,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
   useEffect(() => {
     openMenuRef.current = openMenu;
     toggleMenuRef.current = () => {
-      setHelpOpen(false);
+      setPanel("menu");
       setMenuOpen((open) => !open);
     };
   });
@@ -358,10 +383,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       canvas.width = width;
       canvas.height = VIEW_HEIGHT_PX;
       // Whole device pixels per game pixel keep every pixel the same size. On dense screens
-      // (phones) a fractional scale fills the space; the uneven pixels are then below one device pixel.
+      // (phones) a fractional scale fills the space; the uneven pixels are then below one device pixel. In full
+      // screen the picture goes to the edges as well: a frame around it is worse than pixels a fifth uneven.
       const dpr = window.devicePixelRatio || 1;
       const fill = Math.min((stage.clientWidth * dpr) / width, (stage.clientHeight * dpr) / VIEW_HEIGHT_PX);
-      const scale = Math.max(1, dpr >= DENSE_SCREEN_DPR ? fill : Math.floor(fill));
+      const scale = pictureScale(fill, dpr >= DENSE_SCREEN_DPR || fillsTheScreen());
       canvas.style.width = `${(width * scale) / dpr}px`;
       canvas.style.height = `${(VIEW_HEIGHT_PX * scale) / dpr}px`;
       titleInsetPx = titleInsetFor(canvas, pauseButtonRef.current, width);
@@ -599,17 +625,39 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, lewy lub prawy przycisk tuż nad ziemią: telemark, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
+          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk po chwili ustala jego szerokość, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
         />
       </div>
       <div className="game-toolbar">
-        {helpOpen ? (
+        {panel === "help" ? (
           <>
-            <h2 className="how-to-title" tabIndex={-1} ref={helpHeadingRef}>
+            <h2 className="how-to-title" tabIndex={-1} ref={panelHeadingRef}>
               Jak skakać
             </h2>
             <HowToJump steering={controls} />
-            <button type="button" className="pixel-button" onClick={() => setHelpOpen(false)}>
+            <button type="button" className="pixel-button" onClick={() => setPanel("menu")}>
+              Wstecz
+            </button>
+          </>
+        ) : panel === "hills" ? (
+          <>
+            <h2 className="how-to-title" tabIndex={-1} ref={panelHeadingRef}>
+              {HILL_LIST_TITLE}
+            </h2>
+            <div className="menu-hills">
+              <HillLists
+                hills={hills}
+                records={records}
+                onPick={(picked) => {
+                  // The hill being jumped starts again; another one replaces this screen.
+                  if (picked.id === hill.id) restartRef.current();
+                  setPanel("menu");
+                  setMenuOpen(false);
+                  onPickHill(picked);
+                }}
+              />
+            </div>
+            <button type="button" className="pixel-button" onClick={() => setPanel("menu")}>
               Wstecz
             </button>
           </>
@@ -635,10 +683,10 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             >
               Jeszcze raz{touch ? "" : " (R)"}
             </button>
-            <button type="button" className="pixel-button" onClick={() => setHelpOpen(true)}>
+            <button type="button" className="pixel-button" onClick={() => setPanel("help")}>
               Jak skakać
             </button>
-            <button type="button" className="pixel-button" onClick={onExit}>
+            <button type="button" className="pixel-button" onClick={() => setPanel("hills")}>
               Skocznie
             </button>
             {touch && (
@@ -730,6 +778,9 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
                 {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
               </button>
             )}
+            <button type="button" className="pixel-button" onClick={onExit}>
+              Wyjdź do menu głównego
+            </button>
             {tiltNote !== "" && (
               <p className="note error" role="status">
                 {tiltNote}

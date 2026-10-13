@@ -10,6 +10,7 @@ import {
   drawJumpView,
   figureHalfWidthM,
   figurePoints,
+  pictureScale,
   viewWidthFor,
   type Scenery,
 } from "./jump-view";
@@ -17,7 +18,13 @@ import { terrainYM } from "../sim/hill-profile";
 import { prompt } from "./jump-view-hud";
 import type { ControlScheme } from "./jump-view-model";
 import { color } from "./palette";
+import { textWidth } from "./pixel-font";
 import { fnv } from "./test-support/frame-hash";
+
+/** The narrowest pictures the game draws, in game pixels, and the room a prompt leaves at each side. */
+const NARROWEST_PHONE_PX = 256;
+const NARROWEST_DESKTOP_PX = 320;
+const PROMPT_MARGIN_PX = 2;
 
 /** Mean of the colour channels over the whole frame. */
 function brightness(fb: FrameBuffer): number {
@@ -38,6 +45,13 @@ describe("jump view", () => {
     expect(viewWidthFor(2400, 1080)).toBe(432);
     expect(viewWidthFor(390, 844)).toBe(256);
     expect(viewWidthFor(0, 0)).toBe(356);
+  });
+
+  it("scales the picture by whole pixels, or by all the room there is where the screen is to be filled", () => {
+    expect(pictureScale(5.4, false)).toBe(5);
+    expect(pictureScale(5.4, true)).toBe(5.4);
+    expect(pictureScale(0.6, false)).toBe(1);
+    expect(pictureScale(0.6, true)).toBe(1);
   });
 
   it.each<[string, Scenery]>([
@@ -119,10 +133,18 @@ describe("jump view", () => {
       }
     }
     expect([...inFlight]).toEqual([
-      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / L+P: NA DWIE NOGI",
-      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / KCIUK TUŻ NAD ZIEMIĄ: TELEMARK / DWA KCIUKI NARAZ: NA DWIE NOGI",
-      "mouse: MYSZ: POCHYLENIE / LEWY LUB PRAWY TUŻ NAD ZIEMIĄ: TELEMARK / OBA NARAZ: NA DWIE NOGI",
+      "touch: PRZECIĄGAJ W POLU L: POCHYLENIE / P TUŻ NAD ZIEMIĄ: TELEMARK / ZNOWU P: IM PÓŹNIEJ, TYM SZERSZY / L+P: NA DWIE NOGI",
+      "tilt: PRZECHYLAJ TELEFON: POCHYLENIE / KCIUK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI: IM PÓŹNIEJ, TYM SZERSZY / DWA KCIUKI NARAZ: NA DWIE NOGI",
+      "mouse: MYSZ: POCHYLENIE / PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK / DRUGI PO CHWILI: IM PÓŹNIEJ, TYM SZERSZY / OBA NARAZ: NA DWIE NOGI",
     ]);
+    // Every line fits the narrowest picture its way of playing has: a phone held upright, a small window.
+    for (const seen of [...inFlight, ...notesUpWhileMoving]) {
+      const [controls = "", ...rest] = seen.split(": ");
+      const widest = controls === "mouse" ? NARROWEST_DESKTOP_PX : NARROWEST_PHONE_PX;
+      for (const line of rest.join(": ").split(" / ")) {
+        expect(textWidth(line), `"${line}" on ${controls}`).toBeLessThanOrEqual(widest - 2 * PROMPT_MARGIN_PX);
+      }
+    }
     // The notes are up while the jumper is still sliding out: that is when the next jump can already start.
     expect([...notesUpWhileMoving]).toEqual([
       "touch: L: JESZCZE RAZ",

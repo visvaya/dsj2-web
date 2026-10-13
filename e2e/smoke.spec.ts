@@ -1,4 +1,15 @@
-import { button, jumpCanvas, leaveJumpForHills, openHillList, openJump, openMenu, press, TEXT } from "./support/app";
+import {
+  builtInHill,
+  button,
+  jumpCanvas,
+  leaveJumpForHills,
+  openHillList,
+  openJump,
+  openJumpControls,
+  openMenu,
+  press,
+  TEXT,
+} from "./support/app";
 import { expect, test } from "./support/fixtures";
 import { LAYOUT_SLACK_PX, scrollState } from "./support/geometry";
 
@@ -67,7 +78,17 @@ test("the page opens in Polish, the screens connect and the picture is drawn to 
 
   expect(await scrollState(page)).toEqual({ overflowXPx: 0, overflowYPx: 0, scrolledXPx: 0, scrolledYPx: 0 });
 
+  // The hill list opens over the jump: choosing a hill goes on with the training, and the way out to the main
+  // menu is a position of the jump's own menu.
   await leaveJumpForHills(page, traits);
   await press(button(page, TEXT.back), traits);
+  await expect(button(page, TEXT.resume)).toBeVisible();
+  await press(button(page, TEXT.toHills), traits);
+  await press(builtInHill(page), traits);
+  await expect(button(page, TEXT.resume)).toBeHidden();
+  await expect(jumpCanvas(page)).toBeVisible();
+  await openJumpControls(page, traits);
+  await press(button(page, TEXT.toMainMenu), traits);
   await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
+  await expect(jumpCanvas(page)).toHaveCount(0);
 });
