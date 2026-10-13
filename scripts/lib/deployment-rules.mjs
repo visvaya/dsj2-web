@@ -101,7 +101,7 @@ export function browsersForceHttps(hostname) {
 export function findHttpsRedirectProblems(httpUrl, seen) {
   const target = httpUrl.replace(/^http:/, "https:");
   if (seen.status < 300 || seen.status > 399) {
-    if (browsersForceHttps(new URL(httpUrl).hostname) === true) return [];
+    if (browsersForceHttps(new URL(httpUrl).hostname)) return [];
     return [`${httpUrl}: HTTP ${seen.status}, expected a redirect to HTTPS`];
   }
   return seen.headers["location"] === target ? [] : [`${httpUrl}: redirects to "${seen.headers["location"]}"`];
@@ -111,7 +111,7 @@ export function findHttpsRedirectProblems(httpUrl, seen) {
 export function plainHttpNote(httpUrl, seen) {
   const hostname = new URL(httpUrl).hostname;
   const answer = `plain HTTP answers with HTTP ${seen.status}`;
-  if (browsersForceHttps(hostname) !== true || (seen.status >= 300 && seen.status <= 399)) return answer;
+  if (!browsersForceHttps(hostname) || (seen.status >= 300 && seen.status <= 399)) return answer;
   const domain = hostname.split(".").at(-1);
   return `${answer}; browsers use HTTPS for every address under .${domain}, so no page is opened that way`;
 }
