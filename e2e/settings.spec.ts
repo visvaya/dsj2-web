@@ -8,7 +8,7 @@ const SCENERY_AFTER_ONE_STEP = "Sceneria: dzień";
 
 test.skip(({ traits }) => !PROJECTS.includes(traits.project), `settings are checked on ${PROJECTS.join(" and ")}`);
 
-test("sound and scenery chosen on the jump screen survive a reload", async ({ page, traits }) => {
+test("sound, scenery and sensitivity chosen on the jump screen survive a reload", async ({ page, traits }) => {
   await openJumpFromStart(page, traits);
   await openJumpControls(page, traits);
 
@@ -23,11 +23,21 @@ test("sound and scenery chosen on the jump screen survive a reload", async ({ pa
   await press(scenery, traits);
   await expect(scenery).toHaveText(SCENERY_AFTER_ONE_STEP);
 
-  await expect.poll(() => storedSave(page)).toMatchObject({ settings: { sound: false, scenery: "day" } });
+  // The sensitivity is kept per way of steering: the mouse on a desktop, a dragged finger on a phone.
+  const sensitivity = page.getByRole("group", { name: "Czułość sterowania" });
+  await expect(sensitivity).toContainText("Czułość: 5");
+  await press(button(page, "Większa czułość"), traits);
+  await expect(sensitivity).toContainText("Czułość: 6");
+  const levels = traits.desktop ? { mouse: 6, drag: 5, tilt: 5 } : { mouse: 5, drag: 6, tilt: 5 };
+
+  await expect
+    .poll(() => storedSave(page))
+    .toMatchObject({ settings: { sound: false, scenery: "day", sensitivity: levels } });
 
   await openJumpFromStart(page, traits);
   await openJumpControls(page, traits);
   await expect(button(page, TEXT.sound)).toHaveText("Dźwięk: wył.");
   await expect(button(page, TEXT.sound)).toHaveAttribute("aria-pressed", "false");
   await expect(button(page, TEXT.scenery)).toHaveText(SCENERY_AFTER_ONE_STEP);
+  await expect(page.getByRole("group", { name: "Czułość sterowania" })).toContainText("Czułość: 6");
 });

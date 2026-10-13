@@ -19,6 +19,8 @@ export interface JumpViewModel {
   profile: HillProfile;
   kPointM: number;
   hillName: string;
+  /** Game pixels the name of the hill starts from the left, when a control of the page lies over that corner. */
+  titleInsetPx?: number;
   playerName: string;
   state: JumpSimState;
   controls: ControlScheme;

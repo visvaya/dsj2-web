@@ -18,6 +18,14 @@ import {
 } from "../game/player-input";
 import { lockLossAction, requestMouseCapture } from "../game/pointer-lock";
 import {
+  SENSITIVITY_MAX,
+  SENSITIVITY_MIN,
+  sensitivityFor,
+  sensitivityGain,
+  stepSensitivity,
+  withSensitivity,
+} from "../game/sensitivity";
+import {
   isJumpOver,
   newSeed,
   nextJumpAllowed,
@@ -30,7 +38,6 @@ import { PHASE, notesShownBy } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import type { HillRecord, SceneryChoice, Settings } from "../storage/save-data";
-import { createHapticSwitch, type HapticSwitch } from "./haptic-switch";
 import { useEntryFocus } from "./use-entry-focus";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
 
@@ -88,6 +95,29 @@ function useMediaQuery(query: string): boolean {
     return () => mql.removeEventListener("change", onChange);
   }, [query]);
   return matches;
+}
+
+/** Game pixels between the pause button and the name of the hill beside it. */
+const TITLE_GAP_PX = 3;
+/** Rows of game pixels at the top of the picture that hold the name of the hill. */
+const TITLE_ROWS_PX = 12;
+
+/**
+ * How far, in game pixels, the name of the hill has to start from the left edge of the picture to clear the
+ * pause button, which lies over the top left corner with tilt steering in landscape; zero when it does not.
+ */
+function titleInsetFor(canvas: HTMLCanvasElement, pause: HTMLElement | null, widthPx: number): number {
+  if (pause === null) return 0;
+  const picture = canvas.getBoundingClientRect();
+  const button = pause.getBoundingClientRect();
+  if (picture.width === 0 || button.width === 0) return 0;
+  const scale = picture.width / widthPx;
+  const overTitle =
+    button.right > picture.left &&
+    button.left < picture.right &&
+    button.bottom > picture.top &&
+    button.top < picture.top + TITLE_ROWS_PX * scale;
+  return overTitle ? Math.ceil((button.right - picture.left) / scale) + TITLE_GAP_PX : 0;
 }
 
 interface TouchPadProps {
@@ -193,15 +223,18 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     latest.current = { onExit, onFinished, record, settings, controls, scenery };
   });
   const fullscreenAvailable = touch && document.fullscreenEnabled;
-  // On every touch screen: where the browser cannot vibrate, a stand-in is tried (./haptic-switch.ts).
-  const vibrationAvailable = touch;
-  const hapticRef = useRef<HapticSwitch | null>(null);
+  // Safari on iOS has no vibration for pages: a switch that does nothing is left out.
+  const vibrationAvailable = touch && canVibrate();
+  /** The sensitivity of the way of steering in use; the other two keep their own level. */
+  const sensitivity = sensitivityFor(settings.sensitivity, controls);
+  const changeSensitivity = (by: -1 | 1) => {
+    const level = stepSensitivity(sensitivity, by);
+    if (level !== sensitivity) onSettings({ sensitivity: withSensitivity(settings.sensitivity, controls, level) });
+  };
   /** With tilt steering: the halves of the screen being touched, in the order they were touched. */
   const thumbsRef = useRef<readonly ButtonSide[]>([]);
   /** A touch of a zone, or of a half of the screen with tilt steering, as game buttons. */
   const pressZone = (side: ButtonSide, down: boolean) => {
-    // Inside the gesture itself, where the stand-in for vibration is most likely to be allowed.
-    if (down && settings.vibration) hapticRef.current?.tap();
     if (!tiltRef.current.on) {
       inputRef.current.setButton("touch", side, down);
       return;
@@ -261,12 +294,11 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
 
     const input = inputRef.current;
     input.reset();
-    // Only where the browser cannot vibrate: the stand-in for it, or nothing.
-    const hapticSwitch = canVibrate() ? null : createHapticSwitch();
-    hapticRef.current = hapticSwitch;
     let jump: TrainingJump = startTrainingJump(hill, newSeed());
     let view = makeView(viewWidthFor(stage.clientWidth, stage.clientHeight));
     let finished = false;
+    /** How far the name of the hill starts from the left, when the pause button lies over that corner. */
+    let titleInsetPx = 0;
     let newRecord = false;
     let leftWasDown = false;
     let heardUpTo = 0;
@@ -320,6 +352,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const scale = Math.max(1, dpr >= DENSE_SCREEN_DPR ? fill : Math.floor(fill));
       canvas.style.width = `${(width * scale) / dpr}px`;
       canvas.style.height = `${(VIEW_HEIGHT_PX * scale) / dpr}px`;
+      titleInsetPx = titleInsetFor(canvas, pauseButtonRef.current, width);
     };
     fit();
     const resize = new ResizeObserver(fit);
@@ -385,7 +418,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       const tilt = tiltRef.current;
       if (tilt.on && tilt.pitch !== null) {
         // The phone is followed while the game is paused too, so what it did meanwhile does not arrive at once.
-        const turned = tiltStep(tilt.follow, tilt.pitch);
+        const turned = tiltStep(tilt.follow, tilt.pitch, sensitivityGain(latest.current.settings.sensitivity.tilt));
         tilt.follow = turned.state;
         if (plan.steps > 0) input.addMotion(turned.motion);
       }
@@ -401,7 +434,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         leftDown ||= frameInput.left;
         jump = stepTrainingJump(jump, frameInput);
         for (const event of feedbackEvents(prev, jump.state)) {
-          if (latest.current.settings.vibration) vibrate(event, navigator, hapticSwitch?.tap ?? null);
+          if (latest.current.settings.vibration) vibrate(event);
           soundRef.current?.play(event);
           if (event === "start") setAnnouncement(JUMP_STARTED_ANNOUNCEMENT);
         }
@@ -428,6 +461,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
         playerName: PLAYER_NAME,
         state: jump.state,
         controls: latest.current.controls,
+        titleInsetPx,
         frame: clock,
         over,
         newRecord,
@@ -454,7 +488,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
     const onPointerMove = (e: PointerEvent) => {
       if (e.pointerType !== "mouse") return;
       input.setButtons("mouse", mouseButtons(e.buttons));
-      input.addMotion(e.movementY);
+      input.addMotion(e.movementY * sensitivityGain(latest.current.settings.sensitivity.mouse));
     };
     // Key and button releases are lost while another window has the focus.
     const onBlur = () => {
@@ -514,8 +548,6 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener("deviceorientation", onOrientation);
       cancelAnimationFrame(raf);
-      hapticSwitch?.remove();
-      hapticRef.current = null;
       resize.disconnect();
       restartRef.current = () => undefined;
       canvas.removeEventListener("pointerdown", onPointerDown);
@@ -605,6 +637,29 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
             {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
           </button>
         )}
+        <div className="stepper" role="group" aria-label="Czułość sterowania">
+          <button
+            type="button"
+            className="pixel-button"
+            aria-label="Mniejsza czułość"
+            aria-disabled={sensitivity <= SENSITIVITY_MIN}
+            onClick={() => changeSensitivity(-1)}
+          >
+            -
+          </button>
+          <span className="stepper-value" role="status">
+            Czułość: {sensitivity}
+          </span>
+          <button
+            type="button"
+            className="pixel-button"
+            aria-label="Większa czułość"
+            aria-disabled={sensitivity >= SENSITIVITY_MAX}
+            onClick={() => changeSensitivity(1)}
+          >
+            +
+          </button>
+        </div>
         <button
           type="button"
           className="pixel-button"
@@ -663,7 +718,7 @@ export function JumpScreen({ hill, record, settings, onSettings, onFinished, onE
           }
           onDrag={(dy) => {
             // With tilt steering the phone leans; a finger resting on the zone must not add to it.
-            if (!tiltRef.current.on) inputRef.current.addMotion(dy);
+            if (!tiltRef.current.on) inputRef.current.addMotion(dy * sensitivityGain(settings.sensitivity.drag));
           }}
         />
       )}

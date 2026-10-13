@@ -98,7 +98,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   drawNearFence(fb, h, cam, groundBottom);
   if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
-  drawText(fb, 4, 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
+  drawText(fb, Math.max(4, m.titleInsetPx ?? 0), 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
   drawWindBox(fb, s);
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);

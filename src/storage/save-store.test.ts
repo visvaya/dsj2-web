@@ -37,6 +37,7 @@ describe("save data", () => {
       scenery: "night",
       outfit,
       sound: false,
+      sensitivity: { mouse: 3, drag: 7, tilt: 9 },
     });
     expect(parseSave(JSON.stringify(save)).settings).toEqual({
       leanControl: "tilt",
@@ -44,7 +45,11 @@ describe("save data", () => {
       scenery: "night",
       outfit,
       sound: false,
+      sensitivity: { mouse: 3, drag: 7, tilt: 9 },
     });
+    // A save from before the sensitivity was added reads it as the default.
+    const older = { ...save, settings: { leanControl: "tilt", vibration: false } };
+    expect(parseSave(JSON.stringify(older)).settings.sensitivity).toEqual({ mouse: 5, drag: 5, tilt: 5 });
     const broken = {
       ...save,
       settings: {
