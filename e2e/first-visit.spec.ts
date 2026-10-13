@@ -1,0 +1,131 @@
+import type { Browser } from "@playwright/test";
+import { startStaticServer, type ServedRequest, type StaticServer } from "../scripts/lib/static-server.mjs";
+import { DIST_DIR } from "./releases/paths";
+import { expect, test } from "./support/fixtures";
+import { reportMeasurement } from "./support/measurement-log";
+import { OFFLINE_NOTE, openGame, requireServiceWorkers } from "./support/pwa";
+
+// What a browser really fetches on a first visit: how many requests and how many bytes until the first screen
+// is there, and until the game is stored for playing without a network. The sizes of the files in dist/ are
+// checked elsewhere (scripts/check-dist.mjs); this counts what goes over the wire, and whether anything goes
+// twice.
+//
+// The service worker and the page are the same on every device profile of an engine, so the desktop profiles
+// of the three engines cover it.
+test.skip(({ traits }) => !traits.desktop, "the first visit is measured once per engine, on the desktop profiles");
+
+/**
+ * Measured 2026-10-13 in Microsoft Edge 155 (Chromium) on a laptop, the same in every run: 4 requests and
+ * 127 540 bytes until the first screen (the page, its script, its stylesheet and one icon); 15 requests and
+ * 142 278 bytes until the game is stored, four of them answered 304 without a body, because the worker asks
+ * again for what the page has just fetched and the browser's cache answers. The byte limits are the measured
+ * values plus 15%, and so is the larger count; 15% of four requests is less than one request.
+ */
+const FIRST_VISIT_BUDGET = {
+  FIRST_SCREEN_REQUESTS: 4,
+  FIRST_SCREEN_BYTES: 146_700,
+  READY_REQUESTS: 17,
+  READY_BYTES: 163_600,
+} as const;
+
+const HTTP_OK = 200;
+
+interface Stage {
+  requests: readonly ServedRequest[];
+  count: number;
+  bodyBytes: number;
+}
+
+function stageOf(requests: readonly ServedRequest[]): Stage {
+  return {
+    requests,
+    count: requests.length,
+    bodyBytes: requests.reduce((sum, request) => sum + (request.bodyBytes ?? 0), 0),
+  };
+}
+
+interface RepeatedDownload {
+  path: string;
+  /** How many times the whole body was sent. */
+  times: number;
+  /** Bytes sent beyond the first copy. */
+  repeatedBytes: number;
+}
+
+/** The paths whose whole body was sent more than once. */
+function repeatedDownloads(requests: readonly ServedRequest[]): RepeatedDownload[] {
+  const whole = requests.filter((request) => request.status === HTTP_OK && (request.bodyBytes ?? 0) > 0);
+  const paths = [...new Set(whole.map((request) => request.path))];
+  return paths.flatMap((path) => {
+    const copies = whole.filter((request) => request.path === path);
+    const repeatedBytes = copies.slice(1).reduce((sum, request) => sum + (request.bodyBytes ?? 0), 0);
+    return copies.length > 1 ? [{ path, times: copies.length, repeatedBytes }] : [];
+  });
+}
+
+/**
+ * What the page itself asks for until its first screen stands and the network is quiet. The game registers its
+ * worker as soon as that screen is up, and the worker's requests would arrive among the page's own; so this is
+ * taken in a profile of its own where no worker can register.
+ */
+async function firstScreenRequests(browser: Browser, server: StaticServer): Promise<ServedRequest[]> {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const page = await context.newPage();
+    await openGame(page, server.origin);
+    await page.waitForLoadState("networkidle");
+    return [...server.requests];
+  } finally {
+    await context.close();
+  }
+}
+
+test("a first visit fetches each file once and stays within the budget of requests and bytes", async ({
+  page,
+  browser,
+  browserName,
+}, testInfo) => {
+  const server = await startStaticServer({ root: DIST_DIR });
+  try {
+    const firstScreen = stageOf(await firstScreenRequests(browser, server));
+
+    // A fresh profile again, now as a player has it: the page, then the worker that stores the release.
+    const before = server.requests.length;
+    await openGame(page, server.origin);
+    await requireServiceWorkers(page);
+    await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+    await page.waitForLoadState("networkidle");
+    const ready = stageOf(server.requests.slice(before));
+    const repeated = repeatedDownloads(ready.requests);
+    const repeatedBytes = repeated.reduce((sum, download) => sum + download.repeatedBytes, 0);
+
+    await reportMeasurement(testInfo, "first-visit", {
+      engine: browserName,
+      firstScreen,
+      ready,
+      notModified: ready.requests.filter((request) => request.status === 304).length,
+      repeated,
+      repeatedBytes,
+    });
+
+    expect(firstScreen.count, "requests until the first screen").toBeLessThanOrEqual(
+      FIRST_VISIT_BUDGET.FIRST_SCREEN_REQUESTS,
+    );
+    expect(firstScreen.bodyBytes, "bytes until the first screen").toBeLessThanOrEqual(
+      FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
+    );
+    expect(ready.count, "requests until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_REQUESTS);
+    if (browserName === "chromium") {
+      expect(repeated, "files whose whole body was sent more than once").toEqual([]);
+      expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(FIRST_VISIT_BUDGET.READY_BYTES);
+    } else {
+      // Not yet measured in Firefox and WebKit: to be settled after their first run on the runner, from the
+      // lines this test writes. Until then they may fetch again what the page already has, and no more.
+      expect(ready.bodyBytes, "bytes until the game is stored").toBeLessThanOrEqual(
+        FIRST_VISIT_BUDGET.READY_BYTES + FIRST_VISIT_BUDGET.FIRST_SCREEN_BYTES,
+      );
+    }
+  } finally {
+    await server.close();
+  }
+});
