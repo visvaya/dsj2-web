@@ -39,15 +39,22 @@ interface FakeGain extends GainLike {
 
 interface FakeContext extends ContextLike {
   readonly resumed: number;
+  readonly suspended: number;
   readonly closed: boolean;
   readonly started: number;
   readonly oscillators: number;
   readonly gains: readonly FakeGain[];
 }
 
-function fakeContext(): FakeContext {
-  let state = "suspended";
+/**
+ * `startState` is the state a new context has: "suspended" where the page has not been touched yet, "running"
+ * where the browser lets audio start without a gesture. A suspend takes effect only when `settle` is true,
+ * as a real one does a moment later.
+ */
+function fakeContext({ startState = "suspended", settle = true } = {}): FakeContext {
+  let state = startState;
   let resumed = 0;
+  let suspended = 0;
   let closed = false;
   let started = 0;
   let oscillators = 0;
@@ -63,6 +70,9 @@ function fakeContext(): FakeContext {
     },
     get resumed() {
       return resumed;
+    },
+    get suspended() {
+      return suspended;
     },
     get closed() {
       return closed;
@@ -103,6 +113,11 @@ function fakeContext(): FakeContext {
       state = "running";
       return Promise.resolve();
     },
+    suspend() {
+      suspended++;
+      if (settle) state = "suspended";
+      return Promise.resolve();
+    },
     close() {
       closed = true;
       return Promise.resolve();
@@ -132,6 +147,55 @@ describe("sound engine", () => {
     // Rumble, skis, air and wind loop from the start (made louder or quieter afterwards), plus one silent tick
     // that unlocks iOS; once running, further gestures start nothing.
     expect(fake.started).toBe(5);
+  });
+
+  it("is prepared before any gesture, so that a gesture only resumes it", () => {
+    const fake = fakeContext();
+    let made = 0;
+    const engine = createSoundEngine(() => {
+      made++;
+      return fake;
+    });
+    engine.prepare();
+    // The context and the continuous layers exist, still silent.
+    expect(made).toBe(1);
+    expect(fake.started).toBe(4);
+    expect(fake.resumed).toBe(0);
+    engine.unlock();
+    expect(made).toBe(1);
+    expect(fake.resumed).toBe(1);
+    expect(fake.started).toBe(5);
+  });
+
+  it("keeps a context that the browser started on its own silent until the first gesture", () => {
+    const fake = fakeContext({ startState: "running" });
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    expect(fake.suspended).toBe(1);
+    expect(fake.state).toBe("suspended");
+    engine.unlock();
+    expect(fake.state).toBe("running");
+  });
+
+  it("asks a context that has not started yet to stay suspended: some browsers start it a moment later", () => {
+    const fake = fakeContext();
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    expect(fake.suspended).toBe(1);
+    engine.unlock();
+    expect(fake.resumed).toBe(1);
+  });
+
+  it("resumes at the first gesture even while its suspend has not taken effect yet", () => {
+    const fake = fakeContext({ startState: "running", settle: false });
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    expect(fake.state).toBe("running");
+    engine.unlock();
+    expect(fake.resumed).toBe(1);
+    // Once resumed and running, further gestures leave it alone.
+    engine.unlock();
+    expect(fake.resumed).toBe(1);
   });
 
   it("follows the mix and plays cues only while enabled", () => {
@@ -199,6 +263,7 @@ describe("sound engine", () => {
   it("does nothing where the browser has no Web Audio", () => {
     const engine = createSoundEngine(() => null);
     expect(() => {
+      engine.prepare();
       engine.unlock();
       engine.play("crash");
       engine.update(

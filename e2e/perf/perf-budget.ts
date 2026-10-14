@@ -30,9 +30,11 @@ export const PERF_BUDGET = {
   SLOWED_DRAW_P95_MS: 160,
 
   // The same jump at full speed, 59.9 frames a second; three jumps, the measure is the middle one. The game
-  // drops time only when a frame comes more than eight steps (114 ms) late. Every jump has one such candidate:
-  // a single task of 85 to 130 ms (once 187 ms) about 0.2 s after the jump screen opens, at the first press on
-  // the picture. In ten jumps it stayed under 114 ms six times and went over it four times.
+  // drops time only when a frame comes more than eight steps (114 ms) late. Until 2026-10-14 every jump had one
+  // such candidate: a single task of 85 to 130 ms (once 187 ms) at the first press on the picture, where the
+  // audio context was created. In ten jumps it stayed under 114 ms six times and went over it four times. The
+  // context is now created when the jump screen opens; in three jumps after that change no task was over 50 ms
+  // and the longest frame interval was 50 ms. The limits stay as they were: they allow one stall of the machine.
 
   /** Frames that dropped time. Measured 0 or 1 in each of ten jumps: that one frame, never a second one. */
   FULL_SPEED_CAPPED_FRAMES: 1,
@@ -63,6 +65,9 @@ export const PERF_BUDGET = {
   FIRST_VISIT_FIRST_SCREEN_MS: 6000,
   /** The same for a page the service worker answers, on a plain network. Measured 1497, 1467, 1365 ms. */
   REPEAT_VISIT_FIRST_SCREEN_MS: 4400,
-  /** From the press on a hill of the list to the first picture of the jump. Measured 319, 298, 288 ms. */
+  /**
+   * From the press on a hill of the list to the first picture of the jump. Measured 319, 298, 288 ms; 459 ms
+   * (one run, 2026-10-14) since the audio context is created when the jump screen opens, before its first frame.
+   */
   HILL_TO_FIRST_JUMP_FRAME_MS: 900,
 } as const;

@@ -275,6 +275,8 @@ export function JumpScreen({
   // Sound: one engine per jump screen; it only listens to the game.
   useEffect(() => {
     const engine = createSoundEngine();
+    // Before the jump loop starts its clock: inside the first press, creating the context stalled the jump.
+    engine.prepare();
     soundRef.current = engine;
     const unlock = () => engine.unlock();
     // Browsers start audio only after a gesture. On iOS a touch counts when the finger lifts (touchend,
