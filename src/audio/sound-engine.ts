@@ -311,7 +311,11 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     },
     setEnabled(on) {
       enabled = on;
-      if (ctx && master) master.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, FOLLOW_S);
+      if (!ctx || !master) return;
+      // A context that is not running has a clock that stands still, so a fade asked for then would only start
+      // with the first sound and let it through; until it runs, the switch takes effect at once.
+      if (ctx.state === "running") master.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, FOLLOW_S);
+      else master.gain.setValueAtTime(on ? 1 : 0, ctx.currentTime);
     },
     update(mix) {
       if (!ctx || !layers) return;

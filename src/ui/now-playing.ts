@@ -7,9 +7,13 @@ const ARTWORK: readonly MediaImage[] = [
   { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
 ];
 
-/** What the phone shows of the game's sound, for training on a hill: the game, the hill and the game's icon. */
-export function nowPlayingFor(hillLabel: string): MediaMetadataInit {
-  return { title: UI_TEXT.appName, artist: UI_TEXT.nowPlaying.training(hillLabel), artwork: [...ARTWORK] };
+/**
+ * What the phone shows of the game's sound, for training on a hill: the game, the hill and, where the page has
+ * them, the game's icons.
+ */
+export function nowPlayingFor(hillLabel: string, withIcons: boolean): MediaMetadataInit {
+  const named = { title: UI_TEXT.appName, artist: UI_TEXT.nowPlaying.training(hillLabel) };
+  return withIcons ? { ...named, artwork: [...ARTWORK] } : named;
 }
 
 /**
@@ -21,7 +25,9 @@ export function useNowPlaying(hillLabel: string): void {
     // Both are missing in browsers without Media Session, which the types do not allow for.
     if (!("mediaSession" in navigator) || !("MediaMetadata" in window)) return undefined;
     const session = navigator.mediaSession;
-    session.metadata = new MediaMetadata(nowPlayingFor(hillLabel));
+    // The icons come with the web app manifest; the single-file page has neither and must fetch nothing.
+    const withIcons = document.querySelector('link[rel="manifest"]') !== null;
+    session.metadata = new MediaMetadata(nowPlayingFor(hillLabel, withIcons));
     return () => {
       session.metadata = null;
     };
