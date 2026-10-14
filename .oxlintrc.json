@@ -69,6 +69,7 @@
     "react/jsx-no-script-url": "error",
     "react/jsx-no-useless-fragment": "error",
     "react/no-array-index-key": "error",
+    "react/jsx-no-literals": ["error", { "allowedStrings": ["-", "+"] }],
     "jsx-a11y/prefer-tag-over-role": "off",
 
     "vitest/no-focused-tests": "error",

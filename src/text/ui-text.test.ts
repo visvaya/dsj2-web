@@ -33,8 +33,9 @@ function sourceFiles(dir: string): string[] {
 
 describe("interface texts", () => {
   /**
-   * A rough guard: a Polish text written without any diacritic gets past it. It catches most texts for the
-   * player that were typed into a component instead of the text module.
+   * A rough guard: a Polish text written without any diacritic gets past it. Text typed between JSX tags is
+   * caught by the lint rule react/jsx-no-literals whatever its letters; what neither sees is a text without
+   * diacritics in a JSX attribute or in a plain string of a .ts file.
    */
   it("live in the text module, judged by Polish diacritics outside it", () => {
     const offenders = sourceFiles(SRC)
