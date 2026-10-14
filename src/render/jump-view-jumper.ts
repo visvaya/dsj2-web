@@ -34,7 +34,11 @@ const THICK_BRUSH: readonly (readonly [number, number])[] = [
   [1, 2],
 ];
 
-function brushLine(fb: FrameBuffer, xa: number, ya: number, xb: number, yb: number, c: number, thick: boolean): void {
+/** Where a brush puts a pixel: into the picture, or into a mask that is blended into it later. */
+export type Plot = (x: number, y: number) => void;
+
+/** A line drawn with the brush of the original's figure: every pixel of it goes to `plot`. */
+export function brushLine(plot: Plot, xa: number, ya: number, xb: number, yb: number, thick: boolean): void {
   const brush = thick ? THICK_BRUSH : THIN_BRUSH;
   let x0 = Math.round(xa);
   let y0 = Math.round(ya);
@@ -46,7 +50,7 @@ function brushLine(fb: FrameBuffer, xa: number, ya: number, xb: number, yb: numb
   const sy = y0 < y1 ? 1 : -1;
   let err = dx + dy;
   for (let guard = 0; guard < 2048; guard++) {
-    for (const [bx, by] of brush) fb.put(x0 + bx, y0 + by, c);
+    for (const [bx, by] of brush) plot(x0 + bx, y0 + by);
     if (x0 === x1 && y0 === y1) return;
     const e2 = 2 * err;
     if (e2 >= dy) {
@@ -74,7 +78,7 @@ export const FALLEN_MAX_HEIGHT_M = 0.8;
 /** How far inside the landing hill's edges the figure stays. */
 const FIGURE_EDGE_MARGIN_M = 0.4;
 /** Shade 0 (far side) to 5 (near side) within a part's ramp. */
-const SHADES = 5;
+export const BONE_SHADES = 5;
 
 /** Plane of the terrain under the jumper: height at an offset `dx` from the jumper, in metres. */
 function terrainPlane(h: HillProfile, xM: number): (dx: number) => number {
@@ -121,15 +125,16 @@ export function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam
   const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
   // Shadow (1cb6:1d2a): the figure dropped onto the plane of the terrain under the jumper.
   const shadow = color("shadow");
+  const putShadow: Plot = (x, y) => fb.put(x, y, shadow);
   for (const b of BONES) {
     const a = at(b.from);
     const e = at(b.to);
-    brushLine(fb, sx(a), sy(a, onGround(a)), sx(e), sy(e, onGround(e)), shadow, b.thick);
+    brushLine(putShadow, sx(a), sy(a, onGround(a)), sx(e), sy(e, onGround(e)), b.thick);
   }
   for (const b of BONES) {
     const a = at(b.from);
     const e = at(b.to);
-    const shades = swatchRampTable(outfit[PART_COLOUR[b.part]], SHADES);
-    brushLine(fb, sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), band(shades, b.shade / SHADES), b.thick);
+    const c = band(swatchRampTable(outfit[PART_COLOUR[b.part]], BONE_SHADES), b.shade / BONE_SHADES);
+    brushLine((x, y) => fb.put(x, y, c), sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), b.thick);
   }
 }

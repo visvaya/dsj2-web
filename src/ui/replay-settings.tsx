@@ -13,6 +13,11 @@ interface Props {
   onSettings: (change: Partial<Settings>) => void;
 }
 
+interface GroupProps extends Props {
+  /** Whether the hill's record runs beside each training jump as a ghost. */
+  recordGhost: boolean;
+}
+
 const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value));
 
 /** A clean-up rule: a box that switches it on, and the number it keeps to. */
@@ -65,8 +70,11 @@ export function ReplaySliderToggle({ replays, onSettings }: Props) {
   );
 }
 
-/** What is kept of the replays besides the hill records, what goes on its own, and the slider of a replay. */
-export function ReplaySettingsControls({ replays, onSettings }: Props) {
+/**
+ * What is kept of the replays besides the hill records, what goes on its own, the slider of a replay and the ghost
+ * of the record.
+ */
+export function ReplaySettingsControls({ replays, recordGhost, onSettings }: GroupProps) {
   const set = (change: Partial<ReplaySettings>) => onSettings({ replays: { ...replays, ...change } });
   const counts = R.RECENT_COUNTS;
   const next = counts[(counts.findIndex((c) => c === replays.recentCount) + 1) % counts.length] ?? 0;
@@ -77,6 +85,14 @@ export function ReplaySettingsControls({ replays, onSettings }: Props) {
         {T.recent(replays.recentCount)}
       </button>
       <ReplaySliderToggle replays={replays} onSettings={onSettings} />
+      <button
+        type="button"
+        className="pixel-button"
+        aria-pressed={recordGhost}
+        onClick={() => onSettings({ recordGhost: !recordGhost })}
+      >
+        {recordGhost ? T.ghostOn : T.ghostOff}
+      </button>
       <CleanupRule
         label={T.maxAge}
         value={replays.maxAgeDays}

@@ -5,7 +5,7 @@ import type { PlayerInput } from "../game/player-input";
 import type { FrameInput } from "../sim/jump-logic";
 import { DEFAULT_SETTINGS } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
-import { recordingSource, type ReplayView } from "./jump-replay";
+import { recordingSource, type ReplaySource, type ReplayView } from "./jump-replay";
 import type { JumpResult } from "./jump-round";
 import { createRunSwitch, type RunContext } from "./jump-runs";
 import type { JumpSounds } from "./jump-sounds";
@@ -88,6 +88,7 @@ function setUp() {
       controls: "mouse",
       scenery: { lighting: "day", snowfall: false, fog: false },
       replay: null,
+      ghost: null,
     },
     inputRef: { current: scriptedInput() },
     resetHands: () => context.inputRef.current.reset(),
@@ -131,6 +132,10 @@ function setUp() {
     freeze: () => {
       stale = true;
     },
+    /** The ghost the screen hands the loop: the replay of the hill's record, or none. */
+    setGhost: (ghost: ReplaySource | null) => {
+      context.live = { ...context.live, ghost };
+    },
   };
 }
 
@@ -159,6 +164,28 @@ describe("training and its replay", () => {
     expect(felt).toEqual([]);
     expect(t.played).toEqual(playedLive);
     expect(t.finished).toHaveLength(1);
+  });
+
+  it("runs the record beside the next jump as a ghost, level with the player from the gate", () => {
+    const t = setUp();
+    const record = t.playOut();
+    const recording = t.runs.controls.lastJump()?.recording;
+    if (!recording) throw new Error("no recording");
+    t.setGhost(recordingSource(recording));
+    t.runs.controls.restart();
+    const now = () => t.runs.current().now();
+    // At the gate the ghost waits unseen; the player's press (frame 70 of the script) sets both off.
+    t.runs.current().step(60);
+    expect(now().ghost).toBeNull();
+    t.runs.current().step(140);
+    // The record left the gate in the same frame of its jump as the player, so they share the frame.
+    expect(now().ghost?.logic.frame).toBe(now().jump.state.logic.frame);
+    // It is the record's jump: the same hands from another seed land it where the record landed.
+    for (let f = 0; f < MAX_FRAMES && now().ghost?.logic.finished !== true; f++) t.runs.current().step(2);
+    expect(now().ghost?.logic.distanceM).toBe(record.state.logic.distanceM);
+    // Switched off, or with the record gone, there is no ghost.
+    t.setGhost(null);
+    expect(now().ghost).toBeNull();
   });
 
   it("pauses on a press, and once over leaves for a new training jump", () => {

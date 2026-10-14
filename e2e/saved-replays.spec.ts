@@ -76,10 +76,14 @@ test("the settings keep the last jumps and switch the clean-up on", async ({ pag
   const age = page.getByRole("checkbox", { name: "Usuwaj powtórki starsze niż (dni)" });
   await age.check();
   await expect(page.getByRole("spinbutton", { name: "Usuwaj powtórki starsze niż (dni)" })).toHaveValue("30");
+  // The ghost of the record is on from the start and can be switched off.
+  await press(button(page, "Duch rekordu: wł."), traits);
+  await expect(button(page, "Duch rekordu: wył.")).toBeVisible();
   await openMenu(page);
   await press(button(page, TEXT.settings), traits);
   await expect(recent).toHaveText("Zapisuj ostatnie skoki: 10");
   await expect(age).toBeChecked();
+  await expect(button(page, "Duch rekordu: wył.")).toBeVisible();
 });
 
 test("replays go out to a file and come back from it, each once", async ({ page, traits }) => {

@@ -5,6 +5,7 @@ import { MARK_FIRST_JUMP_FRAME, markOnce } from "../game/performance-marks";
 import { mouseGain, sensitivityGain } from "../game/sensitivity";
 import { tiltStep } from "../game/tilt-input";
 import type { TrainingJump } from "../game/training-session";
+import type { JumpSimState } from "../sim/jump-sim";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor } from "../render/jump-view";
 import { UI_TEXT } from "../text/ui-text";
 import { createJumpDiagnostics } from "./jump-diagnostics";
@@ -28,6 +29,7 @@ interface JumpLoopOptions extends RunContext {
 interface FrameView {
   jump: TrainingJump;
   newRecord: boolean;
+  ghost: JumpSimState | null;
   over: boolean;
   clock: number;
   titleInsetPx: number;
@@ -54,6 +56,7 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
     outfit: live.settings.outfit,
     windDriftM: v.jump.windDriftM,
     ...(best === undefined ? {} : { recordM: best.distanceM }),
+    ...(v.ghost === null ? {} : { ghost: v.ghost }),
     ...(v.replay === null
       ? {}
       : {
@@ -165,11 +168,11 @@ export function useJumpLoop(options: JumpLoopOptions) {
       current.step(plan.steps);
       meter?.stepsEnd();
       const { over, clock } = current.settle();
-      const { jump, newRecord } = current.now();
+      const { jump, newRecord, ghost } = current.now();
       sounds.play(jump.state, clock, newRecord, paused || document.hidden);
       meter?.drawBegin();
       const playerName = runs.jumperName() ?? UI_TEXT.hud.playerName;
-      drawFrame(picture, hill, live, { jump, newRecord, over, clock, titleInsetPx, replay: view, playerName });
+      drawFrame(picture, hill, live, { jump, newRecord, ghost, over, clock, titleInsetPx, replay: view, playerName });
       ctx.putImageData(picture.image, 0, 0);
       meter?.frameEnd(now, plan, paused);
       if (!firstFrameMarked) {
