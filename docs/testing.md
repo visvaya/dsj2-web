@@ -205,8 +205,8 @@ buduje grę. Firefox i WebKit działają tylko w CI. `pnpm test:browser` bez zmi
 i wymaga przeglądarek Playwrighta (`pnpm exec playwright install chromium firefox webkit`); w CI testuje `dist/`
 zbudowany przez zadanie `build`, poza CI buduje grę sam. Zmienna `BROWSER_TESTS_ENGINE` (`chromium`, `firefox`
 albo `webkit`) zawęża przebieg do projektów jednego silnika. CI uruchamia równolegle zadania macierzy `browser`:
-Chromium i WebKit po dwie części (`--shard`, bo mają najwięcej profili), Firefox i tryb pomiarowy; zbiorcze
-zadanie `web` czeka na wszystkie.
+Chromium w dwóch częściach i WebKit w trzech (`--shard`, bo mają najwięcej profili), Firefox i tryb pomiarowy.
+Kontrole kodu i testy jednostkowe biegną obok w zadaniu `checks`; zbiorcze zadanie `web` czeka na wszystkie.
 W trybie lokalnym testy odmawiają grze przechwycenia myszy: przeglądarka bez okna potrafi mimo to zabrać kursor
 całej maszyny na czas skoku. Gra działa wtedy bez przechwycenia; ścieżkę z przechwyconą myszą sprawdza CI,
 o ile silnik na nią pozwala.

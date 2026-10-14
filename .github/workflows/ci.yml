@@ -21,20 +21,17 @@ concurrency:
 
 jobs:
   # Each required status check (web, tools, hygiene) is a job named after its id. web is an aggregate: it waits for
-  # build and then the browser jobs, which run side by side, and passes only when each of them did its part.
-  build:
-    name: build
+  # checks, build and the browser jobs, and passes only when each of them did its part. checks and build run side
+  # by side; the browser jobs start as soon as build has the package, without waiting for the checks.
+  checks:
+    name: checks
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    outputs:
-      browser_tests: ${{ steps.browser.outputs.needed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          # The merge commit and its first parent, to see which files a pull request changes.
-          fetch-depth: 2
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -58,6 +55,26 @@ jobs:
       # coverage thresholds for src/sim set in vite.config.ts.
       - run: pnpm test:coverage
       - run: pnpm test:scripts
+
+  build:
+    name: build
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      browser_tests: ${{ steps.browser.outputs.needed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          # The merge commit and its first parent, to see which files a pull request changes.
+          fetch-depth: 2
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
       # The package that the jobs below test and, on the default branch, publish: built once, never rebuilt.
       - run: pnpm build
       - name: Exactly the build's own files in dist/, within the size budget
@@ -134,13 +151,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Chromium (three profiles) and WebKit (four) are split between two machines each, so no job takes much
-          # longer than the perf suite.
+          # Chromium (three profiles) is split between two machines and WebKit (four) between three, so no job
+          # takes much longer than the perf suite, which cannot be split.
           - { suite: browser, engine: chromium, part: 1, parts: 2 }
           - { suite: browser, engine: chromium, part: 2, parts: 2 }
           - { suite: browser, engine: firefox, part: 1, parts: 1 }
-          - { suite: browser, engine: webkit, part: 1, parts: 2 }
-          - { suite: browser, engine: webkit, part: 2, parts: 2 }
+          - { suite: browser, engine: webkit, part: 1, parts: 3 }
+          - { suite: browser, engine: webkit, part: 2, parts: 3 }
+          - { suite: browser, engine: webkit, part: 3, parts: 3 }
           - { suite: perf, engine: chromium, part: 1, parts: 1 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -186,12 +204,12 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # The required check for the package: green only when build passed and every browser job passed, or they were
-  # skipped because build found that the pull request cannot change what the browser gets. A failed, cancelled or
-  # otherwise skipped job leaves it red.
+  # The required check for the package: green only when checks and build passed and every browser job passed, or
+  # the browser jobs were skipped because build found that the pull request cannot change what the browser gets.
+  # A failed, cancelled or otherwise skipped job leaves it red.
   web:
     name: web
-    needs: [build, browser]
+    needs: [checks, build, browser]
     if: ${{ !cancelled() && github.event_name != 'schedule' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -201,11 +219,13 @@ jobs:
       - name: Every part of the check did its work
         id: verdict
         env:
+          CHECKS: ${{ needs.checks.result }}
           BUILD: ${{ needs.build.result }}
           BROWSER: ${{ needs.browser.result }}
           NEEDED: ${{ needs.build.outputs.browser_tests }}
         run: |
-          echo "build: $BUILD, browser jobs: $BROWSER, browser tests needed: $NEEDED"
+          echo "checks: $CHECKS, build: $BUILD, browser jobs: $BROWSER, browser tests needed: $NEEDED"
+          if [ "$CHECKS" != "success" ]; then echo "The checks job did not succeed."; exit 1; fi
           if [ "$BUILD" != "success" ]; then echo "The build job did not succeed."; exit 1; fi
           if [ "$NEEDED" = "true" ]; then
             if [ "$BROWSER" != "success" ]; then echo "The browser tests were needed and did not all succeed."; exit 1; fi
