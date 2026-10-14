@@ -51,10 +51,17 @@ export interface ContextLike {
   createOscillator(): OscillatorLike;
   createBuffer(channels: number, length: number, sampleRate: number): BufferLike;
   resume(): Promise<void>;
+  suspend(): Promise<void>;
   close(): Promise<void>;
 }
 
 export interface SoundEngine {
+  /**
+   * Creates the audio context and the continuous layers, silent until `unlock`. Call it when the screen opens,
+   * outside the jump: creating a context blocks the page for up to a quarter of a second on some machines,
+   * which inside the first gesture stalls the first frames of the jump.
+   */
+  prepare(): void;
   /** Call from a user gesture: browsers only start audio after one. */
   unlock(): void;
   setEnabled(on: boolean): void;
@@ -159,6 +166,8 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
   let layers: Record<(typeof LAYER_KEYS)[number], ContinuousLayer> | null = null;
   let flutter: FlutterNodes | null = null;
   let enabled = true;
+  /** Whether a gesture has resumed the context yet; until then every gesture resumes it, whatever its state says. */
+  let resumed = false;
 
   const build = (c: ContextLike) => {
     master = c.createGain();
@@ -251,25 +260,39 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     osc.stop(t + seconds + 0.05);
   };
 
+  /** The context, created and built on first use. */
+  const open = (): ContextLike | null => {
+    if (!ctx) {
+      ctx = makeContext();
+      if (ctx) build(ctx);
+    }
+    return ctx;
+  };
+
   return {
+    prepare() {
+      const c = open();
+      // Where the page has been touched before, the browser may start the new context at once; it stays quiet
+      // until a gesture on this screen, as everywhere else.
+      if (c && !resumed && c.state === "running") c.suspend().catch(() => undefined);
+    },
     unlock() {
-      if (!ctx) {
-        ctx = makeContext();
-        if (!ctx) return;
-        build(ctx);
-      }
+      const c = open();
+      if (!c) return;
       // iOS leaves a context "suspended" or "interrupted"; anything but running is resumed inside the gesture.
-      if (ctx.state === "running") return;
-      ctx.resume().catch(() => undefined);
+      // The first gesture resumes it in any case: a suspend asked for by `prepare` may not have taken effect yet.
+      if (resumed && c.state === "running") return;
+      resumed = true;
+      c.resume().catch(() => undefined);
       // Starting a sound inside the gesture is what finally unlocks audio on older iOS.
       if (master && noise) {
-        const tick = ctx.createBufferSource();
+        const tick = c.createBufferSource();
         tick.buffer = noise;
-        const hush = ctx.createGain();
-        hush.gain.setValueAtTime(0, ctx.currentTime);
+        const hush = c.createGain();
+        hush.gain.setValueAtTime(0, c.currentTime);
         tick.connect(hush);
         hush.connect(master);
-        tick.start(ctx.currentTime, 0, 0.01);
+        tick.start(c.currentTime, 0, 0.01);
       }
     },
     setEnabled(on) {
