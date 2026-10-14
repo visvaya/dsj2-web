@@ -122,7 +122,7 @@ jobs:
   # the job of its engine). The perf suite times the game in Chromium on a slowed processor and checks what a
   # series of jumps leaves in memory; it has a machine of its own, so nothing else is measured along with the game.
   browser:
-    name: ${{ matrix.suite }} (${{ matrix.engine }})
+    name: ${{ matrix.suite }} (${{ matrix.engine }}${{ matrix.parts > 1 && format(' {0}/{1}', matrix.part, matrix.parts) || '' }})
     needs: build
     if: needs.build.outputs.browser_tests == 'true'
     runs-on: ubuntu-latest
@@ -132,10 +132,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { suite: browser, engine: chromium }
-          - { suite: browser, engine: firefox }
-          - { suite: browser, engine: webkit }
-          - { suite: perf, engine: chromium }
+          - { suite: browser, engine: chromium, part: 1, parts: 1 }
+          - { suite: browser, engine: firefox, part: 1, parts: 1 }
+          # WebKit runs four profiles, more than any other engine, so its tests are split between two machines.
+          - { suite: browser, engine: webkit, part: 1, parts: 2 }
+          - { suite: browser, engine: webkit, part: 2, parts: 2 }
+          - { suite: perf, engine: chromium, part: 1, parts: 1 }
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -175,7 +177,8 @@ jobs:
         if: matrix.suite == 'browser'
         env:
           BROWSER_TESTS_ENGINE: ${{ matrix.engine }}
-        run: pnpm test:browser
+          SHARD: ${{ matrix.part }}/${{ matrix.parts }}
+        run: pnpm test:browser --shard="$SHARD"
       - name: The game keeps its time and memory budgets
         if: matrix.suite == 'perf'
         run: pnpm test:browser:perf
@@ -184,7 +187,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() && (failure() || hashFiles('test-results/**/trace.zip', 'test-results-perf/**/trace.zip') != '') }}
         with:
-          name: playwright-report-${{ matrix.suite }}-${{ matrix.engine }}
+          name: playwright-report-${{ matrix.suite }}-${{ matrix.engine }}-${{ matrix.part }}
           path: |
             playwright-report/
             test-results/
