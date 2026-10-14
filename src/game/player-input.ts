@@ -78,7 +78,7 @@ const nothingHeld = (): Record<ButtonSource, ButtonState> => ({
  * `right` are the held state of the buttons, `dy` the vertical motion since
  * the previous frame, as read by 0baf:9a3c.
  */
-interface PlayerInput {
+export interface PlayerInput {
   readonly left: boolean;
   readonly right: boolean;
   setButton: (source: ButtonSource, side: ButtonSide, down: boolean) => void;
