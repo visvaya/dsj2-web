@@ -8,6 +8,8 @@ interface FileOutlets {
   download: (file: File) => void;
 }
 
+const DOWNLOAD_URL_LIFETIME_MS = 60_000;
+
 /** Saves a file through a link the page clicks itself, as a download. */
 function download(file: File): void {
   const url = URL.createObjectURL(file);
@@ -15,8 +17,8 @@ function download(file: File): void {
   link.href = url;
   link.download = file.name;
   link.click();
-  // The download has its own copy once it has started.
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  // The download has its own copy once it has started; a slow save dialog gets a minute to start it.
+  setTimeout(() => URL.revokeObjectURL(url), DOWNLOAD_URL_LIFETIME_MS);
 }
 
 const browserOutlets = (): FileOutlets => ({

@@ -98,6 +98,7 @@ export const UI_TEXT = {
     imported: (added: number, already: number) =>
       already === 0 ? `Wczytano powtórek: ${added}.` : `Wczytano powtórek: ${added}; już zachowanych: ${already}.`,
     importUnreadable: (count: number) => `Nie dało się odczytać powtórek: ${count}.`,
+    importUntrue: (count: number) => `Pominięte, bo nie grają do wyniku z pliku: ${count}.`,
     notReplayFile: "To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.",
     keptOriginal: "Powtórka z pliku jest też w „Zachowanych”.",
     onlyForVisit: "Ta przeglądarka nie pozwala zapisać powtórek na stałe: znikną po zamknięciu strony.",

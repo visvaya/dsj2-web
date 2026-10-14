@@ -15,7 +15,7 @@ import { handOverFile } from "./hand-over-file";
 import type { ReplaySource } from "./jump-replay";
 import { originalReplayOutcome } from "./original-replay-choice";
 import { kb, ReplayList } from "./replay-list";
-import { importedShelf, originalEntry } from "./replay-import";
+import { checkAgainst, importedShelf, originalEntry } from "./replay-import";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -101,10 +101,12 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
     setSelected((current) => new Set([...current].filter((id) => !ids.has(id))));
   };
   const chosen = shelf.filter((e) => selected.has(e.id));
+  const selectedKey = `${SELECTED}:${chosen.map((e) => e.id).join(",")}`;
   return {
     selected,
     chosen,
     confirming: confirm.confirming,
+    selectedArmed: confirm.confirming === selectedKey,
     toggle: (entry: ShelfEntry) =>
       setSelected((current) => {
         const next = new Set(current);
@@ -134,7 +136,8 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       return remove(new Set([entry.id]));
     },
     removeSelected: () => {
-      if (!confirm.confirmed(SELECTED)) return setMessage({ text: T.removeArmed, error: false });
+      // The second press confirms these replays only: another selection asks again.
+      if (!confirm.confirmed(selectedKey)) return setMessage({ text: T.removeArmed, error: false });
       setMessage(null);
       return remove(new Set(chosen.map((e) => e.id)));
     },
@@ -155,12 +158,16 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       const bytes = new Uint8Array(await file.arrayBuffer());
       const replays = readReplayFile(new TextDecoder().decode(bytes));
       if (replays) {
-        const outcome = importedShelf(shelf, replays.entries, new Date());
-        onChangeShelf((current) => importedShelf(current, replays.entries, new Date()).shelf);
+        const now = new Date();
+        const check = checkAgainst(hills);
+        const outcome = importedShelf(shelf, replays.entries, now, check);
+        onChangeShelf((current) => importedShelf(current, replays.entries, now, check).shelf);
         const lines = [T.imported(outcome.added, outcome.alreadyKept)];
         if (replays.unreadable > 0) lines.push(T.importUnreadable(replays.unreadable));
+        if (outcome.untrue > 0) lines.push(T.importUntrue(outcome.untrue));
         if (outcome.refused !== null) lines.push(T[outcome.refused]);
-        return setMessage({ text: lines.join(" "), error: outcome.refused !== null || replays.unreadable > 0 });
+        const error = outcome.refused !== null || replays.unreadable > 0 || outcome.untrue > 0;
+        return setMessage({ text: lines.join(" "), error });
       }
       const original = originalReplayOutcome(bytes, originalHills);
       if (!original.ok) return fail(original.message === T.notReplay ? T.notReplayFile : original.message);
@@ -221,7 +228,7 @@ export function ReplaysScreen(props: Props) {
             aria-disabled={a.chosen.length === 0}
             onClick={a.chosen.length === 0 ? undefined : a.removeSelected}
           >
-            {a.confirming === SELECTED ? T.confirmRemoveSelected(a.chosen.length) : T.removeSelected(a.chosen.length)}
+            {a.selectedArmed ? T.confirmRemoveSelected(a.chosen.length) : T.removeSelected(a.chosen.length)}
           </button>
         </div>
       )}
