@@ -1,4 +1,4 @@
-import { defineConfig, devices, type Project } from "@playwright/test";
+import { defineConfig, devices, type PlaywrightTestProject as Project } from "@playwright/test";
 
 /**
  * Browser tests of the production build on desktop, phone and tablet profiles. The build is served the way the
@@ -9,6 +9,10 @@ import { defineConfig, devices, type Project } from "@playwright/test";
  * In CI every project runs with the browsers Playwright installs. With BROWSER_TESTS_EDGE set (the local mode,
  * `pnpm test:browser:edge`) only the Chromium-based projects run, in the Microsoft Edge already on the machine,
  * so nothing has to be downloaded; Firefox and WebKit are then not exercised at all.
+ *
+ * With BROWSER_TESTS_ENGINE set to chromium, firefox or webkit only the projects of that engine run, with the
+ * setup projects they depend on. CI runs the three engines as separate jobs at the same time, each with only its
+ * own browser installed; a new project joins the job of its engine without a change to the workflow.
  *
  * With BROWSER_TESTS_PERF set (`pnpm test:browser:perf`) none of the above runs. One project, `perf-chromium`,
  * then runs the measurements in e2e/perf (`*.perf.ts`), one test at a time: they time the game, and a test
@@ -22,6 +26,11 @@ const SERVE = `node scripts/serve-dist.mjs --port ${PORT}`;
 const inCi = Boolean(process.env["CI"]);
 const localEdge = Boolean(process.env["BROWSER_TESTS_EDGE"]);
 const measuring = Boolean(process.env["BROWSER_TESTS_PERF"]);
+const ENGINES = ["chromium", "firefox", "webkit"] as const;
+const engine = process.env["BROWSER_TESTS_ENGINE"] ?? "";
+if (engine !== "" && !ENGINES.some((known) => known === engine)) {
+  throw new Error(`BROWSER_TESTS_ENGINE must be one of ${ENGINES.join(", ")}, not "${engine}"`);
+}
 
 const DESKTOP_VIEWPORT = { width: 1280, height: 720 };
 /**
@@ -63,11 +72,13 @@ const firefoxAndWebkitProjects: Project[] = [
   { name: "tablet-landscape", use: { ...devices["iPad (gen 7) landscape"] } },
 ];
 
+const ofEngine = (project: Project): boolean =>
+  engine === "" || (project.use?.defaultBrowserType ?? project.use?.browserName) === engine;
+
 const functionalProjects: Project[] = [
   { name: HARNESS_PROJECT, testMatch: "**/sim-harness.setup.ts" },
   { name: RELEASES_PROJECT, testMatch: "**/releases.setup.ts" },
-  ...chromiumProjects,
-  ...(localEdge ? [] : firefoxAndWebkitProjects),
+  ...[...chromiumProjects, ...(localEdge ? [] : firefoxAndWebkitProjects)].filter(ofEngine),
 ];
 
 /** The measurements: Chromium only, because they steer the processor and read the heap through its protocol. */

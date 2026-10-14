@@ -20,12 +20,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Each job name is a required status check on pull requests; keep it equal to the job id.
-  web:
-    name: web
+  # Each required status check (web, tools, hygiene) is a job named after its id. web is an aggregate: it waits for
+  # build and then the browser jobs, which run side by side, and passes only when each of them did its part.
+  build:
+    name: build
     if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     outputs:
       browser_tests: ${{ steps.browser.outputs.needed }}
     steps:
@@ -55,13 +56,13 @@ jobs:
       # coverage thresholds for src/sim set in vite.config.ts.
       - run: pnpm test:coverage
       - run: pnpm test:scripts
-      # The package that is tested below and, on the default branch, published: built once, never rebuilt.
+      # The package that the jobs below test and, on the default branch, publish: built once, never rebuilt.
       - run: pnpm build
       - name: Exactly the build's own files in dist/, within the size budget
         run: pnpm check:dist
-      # Browser tests of the build that was just checked, in Chromium, Firefox and WebKit on desktop, phone and
-      # tablet profiles. They take several minutes, so a pull request that cannot change what the browser gets
+      # Browser tests take several minutes, so a pull request that cannot change what the browser gets
       # (documentation, the analysis tools, unit tests only) skips them; the default branch always runs them.
+      # A difference that cannot be read runs them too.
       - name: Decide whether the browser tests are needed
         id: browser
         env:
@@ -70,57 +71,24 @@ jobs:
           needed=true
           deploy_tool=false
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            # Files that reach the browser or the tests of it, without unit tests and their support files.
-            relevant=$(git diff --name-only HEAD^1 HEAD |
-              grep -E '^(src/|e2e/|public/|scripts/|\.github/workflows/|index\.html$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.json$|vite\.config\.ts$|playwright\.config\.ts$)' |
-              grep -vE '(\.test\.ts$|\.snap$|^src/sim/test-support/|^src/original/test-support/)' || true)
-            if [ -z "$relevant" ]; then needed=false; fi
-            # The deployment tool is tried only by pull requests that change it or the way it is run.
-            if git diff --name-only HEAD^1 HEAD | grep -qE '^(deploy/|\.github/workflows/|scripts/run-wrangler\.mjs$)'; then
+            # A renamed file is listed under its old and its new name, so moving a file out of src/ counts.
+            if changed=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+              # Files that reach the browser or the tests of it, without unit tests and their support files.
+              relevant=$(printf '%s\n' "$changed" |
+                grep -E '^(src/|e2e/|public/|scripts/|\.github/workflows/|index\.html$|package\.json$|pnpm-lock\.yaml$|pnpm-workspace\.yaml$|tsconfig\.json$|vite\.config\.ts$|playwright\.config\.ts$)' |
+                grep -vE '(\.test\.ts$|\.snap$|^src/sim/test-support/|^src/original/test-support/)' || true)
+              if [ -z "$relevant" ]; then needed=false; fi
+              # The deployment tool is tried only by pull requests that change it or the way it is run.
+              if printf '%s\n' "$changed" | grep -qE '^(deploy/|\.github/workflows/|scripts/run-wrangler\.mjs$)'; then
+                deploy_tool=true
+              fi
+            else
+              echo "::warning::The changed files could not be listed; the browser tests run."
               deploy_tool=true
             fi
           fi
           echo "needed=$needed" | tee -a "$GITHUB_OUTPUT"
           echo "deploy_tool=$deploy_tool" | tee -a "$GITHUB_OUTPUT"
-      # The browsers are cached per Playwright version; the system packages they need are not, so a cache hit
-      # still installs those.
-      - name: Read the Playwright version
-        if: steps.browser.outputs.needed == 'true'
-        id: playwright
-        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" | tee -a "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: steps.browser.outputs.needed == 'true'
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - name: Install the browsers
-        if: steps.browser.outputs.needed == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install --with-deps chromium firefox webkit
-      - name: Install the system packages of the cached browsers
-        if: steps.browser.outputs.needed == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm exec playwright install-deps chromium firefox webkit
-      - name: The game works in real browsers
-        if: steps.browser.outputs.needed == 'true'
-        run: pnpm test:browser
-      # Timings of the same build in Chromium on a slowed processor, and what a series of jumps leaves in
-      # memory. One test at a time and after the tests above, so nothing else is measured along with the game.
-      - name: The game keeps its time and memory budgets
-        if: steps.browser.outputs.needed == 'true'
-        run: pnpm test:browser:perf
-      # A test that failed and then passed on its retry leaves the run green; the trace of the failed attempt is
-      # the only record of what went wrong, so it is kept as well.
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        if: ${{ !cancelled() && (failure() || hashFiles('test-results/**/trace.zip', 'test-results-perf/**/trace.zip') != '') }}
-        with:
-          name: playwright-report
-          path: |
-            playwright-report/
-            test-results/
-            playwright-report-perf/
-            test-results-perf/
-          if-no-files-found: ignore
-          retention-days: 7
       # The deployment job runs only on the default branch, after a merge. A pull request that changes the tool,
       # its configuration or the workflows tries them here, without credentials: the tool installs from its own
       # lockfile and accepts the configuration and the package.
@@ -135,9 +103,9 @@ jobs:
           pnpm exec wrangler deploy --dry-run --message "$GITHUB_SHA"
       - name: The package is still byte for byte what was built
         run: sha256sum --check --strict --quiet dist.sha256
-      # Named after the commit, so the deployment job can only take the package of its own run and commit.
-      - name: Keep the tested package for the deployment
-        if: github.event_name != 'pull_request'
+      # Named after the commit, so the jobs below and the deployment job can only take the package of their own
+      # run and commit. A pull request keeps it only as long as a rerun of a failed job may need it.
+      - name: Keep the package for the browser tests and the deployment
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: telemark-dist-${{ github.sha }}
@@ -147,7 +115,113 @@ jobs:
           if-no-files-found: error
           # A job that is run again replaces the package of its earlier attempt.
           overwrite: true
-          retention-days: 90
+          retention-days: ${{ github.event_name == 'pull_request' && 3 || 90 }}
+
+  # The package in real browsers, side by side, each job with only its own browser installed. The browser suites
+  # run the desktop, phone and tablet profiles of one engine (chosen in playwright.config.ts, so a new profile joins
+  # the job of its engine). The perf suite times the game in Chromium on a slowed processor and checks what a
+  # series of jumps leaves in memory; it has a machine of its own, so nothing else is measured along with the game.
+  browser:
+    name: ${{ matrix.suite }} (${{ matrix.engine }})
+    needs: build
+    if: needs.build.outputs.browser_tests == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      # A failure in one job does not stop the others, so one run shows everything that fails.
+      fail-fast: false
+      matrix:
+        include:
+          - { suite: browser, engine: chromium }
+          - { suite: browser, engine: firefox }
+          - { suite: browser, engine: webkit }
+          - { suite: perf, engine: chromium }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: telemark-dist-${{ github.sha }}
+      - name: The package is the one that was built
+        run: sha256sum --check --strict --quiet dist.sha256
+      # The browsers are cached per Playwright version and engine; the system packages they need are not, so a
+      # cache hit still installs those.
+      - name: Read the Playwright version
+        id: playwright
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" | tee -a "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.engine }}
+      - name: Install the browser
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: pnpm exec playwright install --with-deps "$ENGINE"
+      - name: Install the system packages of the cached browser
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        env:
+          ENGINE: ${{ matrix.engine }}
+        run: pnpm exec playwright install-deps "$ENGINE"
+      - name: The game works in real browsers
+        if: matrix.suite == 'browser'
+        env:
+          BROWSER_TESTS_ENGINE: ${{ matrix.engine }}
+        run: pnpm test:browser
+      - name: The game keeps its time and memory budgets
+        if: matrix.suite == 'perf'
+        run: pnpm test:browser:perf
+      # A test that failed and then passed on its retry leaves the run green; the trace of the failed attempt is
+      # the only record of what went wrong, so it is kept as well.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() && (failure() || hashFiles('test-results/**/trace.zip', 'test-results-perf/**/trace.zip') != '') }}
+        with:
+          name: playwright-report-${{ matrix.suite }}-${{ matrix.engine }}
+          path: |
+            playwright-report/
+            test-results/
+            playwright-report-perf/
+            test-results-perf/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # The required check for the package: green only when build passed and every browser job passed, or they were
+  # skipped because build found that the pull request cannot change what the browser gets. A failed, cancelled or
+  # otherwise skipped job leaves it red.
+  web:
+    name: web
+    needs: [build, browser]
+    if: ${{ !cancelled() && github.event_name != 'schedule' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      browser_tests: ${{ steps.verdict.outputs.browser_tests }}
+    steps:
+      - name: Every part of the check did its work
+        id: verdict
+        env:
+          BUILD: ${{ needs.build.result }}
+          BROWSER: ${{ needs.browser.result }}
+          NEEDED: ${{ needs.build.outputs.browser_tests }}
+        run: |
+          echo "build: $BUILD, browser jobs: $BROWSER, browser tests needed: $NEEDED"
+          if [ "$BUILD" != "success" ]; then echo "The build job did not succeed."; exit 1; fi
+          if [ "$NEEDED" = "true" ]; then
+            if [ "$BROWSER" != "success" ]; then echo "The browser tests were needed and did not all succeed."; exit 1; fi
+          elif [ "$NEEDED" = "false" ]; then
+            if [ "$BROWSER" != "skipped" ]; then echo "The browser tests were not needed, yet they did not stay skipped."; exit 1; fi
+          else
+            echo "The build job did not say whether the browser tests were needed."; exit 1
+          fi
+          echo "browser_tests=$NEEDED" | tee -a "$GITHUB_OUTPUT"
 
   tools:
     name: tools

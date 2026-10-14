@@ -113,9 +113,10 @@ Workflow `CI` (`.github/workflows/ci.yml`), zadanie `deploy`:
 1. Uruchamia się po `push` do `master` albo po ręcznym uruchomieniu workflow na `master`, tylko gdy zmienna
    repozytorium `DEPLOY_ENABLED` ma wartość `true`, i dopiero po zielonych `web`, `tools` i `hygiene` tego samego
    przebiegu. PR i harmonogram nigdy nie wdrażają.
-2. `web` buduje pakiet raz, sprawdza go, testuje w przeglądarkach i zapisuje jako artefakt
-   `telemark-dist-<commit>` razem z `dist.sha256`. `deploy` pobiera ten artefakt, sprawdza skróty, komplet plików
-   i commit w `release.json`; niczego nie buduje.
+2. Zadanie `build` buduje pakiet raz, sprawdza go i zapisuje jako artefakt `telemark-dist-<commit>` razem
+   z `dist.sha256`. Zadania `browser` (po jednym na silnik i jedno z trybem pomiarowym) testują ten artefakt równolegle, a zbiorcze
+   `web` jest zielone tylko wtedy, gdy wszystkie przeszły. `deploy` pobiera ten sam artefakt, sprawdza skróty,
+   komplet plików i commit w `release.json`; niczego nie buduje.
 3. Jeśli `master` ma już nowszy commit, przebieg kończy się bez publikacji. Jeśli wdrożona zawartość ma ten sam
    `contentId`, publikacji nie ma (gracze nie pobierają gry drugi raz), a kontrola HTTP sprawdza to, co jest
    wdrożone. Zmieniona gra z numerem nie wyższym niż wdrożony kończy zadanie błędem bez publikacji.
