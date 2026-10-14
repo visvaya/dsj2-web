@@ -47,8 +47,13 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
   // A replay is not a jump: the record stays as the jump left it.
   expect(await storedSave(page)).toEqual(saved);
 
-  await openJumpControls(page, traits);
-  await expect(button(page, TEXT.jumpAgain)).toBeHidden();
+  // The menu of a replay holds what the replay needs; the steering and the jumping are left out of it.
+  await press(button(page, TEXT.pause), traits);
+  await expect(button(page, TEXT.replayResume)).toBeFocused();
+  for (const absent of [TEXT.jumpAgain, TEXT.howTo, TEXT.toHills, TEXT.watchReplay]) {
+    await expect(button(page, absent)).toHaveCount(0);
+  }
+  await expect(page.getByRole("group", { name: /czułość/i })).toHaveCount(0);
   await press(button(page, TEXT.replaySpeed), traits);
   await expect(button(page, TEXT.replaySpeed)).toHaveText("Tempo: 1/2");
   await press(button(page, TEXT.replayEnd), traits);

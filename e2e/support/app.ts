@@ -21,6 +21,7 @@ export const TEXT = {
   replaySpeed: /^Tempo: /,
   replayFromStart: /^Obejrzyj od początku/,
   replayEnd: "Wróć do skakania",
+  replayResume: "Wróć do powtórki",
   toHills: /^Zmień skocznię/,
   toMainMenu: "Wyjdź do menu głównego",
   scenery: /^Sceneria: /,
