@@ -160,6 +160,8 @@ export const UI_TEXT = {
       recordsStay: "Rekordy skoczni nie są usuwane same.",
       sliderOn: "Suwak powtórki: wł.",
       sliderOff: "Suwak powtórki: wył.",
+      ghostOn: "Duch rekordu: wł.",
+      ghostOff: "Duch rekordu: wył.",
     },
     sensitivity: "Czułość: ",
     scenery: "Sceneria: ",

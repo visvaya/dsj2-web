@@ -33,6 +33,7 @@ As of 2026-10-14: in active development.
   the hills of your `Dsj.exe`. The replay of each hill record is kept on its own, other jumps by hand or as the
   last few, with an optional clean-up by age and by size; replays go to a file and come back from one, to move them
   to another device.
+- A ghost of the hill record: the record's jump runs beside each training jump, leaving the gate with you.
 - Hill records, outfit colours and settings saved locally.
 - Installable on a phone's home screen; after the first visit it starts and plays without a network.
 

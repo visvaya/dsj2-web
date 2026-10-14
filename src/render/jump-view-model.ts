@@ -35,6 +35,8 @@ export interface JumpViewModel {
   over: boolean;
   /** Hill record distance, drawn as a line on the landing hill. */
   recordM?: number;
+  /** The jump of the hill's record at the same moment, drawn as a ghost beside the jumper. */
+  ghost?: JumpSimState;
   /** This jump set a new hill record. */
   newRecord?: boolean;
   /** Time of day and weather; a clear day when absent. */

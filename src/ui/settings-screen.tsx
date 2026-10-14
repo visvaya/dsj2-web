@@ -49,7 +49,7 @@ export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: P
           tiltOn={tiltOn}
           onToggleTilt={toggleTilt}
         />
-        <ReplaySettingsControls replays={settings.replays} onSettings={onSettings} />
+        <ReplaySettingsControls replays={settings.replays} recordGhost={settings.recordGhost} onSettings={onSettings} />
         {tiltRefused && (
           <p className="note error" role="status">
             {UI_TEXT.settings.tiltRefused}

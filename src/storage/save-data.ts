@@ -31,6 +31,8 @@ export interface Settings {
   hillHints: boolean;
   /** What is kept of the replays and what goes on its own (added after version 2 too). */
   replays: ReplaySettings;
+  /** Whether the record of the hill runs beside each training jump as a ghost (added after version 2 too; on). */
+  recordGhost: boolean;
 }
 
 /** The replays the game keeps besides the hill records, and the clean-up the player asked for. */
@@ -65,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sensitivity: DEFAULT_SENSITIVITY,
   hillHints: true,
   replays: DEFAULT_REPLAY_SETTINGS,
+  recordGhost: true,
 };
 
 export interface SaveData {
@@ -121,6 +124,7 @@ function parseSettings(v: unknown): Settings {
   const vibration = field(v, "vibration");
   const scenery = field(v, "scenery");
   const sound = field(v, "sound");
+  const recordGhost = field(v, "recordGhost");
   // The name the setting had for a day, when it covered the flight only.
   const hillHints = field(v, "hillHints") ?? field(v, "flightHints");
   return {
@@ -135,6 +139,7 @@ function parseSettings(v: unknown): Settings {
     sensitivity: parseSensitivity(field(v, "sensitivity")),
     hillHints: typeof hillHints === "boolean" ? hillHints : DEFAULT_SETTINGS.hillHints,
     replays: parseReplaySettings(field(v, "replays")),
+    recordGhost: typeof recordGhost === "boolean" ? recordGhost : DEFAULT_SETTINGS.recordGhost,
   };
 }
 

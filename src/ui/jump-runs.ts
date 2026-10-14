@@ -12,7 +12,8 @@ import {
   type TrainingJump,
 } from "../game/training-session";
 import type { ControlScheme, Scenery } from "../render/jump-view";
-import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
+import { PHASE, type FrameInput, type JumpLogicState } from "../sim/jump-logic";
+import type { JumpSimState } from "../sim/jump-sim";
 import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import {
@@ -24,6 +25,7 @@ import {
 import { recordingSource, replayStart, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
 import { jumpResult, stepJump, type JumpCue, type JumpResult } from "./jump-round";
 import type { JumpSounds } from "./jump-sounds";
+import { ghostAlong, ghostAtGate, type RecordGhost } from "./record-ghost";
 
 /** What the loop reads anew in every frame: it outlives a render. */
 export interface LiveProps {
@@ -35,6 +37,8 @@ export interface LiveProps {
   scenery: Scenery;
   /** How the replay is being watched, while one plays. */
   replay: ReplayView | null;
+  /** The replay of the hill's record, played as a ghost beside each training jump; null for none. */
+  ghost: ReplaySource | null;
 }
 
 /** What the runs need from the screen. */
@@ -66,8 +70,11 @@ interface JumpRun {
    */
   settle: () => { over: boolean; clock: number };
   restart: () => void;
-  /** The jump, and whether it beats the record (known from the touchdown on). */
-  now: () => { jump: TrainingJump; newRecord: boolean };
+  /**
+   * The jump, whether it beats the record (known from the touchdown on), and the record's jump at the same moment
+   * while it is shown as a ghost.
+   */
+  now: () => { jump: TrainingJump; newRecord: boolean; ghost: JumpSimState | null };
 }
 
 /** Feels and plays the moments of the jump, and tells a screen reader when the jumper leaves the gate. */
@@ -81,6 +88,46 @@ function playCues(cues: readonly JumpCue[], c: RunContext, feel: boolean): void 
       c.soundRef.current?.play(cue.event);
     }
   }
+}
+
+/**
+ * The ghost of the hill's record beside the training jumps: it leaves the gate with the player and keeps level
+ * from there. It shows while the player's jumper moves, and goes as soon as the setting or the record does.
+ */
+function createGhostTrack(hill: HillChoice, source: () => ReplaySource | null) {
+  // The ghost at the gate is the same for every jump with one record, so it is played there once.
+  let atGate: { source: ReplaySource; ghost: RecordGhost | null } | null = null;
+  const fromGate = (): RecordGhost | null => {
+    const now = source();
+    if (now === null) return null;
+    if (atGate?.source !== now) atGate = { source: now, ghost: ghostAtGate(hill, now) };
+    return atGate.ghost;
+  };
+  let ghost = fromGate();
+  /** The frame of the player's jump in which the player left the gate; null before. */
+  let playerStart: number | null = null;
+  /** Sees the player's jump in a frame of its own, so the start is known to the frame within a step. */
+  const see = (logic: JumpLogicState) => {
+    if (playerStart === null && logic.phase >= PHASE.inrun) playerStart = logic.frame;
+  };
+  return {
+    restart() {
+      ghost = fromGate();
+      playerStart = null;
+    },
+    see,
+    follow(jump: TrainingJump) {
+      const logic = jump.state.logic;
+      // A record that arrives, or a ghost switched on, while the player waits at the gate joins this jump.
+      if (playerStart === null && ghost?.source !== (source() ?? undefined)) ghost = fromGate();
+      see(logic);
+      if (ghost !== null && playerStart !== null) ghost = ghostAlong(ghost, logic.frame - playerStart);
+    },
+    shown(jump: TrainingJump): JumpSimState | null {
+      const on = ghost !== null && playerStart !== null && source() === ghost.source && !isJumpOver(jump);
+      return on && ghost ? ghost.jump.state : null;
+    },
+  };
 }
 
 interface TrainingRun extends JumpRun {
@@ -109,9 +156,11 @@ function createTrainingRun(
   let newRecord = false;
   let leftDown = false;
   let leftWasDown = false;
+  const ghosts = createGhostTrack(hill, () => c().live.ghost);
 
   const restart = () => {
     jump = startTrainingJump(hill, newSeed());
+    ghosts.restart();
     inputs = [];
     c().resetHands();
     finished = false;
@@ -136,6 +185,7 @@ function createTrainingRun(
   };
   /** The input of the next simulation frame; the rules of the touch zones belong to finger steering. */
   const takeFrame = (logic: JumpLogicState) => {
+    ghosts.see(logic);
     const zones = c().live.controls === "touch";
     input.setLeftTouchLeansOnly(zones && leftTouchLeansOnly(logic.phase));
     input.setRightTouchIsBothButtons(zones && rightTouchEndsPreparation(logic.phase));
@@ -146,6 +196,7 @@ function createTrainingRun(
     step(steps) {
       const stepped = stepJump(jump, { steps, leftHeld: input.left, record: c().live.record }, takeFrame);
       jump = stepped.jump;
+      ghosts.follow(jump);
       leftDown = stepped.leftDown;
       // The recording is owned here and handed out only once the jump is finished.
       if (!finished) inputs.push(...stepped.taken);
@@ -169,7 +220,7 @@ function createTrainingRun(
       return { over, clock };
     },
     restart,
-    now: () => ({ jump, newRecord }),
+    now: () => ({ jump, newRecord, ghost: ghosts.shown(jump) }),
     lastRecording: () => recording,
     lastJump: () => last,
   };
@@ -245,7 +296,7 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
       return { over: isJumpOver(jump), clock: presentationFrame(jump) };
     },
     restart,
-    now: () => ({ jump, newRecord }),
+    now: () => ({ jump, newRecord, ghost: null }),
     ended,
     position: () => ({ frame: Math.min(presentationFrame(jump), lengthOf()), length: lengthOf() }),
     seek(frame) {

@@ -41,6 +41,8 @@ interface Props {
   openingReplay: ReplaySource | null;
   /** Keeps the last jump on the shelf of replays; says what became of it. */
   onKeepJump: (jump: FinishedJump) => KeepOutcome;
+  /** The replay of the hill's record, run beside each training jump as a ghost; null for none. */
+  recordGhost: ReplaySource | null;
 }
 
 /** What the player is told after asking to keep the last jump. */
@@ -132,6 +134,7 @@ export function JumpScreen(props: Props) {
   // The look is drawn once per visit to the hill (not per jump), from its own seed.
   const [visitSeed] = useState(newSeed);
   const scenery = useMemo(() => pickScenery(settings.scenery, visitSeed), [settings.scenery, visitSeed]);
+  const ghost = props.recordGhost;
   const {
     stageRef,
     canvasRef,
@@ -139,7 +142,7 @@ export function JumpScreen(props: Props) {
     controls: loop,
   } = useJumpLoop({
     hill,
-    live: { onFinished: props.onFinished, record: props.record, settings, controls, scenery, replay },
+    live: { onFinished: props.onFinished, record: props.record, settings, controls, scenery, replay, ghost },
     inputRef: steering.inputRef,
     tiltRef: steering.tiltRef,
     resetHands: steering.resetHands,

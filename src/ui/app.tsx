@@ -18,7 +18,7 @@ import { ReplaysScreen } from "./replays-screen";
 import { screenTitle } from "./screen-title";
 import { SettingsScreen } from "./settings-screen";
 import { useOfflineState } from "./use-offline-state";
-import { useReplayShelf } from "./use-replay-shelf";
+import { useRecordGhost, useReplayShelf } from "./use-replay-shelf";
 
 type Screen =
   | { kind: "menu" }
@@ -139,6 +139,7 @@ export function App({ diagnostics }: AppProps) {
   }, [backend]);
 
   const replays = useReplayShelf(save.settings.replays);
+  const ghost = useRecordGhost(replays.shelf, screen.kind === "jump" ? screen.hill : null, save.settings.recordGhost);
   const onFinished = (hill: HillChoice, result: JumpResult, recording: JumpRecording) => {
     replays.onJumpFinished(hill, { recording, result }, beatsRecord(result, save.records[hill.id]));
     setSave((prev) => {
@@ -176,6 +177,7 @@ export function App({ diagnostics }: AppProps) {
         focusOnEntry={navigated}
         diagnostics={diagnostics}
         openingReplay={screen.replay ?? null}
+        recordGhost={ghost}
       />
     );
   }

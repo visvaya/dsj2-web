@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import {
   cleanedShelf,
@@ -11,6 +11,7 @@ import {
 } from "../storage/replay-shelf";
 import { detectReplayStore, type ReplayStore } from "../storage/replay-store";
 import type { ReplaySettings } from "../storage/save-data";
+import type { ReplaySource } from "./jump-replay";
 import type { FinishedJump } from "./jump-runs";
 import { ownEntry, recordReplayOf } from "./shelf-replays";
 
@@ -97,3 +98,12 @@ export function useReplayShelf(settings: ReplaySettings) {
 
 /** What became of a jump the player asked to keep. */
 export type KeepOutcome = "kept" | "notReady" | ShelfRefusal;
+
+/**
+ * The replay of a hill's record, to run beside the training jumps as a ghost; null when the hill has none, it no
+ * longer plays to its result, or the ghost is off. Worked out again only when that record changes.
+ */
+export function useRecordGhost(shelf: Shelf, hill: HillChoice | null, on: boolean): ReplaySource | null {
+  const entry = hill === null ? undefined : shelf.find((e) => e.kind === "record" && e.hill.id === hill.id);
+  return useMemo(() => (on && hill && entry ? recordReplayOf([entry], hill) : null), [on, hill, entry]);
+}

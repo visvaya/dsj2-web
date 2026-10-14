@@ -7,6 +7,7 @@ import type { FrameBuffer } from "./frame-buffer";
 import { backdropFor, drawBackdrop, drawBirds, drawSnowfall } from "./jump-view-backdrop";
 import { CAMERA_AHEAD_M, CAMERA_BELOW_JUMPER_M, type Camera } from "./jump-view-camera";
 import { BAR_HEIGHT_PX, drawBar, drawNotes, drawWindBox, prompt } from "./jump-view-hud";
+import { drawGhost } from "./jump-view-ghost";
 import { drawJumper } from "./jump-view-jumper";
 import { drawDistanceLine, drawHill, drawNearFence, drawSlope, drawWindSocks } from "./jump-view-landing";
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
@@ -103,6 +104,8 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   drawWindSocks(fb, h, cam, s, m.frame);
   drawDistanceLine(fb, h, cam, m.kPointM, color("kLine"), 0);
   if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
+  // Under the player's jumper, so the player's own figure is never covered.
+  if (m.ghost !== undefined) drawGhost(fb, h, m.ghost, cam);
   drawJumper(fb, h, s, cam, m.outfit ?? DEFAULT_OUTFIT);
   drawNearFence(fb, h, cam, groundBottom);
   if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
