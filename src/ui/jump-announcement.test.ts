@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   JUMP_STARTED_ANNOUNCEMENT,
   formatDecimal,
+  replayOverAnnouncement,
   resultAnnouncement,
   touchdownAnnouncement,
 } from "./jump-announcement";
@@ -59,6 +60,15 @@ describe("jump announcements", () => {
     const fallen = { ...clean, fallType: 4, points: 23.5, judges: judges.map((judge) => ({ ...judge, note: 2.5 })) };
     expect(resultAnnouncement(fallen, mouse)).toBe(
       "Upadek: 67,38 metra. Noty: 2,5; 2,5; 2,5; 2,5; 2,5. Wynik: 23,5 punktu. Lewy przycisk lub R: jeszcze raz.",
+    );
+  });
+
+  it("reads a replay that is over with the result it had and what a press of the picture does now", () => {
+    expect(replayOverAnnouncement(clean, true, "own")).toBe(
+      "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Nowy rekord skoczni. Koniec powtórki. Kliknięcie lub dotknięcie obrazu: nowy skok.",
+    );
+    expect(replayOverAnnouncement(clean, false, "original")).toBe(
+      "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Koniec powtórki. Kliknięcie lub dotknięcie obrazu: menu.",
     );
   });
 

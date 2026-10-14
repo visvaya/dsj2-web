@@ -15,7 +15,12 @@ import type { ControlScheme, Scenery } from "../render/jump-view";
 import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
 import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
-import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
+import {
+  JUMP_STARTED_ANNOUNCEMENT,
+  replayOverAnnouncement,
+  resultAnnouncement,
+  touchdownAnnouncement,
+} from "./jump-announcement";
 import { recordingSource, replayStart, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
 import { jumpResult, stepJump, type JumpCue, type JumpResult } from "./jump-round";
 import type { JumpSounds } from "./jump-sounds";
@@ -41,8 +46,11 @@ export interface RunContext {
   announce: (text: string) => void;
   /** Tells whether a finished jump can be watched again. */
   onReplayAvailable: (available: boolean) => void;
-  /** Tells how the replay is to be watched now, or that none plays. */
-  onReplayChange: (view: ReplayView | null) => void;
+  /**
+   * Tells how the replay is to be watched now, or that none plays; given a function, from how it is watched as
+   * the screen has it then, so two presses within one frame both count.
+   */
+  onReplayChange: (next: ReplayView | null | ((view: ReplayView | null) => ReplayView | null)) => void;
   /** Opens the menu of the jump screen, where a replay of the original goes on once it is over. */
   openMenu: () => void;
 }
@@ -174,10 +182,14 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
   const start = () => source.start(hill);
   let jump = start();
   let newRecord = false;
+  /** Whether the end of the replay has been told, with the notes and what a press does now. */
+  let toldOver = false;
   const takeFrame = (logic: JumpLogicState) => source.input(logic);
+  const ended = () => nextJumpAllowed(jump.state.logic, presentationFrame(jump));
   const restart = () => {
     jump = start();
     newRecord = false;
+    toldOver = false;
     sounds.reset();
     c().announce(UI_TEXT.announcement.replayStarted);
   };
@@ -191,10 +203,17 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
         c().announce(touchdownAnnouncement(jump.state.logic, newRecord));
       }
     },
-    settle: () => ({ over: isJumpOver(jump), clock: presentationFrame(jump) }),
+    settle() {
+      // Told once the press that ends the replay works: the notes are up then, as in the jump.
+      if (!toldOver && ended()) {
+        toldOver = true;
+        c().announce(replayOverAnnouncement(jump.state.logic, newRecord, source.origin));
+      }
+      return { over: isJumpOver(jump), clock: presentationFrame(jump) };
+    },
     restart,
     now: () => ({ jump, newRecord }),
-    ended: () => nextJumpAllowed(jump.state.logic, presentationFrame(jump)),
+    ended,
   };
 }
 
@@ -245,10 +264,12 @@ export function createRunSwitch(
     c().onReplayChange(null);
   };
   let jumperName: string | null = null;
+  let replayOrigin: ReplaySource["origin"] = "own";
   const play = (source: ReplaySource) => {
     releaseMouse();
     replay = createReplayRun(hill, source, c, sounds);
     jumperName = source.jumperName ?? null;
+    replayOrigin = source.origin;
     replay.restart();
     c().onReplayChange(replayStart(source.origin));
   };
@@ -265,19 +286,18 @@ export function createRunSwitch(
       restart() {
         current().restart();
         // A replay started again plays, even if it was paused.
-        const view = c().live.replay;
-        if (replay && view?.paused === true) c().onReplayChange({ ...view, paused: false });
+        if (replay) c().onReplayChange((view) => view && { ...view, paused: false });
       },
       watchReplay,
       endReplay,
     },
     press() {
-      const view = c().live.replay;
-      if (replay?.ended() === true) {
+      if (!replay) return;
+      if (replay.ended()) {
         // After the player's own jump the next one follows; after a file of the original, the choices of the menu.
-        if (view?.origin === "original") c().openMenu();
+        if (replayOrigin === "original") c().openMenu();
         else endReplay();
-      } else if (view) c().onReplayChange({ ...view, paused: !view.paused });
+      } else c().onReplayChange((view) => view && { ...view, paused: !view.paused });
     },
   };
 }

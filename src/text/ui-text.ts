@@ -246,6 +246,11 @@ export const UI_TEXT = {
   announcement: {
     jumpStarted: "Skok rozpoczęty.",
     replayStarted: "Powtórka skoku. Kliknięcie lub dotknięcie obrazu: pauza, Esc: menu.",
+    /** Once a replay is over: what a press of the picture does now, after the player's own jump or a file. */
+    replayOver: {
+      own: "Koniec powtórki. Kliknięcie lub dotknięcie obrazu: nowy skok.",
+      original: "Koniec powtórki. Kliknięcie lub dotknięcie obrazu: menu.",
+    },
     nextJump: {
       mouse: "Lewy przycisk lub R: jeszcze raz.",
       touch: "Pole L: jeszcze raz.",
