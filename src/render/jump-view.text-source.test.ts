@@ -84,7 +84,7 @@ function drawJump(
   controls: ControlScheme,
   seed: number,
   player: Player,
-  replay?: { speedLabel: string; paused: boolean },
+  replay?: { speedLabel: string; paused: boolean; menuAtEnd: boolean },
 ): void {
   if (!hill) throw new Error("no hill");
   let jump = startTrainingJump(hill, seed);
@@ -130,9 +130,10 @@ describe("texts in the picture of the jump", { timeout: TIMEOUT_MS }, () => {
     drawJump("mouse", 5, idlePlayer);
     // A replay, playing and paused, in each way of playing.
     for (const controls of ["mouse", "touch", "tilt"] as const) {
-      drawJump(controls, 7, botPlayer(2.5), { speedLabel: "1/2", paused: false });
+      drawJump(controls, 7, botPlayer(2.5), { speedLabel: "1/2", paused: false, menuAtEnd: false });
+      drawJump(controls, 7, botPlayer(2.5), { speedLabel: "1", paused: false, menuAtEnd: true });
     }
-    drawJump("mouse", 7, botPlayer(2.5), { speedLabel: "1/4", paused: true });
+    drawJump("mouse", 7, botPlayer(2.5), { speedLabel: "1/4", paused: true, menuAtEnd: false });
 
     const typedIn = [...drawn].filter((text) => !FROM_MODULE.test(text) && !NUMBER.test(text));
     expect(typedIn).toEqual([]);

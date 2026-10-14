@@ -228,6 +228,9 @@ export const UI_TEXT = {
       speed: (speed: string) => `Tempo: ${speed}`,
       fromStart: "Obejrzyj od początku",
       end: "Wróć do skakania",
+      resume: "Wróć do powtórki",
+      other: "Wczytaj inną powtórkę",
+      jumpHere: "Skacz na tej skoczni",
     },
     tiltHint: "Dotknij „Pochylanie”, aby włączyć przechył.",
     padKey: { left: "L", right: "P" },
@@ -279,6 +282,7 @@ export const UI_TEXT = {
     prompts: {
       mouse: {
         replay: "KLIKNIJ: PAUZA   ESC: MENU",
+        replayMenu: "KLIKNIJ: MENU",
         nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: MENU",
         start: "LEWY PRZYCISK: START",
         takeoff: "OBA PRZYCISKI NA PROGU",
@@ -289,6 +293,7 @@ export const UI_TEXT = {
       },
       touch: {
         replay: "DOTKNIJ OBRAZU: PAUZA",
+        replayMenu: "DOTKNIJ OBRAZU: MENU",
         nextJump: "L: JESZCZE RAZ",
         start: "L: START",
         takeoff: "L+P NA PROGU: WYBICIE",
@@ -299,6 +304,7 @@ export const UI_TEXT = {
       },
       tilt: {
         replay: "DOTKNIJ OBRAZU: PAUZA",
+        replayMenu: "DOTKNIJ OBRAZU: MENU",
         nextJump: "DOTKNIJ EKRANU: JESZCZE RAZ",
         start: "DOTKNIJ EKRANU: START",
         takeoff: "DWA KCIUKI NA PROGU: WYBICIE",

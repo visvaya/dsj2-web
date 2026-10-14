@@ -16,7 +16,7 @@ import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
 import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
-import { REPLAY_START, recordingSource, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
+import { recordingSource, replayStart, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
 import { jumpResult, stepJump, type JumpCue, type JumpResult } from "./jump-round";
 import type { JumpSounds } from "./jump-sounds";
 
@@ -43,6 +43,8 @@ export interface RunContext {
   onReplayAvailable: (available: boolean) => void;
   /** Tells how the replay is to be watched now, or that none plays. */
   onReplayChange: (view: ReplayView | null) => void;
+  /** Opens the menu of the jump screen, where a replay of the original goes on once it is over. */
+  openMenu: () => void;
 }
 
 /** A run of jumps on the hill: what a picture frame does to it, and what starts its jump again. */
@@ -248,7 +250,7 @@ export function createRunSwitch(
     replay = createReplayRun(hill, source, c, sounds);
     jumperName = source.jumperName ?? null;
     replay.restart();
-    c().onReplayChange(REPLAY_START);
+    c().onReplayChange(replayStart(source.origin));
   };
   const watchReplay = () => {
     const recording = training.lastRecording();
@@ -271,8 +273,11 @@ export function createRunSwitch(
     },
     press() {
       const view = c().live.replay;
-      if (replay?.ended() === true) endReplay();
-      else if (view) c().onReplayChange({ ...view, paused: !view.paused });
+      if (replay?.ended() === true) {
+        // After the player's own jump the next one follows; after a file of the original, the choices of the menu.
+        if (view?.origin === "original") c().openMenu();
+        else endReplay();
+      } else if (view) c().onReplayChange({ ...view, paused: !view.paused });
     },
   };
 }

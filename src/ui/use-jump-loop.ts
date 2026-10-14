@@ -20,7 +20,6 @@ interface JumpLoopOptions extends RunContext {
   tiltRef: RefObject<TiltReading>;
   pausedRef: RefObject<boolean>;
   pauseButtonRef: RefObject<HTMLElement | null>;
-  openMenu: () => void;
   toggleMenu: () => void;
   /** A replay to play as the screen opens (one of the original's); training follows it. */
   initialReplay: ReplaySource | null;
@@ -57,7 +56,13 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
     ...(best === undefined ? {} : { recordM: best.distanceM }),
     ...(v.replay === null
       ? {}
-      : { replay: { speedLabel: REPLAY_SPEED_LABEL[v.replay.speed], paused: v.replay.paused } }),
+      : {
+          replay: {
+            speedLabel: REPLAY_SPEED_LABEL[v.replay.speed],
+            paused: v.replay.paused,
+            menuAtEnd: v.replay.origin === "original",
+          },
+        }),
   });
 }
 

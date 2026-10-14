@@ -29,6 +29,8 @@ interface Props {
   onPickHill: (hill: HillChoice) => void;
   /** Leaves the training for the main menu. */
   onExit: () => void;
+  /** Leaves for the replay screen, to choose another replay of the original. */
+  onOpenReplays: () => void;
   /** Whether the picture takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
   /** Whether the frames of the jump are measured and the measurements shown over the picture. */
@@ -154,10 +156,7 @@ export function JumpScreen(props: Props) {
           records={props.records}
           onPickHill={(picked) => {
             // The hill being jumped starts again; another one replaces this screen.
-            if (picked.id === hill.id) {
-              if (replay) loop.endReplay();
-              else loop.restart();
-            }
+            if (picked.id === hill.id) loop.restart();
             menu.closeMenu();
             props.onPickHill(picked);
           }}
@@ -175,6 +174,7 @@ export function JumpScreen(props: Props) {
           onToggleTilt={steering.toggleTilt}
           tiltNote={steering.tiltNote}
           onExit={props.onExit}
+          onOtherReplay={props.onOpenReplays}
         />
       </div>
       {touch && pad("left")}

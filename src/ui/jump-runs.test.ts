@@ -5,7 +5,7 @@ import type { PlayerInput } from "../game/player-input";
 import type { FrameInput } from "../sim/jump-logic";
 import { DEFAULT_SETTINGS } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
-import type { ReplayView } from "./jump-replay";
+import { recordingSource, type ReplayView } from "./jump-replay";
 import type { JumpResult } from "./jump-round";
 import { createRunSwitch, type RunContext } from "./jump-runs";
 import type { JumpSounds } from "./jump-sounds";
@@ -61,6 +61,7 @@ function setUp() {
   const played: string[] = [];
   let replay: ReplayView | null = null;
   let available = false;
+  let menuOpened = 0;
   const engine: SoundEngine = {
     prepare: noop,
     unlock: noop,
@@ -88,6 +89,9 @@ function setUp() {
     onReplayAvailable: (value) => {
       available = value;
     },
+    openMenu: () => {
+      menuOpened++;
+    },
     onReplayChange: (view) => {
       replay = view;
       context.live = { ...context.live, replay };
@@ -107,7 +111,16 @@ function setUp() {
     }
     throw new Error("the jump never ended");
   };
-  return { runs, finished, heard, played, playOut, available: () => available, replay: () => replay };
+  return {
+    runs,
+    finished,
+    heard,
+    played,
+    playOut,
+    available: () => available,
+    replay: () => replay,
+    menuOpened: () => menuOpened,
+  };
 }
 
 describe("training and its replay", () => {
@@ -128,7 +141,7 @@ describe("training and its replay", () => {
     felt.length = 0;
     t.played.length = 0;
     t.runs.controls.watchReplay();
-    expect(t.replay()).toEqual({ speed: 1, paused: false });
+    expect(t.replay()).toEqual({ speed: 1, paused: false, origin: "own" });
     expect(t.heard.at(-1)).toBe(UI_TEXT.announcement.replayStarted);
     const again = t.playOut();
     expect(again.state).toEqual(live.state);
@@ -142,9 +155,9 @@ describe("training and its replay", () => {
     t.playOut();
     t.runs.controls.watchReplay();
     t.runs.press();
-    expect(t.replay()).toEqual({ speed: 1, paused: true });
+    expect(t.replay()).toEqual({ speed: 1, paused: true, origin: "own" });
     t.runs.press();
-    expect(t.replay()).toEqual({ speed: 1, paused: false });
+    expect(t.replay()).toEqual({ speed: 1, paused: false, origin: "own" });
     t.playOut();
     // Let the notes come up: the replay is over when a press may start a new jump.
     for (let f = 0; f < 1000 && t.replay() !== null; f++) {
@@ -164,10 +177,27 @@ describe("training and its replay", () => {
     t.runs.controls.watchReplay();
     t.runs.current().step(200);
     t.runs.press();
-    expect(t.replay()).toEqual({ speed: 1, paused: true });
+    expect(t.replay()).toEqual({ speed: 1, paused: true, origin: "own" });
     t.runs.controls.restart();
-    expect(t.replay()).toEqual({ speed: 1, paused: false });
+    expect(t.replay()).toEqual({ speed: 1, paused: false, origin: "own" });
     expect(t.runs.current().now().jump.state.logic.frame).toBe(1);
+  });
+
+  it("after a replay of the original, a press opens the menu instead of starting a jump", () => {
+    const t = setUp();
+    // No hands at all: the countdown runs out and the jump is disqualified, which ends it soon.
+    const idle = recordingSource({ seed: 1, inputs: [], newRecord: false });
+    t.runs.play({ ...idle, origin: "original" });
+    expect(t.replay()).toEqual({ speed: 1, paused: false, origin: "original" });
+    t.playOut();
+    for (let f = 0; f < 1000 && t.menuOpened() === 0; f++) {
+      t.runs.current().step(1);
+      t.runs.current().settle();
+      t.runs.press();
+      if (t.replay()?.paused === true) t.runs.press();
+    }
+    expect(t.menuOpened()).toBe(1);
+    expect(t.runs.replaying()).toBe(true);
   });
 
   it("has nothing to play before the first jump has ended", () => {

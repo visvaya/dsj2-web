@@ -167,6 +167,7 @@ export function App({ diagnostics }: AppProps) {
         records={save.records}
         onPickHill={(picked) => show({ kind: "jump", hill: picked })}
         onExit={() => show({ kind: "menu" })}
+        onOpenReplays={() => show({ kind: "replays" })}
         focusOnEntry={navigated}
         diagnostics={diagnostics}
         openingReplay={screen.replay ?? null}

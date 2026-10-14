@@ -41,12 +41,22 @@ interface Props {
   controls: Steering;
   /** A screen played with fingers: it has the choice between a finger and the tilt, and may vibrate. */
   touch: boolean;
+  /** Whether the settings of the steering (finger or tilt, sensitivity, vibration) are shown; not in a replay. */
+  steering?: boolean;
   tiltOn: boolean;
   onToggleTilt: () => void;
 }
 
 /** The settings of the game as a run of buttons: in the menu of the jump screen and on a screen of their own. */
-export function SettingsControls({ settings, onSettings, controls, touch, tiltOn, onToggleTilt }: Props) {
+export function SettingsControls({
+  settings,
+  onSettings,
+  controls,
+  touch,
+  steering = true,
+  tiltOn,
+  onToggleTilt,
+}: Props) {
   const fullscreen = useFullscreen();
   const [fullscreenNote, setFullscreenNote] = useState(false);
   const sensitivity = sensitivityFor(settings.sensitivity, controls);
@@ -66,35 +76,37 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
   };
   return (
     <>
-      {touch && (
+      {steering && touch && (
         <button type="button" className="pixel-button" aria-pressed={tiltOn} onClick={onToggleTilt}>
           {tiltOn ? T.leanTilt : T.leanFinger}
         </button>
       )}
-      <div className="stepper" role="group" aria-label={T.sensitivityGroup}>
-        <button
-          type="button"
-          className="pixel-button"
-          aria-label={T.sensitivityDown}
-          aria-disabled={sensitivity <= SENSITIVITY_MIN}
-          onClick={() => changeSensitivity(-1)}
-        >
-          -
-        </button>
-        <span className="stepper-value" role="status">
-          {T.sensitivity}
-          {sensitivity}
-        </span>
-        <button
-          type="button"
-          className="pixel-button"
-          aria-label={T.sensitivityUp}
-          aria-disabled={sensitivity >= SENSITIVITY_MAX}
-          onClick={() => changeSensitivity(1)}
-        >
-          +
-        </button>
-      </div>
+      {steering && (
+        <div className="stepper" role="group" aria-label={T.sensitivityGroup}>
+          <button
+            type="button"
+            className="pixel-button"
+            aria-label={T.sensitivityDown}
+            aria-disabled={sensitivity <= SENSITIVITY_MIN}
+            onClick={() => changeSensitivity(-1)}
+          >
+            -
+          </button>
+          <span className="stepper-value" role="status">
+            {T.sensitivity}
+            {sensitivity}
+          </span>
+          <button
+            type="button"
+            className="pixel-button"
+            aria-label={T.sensitivityUp}
+            aria-disabled={sensitivity >= SENSITIVITY_MAX}
+            onClick={() => changeSensitivity(1)}
+          >
+            +
+          </button>
+        </div>
+      )}
       <button
         type="button"
         className="pixel-button"
@@ -129,7 +141,7 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
           {T.browserFullscreen}
         </p>
       )}
-      {touch && canVibrate() && (
+      {steering && touch && canVibrate() && (
         <button
           type="button"
           className="pixel-button"
