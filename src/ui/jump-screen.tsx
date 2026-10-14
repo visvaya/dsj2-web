@@ -8,6 +8,7 @@ import { JumpMenu } from "./jump-menu";
 import { nextReplaySpeed, type ReplaySource, type ReplayView } from "./jump-replay";
 import type { JumpLoopControls } from "./jump-runs";
 import type { JumpResult } from "./jump-round";
+import { useNowPlaying } from "./now-playing";
 import { TouchPad } from "./touch-pad";
 import { useEntryFocus } from "./use-entry-focus";
 import { useJumpLoop } from "./use-jump-loop";
@@ -93,6 +94,7 @@ export function JumpScreen(props: Props) {
     initialReplay: props.openingReplay,
   });
   useEntryFocus(canvasRef, props.focusOnEntry);
+  useNowPlaying(UI_TEXT.hillLabel(hill.name, hill.kPointM));
   const pad = (side: "left" | "right") => (
     <TouchPad
       side={side}

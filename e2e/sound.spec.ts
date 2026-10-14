@@ -62,3 +62,50 @@ test("with sound switched off in the saved settings a new visit stays silent", a
   expect(state.level).toBeLessThan(SILENT_LEVEL);
   expect(state.created).toBeLessThanOrEqual(1);
 });
+
+/** Tells the page it went to the background (another app, a locked screen) or came back, as a browser does. */
+async function setPageHidden(page: Page, hidden: boolean): Promise<void> {
+  await page.evaluate((value) => {
+    Object.defineProperty(document, "hidden", { configurable: true, get: () => value });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      get: () => (value ? "hidden" : "visible"),
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, hidden);
+}
+
+test("the sound stops while the page is hidden and comes back with it", async ({ page, traits, browserName }) => {
+  test.skip(
+    browserName === "firefox",
+    "in the automated Firefox the audio context stays suspended after a synthesized press; sound is on the manual checklist",
+  );
+  await installAudioProbe(page);
+  await openJumpFromStart(page, traits);
+  await firstGesture(page, traits);
+  await expect.poll(async () => (await audioState(page)).running).toBe(1);
+
+  await setPageHidden(page, true);
+  // A stopped context is what tells a phone that nothing plays any more.
+  await expect.poll(async () => (await audioState(page)).running).toBe(0);
+  await setPageHidden(page, false);
+  await expect.poll(async () => (await audioState(page)).running).toBe(1);
+  await expect.poll(level(page)).toBeGreaterThan(AUDIBLE_LEVEL);
+});
+
+test("the phone is told the name of the game and of the hill while the jump screen is up", async ({ page, traits }) => {
+  const shown = () =>
+    page.evaluate(() => {
+      const metadata = "mediaSession" in navigator ? navigator.mediaSession.metadata : null;
+      return metadata === null ? null : { title: metadata.title, artist: metadata.artist };
+    });
+  await openJumpFromStart(page, traits);
+  const supported = await page.evaluate(() => "mediaSession" in navigator && "MediaMetadata" in window);
+  test.skip(!supported, "this engine has no Media Session");
+  expect(await shown()).toEqual({ title: "Telemark", artist: "Trening: Ćwiczebna K90" });
+
+  await openJumpControls(page, traits);
+  await press(button(page, TEXT.toMainMenu), traits);
+  await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
+  expect(await shown()).toBeNull();
+});

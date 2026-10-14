@@ -15,18 +15,28 @@ import { soundMix } from "./sound-mix";
 /** Records what the engine asks of Web Audio. */
 interface FakeParam extends ParamLike {
   readonly target: number;
+  /** Whether the last change was set at once rather than followed or ramped to. */
+  readonly set: boolean;
 }
 
 function fakeParam(): FakeParam {
   let target = 0;
+  let set = false;
   const follow = (v: number): void => {
     target = v;
+    set = false;
   };
   return {
     get target() {
       return target;
     },
-    setValueAtTime: follow,
+    get set() {
+      return set;
+    },
+    setValueAtTime: (v: number) => {
+      target = v;
+      set = true;
+    },
     linearRampToValueAtTime: follow,
     exponentialRampToValueAtTime: follow,
     setTargetAtTime: follow,
@@ -186,6 +196,22 @@ describe("sound engine", () => {
     expect(fake.resumed).toBe(1);
   });
 
+  it("stops while the page is hidden and goes on when it is back, once a gesture has started it", () => {
+    const fake = fakeContext();
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    // Hidden before any gesture: suspended, and back in view it still waits for a gesture.
+    engine.setHidden(true);
+    engine.setHidden(false);
+    expect(fake.resumed).toBe(0);
+    engine.unlock();
+    expect(fake.state).toBe("running");
+    engine.setHidden(true);
+    expect(fake.state).toBe("suspended");
+    engine.setHidden(false);
+    expect(fake.state).toBe("running");
+  });
+
   it("resumes at the first gesture even while its suspend has not taken effect yet", () => {
     const fake = fakeContext({ startState: "running", settle: false });
     const engine = createSoundEngine(() => fake);
@@ -196,6 +222,21 @@ describe("sound engine", () => {
     // Once resumed and running, further gestures leave it alone.
     engine.unlock();
     expect(fake.resumed).toBe(1);
+  });
+
+  it("is switched off at once while its context has not started, not faded out from the first sound on", () => {
+    const fake = fakeContext();
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    // A saved choice arrives right after the screen opens: the stopped clock of the context would hold a fade.
+    engine.setEnabled(false);
+    expect(gainOf(fake.gains[0])).toBe(0);
+    expect(fake.gains[0]?.gain.set).toBe(true);
+    engine.unlock();
+    engine.setEnabled(true);
+    expect(gainOf(fake.gains[0])).toBe(1);
+    // Once it runs, the switch fades, as before.
+    expect(fake.gains[0]?.gain.set).toBe(false);
   });
 
   it("follows the mix and plays cues only while enabled", () => {

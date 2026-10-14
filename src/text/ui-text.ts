@@ -51,6 +51,11 @@ export const UI_TEXT = {
     notPersistent: "Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.",
   },
 
+  /** What the phone shows of the game's sound outside the page (lock screen, control centre). */
+  nowPlaying: {
+    training: (hillLabel: string) => `Trening: ${hillLabel}`,
+  },
+
   /** The screen for replays of the original game. */
   replays: {
     title: "Powtórki",
