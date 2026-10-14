@@ -37,7 +37,9 @@ export const BUILT_IN_HILL_ID = "own-1";
 
 export const jumpCanvas = (page: Page): Locator => page.getByRole("img", { name: /^Skok na skoczni/ });
 export const announcement = (page: Page): Locator => page.locator("p[aria-live]");
-export const builtInHill = (page: Page): Locator => page.getByRole("button", { name: new RegExp(TEXT.builtInHill) });
+/** The built-in hill on the hill list (not the button beside it that plays the replay of its record). */
+export const builtInHill = (page: Page): Locator =>
+  page.getByRole("button", { name: new RegExp(TEXT.builtInHill) }).filter({ hasNotText: "Powtórka" });
 export const button = (page: Page, name: RegExp | string): Locator => page.getByRole("button", { name });
 
 /** Activates a control the way the device does: a tap on a touch screen, a click elsewhere. */
