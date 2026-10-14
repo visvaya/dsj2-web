@@ -42,12 +42,25 @@ interface Props {
   onReplaySpeed: () => void;
   onReplayFromStart: () => void;
   onReplayEnd: () => void;
+  /** Leaves a replay of the original for the replay screen, to choose another file. */
+  onOtherReplay: () => void;
 }
 
 const REPLAY_TEXT = JUMP_TEXT.replay;
 
-/** In a replay the menu holds what the replay needs: its tempo, its start, and the way back to jumping. */
-function ReplayButtons({ replay, onReplaySpeed, onReplayFromStart, onReplayEnd }: ReplayButtonsProps) {
+/**
+ * In a replay the menu holds what the replay needs: its tempo and its start, then the way on. After the player's
+ * own jump that is back to jumping; a replay of the original came from the replay screen, so it leads back there
+ * for another file, or to training on its hill.
+ */
+function ReplayButtons({
+  replay,
+  touch,
+  onReplaySpeed,
+  onReplayFromStart,
+  onReplayEnd,
+  onOtherReplay,
+}: ReplayButtonsProps) {
   return (
     <>
       <button type="button" className="pixel-button" onClick={onReplaySpeed}>
@@ -55,16 +68,57 @@ function ReplayButtons({ replay, onReplaySpeed, onReplayFromStart, onReplayEnd }
       </button>
       <button type="button" className="pixel-button" onClick={onReplayFromStart}>
         {REPLAY_TEXT.fromStart}
-        {JUMP_TEXT.againKey}
+        {touch ? "" : JUMP_TEXT.againKey}
       </button>
-      <button type="button" className="pixel-button" onClick={onReplayEnd}>
-        {REPLAY_TEXT.end}
-      </button>
+      {replay.origin === "own" ? (
+        <button type="button" className="pixel-button" onClick={onReplayEnd}>
+          {REPLAY_TEXT.end}
+        </button>
+      ) : (
+        <>
+          <button type="button" className="pixel-button" onClick={onOtherReplay}>
+            {REPLAY_TEXT.other}
+          </button>
+          <button type="button" className="pixel-button" onClick={onReplayEnd}>
+            {REPLAY_TEXT.jumpHere}
+          </button>
+        </>
+      )}
     </>
   );
 }
 
-type ReplayButtonsProps = Pick<Props, "onReplaySpeed" | "onReplayFromStart" | "onReplayEnd"> & { replay: ReplayView };
+type ReplayButtonsProps = Pick<
+  Props,
+  "touch" | "onReplaySpeed" | "onReplayFromStart" | "onReplayEnd" | "onOtherReplay"
+> & { replay: ReplayView };
+
+/** While jumping: a new jump, the last one again, the instructions and another hill. */
+function TrainingButtons(p: Pick<Props, "touch" | "onAgain" | "replayAvailable" | "onWatchReplay" | "onPanel">) {
+  return (
+    <>
+      <button type="button" className="pixel-button" onClick={p.onAgain}>
+        {JUMP_TEXT.again}
+        {p.touch ? "" : JUMP_TEXT.againKey}
+      </button>
+      {/* Unavailable rather than disabled, so the keyboard and a screen reader still find it. */}
+      <button
+        type="button"
+        className="pixel-button"
+        aria-disabled={!p.replayAvailable}
+        onClick={p.replayAvailable ? p.onWatchReplay : undefined}
+      >
+        {REPLAY_TEXT.watch}
+      </button>
+      <button type="button" className="pixel-button" onClick={() => p.onPanel("help")}>
+        {UI_TEXT.menu.howTo}
+      </button>
+      <button type="button" className="pixel-button" onClick={() => p.onPanel("hills")}>
+        {JUMP_TEXT.changeHill}
+      </button>
+    </>
+  );
+}
 
 /** The buttons of the jump screen; in the open menu, the instructions or the list of hills can take their place. */
 export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
@@ -91,45 +145,18 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
     <>
       {p.menuOpen && (
         <button type="button" className="pixel-button resume-button" ref={resumeRef} onClick={p.onResume}>
-          {JUMP_TEXT.resume}
+          {p.replay ? REPLAY_TEXT.resume : JUMP_TEXT.resume}
           {p.touch ? "" : JUMP_TEXT.resumeKey}
         </button>
       )}
-      {p.replay ? (
-        <ReplayButtons
-          replay={p.replay}
-          onReplaySpeed={p.onReplaySpeed}
-          onReplayFromStart={p.onReplayFromStart}
-          onReplayEnd={p.onReplayEnd}
-        />
-      ) : (
-        <>
-          <button type="button" className="pixel-button" onClick={p.onAgain}>
-            {JUMP_TEXT.again}
-            {p.touch ? "" : JUMP_TEXT.againKey}
-          </button>
-          {/* Unavailable rather than disabled, so the keyboard and a screen reader still find it. */}
-          <button
-            type="button"
-            className="pixel-button"
-            aria-disabled={!p.replayAvailable}
-            onClick={p.replayAvailable ? p.onWatchReplay : undefined}
-          >
-            {REPLAY_TEXT.watch}
-          </button>
-        </>
-      )}
-      <button type="button" className="pixel-button" onClick={() => p.onPanel("help")}>
-        {UI_TEXT.menu.howTo}
-      </button>
-      <button type="button" className="pixel-button" onClick={() => p.onPanel("hills")}>
-        {JUMP_TEXT.changeHill}
-      </button>
+      {p.replay ? <ReplayButtons {...p} replay={p.replay} /> : <TrainingButtons {...p} />}
+      {/* A replay takes no hands, so the settings of the steering are left out of its menu. */}
       <SettingsControls
         settings={p.settings}
         onSettings={p.onSettings}
         controls={p.controls}
         touch={p.touch}
+        steering={p.replay === null}
         tiltOn={p.tiltOn}
         onToggleTilt={p.onToggleTilt}
       />

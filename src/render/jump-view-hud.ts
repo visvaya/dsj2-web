@@ -70,6 +70,8 @@ interface Prompts {
   nextJump: string;
   /** What pauses a replay, and how to reach the menu. */
   replay: string;
+  /** Once a replay of the original is over: what opens the menu. */
+  replayMenu: string;
   start: string;
   takeoff: string;
   lean: string;
@@ -85,10 +87,11 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   const text = PROMPTS[m.controls];
   if (m.replay) {
     // The replay is always named, so it is not taken for a jump; once it is over a press starts a new jump.
-    const { speedLabel, paused } = m.replay;
+    const { speedLabel, paused, menuAtEnd } = m.replay;
     const title = paused ? UI_TEXT.hud.replayPaused(speedLabel) : UI_TEXT.hud.replay(speedLabel);
     if (m.hints === false) return [title];
-    return [title, nextJumpAllowed ? text.nextJump : text.replay];
+    if (!nextJumpAllowed) return [title, text.replay];
+    return [title, menuAtEnd ? text.replayMenu : text.nextJump];
   }
   // A player who knows the game can switch every prompt on the hill off.
   if (m.hints === false) return [];

@@ -16,6 +16,7 @@ const T = UI_TEXT.replays;
 /** The 13 characters the original writes before a record for hills 1 to 32. */
 const HEADER = new TextEncoder().encode("//DSJ_v2.00//");
 const REPLAY_KEY = 0x26b51b17;
+const ascii = (text: string): number[] => [...new TextEncoder().encode(text)];
 const NO_INPUT: FrameInput = { left: false, right: false, dy: 0 };
 
 /** The original's hill 1, played on the built-in profile: the test needs no file of the original. */
@@ -94,6 +95,15 @@ describe("a replay file of the original", () => {
     expect(played.state).toEqual(straight);
     // The file came from a training jump of this game, so the replay is that jump.
     expect(played.state).toEqual(jump.state);
+  });
+
+  it("names the jumper as the original wrote the name, in code page 852", () => {
+    // "Komputer Świat": 0x97 is "Ś" in code page 852. The name is a Pascal string at 0x476.
+    const name = [...ascii("Komputer "), 0x97, ...ascii("wiat")];
+    const { file } = recordedJump(1, (record) => record.set([name.length, ...name], 0x476));
+    const outcome = originalReplayOutcome(file, [hillOne()]);
+    if (!outcome.ok) throw new Error(outcome.message);
+    expect(outcome.source.jumperName).toBe("KOMPUTER ŚWIAT");
   });
 
   it("is refused when it is not a replay or is damaged", () => {

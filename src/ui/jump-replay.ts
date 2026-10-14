@@ -1,4 +1,5 @@
 import type { HillChoice } from "../game/hill-choice";
+import { decodeCp852 } from "../original/dsj-dat";
 import { startRecordedJump, startTrainingJump, type TrainingJump } from "../game/training-session";
 import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
 import { replayInputForFrame, type ReplayRecord } from "../sim/replay";
@@ -18,13 +19,21 @@ export type ReplaySpeed = (typeof REPLAY_SPEEDS)[number];
 /** A tempo as the picture and the menu show it. */
 export const REPLAY_SPEED_LABEL: Readonly<Record<ReplaySpeed, string>> = { 1: "1", 0.5: "1/2", 0.25: "1/4" };
 
+/**
+ * Where a replay comes from: the player's last jump, watched right after it, or a file of the original, chosen on
+ * the replay screen. It decides what the menu offers and what a press does once the replay is over.
+ */
+export type ReplayOrigin = "own" | "original";
+
 /** How a replay is being watched. */
 export interface ReplayView {
   speed: ReplaySpeed;
   paused: boolean;
+  origin: ReplayOrigin;
 }
 
-export const REPLAY_START: ReplayView = { speed: REPLAY_SPEEDS[0], paused: false };
+/** A replay as it starts: at full tempo, playing. */
+export const replayStart = (origin: ReplayOrigin): ReplayView => ({ speed: REPLAY_SPEEDS[0], paused: false, origin });
 
 /** The tempo after `speed`, from the slowest back to the first. */
 export function nextReplaySpeed(speed: ReplaySpeed): ReplaySpeed {
@@ -49,6 +58,7 @@ export interface ReplaySource {
   input: (logic: Pick<JumpLogicState, "frame">) => FrameInput;
   /** Whether the jump set a new hill record, as it was told then. */
   newRecord: boolean;
+  origin: ReplayOrigin;
   /** The jumper's name for the bar of the picture; the player's own when absent. */
   jumperName?: string;
 }
@@ -59,7 +69,16 @@ export function recordingSource(recording: JumpRecording): ReplaySource {
     start: (hill) => startTrainingJump(hill, recording.seed),
     input: (logic) => recordedInput(recording, logic),
     newRecord: recording.newRecord,
+    origin: "own",
   };
+}
+
+/**
+ * The jumper's name as the original wrote it, in code page 852 like its other texts. The record reader gives each
+ * byte as one character, so the bytes come back unchanged.
+ */
+function jumperNameOf(record: ReplayRecord): string {
+  return decodeCp852(Uint8Array.from(record.jumperName, (char) => char.charCodeAt(0) & 0xff));
 }
 
 /** Longest name the bar shows; the original keeps up to 25 characters. */
@@ -70,11 +89,12 @@ const JUMPER_NAME_MAX_CHARS = 25;
  * number of the frame being computed (190d:026d), which is the frame after the one the logic is at.
  */
 export function originalReplaySource(record: ReplayRecord): ReplaySource {
-  const name = record.jumperName.trim().slice(0, JUMPER_NAME_MAX_CHARS).toUpperCase();
+  const name = jumperNameOf(record).trim().slice(0, JUMPER_NAME_MAX_CHARS).toUpperCase();
   return {
     start: (hill) => startRecordedJump(hill, { wind: record.wind, randomSeed: record.randomSeed }),
     input: (logic) => replayInputForFrame(record, logic.frame + 1),
     newRecord: false,
+    origin: "original",
     ...(name === "" ? {} : { jumperName: name }),
   };
 }
