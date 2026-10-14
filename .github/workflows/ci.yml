@@ -200,6 +200,18 @@ jobs:
             echo "The title becomes the squash commit and must look like 'type(scope): subject' (subject up to 72 characters)."
             exit 1
           fi
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: github.event_name == 'pull_request'
+        with:
+          node-version-file: .nvmrc
+      # The checkout of a pull request is its merge into the default branch, so the first parent is the head of
+      # that branch and the difference is the pull request. Publishing refuses a changed game under a version
+      # that is not above the deployed one; this tells it already here.
+      - name: The version moves as the title says, and only with the game
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: node scripts/check-version.mjs --base HEAD^1 --title "$PR_TITLE"
       - name: No secrets in the git history
         run: |
           archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
@@ -262,6 +274,8 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
+    outputs:
+      published: ${{ steps.publish.outcome == 'success' }}
     env:
       PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
     steps:
@@ -312,7 +326,8 @@ jobs:
         working-directory: deploy
         run: pnpm install --frozen-lockfile
       # A commit that changes nothing in the game builds the same content. Publishing it again would make every
-      # player's browser fetch the whole game once more, so it is not published.
+      # player's browser fetch the whole game once more, so it is not published. A changed game whose version
+      # is not above the deployed one fails here: players would see an old number on a new game.
       - name: Compare the package with what is deployed
         id: compare
         if: steps.head.outputs.current == 'true'
@@ -356,3 +371,35 @@ jobs:
             echo "- Package checksum (SHA-256 of dist.sha256): ${checksum:-unknown}"
             echo "- Version, for a rollback: ${VERSION_ID:-none}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Tags the commit that was just published with its version (package.json) and opens a release on GitHub with
+  # the pull requests since the one before. Apart from the deployment, so the credentials of the host and the
+  # right to write to the repository never meet in one job.
+  release:
+    name: release
+    needs: deploy
+    if: needs.deploy.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Tag the published commit with its version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$(jq -r .version package.json)"
+          tagged=$(git ls-remote origin "refs/tags/$tag" | cut -f1)
+          if [ "$tagged" = "$GITHUB_SHA" ]; then
+            echo "$tag is already on this commit."; exit 0
+          fi
+          # Only after a rollback can the same version be published from a later commit (one that changed
+          # nothing in the game); the release stays with the commit it was made for.
+          if [ -n "$tagged" ]; then
+            echo "::warning::$tag is already on $tagged; published again from this commit, no new release."; exit 0
+          fi
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$tag" --generate-notes
+          { echo "### Release"; echo; echo "- $tag on $GITHUB_SHA"; } >> "$GITHUB_STEP_SUMMARY"

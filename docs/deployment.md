@@ -14,7 +14,7 @@ wdrażane:
 | `index.html`, `assets/*.js`, `assets/*.css` | strona i paczki z hashem treści w nazwie; czcionki są w arkuszu stylów |
 | `manifest.webmanifest`, `icons/*.png` | instalacja na ekranie głównym; ikony rysuje renderer gry (`scripts/make-icons.mjs`) |
 | `licenses/silkscreen-ofl.txt` | licencja czcionek rozpowszechnianych w arkuszu stylów |
-| `release.json` | commit źródła (`sourceSha`) i identyfikator zawartości (`contentId`) |
+| `release.json` | wersja (`version`), commit źródła (`sourceSha`) i identyfikator zawartości (`contentId`) |
 | `sw.js` | service worker z listą plików wydania i ich skrótami SHA-256 |
 | `_headers` | nagłówki odpowiedzi dla hostingu; host nie serwuje tego pliku |
 
@@ -24,6 +24,28 @@ Kolejność kroku wydania: wynik bundlera i pliki z `public/` są wejściem; z n
 i ścieżki plików wejściowych oraz źródło workera), potem `release.json`, potem lista plików dla workera, na końcu
 `sw.js`. Nic nie zależy od czasu uruchomienia: to samo źródło daje te same bajty. Commit, który nie zmienia gry
 (dokumentacja, testy), daje ten sam `contentId`.
+
+## Wersja
+
+Numer wersji ma jedno źródło: pole `version` w `package.json`, w postaci trzech liczb (`0.4.2`). Build wpisuje go
+do gry (`vite.config.ts`, `src/game/version.ts`), gdzie widać go w nagłówku menu głównego, w menu skoku
+i w nakładce `?diag`, oraz do `release.json`. Publikacja oznacza opublikowany commit tagiem `v<wersja>` i zakłada
+wydanie na GitHubie z listą PR od poprzedniego (zadanie `release`).
+
+PR, który zmienia grę, podnosi numer o krok, który wskazuje jego tytuł (Conventional Commits): `feat` środkową
+liczbę, każdy inny typ ostatnią, zmiana łamiąca (`!`) pierwszą, a przed 1.0 środkową. PR, który gry nie zmienia
+(dokumentacja, testy, workflow, narzędzia), numeru nie rusza. Grę zmieniają pliki, z których powstaje pakiet:
+`src/` (bez testów), `public/`, `index.html`, konfiguracja Vite i TypeScriptu, `package.json` poza samym numerem,
+lockfile, `deploy/wrangler.jsonc` i krok wydania (`scripts/lib/version-rules.mjs`).
+
+```sh
+pnpm version:bump "feat(ui): tytuł PR"   # ustawia numer względem origin/master; ponowne uruchomienie nic nie zmienia
+```
+
+Pilnują tego dwie kontrole: `hygiene` w PR (`scripts/check-version.mjs`: numer zgodny z tytułem i zmienionymi
+plikami) i `deploy` przed publikacją (`scripts/compare-release.mjs`: zmieniona gra musi mieć numer wyższy niż
+wdrożona, inaczej nic nie jest publikowane). Dwa PR zmieniające grę, scalone jeden po drugim bez odświeżenia
+drugiego, mogą nieść ten sam numer; wtedy publikację zatrzymuje druga kontrola i trzeba podnieść numer w nowym PR.
 
 `pnpm check:dist` (`scripts/lib/dist-rules.mjs`) wymaga, żeby w `dist/` były wszystkie pliki z listy i nic poza
 nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony). Podgląd jednoplikowy
@@ -96,17 +118,20 @@ Workflow `CI` (`.github/workflows/ci.yml`), zadanie `deploy`:
    i commit w `release.json`; niczego nie buduje.
 3. Jeśli `master` ma już nowszy commit, przebieg kończy się bez publikacji. Jeśli wdrożona zawartość ma ten sam
    `contentId`, publikacji nie ma (gracze nie pobierają gry drugi raz), a kontrola HTTP sprawdza to, co jest
-   wdrożone.
+   wdrożone. Zmieniona gra z numerem nie wyższym niż wdrożony kończy zadanie błędem bez publikacji.
 4. Publikuje Wrangler przypięty w `deploy/` (własny lockfile, instalacja w trybie frozen). Jego wynik nie
    trafia do logu wprost (`scripts/run-wrangler.mjs`): po sukcesie tylko identyfikator wersji, po błędzie
    tekst bez identyfikatorów konta.
 5. Kontrola HTTP (`scripts/check-deployment.mjs`): każdy plik pakietu odpowiada tymi samymi bajtami, z typem
-   i nagłówkami z `_headers`; paczki są skompresowane; `release.json` wskazuje ten commit; `/index.html`
+   i nagłówkami z `_headers`; paczki są skompresowane; `release.json` wskazuje ten commit i tę wersję; `/index.html`
    przekierowuje na `/`; nieznane ścieżki i `_headers` dają 404; adres HTTP przekierowuje na HTTPS. Wyjątek:
    adres w domenie najwyższego poziomu, którą przeglądarki otwierają wyłącznie przez HTTPS (lista HSTS preload,
    np. `.dev`), może odpowiadać po HTTP bez przekierowania. Tak robi `workers.dev`, gdzie nie ma ustawienia
    wymuszającego przekierowanie; kontrola odnotowuje to wtedy w raporcie jako uwagę.
 6. Podsumowanie zadania podaje commit, `contentId`, skrót listy `dist.sha256` i identyfikator wersji do wycofania.
+7. Po publikacji osobne zadanie `release` (prawo zapisu do repozytorium, bez poświadczeń hostingu) zakłada tag
+   `v<wersja>` na opublikowanym commicie i wydanie na GitHubie. Tag, który już jest na tym commicie, zostaje;
+   tag na innym commicie (ponowna publikacja po wycofaniu) daje ostrzeżenie bez nowego wydania.
 
 Ustawienia repozytorium, których używa workflow:
 
@@ -145,7 +170,9 @@ Workflow `Monitor` (`.github/workflows/monitor.yml`) sprawdza opublikowaną grę
 (01:23, 07:23, 13:23 i 19:23 UTC) oraz na żądanie. Uruchamia `scripts/monitor-deployment.mjs`, który tylko czyta:
 
 1. `release.json` pod adresem gry podaje commit. Musi to być commit z historii `master`; wydanie przywrócone
-   wycofaniem też spełnia ten warunek. Raport podaje, ile commitów `master` ma po nim.
+   wycofaniem też spełnia ten warunek. Raport podaje, ile commitów `master` ma po nim. Jeśli wydanie podaje
+   wersję, tag `v<wersja>` musi wskazywać ten commit (tag powstaje około minuty po publikacji, więc przebieg
+   w tej minucie zgłosi jego brak); wydania sprzed numerów wersji go nie mają.
 2. Kontrola HTTP względem wydania zapisanego w serwowanym `sw.js` (ta sama co po wycofaniu), z plikiem
    `public/_headers` z commita wydania: bajty każdego pliku, typ, kompresja paczek i nagłówki, także dla `sw.js`;
    nieznane ścieżki dają 404, `/index.html` przekierowuje na `/`. Trwające wdrożenie: kontrola czeka do 120 s,

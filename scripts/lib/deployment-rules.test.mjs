@@ -169,19 +169,21 @@ test("plain HTTP without a redirect is accepted only where browsers use HTTPS fo
   assert.equal(plainHttpNote("http://game.example/", { status: 301, headers: {} }), "plain HTTP answers with HTTP 301");
 });
 
-test("the served release is compared with the commit and the content expected", () => {
-  const text = releaseJsonText({ sourceSha: "a".repeat(40), contentId: "c".repeat(64) });
+test("the served release is compared with the version, the commit and the content expected", () => {
+  const text = releaseJsonText({ version: "0.1.0", sourceSha: "a".repeat(40), contentId: "c".repeat(64) });
   assert.deepEqual(findReleaseProblems(text, { sourceSha: "a".repeat(40), contentId: "c".repeat(64) }), []);
   assert.deepEqual(findReleaseProblems(text, { contentId: "c".repeat(64) }), []);
   assert.deepEqual(findReleaseProblems(text, { sourceSha: "b".repeat(40), contentId: "d".repeat(64) }), [
     `/release.json: commit ${"a".repeat(40)}, expected ${"b".repeat(40)}`,
     `/release.json: content ${"c".repeat(64)}, expected ${"d".repeat(64)}`,
   ]);
+  assert.deepEqual(findReleaseProblems(text, { version: "0.1.0", contentId: "c".repeat(64) }), []);
+  assert.deepEqual(findReleaseProblems(text, { version: "0.2.0" }), ["/release.json: version 0.1.0, expected 0.2.0"]);
   assert.deepEqual(findReleaseProblems("<html>", { contentId: "c".repeat(64) }), ["/release.json: not JSON"]);
 });
 
 test("an address serves the package's content when its release.json names that content", () => {
-  const text = releaseJsonText({ sourceSha: "a".repeat(40), contentId: "c".repeat(64) });
+  const text = releaseJsonText({ version: "0.1.0", sourceSha: "a".repeat(40), contentId: "c".repeat(64) });
   assert.equal(servesContent(text, "c".repeat(64)), true);
   assert.equal(servesContent(text, "d".repeat(64)), false);
   assert.equal(servesContent("<html>not found</html>", "c".repeat(64)), false);
@@ -225,7 +227,7 @@ before(async () => {
   writeFileSync(join(distDir, "assets", "index-AAAAAAAA.js"), SCRIPT);
   writeFileSync(join(distDir, "_headers"), HEADERS_TEXT);
   const contentId = contentIdOf(FILES, TEMPLATE, "{}");
-  const releaseJson = releaseJsonText({ sourceSha: "a".repeat(40), contentId });
+  const releaseJson = releaseJsonText({ version: "0.1.0", sourceSha: "a".repeat(40), contentId });
   writeFileSync(join(distDir, "release.json"), releaseJson);
   const precache = precacheOf([...FILES, { path: "release.json", sha256: sha256Hex(releaseJson) }]);
   writeFileSync(
@@ -243,7 +245,7 @@ after(async () => {
 test("the check passes on a server that answers like the host", async () => {
   const result = await runCheck([server.origin, "--dist", distDir]);
   assert.equal(result.code, 0, result.stderr);
-  assert.match(result.stdout, new RegExp(`serves commit ${"a".repeat(40)}`));
+  assert.match(result.stdout, new RegExp(`serves version 0\\.1\\.0, commit ${"a".repeat(40)}`));
   assert.match(result.stdout, /4 files checked, no problems/);
   assert.match(result.stdout, /note: a missing file under \/assets\/ answers with Cache-Control/);
 });

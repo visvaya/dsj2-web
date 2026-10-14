@@ -125,7 +125,7 @@ export function plainHttpNote(httpUrl, seen) {
 }
 
 // release.json as served, against the commit and the content expected.
-export function findReleaseProblems(releaseText, { sourceSha, contentId }) {
+export function findReleaseProblems(releaseText, { version, sourceSha, contentId }) {
   let release;
   try {
     release = JSON.parse(releaseText);
@@ -138,6 +138,9 @@ export function findReleaseProblems(releaseText, { sourceSha, contentId }) {
   }
   if (contentId !== undefined && release.contentId !== contentId) {
     problems.push(`/release.json: content ${release.contentId}, expected ${contentId}`);
+  }
+  if (version !== undefined && release.version !== version) {
+    problems.push(`/release.json: version ${release.version}, expected ${version}`);
   }
   return problems;
 }

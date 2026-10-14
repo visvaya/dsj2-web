@@ -5,6 +5,7 @@ import { feedbackEvents, vibrate } from "../game/haptics";
 import { createSoundEngine, type SoundEngine } from "../audio/sound-engine";
 import { notesAppearing, soundEvents, soundMix } from "../audio/sound-mix";
 import { pickScenery } from "../game/scenery";
+import { versionLabel } from "../game/version";
 import { displayedWindMPerS } from "../game/wind-display";
 import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltStep, type TiltState } from "../game/tilt-input";
 import type { HillChoice } from "../game/hill-choice";
@@ -719,6 +720,7 @@ export function JumpScreen({
                 {tiltNote}
               </p>
             )}
+            <p className="note version-note">{versionLabel()}</p>
           </>
         )}
       </div>

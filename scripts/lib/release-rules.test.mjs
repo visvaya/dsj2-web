@@ -58,15 +58,29 @@ test("the content identifier ignores the files the release step writes itself", 
   assert.equal(contentIdOf(withGenerated, TEMPLATE, HOST), contentIdOf(INPUT, TEMPLATE, HOST));
 });
 
-test("release.json names the game, the commit and the content", () => {
-  const text = releaseJsonText({ sourceSha: SHA_A, contentId: "c".repeat(64) });
-  assert.deepEqual(JSON.parse(text), { name: "telemark", sourceSha: SHA_A, contentId: "c".repeat(64) });
+test("release.json names the game, its version, the commit and the content", () => {
+  const text = releaseJsonText({ version: "0.1.0", sourceSha: SHA_A, contentId: "c".repeat(64) });
+  assert.deepEqual(JSON.parse(text), {
+    name: "telemark",
+    version: "0.1.0",
+    sourceSha: SHA_A,
+    contentId: "c".repeat(64),
+  });
   assert.equal(text.endsWith("}\n"), true);
+});
+
+test("release.json refuses anything but a version of three numbers", () => {
+  for (const version of [undefined, "", "0.1", "v0.1.0"]) {
+    assert.throws(() => releaseJsonText({ version, sourceSha: SHA_A, contentId: "c".repeat(64) }), /not a version/);
+  }
 });
 
 test("release.json refuses anything but a full commit hash", () => {
   for (const sourceSha of ["", "abc1234", "unknown", "A".repeat(40), `${"a".repeat(40)}\n`]) {
-    assert.throws(() => releaseJsonText({ sourceSha, contentId: "c".repeat(64) }), /not a full commit hash/);
+    assert.throws(
+      () => releaseJsonText({ version: "0.1.0", sourceSha, contentId: "c".repeat(64) }),
+      /not a full commit hash/,
+    );
   }
 });
 

@@ -1,5 +1,5 @@
 // Watches the deployed game from outside its host, on a schedule: the address answers, with a release that
-// was built from a commit of the default branch; every file of that release is served with its bytes, its type
+// was built from a commit of the default branch and is tagged with its version; every file of that release is served with its bytes, its type
 // and the headers the commit asks for (scripts/check-deployment.mjs); the certificate is not about to end; the
 // start page answers in time. The rules live in scripts/lib/monitor-rules.mjs.
 //
@@ -70,6 +70,20 @@ function checkFiles(origin, release, { repo, branch, waitS }) {
     return { problems: [`/release.json: commit ${sha} is not on ${branch}`] };
   }
   const commitsBehind = Number(git(repo, ["rev-list", "--count", `${sha}..${branch}`]).trim());
+  // Publishing tags the commit with the version a minute after the files are up; a release from before the
+  // versions names none.
+  if (release.version !== undefined) {
+    const tag = `v${release.version}`;
+    let tagged = "";
+    try {
+      tagged = git(repo, ["rev-parse", "--verify", "--quiet", `refs/tags/${tag}^{commit}`]).trim();
+    } catch {
+      return { problems: [`version ${release.version}: there is no tag ${tag}`], commitsBehind };
+    }
+    if (tagged !== sha) {
+      return { problems: [`version ${release.version}: the tag ${tag} is on ${tagged}, not on ${sha}`], commitsBehind };
+    }
+  }
   let headers;
   try {
     headers = git(repo, ["show", `${sha}:${HEADERS_SOURCE_PATH}`]);

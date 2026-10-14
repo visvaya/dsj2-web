@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
+import { versionLabel } from "../game/version";
 import { readOriginalHills } from "../original/original-hills";
 import type { OfflineState } from "../pwa/offline-state";
 import type { GameFiles } from "../storage/game-files-store";
@@ -100,7 +101,7 @@ export function MenuScreen({
         <h1 className="title" tabIndex={-1} ref={headingRef}>
           Telemark
         </h1>
-        <p className="note">Skoki narciarskie · wersja robocza</p>
+        <p className="note">Skoki narciarskie · {versionLabel()}</p>
       </header>
       <hr className="rule" />
       <nav className="menu" aria-label="Główne menu">
