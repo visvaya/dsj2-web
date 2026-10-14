@@ -29,7 +29,30 @@ export interface Settings {
   sensitivity: Sensitivity;
   /** Whether the picture tells what to press and when on the hill (added after version 2 too; on). */
   hillHints: boolean;
+  /** What is kept of the replays and what goes on its own (added after version 2 too; all off). */
+  replays: ReplaySettings;
 }
+
+/** The replays the game keeps besides the hill records, and the clean-up the player asked for. */
+export interface ReplaySettings {
+  /** How many of the last jumps are kept; 0 keeps none. */
+  recentCount: number;
+  /** Replays (not records) older than this many days go on their own; null keeps them. */
+  maxAgeDays: number | null;
+  /** The oldest replays (not records) go while all of them weigh more than this; null keeps them. */
+  maxSizeKb: number | null;
+}
+
+/** The numbers a player can choose for the replays, with their units in the names. */
+export const REPLAY_SETTING_RANGES = {
+  RECENT_COUNTS: [0, 5, 10, 20],
+  MAX_AGE_DAYS_MIN: 1,
+  MAX_AGE_DAYS_MAX: 3650,
+  MAX_SIZE_KB_MIN: 100,
+  MAX_SIZE_KB_MAX: 5000,
+} as const;
+
+const DEFAULT_REPLAY_SETTINGS: ReplaySettings = { recentCount: 0, maxAgeDays: null, maxSizeKb: null };
 
 export const DEFAULT_SETTINGS: Settings = {
   leanControl: "drag",
@@ -39,6 +62,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sound: true,
   sensitivity: DEFAULT_SENSITIVITY,
   hillHints: true,
+  replays: DEFAULT_REPLAY_SETTINGS,
 };
 
 export interface SaveData {
@@ -108,6 +132,22 @@ function parseSettings(v: unknown): Settings {
     sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
     sensitivity: parseSensitivity(field(v, "sensitivity")),
     hillHints: typeof hillHints === "boolean" ? hillHints : DEFAULT_SETTINGS.hillHints,
+    replays: parseReplaySettings(field(v, "replays")),
+  };
+}
+
+/** A whole number within the range, or null for anything else. */
+function wholeWithin(v: unknown, min: number, max: number): number | null {
+  return typeof v === "number" && Number.isInteger(v) && v >= min && v <= max ? v : null;
+}
+
+function parseReplaySettings(v: unknown): ReplaySettings {
+  const R = REPLAY_SETTING_RANGES;
+  const recent = field(v, "recentCount");
+  return {
+    recentCount: R.RECENT_COUNTS.find((count) => count === recent) ?? DEFAULT_REPLAY_SETTINGS.recentCount,
+    maxAgeDays: wholeWithin(field(v, "maxAgeDays"), R.MAX_AGE_DAYS_MIN, R.MAX_AGE_DAYS_MAX),
+    maxSizeKb: wholeWithin(field(v, "maxSizeKb"), R.MAX_SIZE_KB_MIN, R.MAX_SIZE_KB_MAX),
   };
 }
 

@@ -49,6 +49,7 @@ describe("save data", () => {
       sound: false,
       sensitivity: { mouse: 3, drag: 7, tilt: 9 },
       hillHints: false,
+      replays: { recentCount: 10, maxAgeDays: 30, maxSizeKb: 2000 },
     });
     expect(parseSave(JSON.stringify(save)).settings).toEqual({
       leanControl: "tilt",
@@ -58,6 +59,7 @@ describe("save data", () => {
       sound: false,
       sensitivity: { mouse: 3, drag: 7, tilt: 9 },
       hillHints: false,
+      replays: { recentCount: 10, maxAgeDays: 30, maxSizeKb: 2000 },
     });
     // A save from before the sensitivity was added reads it as the default.
     const older = { ...save, settings: { leanControl: "tilt", vibration: false } };
@@ -74,6 +76,7 @@ describe("save data", () => {
         scenery: "dawn",
         outfit: { pants: 12, skis: 1.5, helmet: "red" },
         sound: "loud",
+        replays: { recentCount: 7, maxAgeDays: 0, maxSizeKb: 1e9 },
       },
     };
     expect(parseSave(JSON.stringify(broken)).settings).toEqual(DEFAULT_SETTINGS);

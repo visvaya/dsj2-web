@@ -20,8 +20,9 @@ export type ReplaySpeed = (typeof REPLAY_SPEEDS)[number];
 export const REPLAY_SPEED_LABEL: Readonly<Record<ReplaySpeed, string>> = { 1: "1", 0.5: "1/2", 0.25: "1/4" };
 
 /**
- * Where a replay comes from: the player's last jump, watched right after it, or a file of the original, chosen on
- * the replay screen. It decides what the menu offers and what a press does once the replay is over.
+ * Where a replay was opened: "own" is the player's last jump, watched right after it; "original" is one opened on
+ * the replay screen (a file of the original, or a replay kept there). It decides what the menu offers and what a
+ * press does once the replay is over.
  */
 export type ReplayOrigin = "own" | "original";
 

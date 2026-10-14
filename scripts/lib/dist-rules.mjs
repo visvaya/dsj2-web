@@ -8,8 +8,10 @@
 // JavaScript and CSS are the bundles under assets/, gzip (zlib default level), measured on 2026-10-12:
 // JavaScript 102179 bytes, CSS 15170 bytes. The stylesheet carries the fonts: before that it was 8512 bytes
 // and the browser fetched a font file of 8404 bytes next to it, so the two together were 16916 bytes.
+// JavaScript measured again on 2026-10-14: 119242 bytes, after the replays (watching a jump again, the replays of
+// the original, the shelf of kept replays with its screen and settings).
 export const DIST_BUDGETS = {
-  JS_GZIP_BUDGET_BYTES: 117_500,
+  JS_GZIP_BUDGET_BYTES: 137_000,
   CSS_GZIP_BUDGET_BYTES: 17_500,
   // Measured on 2026-10-13: the service worker 3890 bytes gzip (3160 before it kept the release before for the
   // pages that still need it), the four icons 9682 bytes.

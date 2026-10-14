@@ -44,6 +44,10 @@ interface Props {
   onReplayEnd: () => void;
   /** Leaves a replay of the original for the replay screen, to choose another file. */
   onOtherReplay: () => void;
+  /** Keeps the last jump that ended on the shelf of replays. */
+  onKeepLast: () => void;
+  /** What became of the last request to keep a jump, or nothing. */
+  keepNote: string;
 }
 
 const REPLAY_TEXT = JUMP_TEXT.replay;
@@ -94,7 +98,9 @@ type ReplayButtonsProps = Pick<
 > & { replay: ReplayView };
 
 /** While jumping: a new jump, the last one again, the instructions and another hill. */
-function TrainingButtons(p: Pick<Props, "touch" | "onAgain" | "replayAvailable" | "onWatchReplay" | "onPanel">) {
+function TrainingButtons(
+  p: Pick<Props, "touch" | "onAgain" | "replayAvailable" | "onWatchReplay" | "onKeepLast" | "onPanel">,
+) {
   return (
     <>
       <button type="button" className="pixel-button" onClick={p.onAgain}>
@@ -109,6 +115,14 @@ function TrainingButtons(p: Pick<Props, "touch" | "onAgain" | "replayAvailable" 
         onClick={p.replayAvailable ? p.onWatchReplay : undefined}
       >
         {REPLAY_TEXT.watch}
+      </button>
+      <button
+        type="button"
+        className="pixel-button"
+        aria-disabled={!p.replayAvailable}
+        onClick={p.replayAvailable ? p.onKeepLast : undefined}
+      >
+        {REPLAY_TEXT.keepLast}
       </button>
       <button type="button" className="pixel-button" onClick={() => p.onPanel("help")}>
         {UI_TEXT.menu.howTo}
@@ -163,6 +177,11 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
       <button type="button" className="pixel-button" onClick={p.onExit}>
         {JUMP_TEXT.exit}
       </button>
+      {p.keepNote !== "" && (
+        <p className="note" role="status">
+          {p.keepNote}
+        </p>
+      )}
       {p.tiltNote !== "" && (
         <p className="note error" role="status">
           {p.tiltNote}
