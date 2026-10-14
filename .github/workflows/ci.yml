@@ -153,26 +153,12 @@ jobs:
           name: telemark-dist-${{ github.sha }}
       - name: The package is the one that was built
         run: sha256sum --check --strict --quiet dist.sha256
-      # The browsers are cached per Playwright version and engine; the system packages they need are not, so a
-      # cache hit still installs those.
-      - name: Read the Playwright version
-        id: playwright
-        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" | tee -a "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ matrix.engine }}
-      - name: Install the browser
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      # Not cached: the system packages are installed either way, and with a cached browser this took as long as
+      # downloading it (one run of each, 2026-10-14), as Playwright's guidance on CI expects.
+      - name: Install the browser and its system packages
         env:
           ENGINE: ${{ matrix.engine }}
         run: pnpm exec playwright install --with-deps "$ENGINE"
-      - name: Install the system packages of the cached browser
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        env:
-          ENGINE: ${{ matrix.engine }}
-        run: pnpm exec playwright install-deps "$ENGINE"
       - name: The game works in real browsers
         if: matrix.suite == 'browser'
         env:
