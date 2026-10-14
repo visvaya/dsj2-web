@@ -178,7 +178,22 @@ function createTrainingRun(
 interface ReplayRun extends JumpRun {
   /** Whether the replay has played to where a press starts a new jump. */
   ended: () => boolean;
+  /** Where the replay is, in simulation frames, and how long it is until the jumper stops. */
+  position: () => ReplayPosition;
+  /** Goes to a moment of the replay: the jump is computed there in silence, and plays on from it. */
+  seek: (frame: number) => void;
 }
+
+/** A moment of a replay, in simulation frames from its start, and the length of the replay. */
+export interface ReplayPosition {
+  frame: number;
+  length: number;
+}
+
+/** Frames computed at a time when a replay goes to another moment. */
+const SEEK_CHUNK_FRAMES = 200;
+/** A replay that does not stop within this is cut here (a jump is 900 to 1600 frames). */
+const MAX_REPLAY_FRAMES = 6000;
 
 /**
  * A recorded jump played again: the same simulation from the same seed and inputs, heard but not felt, and
@@ -192,6 +207,18 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
   let toldOver = false;
   const takeFrame = (logic: JumpLogicState) => source.input(logic);
   const ended = () => nextJumpAllowed(jump.state.logic, presentationFrame(jump));
+  /** The frame the jumper stops in, found once by playing the replay through. */
+  let length: number | null = null;
+  const lengthOf = (): number => {
+    if (length === null) {
+      let probe = start();
+      while (!isJumpOver(probe) && probe.state.logic.frame < MAX_REPLAY_FRAMES) {
+        probe = stepJump(probe, { steps: SEEK_CHUNK_FRAMES, leftHeld: false, record: undefined }, takeFrame).jump;
+      }
+      length = probe.state.logic.frame;
+    }
+    return length;
+  };
   const restart = () => {
     jump = start();
     newRecord = false;
@@ -220,6 +247,21 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
     restart,
     now: () => ({ jump, newRecord }),
     ended,
+    position: () => ({ frame: Math.min(presentationFrame(jump), lengthOf()), length: lengthOf() }),
+    seek(frame) {
+      const target = Math.min(Math.max(1, Math.round(frame)), lengthOf());
+      jump = start();
+      newRecord = false;
+      while (jump.state.logic.frame < target && !isJumpOver(jump)) {
+        const steps = Math.min(SEEK_CHUNK_FRAMES, target - jump.state.logic.frame);
+        const stepped = stepJump(jump, { steps, leftHeld: false, record: undefined }, takeFrame);
+        jump = stepped.jump;
+        if (stepped.touchdown) newRecord = source.newRecord;
+      }
+      // What was passed in silence is not told or played again; the end is told when it comes.
+      toldOver = ended();
+      sounds.skipTo(presentationFrame(jump), newRecord);
+    },
   };
 }
 
@@ -239,6 +281,10 @@ export interface JumpLoopControls {
   endReplay: () => void;
   /** The last training jump that ended, to be kept; null before the first. */
   lastJump: () => FinishedJump | null;
+  /** Where the replay being watched is; null while jumping. */
+  replayPosition: () => ReplayPosition | null;
+  /** Goes to a moment of the replay being watched. */
+  seekReplay: (frame: number) => void;
 }
 
 export const NO_CONTROLS: JumpLoopControls = {
@@ -246,6 +292,8 @@ export const NO_CONTROLS: JumpLoopControls = {
   watchReplay: () => undefined,
   endReplay: () => undefined,
   lastJump: () => null,
+  replayPosition: () => null,
+  seekReplay: () => undefined,
 };
 
 interface RunSwitch {
@@ -306,6 +354,8 @@ export function createRunSwitch(
       watchReplay,
       endReplay,
       lastJump: training.lastJump,
+      replayPosition: () => replay?.position() ?? null,
+      seekReplay: (frame) => replay?.seek(frame),
     },
     press() {
       if (!replay) return;

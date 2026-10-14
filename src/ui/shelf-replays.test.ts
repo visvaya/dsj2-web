@@ -3,7 +3,7 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, startTrainingJump } from "../game/training-session";
 import type { FrameInput } from "../sim/jump-logic";
 import { jumpResult, stepJump } from "./jump-round";
-import { entryPlaysTrue, ownEntry, playedResult, sourceOfEntry } from "./shelf-replays";
+import { entryPlaysTrue, ownEntry, playedResult, recordReplayOf, sourceOfEntry } from "./shelf-replays";
 
 const hill = OWN_HILLS[0];
 const NOW = new Date("2026-10-14T12:00:00.000Z");
@@ -57,6 +57,14 @@ describe("a replay on the shelf", () => {
     const other = sourceOfEntry(changed);
     if (!other) throw new Error("no source");
     expect(entryPlaysTrue(changed, other, on)).toBe(false);
+  });
+
+  it("of a hill's record is found for the hill list, and only while it plays true", () => {
+    const { hill: on, recording, result } = trainingJump();
+    const record = ownEntry("record", on, { recording, result }, NOW);
+    expect(recordReplayOf([record], on)?.origin).toBe("original");
+    expect(recordReplayOf([{ ...record, kind: "kept" }], on)).toBeNull();
+    expect(recordReplayOf([{ ...record, result: { ...result, points: result.points + 1 } }], on)).toBeNull();
   });
 
   it("has no source when its data cannot be read", () => {

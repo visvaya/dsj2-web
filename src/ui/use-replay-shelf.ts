@@ -12,7 +12,7 @@ import {
 import { detectReplayStore, type ReplayStore } from "../storage/replay-store";
 import type { ReplaySettings } from "../storage/save-data";
 import type { FinishedJump } from "./jump-runs";
-import { ownEntry } from "./shelf-replays";
+import { ownEntry, recordReplayOf } from "./shelf-replays";
 
 const BYTES_PER_KB = 1000;
 
@@ -83,7 +83,16 @@ export function useReplayShelf(settings: ReplaySettings) {
     return "kept";
   };
 
-  return { shelf, change, onJumpFinished, keepJump, storeName: store.name };
+  const recordHillIds = new Set(shelf.filter((e) => e.kind === "record").map((e) => e.hill.id));
+  return {
+    shelf,
+    change,
+    onJumpFinished,
+    keepJump,
+    storeName: store.name,
+    recordHillIds,
+    recordReplay: (hill: HillChoice) => recordReplayOf(shelf, hill),
+  };
 }
 
 /** What became of a jump the player asked to keep. */

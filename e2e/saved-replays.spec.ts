@@ -44,6 +44,13 @@ test("a record keeps its replay, a jump can be kept by hand, and both stay after
   await expect(replayRows(page, "Rekordy skoczni")).toContainText(/\d+\.\d KB/);
   await expect(replayRows(page, "Zachowane")).toHaveCount(1);
 
+  // The hill list offers the record's replay beside the hill.
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.training), traits);
+  await press(button(page, "Powtórka rekordu: Ćwiczebna K90"), traits);
+  await expect(announcement(page)).toHaveText(/^Powtórka skoku\./);
+  await openReplays(page, traits);
+
   // Watched from here, it plays to the same landing.
   await press(replayRows(page, "Zachowane").getByRole("button", { name: "Obejrzyj" }), traits);
   await expect(announcement(page)).toHaveText(/^Powtórka skoku\./);

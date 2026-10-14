@@ -5,6 +5,7 @@ import { beatsRecord, emptySave, withJump, withSettings, type SaveData, type Set
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { readOriginalHills } from "../original/original-hills";
+import { UI_TEXT } from "../text/ui-text";
 import { HillScreen } from "./hill-screen";
 import { HowToScreen } from "./how-to-jump";
 import { InstallScreen } from "./install-screen";
@@ -212,6 +213,14 @@ export function App({ diagnostics }: AppProps) {
         hills={[...OWN_HILLS, ...originalHills]}
         records={save.records}
         onPick={(hill) => show({ kind: "jump", hill })}
+        recordReplays={{
+          hillIds: replays.recordHillIds,
+          onWatch: (hill) => {
+            const replay = replays.recordReplay(hill);
+            if (replay) show({ kind: "jump", hill, replay });
+            return replay ? null : UI_TEXT.replays.notTrue;
+          },
+        }}
         onBack={() => show({ kind: "menu" })}
         focusOnEntry={navigated}
       />

@@ -31,9 +31,21 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
   expect(landed?.kind).toBe("landed");
   const saved = await storedSave(page);
 
+  const before = await jumpCanvas(page).boundingBox();
   await openJumpControls(page, traits);
   await press(button(page, TEXT.watchReplay), traits);
   await expect(announcement(page)).toHaveText(/^Powtórka skoku\./);
+  // In portrait the empty zones leave the layout and the picture, as large as before, is centred.
+  const viewport = page.viewportSize();
+  if (traits.touch && viewport && viewport.height > viewport.width && before) {
+    await expect
+      .poll(async () => {
+        const box = await jumpCanvas(page).boundingBox();
+        return box ? Math.abs(box.y + box.height / 2 - viewport.height / 2) : Infinity;
+      })
+      .toBeLessThan(viewport.height * 0.08);
+    expect((await jumpCanvas(page).boundingBox())?.width).toBeCloseTo(before.width, 0);
+  }
 
   // Paused at once: the replay stays before the gate as long as it is held.
   await press(jumpCanvas(page), traits);
@@ -54,6 +66,11 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
     await expect(button(page, absent)).toHaveCount(0);
   }
   await expect(page.getByRole("group", { name: /czułość/i })).toHaveCount(0);
+  // The slider goes to a moment of the replay: back to its start here.
+  const slider = page.getByRole("slider", { name: "Moment powtórki" });
+  await expect(slider).toHaveAttribute("aria-valuetext", /^\d+,\d s z \d+,\d s$/);
+  await slider.fill("1");
+  await expect(slider).toHaveAttribute("aria-valuetext", /^0,0 s z /);
   await press(button(page, TEXT.replaySpeed), traits);
   await expect(button(page, TEXT.replaySpeed)).toHaveText("Tempo: 1/2");
   await press(button(page, TEXT.replayEnd), traits);
