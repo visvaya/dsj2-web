@@ -69,6 +69,14 @@ export function playedResult(source: ReplaySource, hill: HillChoice): JumpResult
   return isJumpOver(jump) ? jumpResult(jump) : null;
 }
 
+/** The replay of a hill's record, ready to play from the hill list; null when there is none or it no longer fits. */
+export function recordReplayOf(shelf: readonly ShelfEntry[], hill: HillChoice): ReplaySource | null {
+  const entry = shelf.find((e) => e.kind === "record" && e.hill.id === hill.id);
+  const source = entry ? sourceOfEntry(entry) : null;
+  // Opened from a list, the replay leads back to the replays, like one opened on their screen.
+  return entry && source && entryPlaysTrue(entry, source, hill) ? { ...source, origin: "original" } : null;
+}
+
 /**
  * Whether a replay of the shelf still plays to the jump it was kept as. It may not, after a change of the game's
  * physics or when the data was changed; such a replay is not shown as that jump.

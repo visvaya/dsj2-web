@@ -122,6 +122,8 @@ export const UI_TEXT = {
     original: "Skocznie z oryginału",
     kPoint: (kPointM: number) => `K${kPointM}`,
     record: (distance: string) => `rekord ${distance} m`,
+    watchRecord: "Powtórka",
+    watchRecordLabel: (hillLabel: string) => `Powtórka rekordu: ${hillLabel}`,
   },
 
   flags: {
@@ -278,6 +280,8 @@ export const UI_TEXT = {
       other: "Wróć do powtórek",
       jumpHere: "Skacz na tej skoczni",
       keepLast: "Zachowaj ostatni skok",
+      position: "Moment powtórki",
+      positionValue: (now: string, total: string) => `${now} s z ${total} s`,
       keptLast: "Ostatni skok jest zachowany na ekranie „Powtórki”.",
       alreadyKept: "Ten skok jest już zachowany.",
     },

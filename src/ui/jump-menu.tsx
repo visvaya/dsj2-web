@@ -1,4 +1,4 @@
-import type { RefObject } from "react";
+import { useState, type RefObject } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import { versionLabel } from "../game/version";
 import type { ControlScheme } from "../render/jump-view";
@@ -8,6 +8,7 @@ import { HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
 import { SettingsControls } from "./settings-controls";
 import { REPLAY_SPEED_LABEL, type ReplayView } from "./jump-replay";
+import type { ReplayPosition } from "./jump-runs";
 import type { MenuPanel } from "./use-pause-menu";
 
 const JUMP_TEXT = UI_TEXT.jumpScreen;
@@ -44,6 +45,10 @@ interface Props {
   onReplayEnd: () => void;
   /** Leaves a replay of the original for the replay screen, to choose another file. */
   onOtherReplay: () => void;
+  /** Where the replay being watched is; null while jumping. */
+  replayPosition: () => ReplayPosition | null;
+  /** Goes to a moment of the replay being watched. */
+  onSeekReplay: (frame: number) => void;
   /** Keeps the last jump that ended on the shelf of replays. */
   onKeepLast: () => void;
   /** What became of the last request to keep a jump, or nothing. */
@@ -51,22 +56,44 @@ interface Props {
 }
 
 const REPLAY_TEXT = JUMP_TEXT.replay;
+/** Simulation frames per second, for the time a moment of a replay is told in. */
+const FRAMES_PER_S = 70;
+const secondsOf = (frame: number): string => (frame / FRAMES_PER_S).toFixed(1).replace(".", ",");
+
+/** A slider over the replay, from the gate to where the jumper stops; moving it goes to that moment. */
+function ReplaySlider({ position, onSeek }: { position: ReplayPosition; onSeek: (frame: number) => void }) {
+  // The replay stands still while the menu is open, so the slider starts where it is and follows the player.
+  const [frame, setFrame] = useState(position.frame);
+  return (
+    <label className="replay-slider">
+      {REPLAY_TEXT.position}
+      <input
+        type="range"
+        min={1}
+        max={position.length}
+        value={frame}
+        aria-valuetext={REPLAY_TEXT.positionValue(secondsOf(frame), secondsOf(position.length))}
+        onChange={(e) => {
+          const next = Number(e.currentTarget.value);
+          setFrame(next);
+          onSeek(next);
+        }}
+      />
+    </label>
+  );
+}
 
 /**
  * In a replay the menu holds what the replay needs: its tempo and its start, then the way on. After the player's
  * own jump that is back to jumping; a replay of the original came from the replay screen, so it leads back there
  * for another file, or to training on its hill.
  */
-function ReplayButtons({
-  replay,
-  touch,
-  onReplaySpeed,
-  onReplayFromStart,
-  onReplayEnd,
-  onOtherReplay,
-}: ReplayButtonsProps) {
+function ReplayButtons(p: ReplayButtonsProps) {
+  const { replay, touch, onReplaySpeed, onReplayFromStart, onReplayEnd, onOtherReplay } = p;
+  const position = p.replayPosition();
   return (
     <>
+      {position && <ReplaySlider position={position} onSeek={p.onSeekReplay} />}
       <button type="button" className="pixel-button" onClick={onReplaySpeed}>
         {REPLAY_TEXT.speed(REPLAY_SPEED_LABEL[replay.speed])}
       </button>
@@ -94,7 +121,7 @@ function ReplayButtons({
 
 type ReplayButtonsProps = Pick<
   Props,
-  "touch" | "onReplaySpeed" | "onReplayFromStart" | "onReplayEnd" | "onOtherReplay"
+  "touch" | "onReplaySpeed" | "onReplayFromStart" | "onReplayEnd" | "onOtherReplay" | "replayPosition" | "onSeekReplay"
 > & { replay: ReplayView };
 
 /** While jumping: a new jump, the last one again, the instructions and another hill. */

@@ -207,6 +207,18 @@ h2 {
   cursor: pointer;
 }
 
+/* A hill and, when its record can be watched again, the button for that beside it. */
+.hill-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hill-row .hill-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .hill-item .flag-icon {
   grid-area: flag;
 }
@@ -269,6 +281,17 @@ h2 {
   width: 6em;
   min-height: 44px;
   font: inherit;
+}
+
+.replay-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: min(100%, 420px);
+}
+
+.replay-slider input {
+  min-height: 44px;
 }
 
 .settings-check {
@@ -818,6 +841,18 @@ h2 {
   /* On the left, where it is with every other way of steering and in landscape. */
   .game.touch .pause-button {
     justify-self: start;
+  }
+
+  /*
+   * A replay takes no hands: in portrait the zones under the picture leave the layout and the picture is centred
+   * in the screen. The picture keeps its size, which the width of the screen sets in portrait.
+   */
+  .game.touch.replaying {
+    grid-template-rows: auto minmax(0, 1fr) 0;
+  }
+
+  .game.touch.replaying .touch-pad {
+    display: none;
   }
 }
 

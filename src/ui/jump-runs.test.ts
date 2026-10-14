@@ -52,7 +52,12 @@ function scriptedInput(): PlayerInput {
   };
 }
 
-const silentSounds: JumpSounds = { play: () => undefined, hush: () => undefined, reset: () => undefined };
+const silentSounds: JumpSounds = {
+  play: () => undefined,
+  hush: () => undefined,
+  reset: () => undefined,
+  skipTo: () => undefined,
+};
 
 function setUp() {
   /** Set by `freeze`: the screen renders no more, so the live view stays as it was (React applies later). */
@@ -228,6 +233,28 @@ describe("training and its replay", () => {
     const over = t.heard.filter((text) => text.includes(UI_TEXT.announcement.replayOver.own));
     expect(over).toHaveLength(1);
     expect(over[0]).toMatch(/^(Lądowanie|Upadek|Dyskwalifikacja)/);
+  });
+
+  it("goes to a moment of a replay and plays on from it to the same end", () => {
+    const t = setUp();
+    const live = t.playOut();
+    expect(t.runs.controls.replayPosition()).toBeNull();
+    t.runs.controls.watchReplay();
+    const position = t.runs.controls.replayPosition();
+    expect(position?.frame).toBe(1);
+    expect(position?.length).toBe(live.state.logic.frame);
+    const middle = Math.round((position?.length ?? 0) / 2);
+    t.runs.controls.seekReplay(middle);
+    expect(t.runs.controls.replayPosition()?.frame).toBe(middle);
+    expect(t.runs.current().now().jump.state.logic.frame).toBe(middle);
+    expect(t.runs.current().settle().over).toBe(false);
+    expect(t.playOut().state).toEqual(live.state);
+    // Beyond its end it stops at the end; what was passed in silence is not told at once.
+    const heard = t.heard.length;
+    t.runs.controls.seekReplay(1e6);
+    expect(t.runs.controls.replayPosition()?.frame).toBe(live.state.logic.frame);
+    t.runs.current().settle();
+    expect(t.heard.slice(heard).filter((text) => text.includes(UI_TEXT.announcement.replayOver.own))).toHaveLength(0);
   });
 
   it("has nothing to play before the first jump has ended", () => {

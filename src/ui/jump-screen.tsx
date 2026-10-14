@@ -86,6 +86,8 @@ function replayHandlers(
     onReplaySpeed: () => setReplay((view) => view && { ...view, speed: nextReplaySpeed(view.speed) }),
     onReplayFromStart: thenClose((c) => c.restart()),
     onReplayEnd: thenClose((c) => c.endReplay()),
+    replayPosition: () => loop.replayPosition(),
+    onSeekReplay: (frame: number) => loop.seekReplay(frame),
   };
 }
 
@@ -144,7 +146,7 @@ export function JumpScreen(props: Props) {
 
   return (
     <div
-      className={`game${touch ? " touch" : ""}${controls === "tilt" ? " tilt" : ""}${controls === "touch" ? "" : " wide"}${menu.menuOpen ? " menu-open" : ""}`}
+      className={`game${touch ? " touch" : ""}${controls === "tilt" ? " tilt" : ""}${controls === "touch" ? "" : " wide"}${menu.menuOpen ? " menu-open" : ""}${replay ? " replaying" : ""}`}
     >
       <button
         type="button"

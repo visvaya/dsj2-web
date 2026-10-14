@@ -24,6 +24,8 @@ export interface JumpSounds {
   hush(): void;
   /** Forgets what was played, for the next jump. */
   reset(): void;
+  /** Counts everything up to `clock` as heard, after a jump to that moment of a replay: nothing plays at once. */
+  skipTo(clock: number, newRecord: boolean): void;
 }
 
 /** The sounds of the jumps on one screen, played on whichever engine `engine` gives at the time. */
@@ -59,6 +61,10 @@ export function createJumpSounds(engine: () => SoundEngine | null): JumpSounds {
     reset() {
       heardUpTo = 0;
       recordPlayed = false;
+    },
+    skipTo(clock, newRecord) {
+      heardUpTo = clock;
+      recordPlayed = newRecord;
     },
   };
 }
