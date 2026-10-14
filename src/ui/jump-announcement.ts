@@ -1,5 +1,6 @@
 import type { JumpLogicState } from "../sim/jump-logic";
 import { UI_TEXT } from "../text/ui-text";
+import type { ReplayOrigin } from "./jump-replay";
 
 const T = UI_TEXT.announcement;
 
@@ -32,15 +33,23 @@ export function touchdownAnnouncement(jump: Touchdown, newRecord = false): strin
   return newRecord ? `${outcome(jump)}. ${T.record}` : `${outcome(jump)}.`;
 }
 
-/** Said once the jumper has stopped: the outcome again, the five notes, the points and how to jump again. */
-export function resultAnnouncement(jump: ScoredJump, context: ResultContext): string {
+/** The outcome again, the five notes, the points and a new record. */
+function resultParts(jump: ScoredJump, newRecord: boolean): string[] {
   const notes = jump.judges.map((judge) => formatDecimal(judge.note, 1)).join("; ");
-  const parts = [
+  return [
     `${outcome(jump)}.`,
     ...(jump.distanceM === 0 ? [] : [T.notes(notes)]),
     T.points(formatDecimal(jump.points, 1)),
-    ...(context.newRecord ? [T.record] : []),
-    T.nextJump[context.controls],
+    ...(newRecord ? [T.record] : []),
   ];
-  return parts.join(" ");
+}
+
+/** Said once the jumper has stopped: the result, and how to jump again. */
+export function resultAnnouncement(jump: ScoredJump, context: ResultContext): string {
+  return [...resultParts(jump, context.newRecord), T.nextJump[context.controls]].join(" ");
+}
+
+/** Said once a replay is over: the result as the jump had it, and what a press of the picture does now. */
+export function replayOverAnnouncement(jump: ScoredJump, newRecord: boolean, origin: ReplayOrigin): string {
+  return [...resultParts(jump, newRecord), T.replayOver[origin]].join(" ");
 }

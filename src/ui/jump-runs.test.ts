@@ -55,6 +55,8 @@ function scriptedInput(): PlayerInput {
 const silentSounds: JumpSounds = { play: () => undefined, hush: () => undefined, reset: () => undefined };
 
 function setUp() {
+  /** Set by `freeze`: the screen renders no more, so the live view stays as it was (React applies later). */
+  let stale = false;
   if (!hill) throw new Error("no hill");
   const finished: JumpResult[] = [];
   const heard: string[] = [];
@@ -92,9 +94,10 @@ function setUp() {
     openMenu: () => {
       menuOpened++;
     },
-    onReplayChange: (view) => {
-      replay = view;
-      context.live = { ...context.live, replay };
+    onReplayChange: (next) => {
+      // As React applies a function: from the view as it is now.
+      replay = typeof next === "function" ? next(replay) : next;
+      if (!stale) context.live = { ...context.live, replay };
     },
   };
   const runs = createRunSwitch(
@@ -120,6 +123,9 @@ function setUp() {
     available: () => available,
     replay: () => replay,
     menuOpened: () => menuOpened,
+    freeze: () => {
+      stale = true;
+    },
   };
 }
 
@@ -198,6 +204,30 @@ describe("training and its replay", () => {
     }
     expect(t.menuOpened()).toBe(1);
     expect(t.runs.replaying()).toBe(true);
+  });
+
+  it("counts two presses within one frame, before the screen has shown the first", () => {
+    const t = setUp();
+    t.playOut();
+    t.runs.controls.watchReplay();
+    t.freeze();
+    t.runs.press();
+    t.runs.press();
+    expect(t.replay()).toEqual({ speed: 1, paused: false, origin: "own" });
+  });
+
+  it("tells once that the replay is over, with the notes and what a press does now", () => {
+    const t = setUp();
+    t.playOut();
+    t.runs.controls.watchReplay();
+    t.playOut();
+    for (let f = 0; f < 1000; f++) {
+      t.runs.current().step(1);
+      t.runs.current().settle();
+    }
+    const over = t.heard.filter((text) => text.includes(UI_TEXT.announcement.replayOver.own));
+    expect(over).toHaveLength(1);
+    expect(over[0]).toMatch(/^(Lądowanie|Upadek|Dyskwalifikacja)/);
   });
 
   it("has nothing to play before the first jump has ended", () => {
