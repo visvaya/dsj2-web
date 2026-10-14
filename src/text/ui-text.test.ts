@@ -23,6 +23,22 @@ const ALLOWED = {
 
 const DIACRITIC = /[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/;
 
+/**
+ * A JSX attribute that a player reads or hears, given a non-empty literal instead of a text from the module:
+ * "...", {"..."} or {`...`}. An empty one stays allowed (alt="" marks a picture as decoration).
+ */
+const LITERAL_TEXT_ATTRIBUTE =
+  /(?<![\w-])(aria-label|aria-description|aria-roledescription|aria-valuetext|aria-placeholder|title|alt|placeholder|label)=\{?\s*(["'`])(?!\2)/g;
+
+/** The text attributes of a source that hold a literal, as `name=` with the line they are on. */
+function literalTextAttributes(source: string): string[] {
+  return source
+    .split("\n")
+    .flatMap((line, index) =>
+      [...line.matchAll(LITERAL_TEXT_ATTRIBUTE)].map((match) => `${match[1] ?? ""}= on line ${index + 1}`),
+    );
+}
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
     const path = join(dir, entry.name);
@@ -34,8 +50,9 @@ function sourceFiles(dir: string): string[] {
 describe("interface texts", () => {
   /**
    * A rough guard: a Polish text written without any diacritic gets past it. Text typed between JSX tags is
-   * caught by the lint rule react/jsx-no-literals whatever its letters; what neither sees is a text without
-   * diacritics in a JSX attribute or in a plain string of a .ts file.
+   * caught by the lint rule react/jsx-no-literals and text in the attributes a player reads or hears by the test
+   * below, whatever its letters; what none of them sees is a text without diacritics in a plain string of a .ts
+   * file.
    */
   it("live in the text module, judged by Polish diacritics outside it", () => {
     const offenders = sourceFiles(SRC)
@@ -43,6 +60,37 @@ describe("interface texts", () => {
       .filter((path) => !SKIPPED.some((pattern) => pattern.test(path)) && !(path in ALLOWED))
       .filter((path) => DIACRITIC.test(readFileSync(join(SRC, path), "utf8")));
     expect(offenders).toEqual([]);
+  });
+
+  it("are not typed into the attributes of JSX that a player reads or hears", () => {
+    const offenders = sourceFiles(SRC)
+      .map((path) => relative(SRC, path).replaceAll("\\", "/"))
+      .filter((path) => path.endsWith(".tsx") && !SKIPPED.some((pattern) => pattern.test(path)))
+      .flatMap((path) => literalTextAttributes(readFileSync(join(SRC, path), "utf8")).map((at) => `${path}: ${at}`));
+    expect(offenders).toEqual([]);
+  });
+
+  it("finds a literal in a text attribute, in each way JSX can write it", () => {
+    const source = [
+      '<button aria-label="Start">',
+      "<img alt={'flaga'} />",
+      "<Pad label={`L: start`} />",
+      '<p title="Menu" className="note">',
+    ].join("\n");
+    expect(literalTextAttributes(source)).toEqual([
+      "aria-label= on line 1",
+      "alt= on line 2",
+      "label= on line 3",
+      "title= on line 4",
+    ]);
+    // Texts from the module, references to other elements, an empty alt and other attributes pass.
+    const clean = [
+      "<button aria-label={UI_TEXT.back}>",
+      '<nav aria-labelledby="menu-title" className="menu">',
+      '<img alt="" src={flag} />',
+      '<span aria-hidden="true">{JUMP_TEXT.pauseKey}</span>',
+    ].join("\n");
+    expect(literalTextAttributes(clean)).toEqual([]);
   });
 
   it("keeps each listed exception needed", () => {
