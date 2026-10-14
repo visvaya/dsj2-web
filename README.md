@@ -14,7 +14,7 @@ As of 2026-10-14: in active development.
 
 - Playable: training mode on the built-in hill and on the 37 original hills, a replay of the last jump
   (pause, half and quarter speed), and the original's `.rpl` replays from your own copy of the game.
-- Not there yet: competitions, moving replays between devices (export and import).
+- Not there yet: competitions.
 - Playable at <https://telemark.visvaya.workers.dev> since 2026-10-13. The page can be installed and works
   offline after the first visit; every change on the default branch is published there once its checks pass
   (`docs/deployment.md`). Checked by hand on one iPhone and in one desktop browser; not yet on Android.
@@ -31,7 +31,8 @@ As of 2026-10-14: in active development.
 - Synthesised sound (Web Audio, no recordings).
 - A replay of the last jump, with pause and slow motion; the original's `.rpl` replays play the same way, on
   the hills of your `Dsj.exe`. The replay of each hill record is kept on its own, other jumps by hand or as the
-  last few, with an optional clean-up by age and by size.
+  last few, with an optional clean-up by age and by size; replays go to a file and come back from one, to move them
+  to another device.
 - Hill records, outfit colours and settings saved locally.
 - Installable on a phone's home screen; after the first visit it starts and plays without a network.
 

@@ -1,30 +1,32 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { HillChoice } from "../game/hill-choice";
+import { readReplayFile, replayFileName, replayFileText } from "../storage/replay-file";
 import {
   REPLAY_LIMITS,
-  entryBytes,
   oldestRemovable,
   shelfBytes,
-  sameReplay,
   withKept,
   withoutEntries,
   type Shelf,
   type ShelfEntry,
-  type ShelfKind,
 } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
+import { handOverFile } from "./hand-over-file";
 import type { ReplaySource } from "./jump-replay";
 import { originalReplayOutcome } from "./original-replay-choice";
+import { kb, ReplayList } from "./replay-list";
+import { importedShelf, originalEntry } from "./replay-import";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
+import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
 const T = UI_TEXT.replays;
-const BYTES_PER_KB = 1000;
-const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent"];
 /** How long a first press of "remove" waits for the second. */
 const CONFIRM_MS = 5000;
 /** How many of the oldest replays the clean-up offers to remove at first. */
 const REMOVE_OLDEST_DEFAULT = 10;
+/** The removal of the selected replays, as it waits for its second press. */
+const SELECTED = "selected";
 
 interface Props {
   shelf: Shelf;
@@ -41,47 +43,7 @@ interface Props {
   focusOnEntry: boolean;
 }
 
-const kb = (bytes: number): string => T.sizeKb((bytes / BYTES_PER_KB).toFixed(1));
-
-/** The line under a replay's hill: its result, its date and what it weighs. */
-function rowText(entry: ShelfEntry): string {
-  const { distanceM, points, fell } = entry.result;
-  const distance = fell ? `${distanceM.toFixed(2)} (${T.fell})` : distanceM.toFixed(2);
-  const date = new Date(entry.dateIso).toLocaleDateString("pl-PL");
-  return T.row(distance, points.toFixed(1), date, kb(entryBytes(entry)));
-}
-
-interface RowProps {
-  entry: ShelfEntry;
-  confirming: boolean;
-  onWatch: () => void;
-  onKeep: (() => void) | null;
-  onRemove: () => void;
-}
-
-function ReplayRow({ entry, confirming, onWatch, onKeep, onRemove }: RowProps) {
-  const name = UI_TEXT.hillLabel(entry.hill.name, entry.hill.kPointM);
-  const jumper = entry.replay.kind === "original" ? entry.replay.jumperName : undefined;
-  return (
-    <li className="replay-row">
-      <span className="replay-row-hill">{jumper === undefined ? name : `${name} · ${jumper}`}</span>
-      <span className="replay-row-detail">{rowText(entry)}</span>
-      <span className="replay-row-actions">
-        <button type="button" className="pixel-button small-button" onClick={onWatch}>
-          {T.watch}
-        </button>
-        {onKeep && (
-          <button type="button" className="pixel-button small-button" onClick={onKeep}>
-            {T.keep}
-          </button>
-        )}
-        <button type="button" className="pixel-button small-button" onClick={onRemove}>
-          {confirming ? T.confirmRemove : T.remove}
-        </button>
-      </span>
-    </li>
-  );
-}
+type Message = { text: string; error: boolean } | null;
 
 /** Frees room in one go: the oldest replays that are not hill records. */
 function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
@@ -107,62 +69,120 @@ function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
   );
 }
 
-/** The replays: hill records, kept and last jumps, each to watch, keep or remove; and files of the original. */
-export function ReplaysScreen(props: Props) {
-  const { shelf, hills, originalHills, onPlay, onChangeShelf, onBack, focusOnEntry, storeName } = props;
-  const headingRef = useRef<HTMLHeadingElement>(null);
-  useEntryFocus(headingRef, focusOnEntry);
-  const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+/** A removal asked for once and confirmed by a second press, forgotten after a while. */
+function useConfirm() {
   const [confirming, setConfirming] = useState<string | null>(null);
-  // A removal asked for and not confirmed is forgotten after a while.
   useEffect(() => {
     if (confirming === null) return undefined;
     const timer = setTimeout(() => setConfirming(null), CONFIRM_MS);
     return () => clearTimeout(timer);
   }, [confirming]);
-
-  const watch = (entry: ShelfEntry) => {
-    const hill = hills.find((h) => h.id === entry.hill.id);
-    if (!hill) return setMessage({ text: T.hillMissing, error: true });
-    const source = sourceOfEntry(entry);
-    if (!source || !entryPlaysTrue(entry, source, hill)) return setMessage({ text: T.notTrue, error: true });
-    // Opened here, the replay leads back here.
-    return onPlay(hill, { ...source, origin: "original" });
-  };
-  const keep = (entry: ShelfEntry) => {
-    setConfirming(null);
-    const copy = { ...entry, id: `kept:${entry.id}` };
-    const outcome = withKept(shelf, copy);
-    if (outcome.refused === null) onChangeShelf((current) => withKept(current, copy).shelf);
-    setMessage(
-      outcome.refused === null ? { text: T.keptDone, error: false } : { text: T[outcome.refused], error: true },
-    );
-  };
-  const remove = (entry: ShelfEntry) => {
-    if (confirming !== entry.id) {
-      setConfirming(entry.id);
-      return setMessage({ text: T.removeArmed, error: false });
+  /** True on the second press for `key`; the first only arms it. */
+  const confirmed = (key: string): boolean => {
+    if (confirming === key) {
+      setConfirming(null);
+      return true;
     }
-    setConfirming(null);
-    setMessage(null);
-    return onChangeShelf((current) => withoutEntries(current, new Set([entry.id])));
+    setConfirming(key);
+    return false;
   };
-  const removeOldest = (count: number) => {
-    const ids = oldestRemovable(shelf, count);
+  return { confirming, confirmed, disarm: () => setConfirming(null) };
+}
+
+/** What the replay screen does with the replays and with a chosen file. */
+function useReplayActions(p: Props, setMessage: (message: Message) => void) {
+  const { shelf, hills, originalHills, onPlay, onChangeShelf } = p;
+  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  const confirm = useConfirm();
+  const preferShare = useMediaQuery(TOUCH_QUERY);
+  const fail = (text: string) => setMessage({ text, error: true });
+  const remove = (ids: ReadonlySet<string>) => {
     onChangeShelf((current) => withoutEntries(current, ids));
-    setMessage({ text: T.removed(ids.size), error: false });
+    setSelected((current) => new Set([...current].filter((id) => !ids.has(id))));
   };
-  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
+  const chosen = shelf.filter((e) => selected.has(e.id));
+  return {
+    selected,
+    chosen,
+    confirming: confirm.confirming,
+    toggle: (entry: ShelfEntry) =>
+      setSelected((current) => {
+        const next = new Set(current);
+        if (!next.delete(entry.id)) next.add(entry.id);
+        return next;
+      }),
+    selectAll: () => setSelected(new Set(shelf.map((e) => e.id))),
+    watch: (entry: ShelfEntry) => {
+      const hill = hills.find((h) => h.id === entry.hill.id);
+      if (!hill) return fail(T.hillMissing);
+      const source = sourceOfEntry(entry);
+      if (!source || !entryPlaysTrue(entry, source, hill)) return fail(T.notTrue);
+      // Opened here, the replay leads back here.
+      return onPlay(hill, { ...source, origin: "original" });
+    },
+    keep: (entry: ShelfEntry) => {
+      confirm.disarm();
+      const copy = { ...entry, id: `kept:${entry.id}` };
+      const outcome = withKept(shelf, copy);
+      if (outcome.refused !== null) return fail(T[outcome.refused]);
+      onChangeShelf((current) => withKept(current, copy).shelf);
+      return setMessage({ text: T.keptDone, error: false });
+    },
+    removeOne: (entry: ShelfEntry) => {
+      if (!confirm.confirmed(entry.id)) return setMessage({ text: T.removeArmed, error: false });
+      setMessage(null);
+      return remove(new Set([entry.id]));
+    },
+    removeSelected: () => {
+      if (!confirm.confirmed(SELECTED)) return setMessage({ text: T.removeArmed, error: false });
+      setMessage(null);
+      return remove(new Set(chosen.map((e) => e.id)));
+    },
+    removeOldest: (count: number) => {
+      const ids = oldestRemovable(shelf, count);
+      remove(ids);
+      setMessage({ text: T.removed(ids.size), error: false });
+    },
+    exportSelected: async () => {
+      const now = new Date();
+      const file = new File([replayFileText(chosen, now)], replayFileName(now), { type: "application/json" });
+      const outcome = await handOverFile(file, T.exportTitle, preferShare);
+      setMessage(outcome === "cancelled" ? null : { text: T.exported[outcome], error: false });
+    },
+    readFile: async (file: File) => {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const replays = readReplayFile(new TextDecoder().decode(bytes));
+      if (replays) {
+        const outcome = importedShelf(shelf, replays.entries, new Date());
+        onChangeShelf((current) => importedShelf(current, replays.entries, new Date()).shelf);
+        const lines = [T.imported(outcome.added, outcome.alreadyKept)];
+        if (replays.unreadable > 0) lines.push(T.importUnreadable(replays.unreadable));
+        if (outcome.refused !== null) lines.push(T[outcome.refused]);
+        return setMessage({ text: lines.join(" "), error: outcome.refused !== null || replays.unreadable > 0 });
+      }
+      const original = originalReplayOutcome(bytes, originalHills);
+      if (!original.ok) return fail(original.message === T.notReplay ? T.notReplayFile : original.message);
+      const entry = originalEntry(original.hill, bytes, original.source, new Date());
+      if (entry) onChangeShelf((current) => withKept(current, entry).shelf);
+      return onPlay(original.hill, original.source);
+    },
+  };
+}
+
+/** The replays: hill records, kept and last jumps, to watch, keep, export or remove; and files to read. */
+export function ReplaysScreen(props: Props) {
+  const { shelf, originalHills, storeName, onBack, focusOnEntry } = props;
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEntryFocus(headingRef, focusOnEntry);
+  const [message, setMessage] = useState<Message>(null);
+  const a = useReplayActions(props, setMessage);
+  const onFile = (e: ChangeEvent<HTMLInputElement>) => {
     const input = e.currentTarget;
     const file = input.files?.[0];
-    if (!file) return;
-    const outcome = originalReplayOutcome(new Uint8Array(await file.arrayBuffer()), originalHills);
     // The same file chosen again must still raise a change.
     input.value = "";
-    if (outcome.ok) onPlay(outcome.hill, outcome.source);
-    else setMessage({ text: outcome.message, error: true });
+    if (file) void a.readFile(file);
   };
-  const kept = shelf.filter((e) => e.kind === "kept");
 
   return (
     <main className="screen">
@@ -171,31 +191,42 @@ export function ReplaysScreen(props: Props) {
       </h1>
       <p className="note">{T.intro}</p>
       {shelf.length === 0 && <p className="note">{T.empty}</p>}
-      {GROUPS.map((kind) => {
-        const entries = shelf.filter((e) => e.kind === kind).toReversed();
-        if (entries.length === 0) return null;
-        return (
-          <section key={kind} className="replay-group" aria-label={T.groups[kind]}>
-            <h2 className="hill-section-title">{T.groups[kind]}</h2>
-            <ul className="replay-list">
-              {entries.map((entry) => (
-                <ReplayRow
-                  key={entry.id}
-                  entry={entry}
-                  confirming={confirming === entry.id}
-                  onWatch={() => watch(entry)}
-                  onKeep={kind === "kept" || kept.some((k) => sameReplay(k, entry)) ? null : () => keep(entry)}
-                  onRemove={() => remove(entry)}
-                />
-              ))}
-            </ul>
-          </section>
-        );
-      })}
+      <ReplayList
+        shelf={shelf}
+        selected={a.selected}
+        confirming={a.confirming}
+        onToggle={a.toggle}
+        onWatch={a.watch}
+        onKeep={a.keep}
+        onRemove={a.removeOne}
+      />
+      {shelf.length > 0 && (
+        <div className="replay-row-actions">
+          <button type="button" className="pixel-button small-button" onClick={a.selectAll}>
+            {T.selectAll}
+          </button>
+          <button
+            type="button"
+            className="pixel-button small-button"
+            aria-disabled={a.chosen.length === 0}
+            onClick={a.chosen.length === 0 ? undefined : () => void a.exportSelected()}
+          >
+            {T.exportSelected(a.chosen.length)}
+          </button>
+          <button
+            type="button"
+            className="pixel-button small-button"
+            aria-disabled={a.chosen.length === 0}
+            onClick={a.chosen.length === 0 ? undefined : a.removeSelected}
+          >
+            {a.confirming === SELECTED ? T.confirmRemoveSelected(a.chosen.length) : T.removeSelected(a.chosen.length)}
+          </button>
+        </div>
+      )}
       {shelf.length > 0 && (
         <>
           <p className="note">{T.usage(shelf.length, kb(shelfBytes(shelf)), kb(REPLAY_LIMITS.BUDGET_BYTES))}</p>
-          <RemoveOldest onRemove={removeOldest} />
+          <RemoveOldest onRemove={a.removeOldest} />
         </>
       )}
       {originalHills.length === 0 && <p className="note">{T.needsGame}</p>}
@@ -203,7 +234,7 @@ export function ReplaysScreen(props: Props) {
         <label className="pixel-button file-label">
           {T.load}
           {/* No accept filter: a phone may not know .rpl and grey such files out. The file is checked instead. */}
-          <input type="file" onChange={(e) => void onFile(e)} />
+          <input type="file" onChange={onFile} />
         </label>
         <button type="button" className="pixel-button" onClick={onBack}>
           {UI_TEXT.back}

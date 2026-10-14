@@ -74,3 +74,34 @@ test("the settings keep the last jumps and switch the clean-up on", async ({ pag
   await expect(recent).toHaveText("Zapisuj ostatnie skoki: 5");
   await expect(age).toBeChecked();
 });
+
+test("replays go out to a file and come back from it, each once", async ({ page, traits }) => {
+  await openJumpFromStart(page, traits);
+  const landed = (await playUntilLanded(page, traits)).at(-1);
+  expect(landed?.kind).toBe("landed");
+  await openReplays(page, traits);
+  await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);
+
+  await press(button(page, "Zaznacz wszystkie"), traits);
+  const exported = page.waitForEvent("download");
+  await press(button(page, "Eksportuj zaznaczone (1)"), traits);
+  const download = await exported;
+  expect(download.suggestedFilename()).toMatch(/^telemark-powtorki-\d{4}-\d{2}-\d{2}\.json$/);
+  const path = await download.path();
+
+  // Read back beside the record, the jump is kept; a second time it is there already.
+  const chooser = page.locator('input[type="file"]');
+  await chooser.setInputFiles(path);
+  await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 1.");
+  await expect(replayRows(page, "Zachowane")).toHaveCount(1);
+  await chooser.setInputFiles(path);
+  await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 0; już zachowanych: 1.");
+
+  // The selected ones go after a second press.
+  await press(button(page, "Zaznacz wszystkie"), traits);
+  const removeSelected = button(page, /^(Usuń zaznaczone|Na pewno usunąć) /);
+  await press(removeSelected, traits);
+  await expect(removeSelected).toHaveText("Na pewno usunąć 2?");
+  await press(removeSelected, traits);
+  await expect(page.getByText("Nie ma jeszcze zapisanych powtórek.")).toBeVisible();
+});

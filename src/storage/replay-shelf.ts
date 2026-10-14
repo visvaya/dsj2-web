@@ -163,7 +163,7 @@ function asReplay(v: unknown): ShelfReplay | null {
 }
 
 /** One stored entry, checked field by field: the shelf comes from storage or from a file of another device. */
-function asShelfEntry(v: unknown): ShelfEntry | null {
+export function asShelfEntry(v: unknown): ShelfEntry | null {
   const [id, kind, dateIso, newRecord, engineRevision] = ["id", "kind", "dateIso", "newRecord", "engineRevision"].map(
     (key) => field(v, key),
   );
