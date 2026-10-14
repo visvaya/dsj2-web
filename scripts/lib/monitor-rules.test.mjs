@@ -92,6 +92,8 @@ test("the report names what was measured and leaves out what was not", () => {
     "  - one",
     "  - two",
   ]);
+  const single = monitorSummary({ origin: "https://game.example", daysLeft: 1, problems: ["one"] });
+  assert.deepEqual(single.slice(3), ["- Certificate: 1 day left", "- Result: 1 problem", "  - one"]);
 });
 
 test("the limits are positive numbers", () => {
