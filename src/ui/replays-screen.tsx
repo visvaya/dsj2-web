@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { HillChoice } from "../game/hill-choice";
-import { readReplayFile, replayFileName, replayFileText } from "../storage/replay-file";
+import { REPLAY_FILE_MAX_BYTES, readReplayFile, replayFileName, replayFileText } from "../storage/replay-file";
 import {
   REPLAY_LIMITS,
   oldestRemovable,
@@ -150,6 +150,8 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       setMessage(outcome === "cancelled" ? null : { text: T.exported[outcome], error: false });
     },
     readFile: async (file: File) => {
+      // Nothing larger than a full shelf is read at all: it is not a file of this game.
+      if (file.size > REPLAY_FILE_MAX_BYTES) return fail(T.notReplayFile);
       const bytes = new Uint8Array(await file.arrayBuffer());
       const replays = readReplayFile(new TextDecoder().decode(bytes));
       if (replays) {

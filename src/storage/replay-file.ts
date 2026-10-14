@@ -8,7 +8,7 @@ import { asShelfEntry, type ShelfEntry } from "./replay-shelf";
 const REPLAY_FILE_FORMAT = "telemark-replays";
 const REPLAY_FILE_VERSION = 1;
 /** Larger than any file of replays the shelf could fill (its budget is 5 MB); anything larger is not one. */
-const REPLAY_FILE_MAX_BYTES = 6_000_000;
+export const REPLAY_FILE_MAX_BYTES = 6_000_000;
 
 /** The text of a file of these replays. */
 export function replayFileText(entries: readonly ShelfEntry[], now: Date): string {
