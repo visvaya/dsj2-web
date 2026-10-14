@@ -96,6 +96,8 @@ and for duplicates (`pnpm check:duplicates`), verifies the formatting (`pnpm for
 (`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), runs the built game in Chromium,
 Firefox and WebKit on desktop, phone and tablet profiles (`pnpm test:browser`), and adds a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
 dashes and emoji. On `master`, the same run can then publish the package it has just tested (`docs/deployment.md`).
+`git blame` skips the commit that formatted the whole tree after
+`git config blame.ignoreRevsFile .git-blame-ignore-revs` (GitHub does so by itself).
 Security reports: see `SECURITY.md`.
 
 ## Legal

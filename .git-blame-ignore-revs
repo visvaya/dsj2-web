@@ -1,0 +1,5 @@
+# Commits that only reformat the sources, so that a line is blamed on the change that wrote it. GitHub reads this
+# file by itself; locally: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# chore: add oxfmt and format the sources (#10)
+03690c7b257d4d3ed4fb4d090c1d982ed970287b
