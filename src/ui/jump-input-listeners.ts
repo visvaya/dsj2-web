@@ -39,6 +39,9 @@ export function watchPointerLock(canvas: HTMLCanvasElement, input: PlayerInput, 
   };
 }
 
+/** What the listeners need of the picture: its events, and the capture of the mouse. */
+type PictureTarget = Pick<HTMLCanvasElement, "addEventListener" | "removeEventListener" | "requestPointerLock">;
+
 interface InputHandlers {
   /** Whether the menu is open: the mouse then does not lean, and keys other than Escape belong to the menu. */
   paused: () => boolean;
@@ -80,11 +83,7 @@ function applyKey(input: PlayerInput, code: string, down: boolean, handlers: Inp
 const onContextMenu = (e: Event) => e.preventDefault();
 
 /** Feeds the mouse and the keyboard into `input` while the jump screen is up; returns what stops it. */
-export function listenToPlayerInput(
-  canvas: HTMLCanvasElement,
-  input: PlayerInput,
-  handlers: InputHandlers,
-): () => void {
+export function listenToPlayerInput(canvas: PictureTarget, input: PlayerInput, handlers: InputHandlers): () => void {
   const onPointerDown = (e: PointerEvent) => {
     if (handlers.replaying()) {
       e.preventDefault();

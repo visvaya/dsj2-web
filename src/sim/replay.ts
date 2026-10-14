@@ -78,7 +78,8 @@ export function parseReplayRecord(header: Uint8Array, record: Uint8Array): Repla
   const f = (o: number) => v.getFloat32(o, true);
   const i32 = (o: number) => v.getInt32(o, true);
   return {
-    versionTag: pascalString(header, 0),
+    // The header is the 13 characters themselves, with no length byte before them (docs/replay-format.md).
+    versionTag: String.fromCharCode(...header.subarray(0, REPLAY_HEADER_BYTES)),
     wind: {
       xMPerS: f(0x00),
       yMPerS: f(0x04),
