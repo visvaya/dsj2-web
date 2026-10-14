@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ORIGINAL_HILL_COUNTRY } from "../game/hill-choice";
 import type { FlagPixels } from "./flags";
-import { COUNTRY_CODES, COUNTRY_NAME_PL, FLAG_HEIGHT_PX, FLAG_WIDTH_PX, flagPixels, unknownFlagPixels } from "./flags";
+import { COUNTRY_CODES, FLAG_HEIGHT_PX, FLAG_WIDTH_PX, flagPixels, unknownFlagPixels } from "./flags";
+import { UI_TEXT } from "../text/ui-text";
 import { fnv } from "./test-support/frame-hash";
 
 /** FNV-1a over the colours of every pixel, row by row. */
@@ -40,7 +41,7 @@ describe("flags", () => {
   it("gives every flag a different picture and a Polish name", () => {
     const pictures = new Set(COUNTRY_CODES.map((code) => flagPixels(code).flat().join()));
     expect(pictures.size).toBe(COUNTRY_CODES.length);
-    for (const code of COUNTRY_CODES) expect(COUNTRY_NAME_PL[code].length).toBeGreaterThan(0);
+    for (const code of COUNTRY_CODES) expect(UI_TEXT.flags.countryName[code].length).toBeGreaterThan(0);
   });
 
   it("knows the country of every original hill", () => {

@@ -8,6 +8,7 @@ import {
   withSensitivity,
 } from "../game/sensitivity";
 import type { SceneryChoice, Settings } from "../storage/save-data";
+import { UI_TEXT } from "../text/ui-text";
 import type { Steering } from "./how-to-jump-text";
 import { useMediaQuery } from "./use-media-query";
 
@@ -17,17 +18,7 @@ const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = {
   dusk: "night",
   night: "varied",
 };
-const SCENERY_LABEL: Readonly<Record<SceneryChoice, string>> = {
-  varied: "zmienna",
-  day: "dzień",
-  dusk: "zmierzch",
-  night: "noc",
-};
-
-/** Said when the browser does not hand out the motion sensor that tilt steering needs. */
-export const TILT_REFUSED = "Brak zgody na czujnik ruchu: pochylanie palcem.";
-/** Said when the page is asked to leave a full screen that the browser, not the page, switched on. */
-const BROWSER_FULLSCREEN_NOTE = "Ten pełny ekran włączyła przeglądarka. Wyłączysz go klawiszem F11.";
+const T = UI_TEXT.settings;
 /** The display mode a browser reports for its own full screen (F11) as well as for the page's. */
 const FULLSCREEN_QUERY = "(display-mode: fullscreen)";
 
@@ -77,26 +68,27 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
     <>
       {touch && (
         <button type="button" className="pixel-button" aria-pressed={tiltOn} onClick={onToggleTilt}>
-          {tiltOn ? "Pochylanie: przechył" : "Pochylanie: palec"}
+          {tiltOn ? T.leanTilt : T.leanFinger}
         </button>
       )}
-      <div className="stepper" role="group" aria-label="Czułość sterowania">
+      <div className="stepper" role="group" aria-label={T.sensitivityGroup}>
         <button
           type="button"
           className="pixel-button"
-          aria-label="Mniejsza czułość"
+          aria-label={T.sensitivityDown}
           aria-disabled={sensitivity <= SENSITIVITY_MIN}
           onClick={() => changeSensitivity(-1)}
         >
           -
         </button>
         <span className="stepper-value" role="status">
-          Czułość: {sensitivity}
+          {T.sensitivity}
+          {sensitivity}
         </span>
         <button
           type="button"
           className="pixel-button"
-          aria-label="Większa czułość"
+          aria-label={T.sensitivityUp}
           aria-disabled={sensitivity >= SENSITIVITY_MAX}
           onClick={() => changeSensitivity(1)}
         >
@@ -108,7 +100,8 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
         className="pixel-button"
         onClick={() => onSettings({ scenery: NEXT_SCENERY[settings.scenery] })}
       >
-        Sceneria: {SCENERY_LABEL[settings.scenery]}
+        {T.scenery}
+        {T.sceneryName[settings.scenery]}
       </button>
       <button
         type="button"
@@ -116,7 +109,7 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
         aria-pressed={settings.sound}
         onClick={() => onSettings({ sound: !settings.sound })}
       >
-        {settings.sound ? "Dźwięk: wł." : "Dźwięk: wył."}
+        {settings.sound ? T.soundOn : T.soundOff}
       </button>
       <button
         type="button"
@@ -124,16 +117,16 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
         aria-pressed={settings.hillHints}
         onClick={() => onSettings({ hillHints: !settings.hillHints })}
       >
-        {settings.hillHints ? "Podpowiedzi na skoczni: wł." : "Podpowiedzi na skoczni: wył."}
+        {settings.hillHints ? T.hintsOn : T.hintsOff}
       </button>
       {document.fullscreenEnabled && (
         <button type="button" className="pixel-button" aria-pressed={fullscreen.on} onClick={toggleFullscreen}>
-          {fullscreen.on ? "Pełny ekran: wł." : "Pełny ekran: wył."}
+          {fullscreen.on ? T.fullscreenOn : T.fullscreenOff}
         </button>
       )}
       {fullscreenNote && fullscreen.on && (
         <p className="note" role="status">
-          {BROWSER_FULLSCREEN_NOTE}
+          {T.browserFullscreen}
         </p>
       )}
       {touch && canVibrate() && (
@@ -143,7 +136,7 @@ export function SettingsControls({ settings, onSettings, controls, touch, tiltOn
           aria-pressed={settings.vibration}
           onClick={() => onSettings({ vibration: !settings.vibration })}
         >
-          {settings.vibration ? "Wibracje: wł." : "Wibracje: wył."}
+          {settings.vibration ? T.vibrationOn : T.vibrationOff}
         </button>
       )}
     </>

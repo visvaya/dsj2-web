@@ -1,11 +1,5 @@
-import {
-  FLAG_HEIGHT_PX,
-  FLAG_WIDTH_PX,
-  COUNTRY_NAME_PL,
-  flagPixels,
-  unknownFlagPixels,
-  type CountryCode,
-} from "../render/flags";
+import { FLAG_HEIGHT_PX, FLAG_WIDTH_PX, flagPixels, unknownFlagPixels, type CountryCode } from "../render/flags";
+import { UI_TEXT } from "../text/ui-text";
 
 /** CSS pixels per flag pixel. */
 const FLAG_SCALE = 2;
@@ -33,7 +27,7 @@ export function FlagIcon({ country }: { country: CountryCode | null }) {
       height={height}
       shapeRendering="crispEdges"
       role="img"
-      aria-label={country === null ? "Kraj nieznany" : COUNTRY_NAME_PL[country]}
+      aria-label={country === null ? UI_TEXT.flags.unknownCountry : UI_TEXT.flags.countryName[country]}
     >
       {runs.map((r) => (
         <rect key={`${r.x}-${r.y}`} x={r.x} y={r.y} width={r.w} height={1} fill={r.c} />

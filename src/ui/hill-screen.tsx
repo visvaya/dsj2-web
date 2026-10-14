@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import type { HillRecord } from "../storage/save-data";
+import { UI_TEXT } from "../text/ui-text";
 import { FlagIcon } from "./flag-icon";
 import { useEntryFocus } from "./use-entry-focus";
 
@@ -26,8 +27,10 @@ function HillList({ title, hills, records, onPick }: Pick<Props, "hills" | "reco
               <button type="button" className="hill-item" onClick={() => onPick(h)}>
                 <FlagIcon country={h.country} />
                 <span className="hill-item-name">{h.name}</span>
-                <span className="hill-item-k">K{h.kPointM}</span>
-                {record ? <span className="hill-item-record">rekord {record.distanceM.toFixed(2)} m</span> : null}
+                <span className="hill-item-k">{UI_TEXT.hills.kPoint(h.kPointM)}</span>
+                {record ? (
+                  <span className="hill-item-record">{UI_TEXT.hills.record(record.distanceM.toFixed(2))}</span>
+                ) : null}
               </button>
             </li>
           );
@@ -42,13 +45,13 @@ export function HillLists({ hills, records, onPick }: Pick<Props, "hills" | "rec
   return (
     <>
       <HillList
-        title="Skocznie własne"
+        title={UI_TEXT.hills.own}
         hills={hills.filter((h) => h.source === "own")}
         records={records}
         onPick={onPick}
       />
       <HillList
-        title="Skocznie z oryginału"
+        title={UI_TEXT.hills.original}
         hills={hills.filter((h) => h.source === "original")}
         records={records}
         onPick={onPick}
@@ -57,22 +60,19 @@ export function HillLists({ hills, records, onPick }: Pick<Props, "hills" | "rec
   );
 }
 
-/** The title of the list, on its screen and where the list is shown over a jump. */
-export const HILL_LIST_TITLE = "Wybierz skocznię do treningu";
-
 export function HillScreen({ hills, records, onPick, onBack, focusOnEntry }: Props) {
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEntryFocus(headingRef, focusOnEntry);
   return (
     <main className="screen">
       <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
-        {HILL_LIST_TITLE}
+        {UI_TEXT.hills.title}
       </h1>
       <hr className="rule" />
       <HillLists hills={hills} records={records} onPick={onPick} />
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
-          Wstecz
+          {UI_TEXT.back}
         </button>
       </div>
     </main>

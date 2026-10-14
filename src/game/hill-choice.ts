@@ -1,7 +1,8 @@
 import type { HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { OriginalHill } from "../original/original-hills";
-import { COUNTRY_NAME_PL, type CountryCode } from "../render/flags";
+import type { CountryCode } from "../render/flags";
+import { UI_TEXT } from "../text/ui-text";
 
 /** A hill the player can pick, from this project or from the player's original files. */
 export interface HillChoice {
@@ -66,7 +67,7 @@ const POLISH_HILL_NAMES: readonly string[] = ["Zakopane 1", "Zakopane 2", "Karpa
  */
 export function fallbackHillName(number: number): string {
   const country = ORIGINAL_HILL_COUNTRY[number - 1];
-  if (number <= 32 && country !== undefined) return COUNTRY_NAME_PL[country];
+  if (number <= 32 && country !== undefined) return UI_TEXT.flags.countryName[country];
   return POLISH_HILL_NAMES[number - 33] ?? `Skocznia ${number}`;
 }
 
