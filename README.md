@@ -50,6 +50,7 @@ pnpm test:browser   # the same in Chromium, Firefox and WebKit, as in CI; needs 
 pnpm test:scripts   # tests of the build, release and deployment scripts
 pnpm build          # production build in dist/, with the service worker and the release record
 pnpm check:dist     # dist/ holds exactly the build's files, within the size budgets
+node scripts/check-doc-links.mjs  # relative links and backticked repository paths in the Markdown files exist
 node scripts/serve-dist.mjs  # the build at http://127.0.0.1:4317, served the way the host serves it
 pnpm build:single   # the build packed into one HTML file, in dist-single/
 ```
@@ -90,7 +91,8 @@ The notes in `docs` are mostly in Polish.
 
 `master` changes only through pull requests merged by squash; the pull request title follows Conventional Commits
 and becomes the commit. CI runs the checks above, including the search for unused code (`pnpm check:unused`)
-and for duplicates (`pnpm check:duplicates`), verifies the formatting (`pnpm format:check`), tests the build scripts
+and for duplicates (`pnpm check:duplicates`), verifies the formatting (`pnpm format:check`) and the links and paths in the documentation
+(`node scripts/check-doc-links.mjs`), tests the build scripts
 (`pnpm test:scripts`), checks the build output for foreign files and bundle size (`pnpm check:dist`), runs the built game in Chromium,
 Firefox and WebKit on desktop, phone and tablet profiles (`pnpm test:browser`), and adds a dependency audit, a secret scan, an audit of its own workflows (actionlint, zizmor) and a check for em
 dashes and emoji. On `master`, the same run can then publish the package it has just tested (`docs/deployment.md`).
