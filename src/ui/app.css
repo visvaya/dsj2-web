@@ -143,6 +143,12 @@ h2 {
   cursor: default;
 }
 
+/* An unavailable button keeps its muted colour with the focus, so the focus shows as the border, also in the
+   menu of the jump screen, whose buttons have a border of their own. */
+.pixel-button[aria-disabled="true"]:focus-visible {
+  border-color: var(--accent);
+}
+
 /* A heading or the picture holds the focus right after its screen opens. */
 .title:focus-visible,
 .screen-title:focus-visible,
@@ -500,6 +506,11 @@ h2 {
   width: auto;
   padding: 0 10px;
   font-size: 14px;
+}
+
+/* During a replay the zones keep their place but are not there for the fingers. */
+.touch-pad-idle {
+  visibility: hidden;
 }
 
 .pause-button:focus-visible {

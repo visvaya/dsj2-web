@@ -68,6 +68,8 @@ function phaseLabel(s: JumpSimState): string {
  */
 interface Prompts {
   nextJump: string;
+  /** What pauses a replay, and how to reach the menu. */
+  replay: string;
   start: string;
   takeoff: string;
   lean: string;
@@ -80,10 +82,17 @@ interface Prompts {
 const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = UI_TEXT.hud.prompts;
 
 export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly string[] {
+  const text = PROMPTS[m.controls];
+  if (m.replay) {
+    // The replay is always named, so it is not taken for a jump; once it is over a press starts a new jump.
+    const { speedLabel, paused } = m.replay;
+    const title = paused ? UI_TEXT.hud.replayPaused(speedLabel) : UI_TEXT.hud.replay(speedLabel);
+    if (m.hints === false) return [title];
+    return [title, nextJumpAllowed ? text.nextJump : text.replay];
+  }
   // A player who knows the game can switch every prompt on the hill off.
   if (m.hints === false) return [];
   const phase = m.state.logic.phase;
-  const text = PROMPTS[m.controls];
   // The next jump can start as soon as the notes are up; the jumper may still be sliding out.
   if (nextJumpAllowed) return [text.nextJump];
   if (phase === PHASE.gate) return [text.start];

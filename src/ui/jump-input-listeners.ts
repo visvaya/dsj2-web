@@ -46,6 +46,10 @@ interface InputHandlers {
   mouseGain: () => number;
   /** The R key: the jump starts again. */
   restart: () => void;
+  /** Whether a replay plays: a press of the picture then belongs to it, and the mouse is not captured. */
+  replaying: () => boolean;
+  /** A click or a touch of the picture during a replay. */
+  replayPress: () => void;
   /** The Escape key: frees the mouse and opens the menu, or closes it. */
   escape: () => void;
 }
@@ -82,6 +86,11 @@ export function listenToPlayerInput(
   handlers: InputHandlers,
 ): () => void {
   const onPointerDown = (e: PointerEvent) => {
+    if (handlers.replaying()) {
+      e.preventDefault();
+      handlers.replayPress();
+      return;
+    }
     if (e.pointerType !== "mouse") return;
     e.preventDefault();
     if (document.pointerLockElement !== canvas) requestMouseCapture(canvas);
@@ -92,7 +101,7 @@ export function listenToPlayerInput(
   };
   // A second button pressed or released while one is held arrives as a move, so moves carry the buttons too.
   const onPointerMove = (e: PointerEvent) => {
-    if (e.pointerType !== "mouse" || handlers.paused()) return;
+    if (e.pointerType !== "mouse" || handlers.paused() || handlers.replaying()) return;
     input.setButtons("mouse", mouseButtons(e.buttons));
     input.addMotion(e.movementY * handlers.mouseGain());
   };
@@ -113,6 +122,8 @@ export function listenToPlayerInput(
       if (down) handlers.escape();
       return;
     }
+    // A replay takes no hands: only R (the replay from its start) and a key let go still count.
+    if (handlers.replaying() && down && e.code !== "KeyR") return;
     if (applyKey(input, e.code, down, handlers)) e.preventDefault();
   };
   const onKeyDown = (e: KeyboardEvent) => onKey(e, true);

@@ -1,7 +1,7 @@
 import { soundEvents, type SoundEvent } from "../audio/sound-mix";
 import { feedbackEvents, type FeedbackEvent } from "../game/haptics";
-import { stepTrainingJump, type TrainingJump } from "../game/training-session";
-import type { FrameInput } from "../sim/jump-logic";
+import { isJumpOver, stepTrainingJump, type TrainingJump } from "../game/training-session";
+import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
 import { beatsRecord, type HillRecord } from "../storage/save-data";
 
 export interface JumpResult {
@@ -18,6 +18,8 @@ export interface JumpSteps {
   /** Whether the left button was down before the frames or in any of them: a click shorter than a frame counts. */
   leftDown: boolean;
   cues: readonly JumpCue[];
+  /** The inputs of the frames the simulation ran, in order: with the seed they make the jump again. */
+  taken: readonly FrameInput[];
   /**
    * Set when one of the frames was the touchdown, where the jump is scored. Whether it fell is settled in the
    * same frame and never changes after, so the verdict on the record holds from here on.
@@ -35,21 +37,24 @@ interface StepRequest {
 
 /**
  * The jump `steps` simulation frames later, with what happened on the way. `takeFrame` gives the input of each
- * frame, from the phase the jump is in before it: the player's hands, or a recording of them.
+ * frame, from the state the jump's logic is in before it: the player's hands, or a recording of them.
  */
 export function stepJump(
   start: TrainingJump,
   { steps, leftHeld, record }: StepRequest,
-  takeFrame: (phase: number) => FrameInput,
+  takeFrame: (logic: JumpLogicState) => FrameInput,
 ): JumpSteps {
   let jump = start;
   let leftDown = leftHeld;
   let touchdown: JumpSteps["touchdown"] = null;
   const cues: JumpCue[] = [];
+  const taken: FrameInput[] = [];
   for (let i = 0; i < steps; i++) {
     const prev = jump.state;
-    const input = takeFrame(prev.logic.phase);
+    const input = takeFrame(prev.logic);
     leftDown ||= input.left;
+    // Once the jumper stands still the simulation takes no more input.
+    if (!isJumpOver(jump)) taken.push(input);
     jump = stepTrainingJump(jump, input);
     for (const event of feedbackEvents(prev, jump.state)) cues.push({ kind: "feedback", event });
     if (!prev.logic.finished && jump.state.logic.finished) {
@@ -58,7 +63,7 @@ export function stepJump(
     }
     for (const event of soundEvents(prev, jump.state)) cues.push({ kind: "sound", event });
   }
-  return { jump, leftDown, cues, touchdown };
+  return { jump, leftDown, cues, taken, touchdown };
 }
 
 /** The result of a jump that is over, as the hill records keep it. */

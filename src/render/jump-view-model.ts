@@ -43,4 +43,6 @@ export interface JumpViewModel {
   outfit?: Outfit;
   /** Accumulated drift of the displayed wind, in metres, for the falling snow. */
   windDriftM?: { x: number; y: number };
+  /** Set while a recorded jump is played again: its tempo as text, and whether it is paused. */
+  replay?: { speedLabel: string; paused: boolean };
 }

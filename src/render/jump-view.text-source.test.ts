@@ -80,7 +80,12 @@ const botPlayer =
 /** Nobody presses start: the countdown runs out and the jump is disqualified. */
 const idlePlayer: Player = () => () => ({ left: false, right: false, dy: 0 });
 
-function drawJump(controls: ControlScheme, seed: number, player: Player): void {
+function drawJump(
+  controls: ControlScheme,
+  seed: number,
+  player: Player,
+  replay?: { speedLabel: string; paused: boolean },
+): void {
   if (!hill) throw new Error("no hill");
   let jump = startTrainingJump(hill, seed);
   const input = player(() => jump.state);
@@ -101,6 +106,7 @@ function drawJump(controls: ControlScheme, seed: number, player: Player): void {
       over: isJumpOver(jump),
       recordM: 80,
       newRecord: true,
+      ...(replay === undefined ? {} : { replay }),
     };
     const { logic } = jump.state;
     const shown = [
@@ -122,12 +128,26 @@ describe("texts in the picture of the jump", { timeout: TIMEOUT_MS }, () => {
     // No landing press: a fall.
     drawJump("mouse", 11, botPlayer(null));
     drawJump("mouse", 5, idlePlayer);
+    // A replay, playing and paused, in each way of playing.
+    for (const controls of ["mouse", "touch", "tilt"] as const) {
+      drawJump(controls, 7, botPlayer(2.5), { speedLabel: "1/2", paused: false });
+    }
+    drawJump("mouse", 7, botPlayer(2.5), { speedLabel: "1/4", paused: true });
 
     const typedIn = [...drawn].filter((text) => !FROM_MODULE.test(text) && !NUMBER.test(text));
     expect(typedIn).toEqual([]);
     // The run reached the texts of every part of a jump, so an empty list means something.
-    const { phase, prompts, newRecord, disqualified, playerName } = UI_TEXT.hud;
-    const reached = [phase.gate, phase.inrun, phase.takeoff, phase.flight, phase.landing, newRecord, disqualified];
+    const { phase, prompts, newRecord, disqualified, playerName, replay, replayPaused } = UI_TEXT.hud;
+    const reached: string[] = [
+      phase.gate,
+      phase.inrun,
+      phase.takeoff,
+      phase.flight,
+      phase.landing,
+      newRecord,
+      disqualified,
+    ];
+    reached.push(replay("1/2"), replayPaused("1/4"));
     for (const text of [...reached, playerName, ...Object.values(prompts).flatMap((scheme) => Object.values(scheme))]) {
       expect(drawn).toContain(text);
     }
