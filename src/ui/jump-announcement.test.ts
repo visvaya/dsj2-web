@@ -25,6 +25,11 @@ describe("jump announcements", () => {
     expect(touchdownAnnouncement(clean)).toBe("Lądowanie: 67,38 metra.");
   });
 
+  it("announces a new hill record together with the distance", () => {
+    expect(touchdownAnnouncement(clean, true)).toBe("Lądowanie: 67,38 metra. Nowy rekord skoczni.");
+    expect(touchdownAnnouncement(clean, false)).toBe("Lądowanie: 67,38 metra.");
+  });
+
   it("announces a fall with its distance", () => {
     expect(touchdownAnnouncement({ distanceM: 67.31, fallType: 4 })).toBe("Upadek: 67,31 metra.");
   });

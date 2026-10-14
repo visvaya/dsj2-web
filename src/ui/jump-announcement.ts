@@ -18,6 +18,8 @@ const NEXT_JUMP = {
   tilt: "Dotknięcie ekranu: jeszcze raz.",
 } as const;
 
+const RECORD = "Nowy rekord skoczni.";
+
 /** A number as Polish text writes it, with a decimal comma. */
 export function formatDecimal(value: number, digits: number): string {
   return value.toFixed(digits).replace(".", ",");
@@ -30,9 +32,9 @@ function outcome(jump: Touchdown): string {
   return jump.fallType === 0 ? `Lądowanie: ${distance}` : `Upadek: ${distance}`;
 }
 
-/** Said in the frame the jump is scored, while the jumper is still moving. */
-export function touchdownAnnouncement(jump: Touchdown): string {
-  return `${outcome(jump)}.`;
+/** Said in the frame the jump is scored, while the jumper is still moving; a new record is known by then. */
+export function touchdownAnnouncement(jump: Touchdown, newRecord = false): string {
+  return newRecord ? `${outcome(jump)}. ${RECORD}` : `${outcome(jump)}.`;
 }
 
 /** Said once the jumper has stopped: the outcome again, the five notes, the points and how to jump again. */
@@ -42,7 +44,7 @@ export function resultAnnouncement(jump: ScoredJump, context: ResultContext): st
     `${outcome(jump)}.`,
     ...(jump.distanceM === 0 ? [] : [`Noty: ${notes}.`]),
     `Wynik: ${formatDecimal(jump.points, 1)} punktu.`,
-    ...(context.newRecord ? ["Nowy rekord skoczni."] : []),
+    ...(context.newRecord ? [RECORD] : []),
     NEXT_JUMP[context.controls],
   ];
   return parts.join(" ");

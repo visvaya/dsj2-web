@@ -122,7 +122,8 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   }
   // A disqualified jump (no takeoff) is never scored, so there are no notes to show.
   if (finished && s.logic.distanceM > 0) drawNotes(fb, s, m.frame);
-  if (m.newRecord === true && notesShown && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
+  // A new record blinks from the frame the distance appears in the bar.
+  if (m.newRecord === true && finished && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
     const text = "NOWY REKORD SKOCZNI!";
     drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, color("yellow"), color("black"));
   }
