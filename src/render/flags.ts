@@ -11,16 +11,6 @@ export type CountryCode =
   | "AT" | "AU" | "BE" | "BY" | "CA" | "CH" | "CN" | "CZ" | "DE" | "DK" | "EE" | "ENG" | "FI" | "FR" | "HU" | "IE"
   | "IS" | "IT" | "JP" | "KR" | "KZ" | "LT" | "LV" | "NL" | "NO" | "PL" | "RU" | "SE" | "SI" | "SK" | "UA" | "US";
 
-/** Country names in Polish, as the hill list reads them out. */
-// oxfmt-ignore
-export const COUNTRY_NAME_PL: Readonly<Record<CountryCode, string>> = {
-  AT: "Austria", AU: "Australia", BE: "Belgia", BY: "Białoruś", CA: "Kanada", CH: "Szwajcaria", CN: "Chiny",
-  CZ: "Czechy", DE: "Niemcy", DK: "Dania", EE: "Estonia", ENG: "Anglia", FI: "Finlandia", FR: "Francja",
-  HU: "Węgry", IE: "Irlandia", IS: "Islandia", IT: "Włochy", JP: "Japonia", KR: "Korea", KZ: "Kazachstan",
-  LT: "Litwa", LV: "Łotwa", NL: "Holandia", NO: "Norwegia", PL: "Polska", RU: "Rosja", SE: "Szwecja",
-  SI: "Słowenia", SK: "Słowacja", UA: "Ukraina", US: "USA",
-};
-
 /** One CSS colour per pixel, row by row. */
 export type FlagPixels = readonly (readonly string[])[];
 

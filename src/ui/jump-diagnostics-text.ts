@@ -1,4 +1,5 @@
 import type { FrameStats, Spread } from "../game/frame-meter";
+import { UI_TEXT } from "../text/ui-text";
 import { GAME_VERSION, versionLabel } from "../game/version";
 
 const MS_PER_S = 1000;
@@ -17,9 +18,9 @@ export function diagnosticsLines(stats: FrameStats, version: string = GAME_VERSI
   const medianMs = stats.intervalMs.median;
   const framesPerS = medianMs > 0 ? MS_PER_S / medianMs : 0;
   return [
-    `${number(framesPerS)} kl./s · ${versionLabel(version)}`,
-    `klatka ${spread(stats.intervalMs)} ms`,
-    `sym. ${spread(stats.simMs)} · rys. ${spread(stats.drawMs)} ms`,
-    `zgubione kroki ${number(stats.droppedSteps)} · długie klatki ${stats.longFrames}`,
+    UI_TEXT.diagnostics.rate(number(framesPerS), versionLabel(version)),
+    UI_TEXT.diagnostics.interval(spread(stats.intervalMs)),
+    UI_TEXT.diagnostics.cost(spread(stats.simMs), spread(stats.drawMs)),
+    UI_TEXT.diagnostics.losses(number(stats.droppedSteps), stats.longFrames),
   ];
 }

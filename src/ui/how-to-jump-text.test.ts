@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { howToJump, STEERING_NAME, type Steering } from "./how-to-jump-text";
+import { UI_TEXT } from "../text/ui-text";
+import { howToJump, type Steering } from "./how-to-jump-text";
 
 const ALL: readonly Steering[] = ["mouse", "touch", "tilt"];
 
@@ -17,7 +18,7 @@ describe("how to jump", () => {
       const steps = howToJump(steering);
       expect(steps.map((step) => step.title)).toEqual(titles);
       for (const step of steps) expect(step.text.length).toBeGreaterThan(20);
-      expect(STEERING_NAME[steering].length).toBeGreaterThan(0);
+      expect(UI_TEXT.howTo.steeringName[steering].length).toBeGreaterThan(0);
     }
   });
 

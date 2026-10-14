@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { TRACE_POINT, decodeHill, decodeKPoint, diffStates, readTrace } from "../sim/test-support/dsj-trace";
 import { hillGoldenFiles } from "../sim/test-support/golden-files";
 import { ORIGINAL_HILL_COUNTRY, fallbackHillName } from "../game/hill-choice";
-import { COUNTRY_NAME_PL } from "../render/flags";
+import { UI_TEXT } from "../text/ui-text";
 import { readOriginalHills } from "./original-hills";
 
 const golden = hillGoldenFiles();
@@ -39,7 +39,7 @@ describe.skipIf(!golden.requested)("hills read from the original executable", ()
     const names = load()
       .slice(0, 32)
       .map((h) => h.name);
-    expect(names).toEqual(ORIGINAL_HILL_COUNTRY.slice(0, 32).map((code) => COUNTRY_NAME_PL[code]));
+    expect(names).toEqual(ORIGINAL_HILL_COUNTRY.slice(0, 32).map((code) => UI_TEXT.flags.countryName[code]));
   });
 
   it.skipIf(noTexts)("names every hill as the built-in names do when Dsj.dat is missing", () => {

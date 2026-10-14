@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { OWN_HILLS } from "../game/hill-choice";
-import { OUTFIT_PARTS, type Outfit, type OutfitPart } from "../game/outfit";
+import { OUTFIT_PARTS, type Outfit } from "../game/outfit";
 import { previewFlightState } from "../game/outfit-preview";
 import { FrameBuffer } from "../render/frame-buffer";
 import { drawJumperPreview } from "../render/jump-view";
 import { OUTFIT_SWATCHES } from "../render/palette";
+import { UI_TEXT } from "../text/ui-text";
 import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
@@ -14,30 +15,6 @@ interface Props {
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
 }
-
-/** Part labels as in the original's editor. */
-const PART_LABEL: Readonly<Record<OutfitPart, string>> = {
-  pants: "Spodnie",
-  sleeves: "Rękawy",
-  gloves: "Rękawice",
-  helmet: "Kask",
-  skis: "Narty",
-};
-
-const SWATCH_NAMES: readonly string[] = [
-  "czarny",
-  "szary",
-  "oliwkowy",
-  "pomarańczowy",
-  "brązowy",
-  "czerwony",
-  "karmazynowy",
-  "purpurowy",
-  "fioletowy",
-  "niebieski",
-  "morski",
-  "zielony",
-];
 
 const PREVIEW_WIDTH_PX = 84;
 const PREVIEW_HEIGHT_PX = 48;
@@ -65,14 +42,14 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
   return (
     <main className="screen">
       <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
-        Edycja kolorów stroju
+        {UI_TEXT.outfit.title}
       </h1>
       <hr className="rule" />
       <div className="outfit-editor">
         <div className="outfit-rows">
           {OUTFIT_PARTS.map((part) => (
             <fieldset key={part} className="outfit-row">
-              <legend>{PART_LABEL[part]}</legend>
+              <legend>{UI_TEXT.outfit.part[part]}</legend>
               <div className="swatches">
                 {OUTFIT_SWATCHES.map((rgb, i) => (
                   <label key={css(rgb)} className="swatch" style={{ background: css(rgb) }}>
@@ -83,7 +60,7 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
                       checked={outfit[part] === i}
                       onChange={() => onChange({ ...outfit, [part]: i })}
                     />
-                    <span className="sr-only">{SWATCH_NAMES[i]}</span>
+                    <span className="sr-only">{UI_TEXT.outfit.swatch[i]}</span>
                   </label>
                 ))}
               </div>
@@ -97,12 +74,12 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
           height={PREVIEW_HEIGHT_PX}
           style={{ width: PREVIEW_WIDTH_PX * PREVIEW_SCALE }}
           role="img"
-          aria-label="Podgląd skoczka w wybranym stroju"
+          aria-label={UI_TEXT.outfit.preview}
         />
       </div>
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
-          Wstecz
+          {UI_TEXT.back}
         </button>
       </div>
     </main>

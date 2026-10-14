@@ -12,6 +12,7 @@ import { drawDistanceLine, drawHill, drawNearFence, drawSlope, drawWindSocks } f
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
 import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
+import { UI_TEXT } from "../text/ui-text";
 
 export { FALLEN_MAX_HEIGHT_M, figureHalfWidthM, figurePoints } from "./jump-view-jumper";
 export { windSockDirection } from "./jump-view-landing";
@@ -106,7 +107,14 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   drawNearFence(fb, h, cam, groundBottom);
   if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
-  drawText(fb, Math.max(4, m.titleInsetPx ?? 0), 4, `${m.hillName} K${m.kPointM}`, color("yellow"), color("black"));
+  drawText(
+    fb,
+    Math.max(4, m.titleInsetPx ?? 0),
+    4,
+    UI_TEXT.hillLabel(m.hillName, m.kPointM),
+    color("yellow"),
+    color("black"),
+  );
   drawWindBox(fb, s);
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);
@@ -124,7 +132,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   if (finished && s.logic.distanceM > 0) drawNotes(fb, s, m.frame);
   // A new record blinks from the frame the distance appears in the bar.
   if (m.newRecord === true && finished && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
-    const text = "NOWY REKORD SKOCZNI!";
+    const text = UI_TEXT.hud.newRecord;
     drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, color("yellow"), color("black"));
   }
   drawBar(fb, m, groundBottom, notesShown);
