@@ -203,14 +203,17 @@ pnpm test:browser:edge   # tylko projekty na Chromium, w zainstalowanym Microsof
 Tryb lokalny (zmienna `BROWSER_TESTS_EDGE`) niczego nie pobiera: używa przeglądarki Edge z systemu i przed testami
 buduje grę. Firefox i WebKit działają tylko w CI. `pnpm test:browser` bez zmiennej uruchamia wszystkie projekty
 i wymaga przeglądarek Playwrighta (`pnpm exec playwright install chromium firefox webkit`); w CI testuje `dist/`
-zbudowany wcześniejszym krokiem, poza CI buduje grę sam.
+zbudowany przez zadanie `build`, poza CI buduje grę sam. Zmienna `BROWSER_TESTS_ENGINE` (`chromium`, `firefox`
+albo `webkit`) zawęża przebieg do projektów jednego silnika. CI uruchamia równolegle zadania macierzy `browser`:
+Chromium, Firefox, WebKit w dwóch częściach (`--shard`, bo ma najwięcej profili) i tryb pomiarowy; zbiorcze
+zadanie `web` czeka na wszystkie.
 W trybie lokalnym testy odmawiają grze przechwycenia myszy: przeglądarka bez okna potrafi mimo to zabrać kursor
 całej maszyny na czas skoku. Gra działa wtedy bez przechwycenia; ścieżkę z przechwyconą myszą sprawdza CI,
 o ile silnik na nią pozwala.
 Raport HTML trafia do `playwright-report/`, ślady i zrzuty nieudanych testów do `test-results/` (w trybie pomiarów:
-`playwright-report-perf/` i `test-results-perf/`). CI zapisuje te
-katalogi jako artefakt `playwright-report` (7 dni), gdy testy nie przeszły, a także wtedy, gdy test przeszedł
-dopiero w powtórce: przebieg jest wtedy zielony, a ślad nieudanej próby jest jedynym zapisem przyczyny.
+`playwright-report-perf/` i `test-results-perf/`). CI zapisuje te katalogi jako artefakty
+`playwright-report-<zestaw>-<silnik>-<część>` (np. `playwright-report-browser-webkit-2`,
+`playwright-report-perf-chromium-1`; 7 dni), gdy testy nie przeszły, a także wtedy, gdy test przeszedł dopiero w powtórce: przebieg jest wtedy zielony, a ślad nieudanej próby jest jedynym zapisem przyczyny.
 
 Emulacja to nie urządzenie: profile telefonów i tabletu ustawiają rozmiar okna, gęstość pikseli, dotyk i nagłówek
 przeglądarki, ale silnik pozostaje desktopowy. Żaden silnik w testach nie instaluje strony na ekranie głównym, nie
