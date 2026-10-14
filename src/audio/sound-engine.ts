@@ -163,113 +163,164 @@ interface FlutterNodes {
 
 const LAYER_KEYS = ["rumble", "skis", "air", "wind"] as const;
 
-// oxlint-disable-next-line max-lines-per-function -- to be split: the node graph, the burst and tone voices, the cue table
-export function createSoundEngine(makeContext: () => ContextLike | null = defaultContext): SoundEngine {
-  let ctx: ContextLike | null = null;
-  let master: GainLike | null = null;
-  let noise: BufferLike | null = null;
-  let layers: Record<(typeof LAYER_KEYS)[number], ContinuousLayer> | null = null;
-  let flutter: FlutterNodes | null = null;
-  let enabled = true;
-  /** Whether a gesture has resumed the context yet; until then every gesture resumes it, whatever its state says. */
-  let resumed = false;
+/** The nodes the engine builds once per context: the master gain, the noise, the continuous layers. */
+interface SoundGraph {
+  master: GainLike;
+  noise: BufferLike;
+  layers: Record<(typeof LAYER_KEYS)[number], ContinuousLayer>;
+  flutter: FlutterNodes;
+}
 
-  const build = (c: ContextLike) => {
-    master = c.createGain();
-    master.gain.setValueAtTime(enabled ? 1 : 0, c.currentTime);
-    master.connect(c.destination);
-    const length = Math.round(c.sampleRate * NOISE_SECONDS);
-    noise = c.createBuffer(1, length, c.sampleRate);
-    fillNoise(noise, length);
-    const deepNoise = c.createBuffer(1, length, c.sampleRate);
-    fillDeepNoise(deepNoise, length);
-    // The ground layers share one gain; a slow wave added to it makes the track chatter.
-    const bus = c.createGain();
-    bus.gain.setValueAtTime(1, c.currentTime);
-    bus.connect(master);
-    const wave = c.createOscillator();
-    wave.type = "sine";
-    wave.frequency.setValueAtTime(1, c.currentTime);
-    const depth = c.createGain();
-    depth.gain.setValueAtTime(0, c.currentTime);
-    wave.connect(depth);
-    depth.connect(bus.gain);
-    wave.start();
-    flutter = { bus, wave, depth };
-    const layer = (buffer: BufferLike, type: BiquadFilterType, out: NodeLike): ContinuousLayer => {
-      const source = c.createBufferSource();
-      source.buffer = buffer;
-      source.loop = true;
-      const filter = c.createBiquadFilter();
-      filter.type = type;
-      const gain = c.createGain();
-      gain.gain.setValueAtTime(0, c.currentTime);
-      source.connect(filter);
-      filter.connect(gain);
-      gain.connect(out);
-      source.start();
-      return { filter, gain };
-    };
-    layers = {
+/** Builds the nodes of the continuous sound on a context; the layers start silent and loop from then on. */
+function buildGraph(c: ContextLike, enabled: boolean): SoundGraph {
+  const master = c.createGain();
+  master.gain.setValueAtTime(enabled ? 1 : 0, c.currentTime);
+  master.connect(c.destination);
+  const length = Math.round(c.sampleRate * NOISE_SECONDS);
+  const noise = c.createBuffer(1, length, c.sampleRate);
+  fillNoise(noise, length);
+  const deepNoise = c.createBuffer(1, length, c.sampleRate);
+  fillDeepNoise(deepNoise, length);
+  // The ground layers share one gain; a slow wave added to it makes the track chatter.
+  const bus = c.createGain();
+  bus.gain.setValueAtTime(1, c.currentTime);
+  bus.connect(master);
+  const wave = c.createOscillator();
+  wave.type = "sine";
+  wave.frequency.setValueAtTime(1, c.currentTime);
+  const depth = c.createGain();
+  depth.gain.setValueAtTime(0, c.currentTime);
+  wave.connect(depth);
+  depth.connect(bus.gain);
+  wave.start();
+  const layer = (buffer: BufferLike, type: BiquadFilterType, out: NodeLike): ContinuousLayer => {
+    const source = c.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    const filter = c.createBiquadFilter();
+    filter.type = type;
+    const gain = c.createGain();
+    gain.gain.setValueAtTime(0, c.currentTime);
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(out);
+    source.start();
+    return { filter, gain };
+  };
+  return {
+    master,
+    noise,
+    layers: {
       rumble: layer(deepNoise, "lowpass", bus),
       skis: layer(noise, "bandpass", bus),
       air: layer(noise, "bandpass", master),
       wind: layer(noise, "lowpass", master),
-    };
+    },
+    flutter: { bus, wave, depth },
   };
+}
 
+/** The two voices the cues are made of, at time `t` on the graph's master gain. */
+interface Voices {
   /** A short piece of noise through a filter that may sweep from one frequency to another. */
-  const burst = (
-    c: ContextLike,
-    t: number,
-    type: BiquadFilterType,
-    fromHz: number,
-    toHz: number,
-    peak: number,
-    seconds: number,
-  ) => {
-    if (!master || !noise) return;
-    const source = c.createBufferSource();
-    source.buffer = noise;
-    const filter = c.createBiquadFilter();
-    filter.type = type;
-    filter.frequency.setValueAtTime(fromHz, t);
-    if (toHz !== fromHz) filter.frequency.exponentialRampToValueAtTime(toHz, t + seconds);
-    const gain = c.createGain();
-    envelope(gain.gain, t, peak, 0.005, seconds);
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(master);
-    source.start(t, (t * 0.37) % (NOISE_SECONDS - 1), seconds + 0.05);
-  };
+  burst: (t: number, type: BiquadFilterType, fromHz: number, toHz: number, peak: number, seconds: number) => void;
+  /** A short tone that may glide from one frequency to another. */
+  tone: (t: number, type: OscillatorType, fromHz: number, toHz: number, peak: number, seconds: number) => void;
+}
 
-  const tone = (
-    c: ContextLike,
-    t: number,
-    type: OscillatorType,
-    fromHz: number,
-    toHz: number,
-    peak: number,
-    seconds: number,
-  ) => {
-    if (!master) return;
-    const osc = c.createOscillator();
-    osc.type = type;
-    osc.frequency.setValueAtTime(fromHz, t);
-    if (toHz !== fromHz) osc.frequency.exponentialRampToValueAtTime(toHz, t + seconds);
-    const gain = c.createGain();
-    envelope(gain.gain, t, peak, 0.005, seconds);
-    osc.connect(gain);
-    gain.connect(master);
-    osc.start(t);
-    osc.stop(t + seconds + 0.05);
+function voicesOf(c: ContextLike, graph: SoundGraph): Voices {
+  return {
+    burst(t, type, fromHz, toHz, peak, seconds) {
+      const source = c.createBufferSource();
+      source.buffer = graph.noise;
+      const filter = c.createBiquadFilter();
+      filter.type = type;
+      filter.frequency.setValueAtTime(fromHz, t);
+      if (toHz !== fromHz) filter.frequency.exponentialRampToValueAtTime(toHz, t + seconds);
+      const gain = c.createGain();
+      envelope(gain.gain, t, peak, 0.005, seconds);
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(graph.master);
+      source.start(t, (t * 0.37) % (NOISE_SECONDS - 1), seconds + 0.05);
+    },
+    tone(t, type, fromHz, toHz, peak, seconds) {
+      const osc = c.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(fromHz, t);
+      if (toHz !== fromHz) osc.frequency.exponentialRampToValueAtTime(toHz, t + seconds);
+      const gain = c.createGain();
+      envelope(gain.gain, t, peak, 0.005, seconds);
+      osc.connect(gain);
+      gain.connect(graph.master);
+      osc.start(t);
+      osc.stop(t + seconds + 0.05);
+    },
   };
+}
+
+/** The sound of each cue of the game, made of noise bursts and tones from time `t`. */
+function playCue({ burst, tone }: Voices, t: number, cue: SoundCue): void {
+  switch (cue) {
+    case "start":
+      // The bar lets go: a click and a short wooden knock.
+      burst(t, "highpass", 2500, 2500, 0.12, 0.03);
+      tone(t, "sine", 190, 95, 0.16, 0.09);
+      break;
+    case "push":
+      // The legs straighten: a rising swish over a short thump.
+      burst(t, "bandpass", 450, 1900, 0.24, 0.14);
+      tone(t, "sine", 170, 85, 0.3, 0.1);
+      break;
+    case "takeoff":
+      // The skis leave the track: the air closes in.
+      burst(t, "bandpass", 1400, 500, 0.2, 0.32);
+      tone(t, "sine", 120, 60, 0.14, 0.1);
+      break;
+    case "landing":
+      tone(t, "sine", 100, 45, 0.45, 0.22);
+      burst(t, "lowpass", 600, 600, 0.28, 0.18);
+      // Snow thrown up by the skis.
+      burst(t, "bandpass", 3200, 1400, 0.14, 0.45);
+      break;
+    case "crash":
+      tone(t, "sine", 100, 40, 0.55, 0.25);
+      tone(t + 0.15, "sine", 80, 35, 0.45, 0.3);
+      burst(t, "lowpass", 500, 500, 0.35, 0.4);
+      // The slide on the snow.
+      burst(t + 0.1, "bandpass", 900, 300, 0.2, 0.7);
+      break;
+    case "countdown":
+      tone(t, "square", 440, 440, 0.035, 0.05);
+      break;
+    case "disqualified":
+      tone(t, "square", 196, 196, 0.06, 0.18);
+      tone(t + 0.2, "square", 147, 147, 0.06, 0.3);
+      break;
+    case "noteCounted":
+      tone(t, "square", 880, 880, 0.07, 0.07);
+      break;
+    case "noteDropped":
+      tone(t, "square", 587, 587, 0.06, 0.07);
+      break;
+    case "record":
+      [523.25, 659.25, 783.99, 1046.5].forEach((hz, i) => tone(t + i * 0.11, "square", hz, hz, 0.07, 0.1));
+      break;
+  }
+}
+
+export function createSoundEngine(makeContext: () => ContextLike | null = defaultContext): SoundEngine {
+  let ctx: ContextLike | null = null;
+  let graph: SoundGraph | null = null;
+  let enabled = true;
+  /** Whether a gesture has resumed the context yet; until then every gesture resumes it, whatever its state says. */
+  let resumed = false;
 
   /** The context, created and built on first use. */
   const open = (): ContextLike | null => {
     if (!ctx) {
       ctx = makeContext();
-      if (ctx) build(ctx);
+      if (ctx) graph = buildGraph(ctx, enabled);
     }
     return ctx;
   };
@@ -291,13 +342,13 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
       resumed = true;
       c.resume().catch(() => undefined);
       // Starting a sound inside the gesture is what finally unlocks audio on older iOS.
-      if (master && noise) {
+      if (graph) {
         const tick = c.createBufferSource();
-        tick.buffer = noise;
+        tick.buffer = graph.noise;
         const hush = c.createGain();
         hush.gain.setValueAtTime(0, c.currentTime);
         tick.connect(hush);
-        hush.connect(master);
+        hush.connect(graph.master);
         tick.start(c.currentTime, 0, 0.01);
       }
     },
@@ -311,85 +362,37 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
     },
     setEnabled(on) {
       enabled = on;
-      if (!ctx || !master) return;
+      if (!ctx || !graph) return;
       // A context that is not running has a clock that stands still, so a fade asked for then would only start
       // with the first sound and let it through; until it runs, the switch takes effect at once.
-      if (ctx.state === "running") master.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, FOLLOW_S);
-      else master.gain.setValueAtTime(on ? 1 : 0, ctx.currentTime);
+      if (ctx.state === "running") graph.master.gain.setTargetAtTime(on ? 1 : 0, ctx.currentTime, FOLLOW_S);
+      else graph.master.gain.setValueAtTime(on ? 1 : 0, ctx.currentTime);
     },
     update(mix) {
-      if (!ctx || !layers) return;
+      if (!ctx || !graph) return;
       const t = ctx.currentTime;
       for (const key of LAYER_KEYS) {
         const target: Layer = mix[key];
-        layers[key].gain.gain.setTargetAtTime(target.gain, t, FOLLOW_S);
-        layers[key].filter.frequency.setTargetAtTime(target.freqHz, t, FOLLOW_S);
-        layers[key].filter.Q.setTargetAtTime(target.q, t, FOLLOW_S);
+        const layer = graph.layers[key];
+        layer.gain.gain.setTargetAtTime(target.gain, t, FOLLOW_S);
+        layer.filter.frequency.setTargetAtTime(target.freqHz, t, FOLLOW_S);
+        layer.filter.Q.setTargetAtTime(target.q, t, FOLLOW_S);
       }
-      if (flutter) {
-        // The wave swings the shared gain between 1 - depth and 1.
-        flutter.wave.frequency.setTargetAtTime(mix.flutter.rateHz, t, FOLLOW_S);
-        flutter.depth.gain.setTargetAtTime(mix.flutter.depth / 2, t, FOLLOW_S);
-        flutter.bus.gain.setTargetAtTime(1 - mix.flutter.depth / 2, t, FOLLOW_S);
-      }
+      // The wave swings the shared gain between 1 - depth and 1.
+      const { flutter } = graph;
+      flutter.wave.frequency.setTargetAtTime(mix.flutter.rateHz, t, FOLLOW_S);
+      flutter.depth.gain.setTargetAtTime(mix.flutter.depth / 2, t, FOLLOW_S);
+      flutter.bus.gain.setTargetAtTime(1 - mix.flutter.depth / 2, t, FOLLOW_S);
     },
     play(cue) {
       const c = ctx;
-      if (!c || !enabled) return;
-      const t = c.currentTime + 0.01;
-      switch (cue) {
-        case "start":
-          // The bar lets go: a click and a short wooden knock.
-          burst(c, t, "highpass", 2500, 2500, 0.12, 0.03);
-          tone(c, t, "sine", 190, 95, 0.16, 0.09);
-          break;
-        case "push":
-          // The legs straighten: a rising swish over a short thump.
-          burst(c, t, "bandpass", 450, 1900, 0.24, 0.14);
-          tone(c, t, "sine", 170, 85, 0.3, 0.1);
-          break;
-        case "takeoff":
-          // The skis leave the track: the air closes in.
-          burst(c, t, "bandpass", 1400, 500, 0.2, 0.32);
-          tone(c, t, "sine", 120, 60, 0.14, 0.1);
-          break;
-        case "landing":
-          tone(c, t, "sine", 100, 45, 0.45, 0.22);
-          burst(c, t, "lowpass", 600, 600, 0.28, 0.18);
-          // Snow thrown up by the skis.
-          burst(c, t, "bandpass", 3200, 1400, 0.14, 0.45);
-          break;
-        case "crash":
-          tone(c, t, "sine", 100, 40, 0.55, 0.25);
-          tone(c, t + 0.15, "sine", 80, 35, 0.45, 0.3);
-          burst(c, t, "lowpass", 500, 500, 0.35, 0.4);
-          // The slide on the snow.
-          burst(c, t + 0.1, "bandpass", 900, 300, 0.2, 0.7);
-          break;
-        case "countdown":
-          tone(c, t, "square", 440, 440, 0.035, 0.05);
-          break;
-        case "disqualified":
-          tone(c, t, "square", 196, 196, 0.06, 0.18);
-          tone(c, t + 0.2, "square", 147, 147, 0.06, 0.3);
-          break;
-        case "noteCounted":
-          tone(c, t, "square", 880, 880, 0.07, 0.07);
-          break;
-        case "noteDropped":
-          tone(c, t, "square", 587, 587, 0.06, 0.07);
-          break;
-        case "record":
-          [523.25, 659.25, 783.99, 1046.5].forEach((hz, i) => tone(c, t + i * 0.11, "square", hz, hz, 0.07, 0.1));
-          break;
-      }
+      if (!c || !graph || !enabled) return;
+      playCue(voicesOf(c, graph), c.currentTime + 0.01, cue);
     },
     dispose() {
       const c = ctx;
       ctx = null;
-      layers = null;
-      flutter = null;
-      master = null;
+      graph = null;
       if (c) c.close().catch(() => undefined);
     },
   };
