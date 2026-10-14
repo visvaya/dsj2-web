@@ -29,7 +29,7 @@ As of 2026-10-14: in active development.
 - Mouse, keyboard and touch controls; optional tilt steering on phones; haptics where supported.
 - Pixel graphics with a responsive width, time of day (day, dusk, night) and weather (snow, fog).
 - Synthesised sound (Web Audio, no recordings).
-- A replay of the last jump, with pause, slow motion and a slider to any moment; the original's `.rpl` replays play the same way, on
+- A replay of the last jump, with pause, slow motion and a slider under the picture to any moment; the original's `.rpl` replays play the same way, on
   the hills of your `Dsj.exe`. The replay of each hill record is kept on its own, other jumps by hand or as the
   last few, with an optional clean-up by age and by size; replays go to a file and come back from one, to move them
   to another device.

@@ -1,6 +1,7 @@
 import type { JumpLogicState } from "../sim/jump-logic";
 import { UI_TEXT } from "../text/ui-text";
 import type { ReplayOrigin } from "./jump-replay";
+import { formatDecimal } from "./number-text";
 
 const T = UI_TEXT.announcement;
 
@@ -14,11 +15,6 @@ interface ResultContext {
   newRecord: boolean;
   /** How the game is played: it decides what starts the next jump. */
   controls: "mouse" | "touch" | "tilt";
-}
-
-/** A number as Polish text writes it, with a decimal comma. */
-export function formatDecimal(value: number, digits: number): string {
-  return value.toFixed(digits).replace(".", ",");
 }
 
 /** A jump without a distance is a disqualification: the start time ran out, or the jumper never left the inrun. */

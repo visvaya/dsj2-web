@@ -14,7 +14,8 @@ import { UI_TEXT } from "../text/ui-text";
 import { handOverFile } from "./hand-over-file";
 import type { ReplaySource } from "./jump-replay";
 import { originalReplayOutcome } from "./original-replay-choice";
-import { kb, ReplayList } from "./replay-list";
+import { formatSize } from "./number-text";
+import { ReplayList } from "./replay-list";
 import { checkAgainst, importedShelf, originalEntry } from "./replay-import";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
@@ -113,7 +114,9 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
         if (!next.delete(entry.id)) next.add(entry.id);
         return next;
       }),
+    allSelected: shelf.every((e) => selected.has(e.id)),
     selectAll: () => setSelected(new Set(shelf.map((e) => e.id))),
+    selectNone: () => setSelected(new Set()),
     watch: (entry: ShelfEntry) => {
       const hill = hills.find((h) => h.id === entry.hill.id);
       if (!hill) return fail(T.hillMissing);
@@ -211,8 +214,12 @@ export function ReplaysScreen(props: Props) {
       />
       {shelf.length > 0 && (
         <div className="replay-row-actions">
-          <button type="button" className="pixel-button small-button" onClick={a.selectAll}>
-            {T.selectAll}
+          <button
+            type="button"
+            className="pixel-button small-button"
+            onClick={a.allSelected ? a.selectNone : a.selectAll}
+          >
+            {a.allSelected ? T.selectNone : T.selectAll}
           </button>
           <button
             type="button"
@@ -234,7 +241,9 @@ export function ReplaysScreen(props: Props) {
       )}
       {shelf.length > 0 && (
         <>
-          <p className="note">{T.usage(shelf.length, kb(shelfBytes(shelf)), kb(REPLAY_LIMITS.BUDGET_BYTES))}</p>
+          <p className="note">
+            {T.usage(shelf.length, formatSize(shelfBytes(shelf)), formatSize(REPLAY_LIMITS.BUDGET_BYTES))}
+          </p>
           <RemoveOldest onRemove={a.removeOldest} />
         </>
       )}

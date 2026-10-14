@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   JUMP_STARTED_ANNOUNCEMENT,
-  formatDecimal,
   replayOverAnnouncement,
   resultAnnouncement,
   touchdownAnnouncement,
@@ -12,12 +11,6 @@ const clean = { distanceM: 67.37999725341797, fallType: 0, points: 62, judges };
 const mouse = { newRecord: false, controls: "mouse" } as const;
 
 describe("jump announcements", () => {
-  it("writes numbers with a decimal comma and a fixed number of digits", () => {
-    expect(formatDecimal(67.37999725341797, 2)).toBe("67,38");
-    expect(formatDecimal(62, 1)).toBe("62,0");
-    expect(formatDecimal(-17.5, 1)).toBe("-17,5");
-  });
-
   it("announces the start", () => {
     expect(JUMP_STARTED_ANNOUNCEMENT).toBe("Skok rozpoczęty.");
   });

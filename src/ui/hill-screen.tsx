@@ -3,6 +3,7 @@ import type { HillChoice } from "../game/hill-choice";
 import type { HillRecord } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { FlagIcon } from "./flag-icon";
+import { formatDecimal } from "./number-text";
 import { useEntryFocus } from "./use-entry-focus";
 
 interface Props {
@@ -35,7 +36,7 @@ function HillList({ title, hills, records, onPick, recordReplays }: ListProps & 
                 <span className="hill-item-name">{h.name}</span>
                 <span className="hill-item-k">{UI_TEXT.hills.kPoint(h.kPointM)}</span>
                 {record ? (
-                  <span className="hill-item-record">{UI_TEXT.hills.record(record.distanceM.toFixed(2))}</span>
+                  <span className="hill-item-record">{UI_TEXT.hills.record(formatDecimal(record.distanceM, 2))}</span>
                 ) : null}
               </button>
               {recordReplays?.hillIds.has(h.id) === true && (

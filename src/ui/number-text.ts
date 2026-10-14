@@ -1,0 +1,16 @@
+import { UI_TEXT } from "../text/ui-text";
+
+const BYTES_PER_KB = 1000;
+const BYTES_PER_MB = 1_000_000;
+
+/** A number as Polish text writes it, with a decimal comma. */
+export function formatDecimal(value: number, digits: number): string {
+  return value.toFixed(digits).replace(".", ",");
+}
+
+/** A size as the player reads it: in kilobytes below a megabyte, in megabytes from one up; never split. */
+export function formatSize(bytes: number): string {
+  return bytes < BYTES_PER_MB
+    ? UI_TEXT.size.kb(formatDecimal(bytes / BYTES_PER_KB, 1))
+    : UI_TEXT.size.mb(formatDecimal(bytes / BYTES_PER_MB, 1));
+}

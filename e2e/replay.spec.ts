@@ -51,6 +51,15 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
   await press(jumpCanvas(page), traits);
   await page.waitForTimeout(PAUSE_HOLD_MS);
   await expect(announcement(page)).toHaveText(/^Powtórka skoku\./);
+  // The slider under the picture goes to a moment of the replay, and back to its start.
+  const slider = page.getByRole("slider", { name: "Moment powtórki" });
+  await expect(slider).toHaveAttribute("aria-valuetext", /^\d+,\d s z \d+,\d s$/);
+  const length = Number(await slider.getAttribute("max"));
+  expect(length).toBeGreaterThan(100);
+  await slider.fill(String(Math.round(length / 2)));
+  await expect(slider).not.toHaveAttribute("aria-valuetext", /^0,0 s z /);
+  await slider.fill("1");
+  await expect(slider).toHaveAttribute("aria-valuetext", /^0,0 s z /);
   await press(jumpCanvas(page), traits);
 
   await expect(announcement(page)).toContainText(`Lądowanie: ${landed?.distance ?? ""} metra`, {
@@ -66,11 +75,10 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
     await expect(button(page, absent)).toHaveCount(0);
   }
   await expect(page.getByRole("group", { name: /czułość/i })).toHaveCount(0);
-  // The slider goes to a moment of the replay: back to its start here.
-  const slider = page.getByRole("slider", { name: "Moment powtórki" });
-  await expect(slider).toHaveAttribute("aria-valuetext", /^\d+,\d s z \d+,\d s$/);
-  await slider.fill("1");
-  await expect(slider).toHaveAttribute("aria-valuetext", /^0,0 s z /);
+  // The menu only shows or hides the slider.
+  await press(button(page, "Suwak powtórki: wł."), traits);
+  await expect(button(page, "Suwak powtórki: wył.")).toBeVisible();
+  await expect(slider).toHaveCount(0);
   await press(button(page, TEXT.replaySpeed), traits);
   await expect(button(page, TEXT.replaySpeed)).toHaveText("Tempo: 1/2");
   await press(button(page, TEXT.replayEnd), traits);

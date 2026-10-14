@@ -42,7 +42,7 @@ test("a whole jump ends in a record that the hill list shows and a reload keeps"
   expect(heard).toContain(`Lądowanie: ${landed?.distance ?? ""} metra. Nowy rekord skoczni.`);
 
   // The list writes the same distance with a decimal point, as the picture does.
-  const record = `rekord ${landed?.distance?.replace(",", ".") ?? ""} m`;
+  const record = `rekord ${landed?.distance ?? ""} m`;
   await leaveJumpForHills(page, traits);
   await expect(builtInHill(page)).toContainText(record);
   expect(await storedSave(page)).toMatchObject({

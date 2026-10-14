@@ -29,7 +29,7 @@ export interface Settings {
   sensitivity: Sensitivity;
   /** Whether the picture tells what to press and when on the hill (added after version 2 too; on). */
   hillHints: boolean;
-  /** What is kept of the replays and what goes on its own (added after version 2 too; all off). */
+  /** What is kept of the replays and what goes on its own (added after version 2 too). */
   replays: ReplaySettings;
 }
 
@@ -41,6 +41,8 @@ export interface ReplaySettings {
   maxAgeDays: number | null;
   /** The oldest replays (not records) go while all of them weigh more than this; null keeps them. */
   maxSizeKb: number | null;
+  /** Whether a replay shows a slider under the picture, to go to a moment of it. */
+  slider: boolean;
 }
 
 /** The numbers a player can choose for the replays, with their units in the names. */
@@ -52,7 +54,7 @@ export const REPLAY_SETTING_RANGES = {
   MAX_SIZE_KB_MAX: 5000,
 } as const;
 
-const DEFAULT_REPLAY_SETTINGS: ReplaySettings = { recentCount: 0, maxAgeDays: null, maxSizeKb: null };
+const DEFAULT_REPLAY_SETTINGS: ReplaySettings = { recentCount: 5, maxAgeDays: null, maxSizeKb: null, slider: true };
 
 export const DEFAULT_SETTINGS: Settings = {
   leanControl: "drag",
@@ -144,10 +146,12 @@ function wholeWithin(v: unknown, min: number, max: number): number | null {
 function parseReplaySettings(v: unknown): ReplaySettings {
   const R = REPLAY_SETTING_RANGES;
   const recent = field(v, "recentCount");
+  const slider = field(v, "slider");
   return {
     recentCount: R.RECENT_COUNTS.find((count) => count === recent) ?? DEFAULT_REPLAY_SETTINGS.recentCount,
     maxAgeDays: wholeWithin(field(v, "maxAgeDays"), R.MAX_AGE_DAYS_MIN, R.MAX_AGE_DAYS_MAX),
     maxSizeKb: wholeWithin(field(v, "maxSizeKb"), R.MAX_SIZE_KB_MIN, R.MAX_SIZE_KB_MAX),
+    slider: typeof slider === "boolean" ? slider : DEFAULT_REPLAY_SETTINGS.slider,
   };
 }
 
