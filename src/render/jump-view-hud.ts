@@ -8,7 +8,13 @@ import { UI_TEXT } from "../text/ui-text";
 
 const PHASE_LABEL = UI_TEXT.hud.phase;
 
-export const BAR_HEIGHT_PX = 11;
+/**
+ * The bar at the foot of the picture: its top line, two rows for an accent over a Polish capital (the acute of
+ * S or O), the capitals, and two rows for an ogonek (A, E) or the tail of a letter.
+ */
+export const BAR_HEIGHT_PX = 12;
+/** Where the capitals of the bar start, from its top line. */
+const BAR_TEXT_TOP_PX = 3;
 const MS_TO_KMH = 3.6;
 
 export function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
@@ -116,23 +122,29 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
   const L = s.logic;
   fb.rect(0, top, fb.width, BAR_HEIGHT_PX, color("bar"));
   fb.rect(0, top, fb.width, 1, color("grey"));
-  const nameEnd = drawText(fb, 4, top + 2, m.playerName, color("yellow"));
+  const nameEnd = drawText(fb, 4, top + BAR_TEXT_TOP_PX, m.playerName, color("yellow"));
   const middle = Math.round(fb.width * 0.47);
   if (L.finished && L.distanceM === 0) {
-    drawText(fb, middle, top + 2, UI_TEXT.hud.disqualified, color("red"));
+    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.disqualified, color("red"));
     return;
   }
   if (L.finished) {
-    drawText(fb, middle, top + 2, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), color("yellow"));
+    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), color("yellow"));
     if (notesShown) {
       const points = L.points.toFixed(1);
-      drawText(fb, fb.width - 4 - textWidth(points), top + 2, points, color("yellow"));
+      drawText(fb, fb.width - 4 - textWidth(points), top + BAR_TEXT_TOP_PX, points, color("yellow"));
     }
     return;
   }
-  drawText(fb, nameEnd + 10, top + 2, phaseLabel(s), L.phase === PHASE.crash ? color("red") : color("green"));
+  drawText(
+    fb,
+    nameEnd + 10,
+    top + BAR_TEXT_TOP_PX,
+    phaseLabel(s),
+    L.phase === PHASE.crash ? color("red") : color("green"),
+  );
   // The simulation keeps `speedMPerS` for the ground; in the air the velocity vector is shown.
   const v = s.jumper.airborne ? Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS) : s.jumper.speedMPerS;
   const speed = UI_TEXT.hud.speed((v * MS_TO_KMH).toFixed(1));
-  drawText(fb, fb.width - 4 - textWidth(speed), top + 2, speed, color("white"));
+  drawText(fb, fb.width - 4 - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, color("white"));
 }
