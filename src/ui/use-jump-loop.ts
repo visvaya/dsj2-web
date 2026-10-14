@@ -81,6 +81,7 @@ export function useJumpLoop(options: JumpLoopOptions) {
     restart: () => controlsRef.current.restart(),
     watchReplay: () => controlsRef.current.watchReplay(),
     endReplay: () => controlsRef.current.endReplay(),
+    lastJump: () => controlsRef.current.lastJump(),
   }));
   const latest = useRef(options);
   useEffect(() => {

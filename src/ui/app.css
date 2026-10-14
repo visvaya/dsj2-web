@@ -233,6 +233,56 @@ h2 {
   border-color: var(--accent);
 }
 
+/* The replays: one per row, the hill first, its result and size under it, the actions after them. */
+.replay-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.replay-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  font-size: clamp(16px, 4.4vw, 20px);
+}
+
+.replay-row-detail {
+  font-size: 0.8em;
+  color: var(--muted);
+}
+
+.replay-row-actions,
+.replay-remove-oldest,
+.settings-rule {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.replay-remove-oldest input,
+.settings-rule input[type="number"] {
+  width: 6em;
+  min-height: 44px;
+  font: inherit;
+}
+
+.settings-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+
+.settings-check input {
+  width: 24px;
+  height: 24px;
+}
+
 .outfit-editor {
   display: flex;
   flex-wrap: wrap;

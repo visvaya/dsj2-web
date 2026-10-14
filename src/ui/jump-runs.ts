@@ -27,7 +27,8 @@ import type { JumpSounds } from "./jump-sounds";
 
 /** What the loop reads anew in every frame: it outlives a render. */
 export interface LiveProps {
-  onFinished: (result: JumpResult) => void;
+  /** A jump is over: its result, and the recording that plays it again. */
+  onFinished: (result: JumpResult, recording: JumpRecording) => void;
   record: HillRecord | undefined;
   settings: Settings;
   controls: ControlScheme;
@@ -85,6 +86,8 @@ function playCues(cues: readonly JumpCue[], c: RunContext, feel: boolean): void 
 interface TrainingRun extends JumpRun {
   /** The last jump that ended, to be watched again; null before the first. */
   lastRecording: () => JumpRecording | null;
+  /** The last jump that ended with its result, to be kept; null before the first. */
+  lastJump: () => FinishedJump | null;
 }
 
 /**
@@ -101,6 +104,7 @@ function createTrainingRun(
   let jump: TrainingJump = startTrainingJump(hill, newSeed());
   let inputs: FrameInput[] = [];
   let recording: JumpRecording | null = null;
+  let last: FinishedJump | null = null;
   let finished = false;
   let newRecord = false;
   let leftDown = false;
@@ -125,7 +129,8 @@ function createTrainingRun(
     // A jump left while the jumper still slides out is kept as far as it went; the replay plays the rest with
     // no hands, after the result was settled.
     recording = { seed: jump.seed, inputs, newRecord };
-    c().live.onFinished(result);
+    last = { recording, result };
+    c().live.onFinished(result, recording);
     c().onReplayAvailable(true);
     c().announce(resultAnnouncement(jump.state.logic, { newRecord, controls: c().live.controls }));
   };
@@ -166,6 +171,7 @@ function createTrainingRun(
     restart,
     now: () => ({ jump, newRecord }),
     lastRecording: () => recording,
+    lastJump: () => last,
   };
 }
 
@@ -217,6 +223,12 @@ function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunCon
   };
 }
 
+/** A jump that ended, with what it scored and what plays it again. */
+export interface FinishedJump {
+  recording: JumpRecording;
+  result: JumpResult;
+}
+
 /** What the screen can ask of the loop. */
 export interface JumpLoopControls {
   /** Starts the jump again: a new training jump, or the replay from its start. */
@@ -225,12 +237,15 @@ export interface JumpLoopControls {
   watchReplay: () => void;
   /** Leaves the replay for a new training jump. */
   endReplay: () => void;
+  /** The last training jump that ended, to be kept; null before the first. */
+  lastJump: () => FinishedJump | null;
 }
 
 export const NO_CONTROLS: JumpLoopControls = {
   restart: () => undefined,
   watchReplay: () => undefined,
   endReplay: () => undefined,
+  lastJump: () => null,
 };
 
 interface RunSwitch {
@@ -290,6 +305,7 @@ export function createRunSwitch(
       },
       watchReplay,
       endReplay,
+      lastJump: training.lastJump,
     },
     press() {
       if (!replay) return;

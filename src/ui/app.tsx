@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { MARK_FIRST_SCREEN, markOnce } from "../game/performance-marks";
-import { emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
+import { beatsRecord, emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { readOriginalHills } from "../original/original-hills";
@@ -10,13 +10,14 @@ import { HowToScreen } from "./how-to-jump";
 import { InstallScreen } from "./install-screen";
 import type { JumpResult } from "./jump-round";
 import { JumpScreen } from "./jump-screen";
-import type { ReplaySource } from "./jump-replay";
+import type { JumpRecording, ReplaySource } from "./jump-replay";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
 import { ReplaysScreen } from "./replays-screen";
 import { screenTitle } from "./screen-title";
 import { SettingsScreen } from "./settings-screen";
 import { useOfflineState } from "./use-offline-state";
+import { useReplayShelf } from "./use-replay-shelf";
 
 type Screen =
   | { kind: "menu" }
@@ -136,7 +137,9 @@ export function App({ diagnostics }: AppProps) {
     };
   }, [backend]);
 
-  const onFinished = (hill: HillChoice, result: JumpResult) => {
+  const replays = useReplayShelf(save.settings.replays);
+  const onFinished = (hill: HillChoice, result: JumpResult, recording: JumpRecording) => {
+    replays.onJumpFinished(hill, { recording, result }, beatsRecord(result, save.records[hill.id]));
     setSave((prev) => {
       const next = withJump(prev, hill.id, result, new Date());
       if (next !== prev) saveSave(backend, next).catch(() => setSaveFailed(true));
@@ -162,7 +165,8 @@ export function App({ diagnostics }: AppProps) {
         record={save.records[hill.id]}
         settings={save.settings}
         onSettings={onSettings}
-        onFinished={(result) => onFinished(hill, result)}
+        onFinished={(result, recording) => onFinished(hill, result, recording)}
+        onKeepJump={(jump) => replays.keepJump(hill, jump)}
         hills={[...OWN_HILLS, ...originalHills]}
         records={save.records}
         onPickHill={(picked) => show({ kind: "jump", hill: picked })}
@@ -177,6 +181,10 @@ export function App({ diagnostics }: AppProps) {
   if (screen.kind === "replays") {
     return (
       <ReplaysScreen
+        shelf={replays.shelf}
+        hills={[...OWN_HILLS, ...originalHills]}
+        onChangeShelf={replays.change}
+        storeName={replays.storeName}
         originalHills={originalHills}
         onPlay={(hill, replay) => show({ kind: "jump", hill, replay })}
         onBack={() => show({ kind: "menu" })}

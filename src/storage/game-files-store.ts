@@ -1,3 +1,4 @@
+import { idbRecord } from "./idb-record";
 import { field } from "./save-data";
 
 /** The player's original game files, as far as they have been chosen. */
@@ -55,46 +56,16 @@ export function memoryGameFilesStore(): GameFilesStore {
   };
 }
 
-const DB_NAME = "telemark";
-const DB_STORE = "files";
-const DB_KEY = "game";
-
-function request<T>(req: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    req.addEventListener("success", () => resolve(req.result));
-    req.addEventListener("error", () => reject(req.error ?? new Error("IndexedDB request failed")));
-  });
-}
-
-function openDb(idb: IDBFactory): Promise<IDBDatabase> {
-  const req = idb.open(DB_NAME, 1);
-  req.addEventListener("upgradeneeded", () => {
-    req.result.createObjectStore(DB_STORE);
-  });
-  return request(req);
-}
+/** The database of the game files; it predates this module's other stores and keeps its name. */
+const GAME_FILES_PLACE = { db: "telemark", store: "files", key: "game" } as const;
 
 function indexedDbStore(idb: IDBFactory): GameFilesStore {
-  const withStore = async <T>(
-    mode: IDBTransactionMode,
-    makeRequest: (store: IDBObjectStore) => IDBRequest<T>,
-  ): Promise<T> => {
-    const db = await openDb(idb);
-    try {
-      return await request(makeRequest(db.transaction(DB_STORE, mode).objectStore(DB_STORE)));
-    } finally {
-      db.close();
-    }
-  };
+  const stored = idbRecord(idb, GAME_FILES_PLACE);
   return {
     name: "indexedDB",
-    load: async () => parseStoredGameFiles(await withStore("readonly", (s) => s.get(DB_KEY))),
-    save: async (files) => {
-      await withStore("readwrite", (s) => s.put(record(files), DB_KEY));
-    },
-    clear: async () => {
-      await withStore("readwrite", (s) => s.delete(DB_KEY));
-    },
+    load: async () => parseStoredGameFiles(await stored.get()),
+    save: (files) => stored.put(record(files)),
+    clear: () => stored.delete(),
   };
 }
 

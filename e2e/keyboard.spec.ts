@@ -80,11 +80,12 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await expect(resume).toBeFocused();
   await expectVisibleFocus(page);
 
-  const visited = await tabThrough(page, 8);
+  const visited = await tabThrough(page, 9);
   expect(visited).toEqual([
     expect.stringMatching(TEXT.jumpAgain),
     // Unavailable before the first jump has ended, but still reached, so a screen reader can tell it is there.
     TEXT.watchReplay,
+    TEXT.keepLast,
     "Jak skakać",
     expect.stringMatching(TEXT.toHills),
     "Mniejsza czułość",

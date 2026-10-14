@@ -1,12 +1,13 @@
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import { pickScenery } from "../game/scenery";
 import { newSeed } from "../game/training-session";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JumpMenu } from "./jump-menu";
-import { nextReplaySpeed, type ReplaySource, type ReplayView } from "./jump-replay";
-import type { JumpLoopControls } from "./jump-runs";
+import { nextReplaySpeed, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
+import type { FinishedJump, JumpLoopControls } from "./jump-runs";
+import type { KeepOutcome } from "./use-replay-shelf";
 import type { JumpResult } from "./jump-round";
 import { useNowPlaying } from "./now-playing";
 import { TouchPad } from "./touch-pad";
@@ -22,7 +23,7 @@ interface Props {
   record: HillRecord | undefined;
   settings: Settings;
   onSettings: (change: Partial<Settings>) => void;
-  onFinished: (result: JumpResult) => void;
+  onFinished: (result: JumpResult, recording: JumpRecording) => void;
   /** The hills the menu offers, with their records, and what choosing one does. */
   hills: readonly HillChoice[];
   records: Readonly<Record<string, HillRecord>>;
@@ -37,6 +38,35 @@ interface Props {
   diagnostics: boolean;
   /** A replay of the original game to play as the screen opens; the training on the hill follows it. */
   openingReplay: ReplaySource | null;
+  /** Keeps the last jump on the shelf of replays; says what became of it. */
+  onKeepJump: (jump: FinishedJump) => KeepOutcome;
+}
+
+/** What the player is told after asking to keep the last jump. */
+const KEEP_NOTE: Readonly<Record<KeepOutcome, string>> = {
+  kept: UI_TEXT.jumpScreen.replay.keptLast,
+  notReady: UI_TEXT.replays.notReady,
+  alreadyKept: UI_TEXT.jumpScreen.replay.alreadyKept,
+  keptFull: UI_TEXT.replays.keptFull,
+  budgetFull: UI_TEXT.replays.budgetFull,
+};
+
+/** How long the note about a kept jump stays in the menu. */
+const KEEP_NOTE_MS = 5000;
+
+/** Keeps the last jump that ended and leaves a note of what became of it, which goes away on its own. */
+function useKeepLastJump(loop: JumpLoopControls, onKeepJump: Props["onKeepJump"]) {
+  const [keepNote, setKeepNote] = useState("");
+  useEffect(() => {
+    if (keepNote === "") return undefined;
+    const timer = setTimeout(() => setKeepNote(""), KEEP_NOTE_MS);
+    return () => clearTimeout(timer);
+  }, [keepNote]);
+  const onKeepLast = () => {
+    const jump = loop.lastJump();
+    if (jump) setKeepNote(KEEP_NOTE[onKeepJump(jump)]);
+  };
+  return { keepNote, onKeepLast };
 }
 
 const JUMP_TEXT = UI_TEXT.jumpScreen;
@@ -97,6 +127,7 @@ export function JumpScreen(props: Props) {
   });
   useEntryFocus(canvasRef, props.focusOnEntry);
   useNowPlaying(UI_TEXT.hillLabel(hill.name, hill.kPointM));
+  const keepLast = useKeepLastJump(loop, props.onKeepJump);
   const pad = (side: "left" | "right") => (
     <TouchPad
       side={side}
@@ -168,6 +199,7 @@ export function JumpScreen(props: Props) {
           replay={replay}
           replayAvailable={replayAvailable}
           {...replayHandlers(loop, menu.closeMenu, setReplay)}
+          {...keepLast}
           settings={settings}
           onSettings={onSettings}
           tiltOn={tiltOn}
