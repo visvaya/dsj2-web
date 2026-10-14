@@ -52,6 +52,8 @@ jobs:
       - name: No duplicated code
         run: pnpm check:duplicates
       - run: pnpm format:check
+      - name: No dead links or paths in the documentation
+        run: node scripts/check-doc-links.mjs
       # Golden tests need a trace of the original game and are skipped here. The run also enforces the
       # coverage thresholds for src/sim set in vite.config.ts.
       - run: pnpm test:coverage
@@ -132,9 +134,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { suite: browser, engine: chromium, part: 1, parts: 1 }
+          # Chromium (three profiles) and WebKit (four) are split between two machines each, so no job takes much
+          # longer than the perf suite.
+          - { suite: browser, engine: chromium, part: 1, parts: 2 }
+          - { suite: browser, engine: chromium, part: 2, parts: 2 }
           - { suite: browser, engine: firefox, part: 1, parts: 1 }
-          # WebKit runs four profiles, more than any other engine, so its tests are split between two machines.
           - { suite: browser, engine: webkit, part: 1, parts: 2 }
           - { suite: browser, engine: webkit, part: 2, parts: 2 }
           - { suite: perf, engine: chromium, part: 1, parts: 1 }
