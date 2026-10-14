@@ -479,14 +479,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="v$(jq -r .version package.json)"
+          released() { gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json tagName > /dev/null 2>&1; }
+          create() { gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$tag" --generate-notes; }
           tagged=$(git ls-remote origin "refs/tags/$tag" | cut -f1)
           if [ "$tagged" = "$GITHUB_SHA" ]; then
-            echo "$tag is already on this commit."; exit 0
+            if released; then echo "$tag is already on this commit."; exit 0; fi
+            # A failed earlier attempt can leave the tag without its release.
+            echo "$tag is on this commit without a release; creating it."
           fi
           # Only after a rollback can the same version be published from a later commit (one that changed
           # nothing in the game); the release stays with the commit it was made for.
-          if [ -n "$tagged" ]; then
+          if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
             echo "::warning::$tag is already on $tagged; published again from this commit, no new release."; exit 0
           fi
-          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$tag" --generate-notes
+          # The API can answer with a server error after it has made the release, so a failed call is judged by
+          # whether the release exists, and tried once more if it does not.
+          if ! create; then
+            sleep 10
+            released || create
+          fi
+          released
           { echo "### Release"; echo; echo "- $tag on $GITHUB_SHA"; } >> "$GITHUB_STEP_SUMMARY"
