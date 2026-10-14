@@ -44,7 +44,7 @@ export interface ShelfEntry {
 export type Shelf = readonly ShelfEntry[];
 
 /** Why a replay was not put on the shelf. */
-export type ShelfRefusal = "keptFull" | "budgetFull";
+export type ShelfRefusal = "alreadyKept" | "keptFull" | "budgetFull";
 
 export type ShelfOutcome = { shelf: Shelf; refused: null } | { shelf: Shelf; refused: ShelfRefusal };
 
@@ -93,18 +93,25 @@ export function shelfBytes(shelf: Shelf): number {
 const fits = (shelf: Shelf): boolean => shelfBytes(shelf) <= REPLAY_LIMITS.BUDGET_BYTES;
 
 /** The replay of a new hill record: it takes the place of the hill's record before it. */
-export function withRecord(shelf: Shelf, entry: ShelfEntry): ShelfOutcome {
-  const next = [
-    ...shelf.filter((e) => !(e.kind === "record" && e.hill.id === entry.hill.id)),
-    { ...entry, kind: "record" as const },
-  ];
-  return fits(next) ? { shelf: next, refused: null } : { shelf, refused: "budgetFull" };
+export function withRecord(shelf: Shelf, entry: ShelfEntry): Shelf {
+  // Never refused: the hill's record has moved on, and its replay may take the shelf over the budget, as the
+  // records alone may.
+  return [...shelf.filter((e) => !(e.kind === "record" && e.hill.id === entry.hill.id)), { ...entry, kind: "record" }];
+}
+
+/** The same jump on the shelf, whatever kind it is kept as: the same seed and inputs, or the same file. */
+export function sameReplay(a: ShelfEntry, b: ShelfEntry): boolean {
+  if (a.replay.kind === "own" && b.replay.kind === "own") {
+    return a.replay.seed === b.replay.seed && a.replay.inputs === b.replay.inputs;
+  }
+  return a.replay.kind === "original" && b.replay.kind === "original" && a.replay.rpl === b.replay.rpl;
 }
 
 /** A replay kept by hand; refused once the kept ones or the budget are full, so nothing goes on its own. */
 export function withKept(shelf: Shelf, entry: ShelfEntry): ShelfOutcome {
-  if (shelf.filter((e) => e.kind === "kept").length >= REPLAY_LIMITS.KEPT_MAX_COUNT)
-    return { shelf, refused: "keptFull" };
+  const kept = shelf.filter((e) => e.kind === "kept");
+  if (kept.some((e) => sameReplay(e, entry))) return { shelf, refused: "alreadyKept" };
+  if (kept.length >= REPLAY_LIMITS.KEPT_MAX_COUNT) return { shelf, refused: "keptFull" };
   const next = [...shelf, { ...entry, kind: "kept" as const }];
   return fits(next) ? { shelf: next, refused: null } : { shelf, refused: "budgetFull" };
 }
@@ -129,6 +136,11 @@ export function oldestRemovable(shelf: Shelf, count: number): Set<string> {
 }
 
 const isText = (v: unknown): v is string => typeof v === "string";
+/**
+ * Longest texts an entry may hold: an id, a name, the inputs of a jump of 6000 frames and a file of the original
+ * (1222 bytes), all as stored. Longer ones come from something else than this game.
+ */
+const MAX_TEXT_CHARS = { id: 200, name: 100, inputs: 16_000, rpl: 1700 } as const;
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 const SHELF_KINDS: readonly ShelfKind[] = ["record", "kept", "recent"];
 
@@ -137,14 +149,15 @@ function asReplay(v: unknown): ShelfReplay | null {
   if (kind === "own") {
     const seed = field(v, "seed");
     const inputs = field(v, "inputs");
-    if (!isNumber(seed) || !isText(inputs) || decodeInputs(inputs) === null) return null;
-    return { kind, seed: seed >>> 0, inputs };
+    if (!isNumber(seed) || !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
+    if (!isText(inputs) || inputs.length > MAX_TEXT_CHARS.inputs || decodeInputs(inputs) === null) return null;
+    return { kind, seed, inputs };
   }
   if (kind === "original") {
     const rpl = field(v, "rpl");
     const jumperName = field(v, "jumperName");
-    if (!isText(rpl)) return null;
-    return isText(jumperName) ? { kind, rpl, jumperName } : { kind, rpl };
+    if (!isText(rpl) || rpl.length > MAX_TEXT_CHARS.rpl) return null;
+    return isText(jumperName) && jumperName.length <= MAX_TEXT_CHARS.name ? { kind, rpl, jumperName } : { kind, rpl };
   }
   return null;
 }
@@ -160,7 +173,9 @@ function asShelfEntry(v: unknown): ShelfEntry | null {
   const [hillId, hillName, kPointM] = ["id", "name", "kPointM"].map((key) => field(hill, key));
   const [distanceM, points, fell] = ["distanceM", "points", "fell"].map((key) => field(result, key));
   if (!isText(id) || !SHELF_KINDS.some((k) => k === kind) || !isText(dateIso) || replay === null) return null;
+  if (id.length > MAX_TEXT_CHARS.id || Number.isNaN(Date.parse(dateIso))) return null;
   if (!isText(hillId) || !isText(hillName) || !isNumber(kPointM)) return null;
+  if (hillId.length > MAX_TEXT_CHARS.id || hillName.length > MAX_TEXT_CHARS.name) return null;
   if (!isNumber(distanceM) || !isNumber(points) || typeof fell !== "boolean") return null;
   if (typeof newRecord !== "boolean" || !isNumber(engineRevision)) return null;
   return {
@@ -175,17 +190,50 @@ function asShelfEntry(v: unknown): ShelfEntry | null {
   };
 }
 
-/** The stored shelf; an unknown version or a damaged record gives an empty one, and damaged entries are left out. */
-export function parseShelf(v: unknown): Shelf {
-  if (field(v, "schemaVersion") !== REPLAY_SHELF_SCHEMA_VERSION) return [];
-  const entries = field(v, "entries");
-  if (!Array.isArray(entries)) return [];
-  return entries.map(asShelfEntry).filter((e): e is ShelfEntry => e !== null);
+/**
+ * The stored shelf as far as it can be read. Entries that cannot be read are kept apart to be stored back as they
+ * were, and a record of a version this game does not know is foreign: nothing may be written over it.
+ */
+export interface ReadShelf {
+  shelf: Shelf;
+  unreadable: readonly unknown[];
+  foreign: boolean;
 }
 
-/** The shelf as it is stored. */
-export function shelfRecord(shelf: Shelf): object {
-  return { schemaVersion: REPLAY_SHELF_SCHEMA_VERSION, entries: shelf };
+export function readShelf(v: unknown): ReadShelf {
+  if (v === undefined || v === null) return { shelf: [], unreadable: [], foreign: false };
+  const entries = field(v, "entries");
+  if (field(v, "schemaVersion") !== REPLAY_SHELF_SCHEMA_VERSION || !Array.isArray(entries)) {
+    return { shelf: [], unreadable: [], foreign: true };
+  }
+  const shelf: ShelfEntry[] = [];
+  const unreadable: unknown[] = [];
+  const ids = new Set<string>();
+  const recordHills = new Set<string>();
+  for (const raw of entries) {
+    const entry = asShelfEntry(raw);
+    // A second entry under an id, or a second record of a hill, is not one this game writes.
+    const doubled =
+      entry !== null && (ids.has(entry.id) || (entry.kind === "record" && recordHills.has(entry.hill.id)));
+    if (entry === null || doubled) {
+      unreadable.push(raw);
+      continue;
+    }
+    ids.add(entry.id);
+    if (entry.kind === "record") recordHills.add(entry.hill.id);
+    shelf.push(entry);
+  }
+  return { shelf, unreadable, foreign: false };
+}
+
+/** The stored shelf as far as it can be read (see readShelf). */
+export function parseShelf(v: unknown): Shelf {
+  return readShelf(v).shelf;
+}
+
+/** The shelf as it is stored, with the entries it could not read put back as they were. */
+export function shelfRecord(shelf: Shelf, unreadable: readonly unknown[] = []): object {
+  return { schemaVersion: REPLAY_SHELF_SCHEMA_VERSION, entries: [...shelf, ...unreadable] };
 }
 
 /** The clean-up the player asked for in the settings; null leaves that rule off. */

@@ -1,10 +1,11 @@
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import {
   REPLAY_LIMITS,
   entryBytes,
   oldestRemovable,
   shelfBytes,
+  sameReplay,
   withKept,
   withoutEntries,
   type Shelf,
@@ -20,6 +21,8 @@ import { useEntryFocus } from "./use-entry-focus";
 const T = UI_TEXT.replays;
 const BYTES_PER_KB = 1000;
 const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent"];
+/** How long a first press of "remove" waits for the second. */
+const CONFIRM_MS = 5000;
 /** How many of the oldest replays the clean-up offers to remove at first. */
 const REMOVE_OLDEST_DEFAULT = 10;
 
@@ -31,6 +34,8 @@ interface Props {
   originalHills: readonly HillChoice[];
   onPlay: (hill: HillChoice, source: ReplaySource) => void;
   onChangeShelf: (change: (current: Shelf) => Shelf) => void;
+  /** Where the replays are kept: "memory" means only until the page closes. */
+  storeName: string;
   onBack: () => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -80,7 +85,9 @@ function ReplayRow({ entry, confirming, onWatch, onKeep, onRemove }: RowProps) {
 
 /** Frees room in one go: the oldest replays that are not hill records. */
 function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
-  const [count, setCount] = useState(REMOVE_OLDEST_DEFAULT);
+  // Kept as typed, so the field can be cleared to type another number; read as a count on the press.
+  const [typed, setTyped] = useState(String(REMOVE_OLDEST_DEFAULT));
+  const count = Math.max(1, Math.trunc(Number(typed)) || REMOVE_OLDEST_DEFAULT);
   return (
     <div className="replay-remove-oldest">
       <label>
@@ -89,8 +96,8 @@ function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
           type="number"
           min={1}
           max={REPLAY_LIMITS.KEPT_MAX_COUNT + REPLAY_LIMITS.RECENT_MAX_COUNT}
-          value={count}
-          onChange={(e) => setCount(Math.max(1, Math.trunc(Number(e.currentTarget.value) || 1)))}
+          value={typed}
+          onChange={(e) => setTyped(e.currentTarget.value)}
         />
       </label>
       <button type="button" className="pixel-button small-button" onClick={() => onRemove(count)}>
@@ -101,11 +108,18 @@ function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
 }
 
 /** The replays: hill records, kept and last jumps, each to watch, keep or remove; and files of the original. */
-export function ReplaysScreen({ shelf, hills, originalHills, onPlay, onChangeShelf, onBack, focusOnEntry }: Props) {
+export function ReplaysScreen(props: Props) {
+  const { shelf, hills, originalHills, onPlay, onChangeShelf, onBack, focusOnEntry, storeName } = props;
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEntryFocus(headingRef, focusOnEntry);
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  // A removal asked for and not confirmed is forgotten after a while.
+  useEffect(() => {
+    if (confirming === null) return undefined;
+    const timer = setTimeout(() => setConfirming(null), CONFIRM_MS);
+    return () => clearTimeout(timer);
+  }, [confirming]);
 
   const watch = (entry: ShelfEntry) => {
     const hill = hills.find((h) => h.id === entry.hill.id);
@@ -116,14 +130,21 @@ export function ReplaysScreen({ shelf, hills, originalHills, onPlay, onChangeShe
     return onPlay(hill, { ...source, origin: "original" });
   };
   const keep = (entry: ShelfEntry) => {
-    const outcome = withKept(shelf, { ...entry, id: `kept:${entry.id}` });
-    if (outcome.refused === null)
-      onChangeShelf((current) => withKept(current, { ...entry, id: `kept:${entry.id}` }).shelf);
-    setMessage(outcome.refused === null ? null : { text: T[outcome.refused], error: true });
+    setConfirming(null);
+    const copy = { ...entry, id: `kept:${entry.id}` };
+    const outcome = withKept(shelf, copy);
+    if (outcome.refused === null) onChangeShelf((current) => withKept(current, copy).shelf);
+    setMessage(
+      outcome.refused === null ? { text: T.keptDone, error: false } : { text: T[outcome.refused], error: true },
+    );
   };
   const remove = (entry: ShelfEntry) => {
-    if (confirming !== entry.id) return setConfirming(entry.id);
+    if (confirming !== entry.id) {
+      setConfirming(entry.id);
+      return setMessage({ text: T.removeArmed, error: false });
+    }
     setConfirming(null);
+    setMessage(null);
     return onChangeShelf((current) => withoutEntries(current, new Set([entry.id])));
   };
   const removeOldest = (count: number) => {
@@ -141,7 +162,7 @@ export function ReplaysScreen({ shelf, hills, originalHills, onPlay, onChangeShe
     if (outcome.ok) onPlay(outcome.hill, outcome.source);
     else setMessage({ text: outcome.message, error: true });
   };
-  const keptIds = new Set(shelf.filter((e) => e.kind === "kept").map((e) => e.id));
+  const kept = shelf.filter((e) => e.kind === "kept");
 
   return (
     <main className="screen">
@@ -163,7 +184,7 @@ export function ReplaysScreen({ shelf, hills, originalHills, onPlay, onChangeShe
                   entry={entry}
                   confirming={confirming === entry.id}
                   onWatch={() => watch(entry)}
-                  onKeep={kind === "kept" || keptIds.has(`kept:${entry.id}`) ? null : () => keep(entry)}
+                  onKeep={kind === "kept" || kept.some((k) => sameReplay(k, entry)) ? null : () => keep(entry)}
                   onRemove={() => remove(entry)}
                 />
               ))}
@@ -188,11 +209,11 @@ export function ReplaysScreen({ shelf, hills, originalHills, onPlay, onChangeShe
           {UI_TEXT.back}
         </button>
       </div>
-      {message && (
-        <p className={message.error ? "note error" : "note"} role="status">
-          {message.text}
-        </p>
-      )}
+      {storeName === "memory" && <p className="note error">{T.onlyForVisit}</p>}
+      {/* Always there, so a screen reader hears each message as it changes. */}
+      <p className={message?.error === true ? "note error" : "note"} role="status">
+        {message?.text ?? ""}
+      </p>
     </main>
   );
 }

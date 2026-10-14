@@ -9,6 +9,7 @@ import {
   entryBytes,
   oldestRemovable,
   parseShelf,
+  readShelf,
   shelfBytes,
   shelfRecord,
   withKept,
@@ -56,23 +57,41 @@ describe("inputs of a stored replay", () => {
 
 describe("the shelf of replays", () => {
   it("keeps one replay of a record per hill, the newest", () => {
-    const first = withRecord([], entry("a", { kind: "record" })).shelf;
-    const other = withRecord(first, entry("b", { hill: { id: "own-2", name: "B", kPointM: 50 } })).shelf;
-    const again = withRecord(other, entry("c")).shelf;
+    const first = withRecord([], entry("a", { kind: "record" }));
+    const other = withRecord(first, entry("b", { hill: { id: "own-2", name: "B", kPointM: 50 } }));
+    const again = withRecord(other, entry("c"));
     expect(again.map((e) => [e.id, e.kind])).toEqual([
       ["b", "record"],
       ["c", "record"],
     ]);
   });
 
+  it("keeps the replay of a new record even beyond the size", () => {
+    const big = entry("big", { kind: "kept", replay: { kind: "original", rpl: "A".repeat(1600) } });
+    const full: Shelf = Array.from({ length: 4000 }, (_, i) => ({ ...big, id: `b${i}` }));
+    expect(shelfBytes(full)).toBeGreaterThan(REPLAY_LIMITS.BUDGET_BYTES);
+    expect(withRecord(full, entry("record")).at(-1)?.kind).toBe("record");
+    expect(withKept(full, entry("more", { replay: { kind: "own", seed: 7, inputs: "" } })).refused).toBe("keptFull");
+  });
+
+  it("does not keep the same jump twice, whatever it was kept from", () => {
+    const shelf = withKept([], entry("first")).shelf;
+    expect(withKept(shelf, entry("again", { kind: "recent" })).refused).toBe("alreadyKept");
+    expect(
+      withKept(shelf, entry("other", { replay: { kind: "own", seed: 43, inputs: encodeInputs(inputs) } })).refused,
+    ).toBeNull();
+  });
+
   it("refuses a replay kept by hand once the kept ones are full, and drops nothing", () => {
-    const full: Shelf = Array.from({ length: REPLAY_LIMITS.KEPT_MAX_COUNT }, (_, i) => entry(`k${i}`));
-    const outcome = withKept(full, entry("new"));
+    const distinct = (id: string, seed: number) =>
+      entry(id, { replay: { kind: "own", seed, inputs: encodeInputs(inputs) } });
+    const full: Shelf = Array.from({ length: REPLAY_LIMITS.KEPT_MAX_COUNT }, (_, i) => distinct(`k${i}`, 1000 + i));
+    const outcome = withKept(full, distinct("new", 1));
     expect(outcome.refused).toBe("keptFull");
     expect(outcome.shelf).toBe(full);
     // Records do not count towards that limit.
     const withRecords = [...full.slice(1), entry("r", { kind: "record" })];
-    expect(withKept(withRecords, entry("new")).refused).toBeNull();
+    expect(withKept(withRecords, distinct("new", 1)).refused).toBeNull();
   });
 
   it("keeps only the newest of the last jumps, as many as the player chose", () => {
@@ -133,5 +152,20 @@ describe("the stored shelf", () => {
     expect(parseShelf(record).map((e) => e.id)).toEqual(["ok"]);
     expect(parseShelf({ schemaVersion: 99, entries: [entry("ok")] })).toEqual([]);
     expect(parseShelf(null)).toEqual([]);
+  });
+
+  it("tells a foreign record from an empty one and keeps apart what it cannot read", () => {
+    expect(readShelf(undefined)).toEqual({ shelf: [], unreadable: [], foreign: false });
+    expect(readShelf({ schemaVersion: 99, entries: [] }).foreign).toBe(true);
+    const doubledId = entry("a");
+    const secondRecord = entry("r2", { kind: "record" });
+    const badDate = entry("d", { dateIso: "yesterday" });
+    const read = readShelf({
+      schemaVersion: 1,
+      entries: [entry("a"), doubledId, entry("r1", { kind: "record" }), secondRecord, badDate],
+    });
+    expect(read.shelf.map((e) => e.id)).toEqual(["a", "r1"]);
+    expect(read.unreadable).toEqual([doubledId, secondRecord, badDate]);
+    expect(read.foreign).toBe(false);
   });
 });

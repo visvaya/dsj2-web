@@ -45,6 +45,7 @@ interface Props {
 /** What the player is told after asking to keep the last jump. */
 const KEEP_NOTE: Readonly<Record<KeepOutcome, string>> = {
   kept: UI_TEXT.jumpScreen.replay.keptLast,
+  notReady: UI_TEXT.replays.notReady,
   alreadyKept: UI_TEXT.jumpScreen.replay.alreadyKept,
   keptFull: UI_TEXT.replays.keptFull,
   budgetFull: UI_TEXT.replays.budgetFull,

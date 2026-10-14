@@ -184,6 +184,7 @@ export function App({ diagnostics }: AppProps) {
         shelf={replays.shelf}
         hills={[...OWN_HILLS, ...originalHills]}
         onChangeShelf={replays.change}
+        storeName={replays.storeName}
         originalHills={originalHills}
         onPlay={(hill, replay) => show({ kind: "jump", hill, replay })}
         onBack={() => show({ kind: "menu" })}

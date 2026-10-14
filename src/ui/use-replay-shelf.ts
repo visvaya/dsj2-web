@@ -7,7 +7,6 @@ import {
   withRecord,
   type Shelf,
   type ShelfCleanup,
-  type ShelfEntry,
   type ShelfRefusal,
 } from "../storage/replay-shelf";
 import { detectReplayStore, type ReplayStore } from "../storage/replay-store";
@@ -66,7 +65,7 @@ export function useReplayShelf(settings: ReplaySettings) {
   const onJumpFinished = (hill: HillChoice, jump: FinishedJump, newRecord: boolean) => {
     const now = new Date();
     change((current) => {
-      const recorded = newRecord ? withRecord(current, ownEntry("record", hill, jump, now)).shelf : current;
+      const recorded = newRecord ? withRecord(current, ownEntry("record", hill, jump, now)) : current;
       return settings.recentCount > 0
         ? withRecent(recorded, ownEntry("recent", hill, jump, now), settings.recentCount).shelf
         : recorded;
@@ -75,8 +74,9 @@ export function useReplayShelf(settings: ReplaySettings) {
 
   /** Keeps a jump by hand; says whether it was kept, was kept before, or found no room. */
   const keepJump = (hill: HillChoice, jump: FinishedJump): KeepOutcome => {
+    // Until the stored replays are in, what is already kept and what room is left are not known.
+    if (!loaded) return "notReady";
     const entry = ownEntry("kept", hill, jump, new Date());
-    if (shelf.some((e) => e.kind === "kept" && e.replay.kind === "own" && sameJump(e, entry))) return "alreadyKept";
     const outcome = withKept(shelf, entry);
     if (outcome.refused !== null) return outcome.refused;
     change((current) => withKept(current, entry).shelf);
@@ -87,14 +87,4 @@ export function useReplayShelf(settings: ReplaySettings) {
 }
 
 /** What became of a jump the player asked to keep. */
-export type KeepOutcome = "kept" | "alreadyKept" | ShelfRefusal;
-
-/** The same jump: the same seed and the same inputs, whenever it was kept. */
-function sameJump(a: ShelfEntry, b: ShelfEntry): boolean {
-  return (
-    a.replay.kind === "own" &&
-    b.replay.kind === "own" &&
-    a.replay.seed === b.replay.seed &&
-    a.replay.inputs === b.replay.inputs
-  );
-}
+export type KeepOutcome = "kept" | "notReady" | ShelfRefusal;

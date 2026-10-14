@@ -1,5 +1,5 @@
-import { idbRecord } from "./idb-record";
-import { parseShelf, shelfRecord, type Shelf } from "./replay-shelf";
+import { idbRecord, type IdbRecord } from "./idb-record";
+import { parseShelf, readShelf, shelfRecord, type Shelf } from "./replay-shelf";
 
 /** Keeps the shelf of replays between visits. */
 export interface ReplayStore {
@@ -24,12 +24,32 @@ export function memoryReplayStore(): ReplayStore {
   };
 }
 
-function indexedDbReplayStore(idb: IDBFactory): ReplayStore {
-  const stored = idbRecord(idb, REPLAYS_PLACE);
+/** The stored record could not be read as a shelf of this game; it is left alone. */
+class ForeignShelfError extends Error {
+  constructor() {
+    super("The stored replays are of a version this game does not know; they are not written over.");
+    this.name = "ForeignShelfError";
+  }
+}
+
+/** The shelf kept in one stored record (IndexedDB in the game, a stand-in in tests). */
+export function recordReplayStore(stored: IdbRecord): ReplayStore {
+  // What the last load could not read, to be stored back as it was; and whether the record is a foreign one.
+  let unreadable: readonly unknown[] = [];
+  let foreign = false;
   return {
     name: "indexedDB",
-    load: async () => parseShelf(await stored.get()),
-    save: (shelf) => stored.put(shelfRecord(shelf)),
+    load: async () => {
+      const read = readShelf(await stored.get());
+      unreadable = read.unreadable;
+      foreign = read.foreign;
+      return read.shelf;
+    },
+    save: (shelf) => {
+      // Failing here moves the store to memory (replayStoreWithFallback) and leaves the record as it is.
+      if (foreign) return Promise.reject(new ForeignShelfError());
+      return stored.put(shelfRecord(shelf, unreadable));
+    },
   };
 }
 
@@ -56,7 +76,7 @@ export function replayStoreWithFallback(primary: ReplayStore): ReplayStore {
 /** IndexedDB where the browser offers it, otherwise memory. */
 export function detectReplayStore(scope: { indexedDB?: IDBFactory } = globalThis): ReplayStore {
   try {
-    if (scope.indexedDB) return replayStoreWithFallback(indexedDbReplayStore(scope.indexedDB));
+    if (scope.indexedDB) return replayStoreWithFallback(recordReplayStore(idbRecord(scope.indexedDB, REPLAYS_PLACE)));
   } catch {
     // Access to indexedDB itself can throw in locked-down frames.
   }
