@@ -26,8 +26,13 @@ function directoriesOf(file) {
 /** Every tracked file and every directory above one. */
 const trackedPaths = (files) => new Set(files.flatMap((file) => [file, ...directoriesOf(file)]));
 
-/** Exit status 0 of `git check-ignore` means the path is ignored; 1 means it is not. */
-const isIgnored = (path) => spawnSync("git", ["check-ignore", "-q", "--no-index", "--", path]).status === 0;
+/**
+ * Exit status 0 of `git check-ignore` means the path is ignored; 1 means it is not. A pattern with a trailing
+ * slash matches only a directory, and git can tell a missing path is one only from that slash, so both forms
+ * are asked.
+ */
+const ignoredAsGiven = (path) => spawnSync("git", ["check-ignore", "-q", "--no-index", "--", path]).status === 0;
+const isIgnored = (path) => ignoredAsGiven(path) || ignoredAsGiven(`${path}/`);
 
 function main() {
   const tracked = trackedFiles();
