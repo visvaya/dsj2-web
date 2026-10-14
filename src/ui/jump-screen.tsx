@@ -66,7 +66,7 @@ interface Props {
   diagnostics: boolean;
 }
 
-const J = UI_TEXT.jumpScreen;
+const JUMP_TEXT = UI_TEXT.jumpScreen;
 /** How long a note about the motion sensor stays on screen. */
 const TILT_NOTE_MS = 5000;
 
@@ -150,7 +150,7 @@ function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPadProps)
       onPointerCancel={release}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <span className="touch-pad-key">{J.padKey[side]}</span>
+      <span className="touch-pad-key">{JUMP_TEXT.padKey[side]}</span>
       {hints.map((hint) => (
         <span key={hint} className="touch-pad-hint">
           {hint}
@@ -306,7 +306,7 @@ export function JumpScreen({
       tiltRef.current.on = granted;
       tiltRef.current.follow = TILT_AT_REST;
       setTiltOn(granted);
-      setTiltNote(granted ? "" : J.tiltHint);
+      setTiltNote(granted ? "" : JUMP_TEXT.tiltHint);
     });
     return () => {
       cancelled = true;
@@ -624,7 +624,7 @@ export function JumpScreen({
       <button
         type="button"
         className="pause-button"
-        aria-label={J.pause}
+        aria-label={JUMP_TEXT.pause}
         aria-expanded={menuOpen}
         inert={menuOpen}
         ref={pauseButtonRef}
@@ -637,7 +637,7 @@ export function JumpScreen({
           </svg>
         ) : (
           // With the mouse captured, or in full screen, the key is the way out: it is what the button says.
-          <span aria-hidden="true">{J.pauseKey}</span>
+          <span aria-hidden="true">{JUMP_TEXT.pauseKey}</span>
         )}
       </button>
       <div className="game-stage" ref={stageRef}>
@@ -645,7 +645,7 @@ export function JumpScreen({
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={J.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM))}
+          aria-label={JUMP_TEXT.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM))}
         />
         {diagnostics && <pre className="jump-diagnostics" aria-hidden="true" ref={diagnosticsRef} />}
       </div>
@@ -691,8 +691,8 @@ export function JumpScreen({
                 ref={resumeButtonRef}
                 onClick={() => setMenuOpen(false)}
               >
-                {J.resume}
-                {touch ? "" : J.resumeKey}
+                {JUMP_TEXT.resume}
+                {touch ? "" : JUMP_TEXT.resumeKey}
               </button>
             )}
             <button
@@ -703,14 +703,14 @@ export function JumpScreen({
                 setMenuOpen(false);
               }}
             >
-              {J.again}
-              {touch ? "" : J.againKey}
+              {JUMP_TEXT.again}
+              {touch ? "" : JUMP_TEXT.againKey}
             </button>
             <button type="button" className="pixel-button" onClick={() => setPanel("help")}>
               {UI_TEXT.menu.howTo}
             </button>
             <button type="button" className="pixel-button" onClick={() => setPanel("hills")}>
-              {J.changeHill}
+              {JUMP_TEXT.changeHill}
             </button>
             <SettingsControls
               settings={settings}
@@ -721,7 +721,7 @@ export function JumpScreen({
               onToggleTilt={toggleTilt}
             />
             <button type="button" className="pixel-button" onClick={onExit}>
-              {J.exit}
+              {JUMP_TEXT.exit}
             </button>
             {tiltNote !== "" && (
               <p className="note error" role="status">
@@ -737,8 +737,8 @@ export function JumpScreen({
           side="left"
           inert={menuOpen}
           onPress={(down) => pressZone("left", down)}
-          hints={tiltOn ? [] : J.leftPadHints}
-          label={tiltOn ? J.leftPadTilt : J.leftPad}
+          hints={tiltOn ? [] : JUMP_TEXT.leftPadHints}
+          label={tiltOn ? JUMP_TEXT.leftPadTilt : JUMP_TEXT.leftPad}
           onDrag={(dy) => {
             // With tilt steering the phone leans; a finger resting on the zone must not add to it.
             if (!tiltRef.current.on) inputRef.current.addMotion(dy * sensitivityGain(settings.sensitivity.drag));
@@ -749,8 +749,8 @@ export function JumpScreen({
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={tiltOn ? [] : J.rightPadHints}
-          label={tiltOn ? J.rightPadTilt : J.rightPad}
+          hints={tiltOn ? [] : JUMP_TEXT.rightPadHints}
+          label={tiltOn ? JUMP_TEXT.rightPadTilt : JUMP_TEXT.rightPad}
           onPress={(down) => pressZone("right", down)}
           onDrag={() => undefined}
         />
