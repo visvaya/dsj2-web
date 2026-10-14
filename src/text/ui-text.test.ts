@@ -51,8 +51,9 @@ describe("interface texts", () => {
   /**
    * A rough guard: a Polish text written without any diacritic gets past it. Text typed between JSX tags is
    * caught by the lint rule react/jsx-no-literals and text in the attributes a player reads or hears by the test
-   * below, whatever its letters; what none of them sees is a text without diacritics in a plain string of a .ts
-   * file.
+   * below, whatever its letters. Texts drawn into the picture of the jump are checked against a pseudo-language in
+   * src/render/jump-view.text-source.test.ts. What none of them sees is a text without diacritics in a plain
+   * string of another .ts file (a screen reader announcement, for example).
    */
   it("live in the text module, judged by Polish diacritics outside it", () => {
     const offenders = sourceFiles(SRC)
