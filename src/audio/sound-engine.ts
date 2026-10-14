@@ -272,9 +272,10 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
   return {
     prepare() {
       const c = open();
-      // Where the page has been touched before, the browser may start the new context at once; it stays quiet
-      // until a gesture on this screen, as everywhere else.
-      if (c && !resumed && c.state === "running") c.suspend().catch(() => undefined);
+      // Where the page has been touched before, the browser may start the new context at once, or a moment later
+      // (WebKit reports "suspended" first); it stays quiet until a gesture on this screen, as everywhere else.
+      // The context carries out a suspend and a later resume in the order they were asked for.
+      if (c && !resumed) c.suspend().catch(() => undefined);
     },
     unlock() {
       const c = open();

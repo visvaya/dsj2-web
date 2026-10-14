@@ -177,6 +177,15 @@ describe("sound engine", () => {
     expect(fake.state).toBe("running");
   });
 
+  it("asks a context that has not started yet to stay suspended: some browsers start it a moment later", () => {
+    const fake = fakeContext();
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    expect(fake.suspended).toBe(1);
+    engine.unlock();
+    expect(fake.resumed).toBe(1);
+  });
+
   it("resumes at the first gesture even while its suspend has not taken effect yet", () => {
     const fake = fakeContext({ startState: "running", settle: false });
     const engine = createSoundEngine(() => fake);
