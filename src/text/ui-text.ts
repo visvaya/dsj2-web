@@ -202,6 +202,13 @@ export const UI_TEXT = {
     againKey: " (R)",
     changeHill: "Zmień skocznię",
     exit: "Wyjdź do menu głównego",
+    /** Watching the last jump again. */
+    replay: {
+      watch: "Powtórka skoku",
+      speed: (speed: string) => `Tempo: ${speed}`,
+      fromStart: "Od początku",
+      end: "Koniec powtórki",
+    },
     tiltHint: "Dotknij „Pochylanie”, aby włączyć przechył.",
     padKey: { left: "L", right: "P" },
     leftPadHints: ["przeciągnij: pochylenie"],
@@ -215,6 +222,7 @@ export const UI_TEXT = {
   /** What a screen reader hears during a jump. */
   announcement: {
     jumpStarted: "Skok rozpoczęty.",
+    replayStarted: "Powtórka skoku. Kliknięcie lub dotknięcie obrazu: pauza, Esc: menu.",
     nextJump: {
       mouse: "Lewy przycisk lub R: jeszcze raz.",
       touch: "Pole L: jeszcze raz.",
@@ -236,6 +244,9 @@ export const UI_TEXT = {
     disqualified: "DYSKWALIFIKACJA",
     distance: (distance: string) => `${distance} M`,
     speed: (speed: string) => `${speed} KM/H`,
+    /** A replay, with its tempo (1, 1/2, 1/4); the second while it is paused. */
+    replay: (speed: string) => `POWTÓRKA ${speed}`,
+    replayPaused: (speed: string) => `POWTÓRKA ${speed}: PAUZA`,
     phase: {
       crash: "UPADEK",
       gate: "BELKA",
@@ -247,6 +258,7 @@ export const UI_TEXT = {
     },
     prompts: {
       mouse: {
+        replay: "KLIKNIJ: PAUZA   ESC: MENU",
         nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: MENU",
         start: "LEWY PRZYCISK: START",
         takeoff: "OBA PRZYCISKI NA PROGU",
@@ -256,6 +268,7 @@ export const UI_TEXT = {
         twoFeet: "OBA NARAZ: NA DWIE NOGI",
       },
       touch: {
+        replay: "DOTKNIJ OBRAZU: PAUZA",
         nextJump: "L: JESZCZE RAZ",
         start: "L: START",
         takeoff: "L+P NA PROGU: WYBICIE",
@@ -265,6 +278,7 @@ export const UI_TEXT = {
         twoFeet: "L+P: NA DWIE NOGI",
       },
       tilt: {
+        replay: "DOTKNIJ OBRAZU: PAUZA",
         nextJump: "DOTKNIJ EKRANU: JESZCZE RAZ",
         start: "DOTKNIJ EKRANU: START",
         takeoff: "DWA KCIUKI NA PROGU: WYBICIE",

@@ -45,7 +45,7 @@ describe("jump steps", () => {
     const stepped = stepJump(jump, { steps: 0, leftHeld: true, record: undefined }, () => {
       throw new Error("no frame to take");
     });
-    expect(stepped).toEqual({ jump, leftDown: true, cues: [], touchdown: null });
+    expect(stepped).toEqual({ jump, leftDown: true, cues: [], taken: [], touchdown: null });
   });
 
   it("step the simulation as single frames do, whatever the chunk", () => {
@@ -57,14 +57,14 @@ describe("jump steps", () => {
     expect(inChunks(3).jump.state).toEqual(single.state);
   });
 
-  it("give each frame's input the phase the jump is in before it", () => {
+  it("give each frame's input the state of the logic before it", () => {
     const jump = start();
-    const phases: number[] = [];
-    stepJump(jump, { steps: 1, leftHeld: false, record: undefined }, (phase) => {
-      phases.push(phase);
-      return handsAt(1);
+    const frames: number[] = [];
+    stepJump(jump, { steps: 2, leftHeld: false, record: undefined }, (logic) => {
+      frames.push(logic.frame);
+      return handsAt(logic.frame);
     });
-    expect(phases).toEqual([jump.state.logic.phase]);
+    expect(frames).toEqual([jump.state.logic.frame, jump.state.logic.frame + 1]);
   });
 
   it("count a press inside the frames, and one held before them", () => {

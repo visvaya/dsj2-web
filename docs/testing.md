@@ -257,6 +257,7 @@ komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo �
 | 21 | Po opublikowaniu nowego wydania: otwórz grę, poczekaj na „Nowa wersja jest gotowa.”, zamknij wszystkie okna gry i uruchom ją ponownie | do zamknięcia działa stare wydanie, potem nowe; ustawienia, rekordy i zapamiętane pliki gry zostają | `offline.spec.ts`; na telefonie i z prawdziwym plikiem gry: tylko urządzenie |
 | 22 | Uruchomiona z ikony: przejdź do innej aplikacji i wróć; zablokuj i odblokuj ekran | gra wraca tam, gdzie była, bez białego ekranu i bez ponownego wczytywania w trakcie skoku | tylko urządzenie |
 | 23 | Otwórz grę w przeglądarce telefonu z `?diag` na końcu adresu, oddaj trzy skoki i po trzecim zapisz liczby z nakładki w rogu obrazu | zgubione kroki 0.0; odstęp klatki zgodny z odświeżaniem ekranu (około 16.7 ms przy 60 Hz, 8.3 ms przy 120 Hz) | tylko urządzenie (działanie nakładki: `diagnostics.spec.ts`) |
+| 24 | Na telefonie oddaj skok, w menu „Powtórka skoku”; dotknij obrazu, odczekaj, dotknij znowu; w menu „Tempo” do 1/4; po notach dotknij obrazu | skok odtwarza się tak jak był (ta sama odległość), bez wibracji, z dźwiękiem; dotknięcie zatrzymuje i wznawia; w tempie 1/4 skok i dźwięk wyraźnie wolniej; po notach dotknięcie zaczyna nowy skok, a rekord się nie zmienia | odtworzenie i brak wibracji: `src/ui/jump-runs.test.ts`; pauza, odległość, rekord: `replay.spec.ts`; odczucie i dźwięk w zwolnieniu: tylko urządzenie |
 
 Gra uruchomiona z ikony nie ma paska adresu, więc pomiar z punktu 23 robi się w karcie przeglądarki.
 

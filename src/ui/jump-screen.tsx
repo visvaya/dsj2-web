@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import { pickScenery } from "../game/scenery";
 import { newSeed } from "../game/training-session";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JumpMenu } from "./jump-menu";
+import { nextReplaySpeed, type ReplayView } from "./jump-replay";
+import type { JumpLoopControls } from "./jump-runs";
 import type { JumpResult } from "./jump-round";
 import { TouchPad } from "./touch-pad";
 import { useEntryFocus } from "./use-entry-focus";
@@ -34,10 +36,31 @@ interface Props {
 
 const JUMP_TEXT = UI_TEXT.jumpScreen;
 
+/** What the replay buttons of the menu do; each closes the menu, apart from the tempo. */
+function replayHandlers(
+  loop: JumpLoopControls,
+  closeMenu: () => void,
+  setReplay: Dispatch<SetStateAction<ReplayView | null>>,
+) {
+  const thenClose = (act: (c: JumpLoopControls) => void) => () => {
+    act(loop);
+    closeMenu();
+  };
+  return {
+    onWatchReplay: thenClose((c) => c.watchReplay()),
+    onReplaySpeed: () => setReplay((view) => view && { ...view, speed: nextReplaySpeed(view.speed) }),
+    onReplayFromStart: thenClose((c) => c.restart()),
+    onReplayEnd: thenClose((c) => c.endReplay()),
+  };
+}
+
 /** The training on one hill: the picture of the jump, the touch zones on a phone, and the menu. */
 export function JumpScreen(props: Props) {
   const { hill, settings, onSettings } = props;
   const [announcement, setAnnouncement] = useState("");
+  /** How the replay is being watched; null while jumping. */
+  const [replay, setReplay] = useState<ReplayView | null>(null);
+  const [replayAvailable, setReplayAvailable] = useState(false);
   const touch = useMediaQuery(TOUCH_QUERY);
   const steering = useSteering(touch, settings, onSettings);
   const { controls, tiltOn } = steering;
@@ -46,9 +69,14 @@ export function JumpScreen(props: Props) {
   // The look is drawn once per visit to the hill (not per jump), from its own seed.
   const [visitSeed] = useState(newSeed);
   const scenery = useMemo(() => pickScenery(settings.scenery, visitSeed), [settings.scenery, visitSeed]);
-  const { stageRef, canvasRef, diagnosticsRef, restartRef } = useJumpLoop({
+  const {
+    stageRef,
+    canvasRef,
+    diagnosticsRef,
+    controls: loop,
+  } = useJumpLoop({
     hill,
-    live: { onFinished: props.onFinished, record: props.record, settings, controls, scenery },
+    live: { onFinished: props.onFinished, record: props.record, settings, controls, scenery, replay },
     inputRef: steering.inputRef,
     tiltRef: steering.tiltRef,
     resetHands: steering.resetHands,
@@ -58,12 +86,17 @@ export function JumpScreen(props: Props) {
     openMenu: menu.openMenu,
     toggleMenu: menu.toggleMenu,
     announce: setAnnouncement,
+    onReplayAvailable: setReplayAvailable,
+    onReplayChange: setReplay,
   });
   useEntryFocus(canvasRef, props.focusOnEntry);
   const pad = (side: "left" | "right") => (
     <TouchPad
       side={side}
-      inert={menu.menuOpen}
+      inert={menu.menuOpen || replay !== null}
+      // A replay takes no hands: the zones keep their place, so the picture does not move, and a touch goes
+      // through to the picture, which pauses the replay.
+      idle={replay !== null}
       hints={tiltOn ? [] : JUMP_TEXT[side === "left" ? "leftPadHints" : "rightPadHints"]}
       label={tiltOn ? JUMP_TEXT[`${side}PadTilt`] : JUMP_TEXT[`${side}Pad`]}
       onPress={(down) => steering.pressZone(side, down)}
@@ -116,15 +149,21 @@ export function JumpScreen(props: Props) {
           records={props.records}
           onPickHill={(picked) => {
             // The hill being jumped starts again; another one replaces this screen.
-            if (picked.id === hill.id) restartRef.current();
+            if (picked.id === hill.id) {
+              if (replay) loop.endReplay();
+              else loop.restart();
+            }
             menu.closeMenu();
             props.onPickHill(picked);
           }}
           onResume={menu.closeMenu}
           onAgain={() => {
-            restartRef.current();
+            loop.restart();
             menu.closeMenu();
           }}
+          replay={replay}
+          replayAvailable={replayAvailable}
+          {...replayHandlers(loop, menu.closeMenu, setReplay)}
           settings={settings}
           onSettings={onSettings}
           tiltOn={tiltOn}

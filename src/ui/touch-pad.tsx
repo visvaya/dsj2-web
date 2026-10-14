@@ -9,6 +9,8 @@ interface TouchPadProps {
   hints: readonly string[];
   /** Out of reach of the pointer and the keyboard while the pause controls cover the zone. */
   inert: boolean;
+  /** Kept in its place but not shown, and touches go through it. */
+  idle: boolean;
   onPress: (down: boolean) => void;
   onDrag: (dy: number) => void;
 }
@@ -17,7 +19,7 @@ interface TouchPadProps {
  * A touch zone standing in for a mouse button; dragging in the left one leans like the mouse. In flight the
  * left zone only leans and the right one lands (`leftTouchLeansOnly`).
  */
-export function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPadProps) {
+export function TouchPad({ side, label, hints, inert, idle, onPress, onDrag }: TouchPadProps) {
   const lastY = useRef(new Map<number, number>());
   const release = (e: ReactPointerEvent<HTMLButtonElement>) => {
     lastY.current.delete(e.pointerId);
@@ -26,7 +28,7 @@ export function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPa
   return (
     <button
       type="button"
-      className={`touch-pad touch-pad-${side}`}
+      className={`touch-pad touch-pad-${side}${idle ? " touch-pad-idle" : ""}`}
       inert={inert}
       aria-label={label}
       onPointerDown={(e) => {
