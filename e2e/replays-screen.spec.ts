@@ -23,7 +23,7 @@ test("the replay screen explains what it needs and refuses a file that is not a 
   const status = page.getByRole("status");
 
   await choose("notatki.txt", Buffer.from("To nie jest powtórka.", "utf8"));
-  await expect(status).toHaveText("To nie jest plik powtórki DSJ2 (.rpl).");
+  await expect(status).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
   await expect(status).toHaveClass(/error/);
 
   // The right size, but not what the original writes: the checksum gives it away.
