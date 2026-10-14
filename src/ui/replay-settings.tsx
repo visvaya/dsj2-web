@@ -51,7 +51,21 @@ function CleanupRule(p: {
   );
 }
 
-/** What is kept of the replays besides the hill records, and what goes on its own; all off at first. */
+/** Shows or hides the slider under the picture of a replay. */
+export function ReplaySliderToggle({ replays, onSettings }: Props) {
+  return (
+    <button
+      type="button"
+      className="pixel-button"
+      aria-pressed={replays.slider}
+      onClick={() => onSettings({ replays: { ...replays, slider: !replays.slider } })}
+    >
+      {replays.slider ? T.sliderOn : T.sliderOff}
+    </button>
+  );
+}
+
+/** What is kept of the replays besides the hill records, what goes on its own, and the slider of a replay. */
 export function ReplaySettingsControls({ replays, onSettings }: Props) {
   const set = (change: Partial<ReplaySettings>) => onSettings({ replays: { ...replays, ...change } });
   const counts = R.RECENT_COUNTS;
@@ -62,6 +76,7 @@ export function ReplaySettingsControls({ replays, onSettings }: Props) {
       <button type="button" className="pixel-button" onClick={() => set({ recentCount: next })}>
         {T.recent(replays.recentCount)}
       </button>
+      <ReplaySliderToggle replays={replays} onSettings={onSettings} />
       <CleanupRule
         label={T.maxAge}
         value={replays.maxAgeDays}

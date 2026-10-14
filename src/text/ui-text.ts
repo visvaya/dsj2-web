@@ -52,6 +52,12 @@ export const UI_TEXT = {
   },
 
   /** What the phone shows of the game's sound outside the page (lock screen, control centre). */
+  /** A size, kept on one line with its unit. */
+  size: {
+    kb: (amount: string) => `${amount}\u00a0KB`,
+    mb: (amount: string) => `${amount}\u00a0MB`,
+  },
+
   nowPlaying: {
     training: (hillLabel: string) => `Trening: ${hillLabel}`,
   },
@@ -71,9 +77,8 @@ export const UI_TEXT = {
     empty: "Nie ma jeszcze zapisanych powtórek.",
     /** One replay of the list: its result, its date and what it weighs. */
     row: (distance: string, points: string, date: string, size: string) =>
-      `${distance} m · ${points} pkt · ${date} · ${size}`,
-    fell: "upadek",
-    sizeKb: (kb: string) => `${kb} KB`,
+      `${distance} · ${points}\u00a0pkt · ${date} · ${size}`,
+    distance: (metres: string, fell: boolean) => (fell ? `${metres}\u00a0m (upadek)` : `${metres}\u00a0m`),
     watch: "Obejrzyj",
     keep: "Zachowaj",
     kept: "Zachowane",
@@ -90,6 +95,7 @@ export const UI_TEXT = {
     removeArmed: "Dotknij jeszcze raz „Na pewno usunąć?”, żeby usunąć.",
     select: (replay: string) => `Zaznacz: ${replay}`,
     selectAll: "Zaznacz wszystkie",
+    selectNone: "Odznacz wszystkie",
     exportSelected: (count: number) => `Eksportuj zaznaczone (${count})`,
     removeSelected: (count: number) => `Usuń zaznaczone (${count})`,
     confirmRemoveSelected: (count: number) => `Na pewno usunąć ${count}?`,
@@ -121,7 +127,7 @@ export const UI_TEXT = {
     own: "Skocznie własne",
     original: "Skocznie z oryginału",
     kPoint: (kPointM: number) => `K${kPointM}`,
-    record: (distance: string) => `rekord ${distance} m`,
+    record: (distance: string) => `rekord ${distance}\u00a0m`,
     watchRecord: "Powtórka",
     watchRecordLabel: (hillLabel: string) => `Powtórka rekordu: ${hillLabel}`,
   },
@@ -152,6 +158,8 @@ export const UI_TEXT = {
       maxAge: "Usuwaj powtórki starsze niż (dni)",
       maxSize: "Usuwaj najstarsze, gdy powtórki ważą więcej niż (MB)",
       recordsStay: "Rekordy skoczni nie są usuwane same.",
+      sliderOn: "Suwak powtórki: wł.",
+      sliderOff: "Suwak powtórki: wył.",
     },
     sensitivity: "Czułość: ",
     scenery: "Sceneria: ",
@@ -282,6 +290,7 @@ export const UI_TEXT = {
       keepLast: "Zachowaj ostatni skok",
       position: "Moment powtórki",
       positionValue: (now: string, total: string) => `${now} s z ${total} s`,
+      positionShort: (now: string, total: string) => `${now} / ${total}\u00a0s`,
       keptLast: "Ostatni skok jest zachowany na ekranie „Powtórki”.",
       alreadyKept: "Ten skok jest już zachowany.",
     },

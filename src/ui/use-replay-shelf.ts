@@ -17,7 +17,7 @@ import { ownEntry, recordReplayOf } from "./shelf-replays";
 const BYTES_PER_KB = 1000;
 
 /** The clean-up the settings ask for, in the units of the shelf. */
-function cleanupOf(settings: ReplaySettings): ShelfCleanup {
+function cleanupOf(settings: Pick<ReplaySettings, "maxAgeDays" | "maxSizeKb">): ShelfCleanup {
   return {
     maxAgeDays: settings.maxAgeDays,
     maxBytes: settings.maxSizeKb === null ? null : settings.maxSizeKb * BYTES_PER_KB,
@@ -36,7 +36,7 @@ export function useReplayShelf(settings: ReplaySettings) {
   const cleanup = useRef(cleanupOf(settings));
   // A clean-up switched on or tightened applies to the shelf at once.
   useEffect(() => {
-    cleanup.current = cleanupOf({ recentCount: 0, maxAgeDays, maxSizeKb });
+    cleanup.current = cleanupOf({ maxAgeDays, maxSizeKb });
     setShelf((current) => cleanedShelf(current, cleanup.current, new Date()));
   }, [maxAgeDays, maxSizeKb]);
 

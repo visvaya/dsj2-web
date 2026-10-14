@@ -276,22 +276,41 @@ h2 {
   gap: 8px;
 }
 
+/* The text of the field keeps its distance from the field, also where the text wraps. */
+.replay-remove-oldest label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+/* A field for a number, framed like the buttons. */
 .replay-remove-oldest input,
 .settings-rule input[type="number"] {
   width: 6em;
   min-height: 44px;
+  padding: 0 10px;
   font: inherit;
+  color: var(--text);
+  background: #000000;
+  border: 3px solid #787884;
+  border-radius: 0;
 }
 
-.replay-slider {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  width: min(100%, 420px);
+.replay-remove-oldest input:focus-visible,
+.settings-rule input[type="number"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
 }
 
-.replay-slider input {
-  min-height: 44px;
+.settings-rule input[type="number"]:disabled {
+  color: var(--muted);
+  border-color: #3c3c46;
+}
+
+/* Under the text of its box, which starts after the box and the gap. */
+.settings-rule input[type="number"] {
+  margin-left: 36px;
 }
 
 .settings-check {
@@ -301,9 +320,113 @@ h2 {
   min-height: 44px;
 }
 
-.settings-check input {
-  width: 24px;
-  height: 24px;
+/* A box framed like the buttons; a square in the colour of the accent marks it. */
+.settings-check input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  background: #000000;
+  border: 3px solid #787884;
+  cursor: pointer;
+}
+
+.settings-check input[type="checkbox"]::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: var(--accent);
+  visibility: hidden;
+}
+
+.settings-check input[type="checkbox"]:checked::before {
+  visibility: visible;
+}
+
+.settings-check input[type="checkbox"]:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* The replays among the settings: the buttons as wide as the others, the boxes and fields under them. */
+.settings-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-group .hill-section-title {
+  margin: 8px 0 0;
+}
+
+/* The slider of a replay, under the picture: it follows the replay, and moving it goes to a moment of it. */
+.replay-bar {
+  grid-area: bar;
+  flex: none;
+  align-self: center;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 720px);
+  padding: 0 8px;
+  font-size: clamp(14px, 3.8vw, 18px);
+  color: var(--text);
+}
+
+.replay-bar input {
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.replay-bar input::-webkit-slider-runnable-track {
+  height: 6px;
+  background: #787884;
+}
+
+.replay-bar input::-moz-range-track {
+  height: 6px;
+  background: #787884;
+}
+
+.replay-bar input::-webkit-slider-thumb {
+  appearance: none;
+  width: 18px;
+  height: 30px;
+  margin-top: -12px;
+  background: var(--accent);
+  border: 3px solid #000000;
+  border-radius: 0;
+}
+
+.replay-bar input::-moz-range-thumb {
+  box-sizing: border-box;
+  width: 18px;
+  height: 30px;
+  background: var(--accent);
+  border: 3px solid #000000;
+  border-radius: 0;
+}
+
+.replay-bar input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* As wide as its longest time, so the slider does not move while the time counts. */
+.replay-bar-time {
+  flex: none;
+  min-width: 11ch;
+  text-align: right;
 }
 
 .outfit-editor {
@@ -361,6 +484,8 @@ h2 {
 /* The width is set on the element; on a screen narrower than that the preview shrinks and keeps its shape. */
 .outfit-preview {
   max-width: 100%;
+  /* In the middle of the room it has, also when it goes under the colours on a narrow screen. */
+  margin-inline: auto;
   height: auto;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -777,6 +902,14 @@ h2 {
       "pause stage padR"
       "padL stage padR";
   }
+
+  .game.touch.with-bar {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pause stage padR"
+      "padL stage padR"
+      "padL bar padR";
+  }
 }
 
 /*
@@ -819,6 +952,14 @@ h2 {
   grid-template-areas: "stage";
 }
 
+/* A replay with its slider: the slider takes a row under the picture. */
+.game.touch.wide.with-bar {
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "stage"
+    "bar";
+}
+
 .game.wide .pause-button {
   position: fixed;
   /* A little room from the corner of the picture, which starts where the cut-outs of the screen end. */
@@ -847,12 +988,20 @@ h2 {
    * A replay takes no hands: in portrait the zones under the picture leave the layout and the picture is centred
    * in the screen. The picture keeps its size, which the width of the screen sets in portrait.
    */
-  .game.touch.replaying {
+  .game.touch.replaying:not(.wide) {
     grid-template-rows: auto minmax(0, 1fr) 0;
   }
 
   .game.touch.replaying .touch-pad {
     display: none;
+  }
+
+  .game.touch.with-bar:not(.wide) {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "pause pause"
+      "stage stage"
+      "bar bar";
   }
 }
 
@@ -863,6 +1012,15 @@ h2 {
 @media (forced-colors: active) {
   .swatch {
     forced-color-adjust: none;
+  }
+
+  /* The box of the system, which a contrast theme knows how to show. */
+  .settings-check input[type="checkbox"] {
+    appearance: auto;
+  }
+
+  .settings-check input[type="checkbox"]::before {
+    display: none;
   }
 
   /* These controls show the focus by a change of colour, which a contrast theme replaces with its own. */

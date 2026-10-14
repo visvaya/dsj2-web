@@ -1,11 +1,9 @@
 import { entryBytes, sameReplay, type Shelf, type ShelfEntry, type ShelfKind } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
+import { formatDecimal, formatSize } from "./number-text";
 
 const T = UI_TEXT.replays;
-const BYTES_PER_KB = 1000;
 const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent"];
-
-export const kb = (bytes: number): string => T.sizeKb((bytes / BYTES_PER_KB).toFixed(1));
 
 /** The name of a replay: its hill, and the jumper's name for a file of the original. */
 const replayName = (entry: ShelfEntry): string => {
@@ -17,9 +15,13 @@ const replayName = (entry: ShelfEntry): string => {
 /** The line under a replay's name: its result, its date and what it weighs. */
 function rowText(entry: ShelfEntry): string {
   const { distanceM, points, fell } = entry.result;
-  const distance = fell ? `${distanceM.toFixed(2)} (${T.fell})` : distanceM.toFixed(2);
   const date = new Date(entry.dateIso).toLocaleDateString("pl-PL");
-  return T.row(distance, points.toFixed(1), date, kb(entryBytes(entry)));
+  return T.row(
+    T.distance(formatDecimal(distanceM, 2), fell),
+    formatDecimal(points, 1),
+    date,
+    formatSize(entryBytes(entry)),
+  );
 }
 
 interface ListProps {
