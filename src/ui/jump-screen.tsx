@@ -33,9 +33,10 @@ import { PHASE } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, pictureScale, viewWidthFor, type ControlScheme } from "../render/jump-view";
 import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
-import { HILL_LIST_TITLE, HillLists } from "./hill-screen";
+import { UI_TEXT } from "../text/ui-text";
+import { HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
-import { SettingsControls, TILT_REFUSED } from "./settings-controls";
+import { SettingsControls } from "./settings-controls";
 import { createJumpDiagnostics } from "./jump-diagnostics";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -65,7 +66,7 @@ interface Props {
   diagnostics: boolean;
 }
 
-const PLAYER_NAME = "GRACZ 1";
+const JUMP_TEXT = UI_TEXT.jumpScreen;
 /** How long a note about the motion sensor stays on screen. */
 const TILT_NOTE_MS = 5000;
 
@@ -149,7 +150,7 @@ function TouchPad({ side, label, hints, inert, onPress, onDrag }: TouchPadProps)
       onPointerCancel={release}
       onContextMenu={(e) => e.preventDefault()}
     >
-      <span className="touch-pad-key">{side === "left" ? "L" : "P"}</span>
+      <span className="touch-pad-key">{JUMP_TEXT.padKey[side]}</span>
       {hints.map((hint) => (
         <span key={hint} className="touch-pad-hint">
           {hint}
@@ -268,7 +269,7 @@ export function JumpScreen({
       tiltRef.current.follow = TILT_AT_REST;
       releaseTouch();
       setTiltOn(granted);
-      setTiltNote(granted ? "" : TILT_REFUSED);
+      setTiltNote(granted ? "" : UI_TEXT.settings.tiltRefused);
       if (granted) onSettings({ leanControl: "tilt" });
     });
   };
@@ -305,7 +306,7 @@ export function JumpScreen({
       tiltRef.current.on = granted;
       tiltRef.current.follow = TILT_AT_REST;
       setTiltOn(granted);
-      setTiltNote(granted ? "" : "Dotknij „Pochylanie”, aby włączyć przechył.");
+      setTiltNote(granted ? "" : JUMP_TEXT.tiltHint);
     });
     return () => {
       cancelled = true;
@@ -504,7 +505,7 @@ export function JumpScreen({
         profile: hill.profile,
         kPointM: hill.kPointM,
         hillName: hill.name,
-        playerName: PLAYER_NAME,
+        playerName: UI_TEXT.hud.playerName,
         state: jump.state,
         controls: latest.current.controls,
         titleInsetPx,
@@ -623,7 +624,7 @@ export function JumpScreen({
       <button
         type="button"
         className="pause-button"
-        aria-label="Pauza i ustawienia"
+        aria-label={JUMP_TEXT.pause}
         aria-expanded={menuOpen}
         inert={menuOpen}
         ref={pauseButtonRef}
@@ -636,7 +637,7 @@ export function JumpScreen({
           </svg>
         ) : (
           // With the mouse captured, or in full screen, the key is the way out: it is what the button says.
-          <span aria-hidden="true">ESC: MENU</span>
+          <span aria-hidden="true">{JUMP_TEXT.pauseKey}</span>
         )}
       </button>
       <div className="game-stage" ref={stageRef}>
@@ -644,7 +645,7 @@ export function JumpScreen({
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={`Skok na skoczni ${hill.name} K${hill.kPointM}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`}
+          aria-label={JUMP_TEXT.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM))}
         />
         {diagnostics && <pre className="jump-diagnostics" aria-hidden="true" ref={diagnosticsRef} />}
       </div>
@@ -652,17 +653,17 @@ export function JumpScreen({
         {panel === "help" ? (
           <>
             <h2 className="how-to-title" tabIndex={-1} ref={panelHeadingRef}>
-              Jak skakać
+              {UI_TEXT.howTo.title}
             </h2>
             <HowToJump steering={controls} />
             <button type="button" className="pixel-button" onClick={() => setPanel("menu")}>
-              Wstecz
+              {UI_TEXT.back}
             </button>
           </>
         ) : panel === "hills" ? (
           <>
             <h2 className="how-to-title" tabIndex={-1} ref={panelHeadingRef}>
-              {HILL_LIST_TITLE}
+              {UI_TEXT.hills.title}
             </h2>
             <div className="menu-hills">
               <HillLists
@@ -678,7 +679,7 @@ export function JumpScreen({
               />
             </div>
             <button type="button" className="pixel-button" onClick={() => setPanel("menu")}>
-              Wstecz
+              {UI_TEXT.back}
             </button>
           </>
         ) : (
@@ -690,7 +691,8 @@ export function JumpScreen({
                 ref={resumeButtonRef}
                 onClick={() => setMenuOpen(false)}
               >
-                Wróć do gry{touch ? "" : " (Esc)"}
+                {JUMP_TEXT.resume}
+                {touch ? "" : JUMP_TEXT.resumeKey}
               </button>
             )}
             <button
@@ -701,13 +703,14 @@ export function JumpScreen({
                 setMenuOpen(false);
               }}
             >
-              Jeszcze raz{touch ? "" : " (R)"}
+              {JUMP_TEXT.again}
+              {touch ? "" : JUMP_TEXT.againKey}
             </button>
             <button type="button" className="pixel-button" onClick={() => setPanel("help")}>
-              Jak skakać
+              {UI_TEXT.menu.howTo}
             </button>
             <button type="button" className="pixel-button" onClick={() => setPanel("hills")}>
-              Zmień skocznię
+              {JUMP_TEXT.changeHill}
             </button>
             <SettingsControls
               settings={settings}
@@ -718,7 +721,7 @@ export function JumpScreen({
               onToggleTilt={toggleTilt}
             />
             <button type="button" className="pixel-button" onClick={onExit}>
-              Wyjdź do menu głównego
+              {JUMP_TEXT.exit}
             </button>
             {tiltNote !== "" && (
               <p className="note error" role="status">
@@ -734,12 +737,8 @@ export function JumpScreen({
           side="left"
           inert={menuOpen}
           onPress={(down) => pressZone("left", down)}
-          hints={tiltOn ? [] : ["przeciągnij: pochylenie"]}
-          label={
-            tiltOn
-              ? "Lewa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"
-              : "Lewy przycisk: start i wybicie; w locie przesuwanie w pionie pochyla skoczka"
-          }
+          hints={tiltOn ? [] : JUMP_TEXT.leftPadHints}
+          label={tiltOn ? JUMP_TEXT.leftPadTilt : JUMP_TEXT.leftPad}
           onDrag={(dy) => {
             // With tilt steering the phone leans; a finger resting on the zone must not add to it.
             if (!tiltRef.current.on) inputRef.current.addMotion(dy * sensitivityGain(settings.sensitivity.drag));
@@ -750,14 +749,8 @@ export function JumpScreen({
         <TouchPad
           side="right"
           inert={menuOpen}
-          hints={
-            tiltOn ? [] : ["L+P: wybicie", "P: telemark", "szybko drugie P: wąski telemark", "L+P w locie: dwie nogi"]
-          }
-          label={
-            tiltOn
-              ? "Prawa połowa ekranu: pierwszy kciuk na ekranie to lewy przycisk, drugi to prawy"
-              : "Prawy przycisk: wybicie razem z lewym; w locie telemark, a razem z lewym lądowanie na dwie nogi"
-          }
+          hints={tiltOn ? [] : JUMP_TEXT.rightPadHints}
+          label={tiltOn ? JUMP_TEXT.rightPadTilt : JUMP_TEXT.rightPad}
           onPress={(down) => pressZone("right", down)}
           onDrag={() => undefined}
         />

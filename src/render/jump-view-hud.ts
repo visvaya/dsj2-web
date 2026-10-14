@@ -4,6 +4,9 @@ import type { FrameBuffer } from "./frame-buffer";
 import type { ControlScheme, JumpViewModel } from "./jump-view-model";
 import { color } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
+import { UI_TEXT } from "../text/ui-text";
+
+const PHASE_LABEL = UI_TEXT.hud.phase;
 
 export const BAR_HEIGHT_PX = 11;
 const MS_TO_KMH = 3.6;
@@ -50,13 +53,13 @@ export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void
 
 function phaseLabel(s: JumpSimState): string {
   const phase = s.logic.phase;
-  if (phase === PHASE.crash) return "UPADEK";
-  if (phase === PHASE.gate) return "BELKA";
-  if (phase <= PHASE.crouch) return "NAJAZD";
-  if (phase <= PHASE.afterTakeoff) return "WYBICIE";
-  if (phase <= PHASE.flight) return "LOT";
-  if (phase <= PHASE.landing) return "LĄDOWANIE";
-  return "WYBIEG";
+  if (phase === PHASE.crash) return PHASE_LABEL.crash;
+  if (phase === PHASE.gate) return PHASE_LABEL.gate;
+  if (phase <= PHASE.crouch) return PHASE_LABEL.inrun;
+  if (phase <= PHASE.afterTakeoff) return PHASE_LABEL.takeoff;
+  if (phase <= PHASE.flight) return PHASE_LABEL.flight;
+  if (phase <= PHASE.landing) return PHASE_LABEL.landing;
+  return PHASE_LABEL.outrun;
 }
 
 /**
@@ -74,35 +77,7 @@ interface Prompts {
   twoFeet: string;
 }
 
-const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = {
-  mouse: {
-    nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: MENU",
-    start: "LEWY PRZYCISK: START",
-    takeoff: "OBA PRZYCISKI NA PROGU",
-    lean: "MYSZ: POCHYLENIE",
-    telemark: "PRZYCISK TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "SZYBKO DRUGI PRZYCISK: WĄSKI TELEMARK",
-    twoFeet: "OBA NARAZ: NA DWIE NOGI",
-  },
-  touch: {
-    nextJump: "L: JESZCZE RAZ",
-    start: "L: START",
-    takeoff: "L+P NA PROGU: WYBICIE",
-    lean: "PRZECIĄGAJ W POLU L: POCHYLENIE",
-    telemark: "P TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "SZYBKO ZNOWU P: WĄSKI TELEMARK",
-    twoFeet: "L+P: NA DWIE NOGI",
-  },
-  tilt: {
-    nextJump: "DOTKNIJ EKRANU: JESZCZE RAZ",
-    start: "DOTKNIJ EKRANU: START",
-    takeoff: "DWA KCIUKI NA PROGU: WYBICIE",
-    lean: "PRZECHYLAJ TELEFON: POCHYLENIE",
-    telemark: "KCIUK TUŻ NAD ZIEMIĄ: TELEMARK",
-    width: "SZYBKO DRUGI: WĄSKI TELEMARK",
-    twoFeet: "DWA KCIUKI NARAZ: NA DWIE NOGI",
-  },
-};
+const PROMPTS: Readonly<Record<ControlScheme, Prompts>> = UI_TEXT.hud.prompts;
 
 export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly string[] {
   // A player who knows the game can switch every prompt on the hill off.
@@ -132,11 +107,11 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
   const nameEnd = drawText(fb, 4, top + 2, m.playerName, color("yellow"));
   const middle = Math.round(fb.width * 0.47);
   if (L.finished && L.distanceM === 0) {
-    drawText(fb, middle, top + 2, "DYSKWALIFIKACJA", color("red"));
+    drawText(fb, middle, top + 2, UI_TEXT.hud.disqualified, color("red"));
     return;
   }
   if (L.finished) {
-    drawText(fb, middle, top + 2, `${L.distanceHalfM.toFixed(1)} M`, color("yellow"));
+    drawText(fb, middle, top + 2, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), color("yellow"));
     if (notesShown) {
       const points = L.points.toFixed(1);
       drawText(fb, fb.width - 4 - textWidth(points), top + 2, points, color("yellow"));
@@ -146,6 +121,6 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
   drawText(fb, nameEnd + 10, top + 2, phaseLabel(s), L.phase === PHASE.crash ? color("red") : color("green"));
   // The simulation keeps `speedMPerS` for the ground; in the air the velocity vector is shown.
   const v = s.jumper.airborne ? Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS) : s.jumper.speedMPerS;
-  const speed = `${(v * MS_TO_KMH).toFixed(1)} KM/H`;
+  const speed = UI_TEXT.hud.speed((v * MS_TO_KMH).toFixed(1));
   drawText(fb, fb.width - 4 - textWidth(speed), top + 2, speed, color("white"));
 }

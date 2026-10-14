@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { howToJump, STEERING_NAME, type Steering } from "./how-to-jump-text";
+import { UI_TEXT } from "../text/ui-text";
+import { howToJump, type Steering } from "./how-to-jump-text";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
@@ -35,13 +36,13 @@ export function HowToScreen({ tilt, onBack, focusOnEntry }: Props) {
   return (
     <main className="screen">
       <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
-        Jak skakać
+        {UI_TEXT.howTo.title}
       </h1>
-      <p className="note">Sterowanie: {STEERING_NAME[steering]}</p>
+      <p className="note">{UI_TEXT.howTo.steering(UI_TEXT.howTo.steeringName[steering])}</p>
       <HowToJump steering={steering} />
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
-          Wstecz
+          {UI_TEXT.back}
         </button>
       </div>
     </main>

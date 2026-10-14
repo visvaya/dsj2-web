@@ -1,5 +1,8 @@
 import type { HillChoice } from "../game/hill-choice";
 import type { GameFiles } from "../storage/game-files-store";
+import { UI_TEXT } from "../text/ui-text";
+
+const T = UI_TEXT.gameFiles;
 
 /** What follows from the files the player has chosen so far. */
 export interface GameFilesOutcome {
@@ -24,9 +27,9 @@ export function gameFilesOutcome(files: GameFiles, readHills: HillReader): GameF
       ? {
           keep: { dat },
           hills: null,
-          message: { text: "Wczytano Dsj.dat. Wybierz jeszcze Dsj.exe: w nim są skocznie.", error: false },
+          message: { text: T.datOnly, error: false },
         }
-      : { keep: null, hills: null, message: { text: "Wśród wybranych plików nie ma Dsj.exe.", error: true } };
+      : { keep: null, hills: null, message: { text: T.noExe, error: true } };
   }
   try {
     const hills = readHills(exe, dat);
@@ -34,7 +37,7 @@ export function gameFilesOutcome(files: GameFiles, readHills: HillReader): GameF
       keep: dat ? { exe, dat } : { exe },
       hills,
       message: {
-        text: dat ? `Wczytano skocznie: ${hills.length} (nazwy z Dsj.dat).` : `Wczytano skocznie: ${hills.length}.`,
+        text: dat ? T.loadedWithNames(hills.length) : T.loaded(hills.length),
         error: false,
       },
     };
@@ -44,7 +47,7 @@ export function gameFilesOutcome(files: GameFiles, readHills: HillReader): GameF
       keep: null,
       hills: null,
       message: {
-        text: "Nie udało się odczytać plików: to nie są pliki gry Deluxe Ski Jump 2 w wersji 2.10P albo są uszkodzone.",
+        text: T.unreadable,
         error: true,
       },
     };

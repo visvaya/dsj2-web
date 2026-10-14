@@ -4,6 +4,7 @@ import { versionLabel } from "../game/version";
 import { readOriginalHills } from "../original/original-hills";
 import type { OfflineState } from "../pwa/offline-state";
 import type { GameFiles } from "../storage/game-files-store";
+import { UI_TEXT } from "../text/ui-text";
 import { gameFilesOutcome } from "./game-files-choice";
 import { OfflineNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
@@ -19,10 +20,7 @@ const NO_BREAK_SPACE = String.fromCodePoint(0xa0);
  * hyphen only where a word is divided), and "~" keeps a one-letter word with the word after it. Browsers divide
  * Polish words on their own only where they have a dictionary for it, which not every one has.
  */
-const QUIT_REFUSED =
-  "Gra nie może za|mknąć tej karty sama. Za|mknij ją krzy|ży|kiem karty albo kla|wi|sza|mi Ctrl+W. Możesz wyjść z~trybu peł|no|ekra|no|we|go przy|ci|skiem F11."
-    .replaceAll("|", SOFT_HYPHEN)
-    .replaceAll("~", NO_BREAK_SPACE);
+const QUIT_REFUSED = UI_TEXT.menu.quitRefused.replaceAll("|", SOFT_HYPHEN).replaceAll("~", NO_BREAK_SPACE);
 /** A window that closes is gone before this; one that stays gets the note. */
 const QUIT_NOTE_AFTER_MS = 300;
 
@@ -99,38 +97,38 @@ export function MenuScreen({
     <main className="screen">
       <header>
         <h1 className="title" tabIndex={-1} ref={headingRef}>
-          Telemark
+          {UI_TEXT.appName}
         </h1>
-        <p className="note">Skoki narciarskie · {versionLabel()}</p>
+        <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
       </header>
       <hr className="rule" />
-      <nav className="menu" aria-label="Główne menu">
-        <h2>Główne menu</h2>
+      <nav className="menu" aria-label={UI_TEXT.menu.navigation}>
+        <h2>{UI_TEXT.menu.navigation}</h2>
         <button type="button" className="pixel-button" onClick={() => onOpen("hills")}>
-          Trening
+          {UI_TEXT.menu.training}
         </button>
         <button type="button" className="pixel-button" onClick={() => onOpen("outfit")}>
-          Strój
+          {UI_TEXT.menu.outfit}
         </button>
         <button type="button" className="pixel-button" onClick={() => onOpen("settings")}>
-          Ustawienia
+          {UI_TEXT.menu.settings}
         </button>
         <button type="button" className="pixel-button" onClick={() => onOpen("howto")}>
-          Jak skakać
+          {UI_TEXT.menu.howTo}
         </button>
         {!installed && (
           <button type="button" className="pixel-button" onClick={() => onOpen("install")}>
-            Gra jako aplikacja
+            {UI_TEXT.menu.install}
           </button>
         )}
         <label className="pixel-button file-label">
-          Wczytaj pliki gry
+          {UI_TEXT.menu.loadFiles}
           {/* No accept filter: iOS does not know .dat and greys such files out. The names are checked instead. */}
           <input type="file" multiple onChange={(e) => void onFiles(e)} />
         </label>
         {!touch && (
           <button type="button" className="pixel-button" onClick={quit}>
-            Wyłącz grę
+            {UI_TEXT.menu.quit}
           </button>
         )}
         {quitRefused && (
@@ -139,17 +137,14 @@ export function MenuScreen({
           </p>
         )}
       </nav>
-      <p className="note">
-        Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje
-        nazwy z Twojej wersji gry. Plik zostaje w przeglądarce, nic nie jest wysyłane.
-      </p>
+      <p className="note">{UI_TEXT.menu.filesHelp}</p>
       {gameFiles.exe && (
         <div className="files-status">
           <p className="note">
-            {`Skocznie z oryginału: ${originalCount}. `}
+            {UI_TEXT.menu.originalCount(originalCount)}
             {filesRemembered
-              ? `Pliki (${gameFiles.dat ? "Dsj.exe, Dsj.dat" : "Dsj.exe"}) zapamiętane w tej przeglądarce.`
-              : "Ta przeglądarka nie pozwala ich zapamiętać: po zamknięciu strony wybierz je ponownie."}
+              ? UI_TEXT.menu.filesRemembered(gameFiles.dat !== undefined)
+              : UI_TEXT.menu.filesNotRemembered}
           </p>
           {filesRemembered && (
             <button
@@ -157,17 +152,15 @@ export function MenuScreen({
               className="pixel-button small-button"
               onClick={() => {
                 onForgetFiles();
-                setMessage({ text: "Zapomniano pliki gry.", error: false });
+                setMessage({ text: UI_TEXT.menu.filesForgotten, error: false });
               }}
             >
-              Zapomnij pliki
+              {UI_TEXT.menu.forgetFiles}
             </button>
           )}
         </div>
       )}
-      {!persistent && (
-        <p className="note error">Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.</p>
-      )}
+      {!persistent && <p className="note error">{UI_TEXT.menu.notPersistent}</p>}
       {message && (
         <p className={message.error ? "note error" : "note"} role="status">
           {message.text}

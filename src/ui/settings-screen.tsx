@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
 import { requestTiltPermission } from "../game/tilt-input";
 import type { Settings } from "../storage/save-data";
+import { UI_TEXT } from "../text/ui-text";
 import type { Steering } from "./how-to-jump-text";
-import { SettingsControls, TILT_REFUSED } from "./settings-controls";
+import { SettingsControls } from "./settings-controls";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
@@ -36,7 +37,7 @@ export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: P
   return (
     <main className="screen">
       <h1 className="screen-title" tabIndex={-1} ref={headingRef}>
-        Ustawienia
+        {UI_TEXT.settings.title}
       </h1>
       <div className="settings-list">
         <SettingsControls
@@ -49,13 +50,13 @@ export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: P
         />
         {tiltRefused && (
           <p className="note error" role="status">
-            {TILT_REFUSED}
+            {UI_TEXT.settings.tiltRefused}
           </p>
         )}
       </div>
       <div>
         <button type="button" className="pixel-button" onClick={onBack}>
-          Wstecz
+          {UI_TEXT.back}
         </button>
       </div>
     </main>
