@@ -10,7 +10,7 @@ import { UI_TEXT } from "../text/ui-text";
 import { createJumpDiagnostics } from "./jump-diagnostics";
 import { listenToPlayerInput, watchPointerLock } from "./jump-input-listeners";
 import { makePicture, pictureSize, titleInsetFor, type JumpPicture } from "./jump-picture";
-import { REPLAY_SPEED_LABEL, type ReplayView } from "./jump-replay";
+import { REPLAY_SPEED_LABEL, type ReplaySource, type ReplayView } from "./jump-replay";
 import { NO_CONTROLS, createRunSwitch, type JumpLoopControls, type LiveProps, type RunContext } from "./jump-runs";
 import { createJumpSounds } from "./jump-sounds";
 import type { TiltReading } from "./use-steering";
@@ -22,6 +22,8 @@ interface JumpLoopOptions extends RunContext {
   pauseButtonRef: RefObject<HTMLElement | null>;
   openMenu: () => void;
   toggleMenu: () => void;
+  /** A replay to play as the screen opens (one of the original's); training follows it. */
+  initialReplay: ReplaySource | null;
 }
 
 interface FrameView {
@@ -31,6 +33,7 @@ interface FrameView {
   clock: number;
   titleInsetPx: number;
   replay: ReplayView | null;
+  playerName: string;
 }
 
 /** Draws a frame of the jump into the picture, as the player has the screen set up. */
@@ -40,7 +43,7 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
     profile: hill.profile,
     kPointM: hill.kPointM,
     hillName: hill.name,
-    playerName: UI_TEXT.hud.playerName,
+    playerName: v.playerName,
     state: v.jump.state,
     controls: live.controls,
     titleInsetPx: v.titleInsetPx,
@@ -104,6 +107,8 @@ export function useJumpLoop(options: JumpLoopOptions) {
     // Another hill: nothing to watch again yet.
     o().onReplayAvailable(false);
     if (o().live.replay !== null) o().onReplayChange(null);
+    const opening = o().initialReplay;
+    if (opening) runs.play(opening);
 
     let picture = makePicture(viewWidthFor(stage.clientWidth, stage.clientHeight));
     /** How far the name of the hill starts from the left, when the pause button lies over that corner. */
@@ -155,7 +160,8 @@ export function useJumpLoop(options: JumpLoopOptions) {
       const { jump, newRecord } = current.now();
       sounds.play(jump.state, clock, newRecord, paused || document.hidden);
       meter?.drawBegin();
-      drawFrame(picture, hill, live, { jump, newRecord, over, clock, titleInsetPx, replay: view });
+      const playerName = runs.jumperName() ?? UI_TEXT.hud.playerName;
+      drawFrame(picture, hill, live, { jump, newRecord, over, clock, titleInsetPx, replay: view, playerName });
       ctx.putImageData(picture.image, 0, 0);
       meter?.frameEnd(now, plan, paused);
       if (!firstFrameMarked) {

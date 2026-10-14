@@ -5,7 +5,7 @@ import { newSeed } from "../game/training-session";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JumpMenu } from "./jump-menu";
-import { nextReplaySpeed, type ReplayView } from "./jump-replay";
+import { nextReplaySpeed, type ReplaySource, type ReplayView } from "./jump-replay";
 import type { JumpLoopControls } from "./jump-runs";
 import type { JumpResult } from "./jump-round";
 import { TouchPad } from "./touch-pad";
@@ -32,6 +32,8 @@ interface Props {
   focusOnEntry: boolean;
   /** Whether the frames of the jump are measured and the measurements shown over the picture. */
   diagnostics: boolean;
+  /** A replay of the original game to play as the screen opens; the training on the hill follows it. */
+  openingReplay: ReplaySource | null;
 }
 
 const JUMP_TEXT = UI_TEXT.jumpScreen;
@@ -88,6 +90,7 @@ export function JumpScreen(props: Props) {
     announce: setAnnouncement,
     onReplayAvailable: setReplayAvailable,
     onReplayChange: setReplay,
+    initialReplay: props.openingReplay,
   });
   useEntryFocus(canvasRef, props.focusOnEntry);
   const pad = (side: "left" | "right") => (

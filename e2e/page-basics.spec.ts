@@ -8,6 +8,7 @@ const TITLES: Readonly<Record<string, string>> = {
   "how to jump": "Jak skakać · Telemark",
   install: "Gra jako aplikacja · Telemark",
   settings: "Ustawienia · Telemark",
+  replays: "Powtórki · Telemark",
   "hill list": "Wybór skoczni · Telemark",
   jump: "Skok: Ćwiczebna K90 · Telemark",
   // Opening the controls of the jump screen does not change where the player is.

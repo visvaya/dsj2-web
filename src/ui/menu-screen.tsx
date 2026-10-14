@@ -35,7 +35,7 @@ interface Props {
   /** Whether the game can start without a network; null where it has no offline mode. */
   offline: OfflineState | null;
   /** Opens another screen of the game. */
-  onOpen: (screen: "hills" | "outfit" | "settings" | "howto" | "install") => void;
+  onOpen: (screen: "hills" | "replays" | "outfit" | "settings" | "howto" | "install") => void;
   onOriginalHills: (hills: HillChoice[]) => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -106,6 +106,9 @@ export function MenuScreen({
         <h2>{UI_TEXT.menu.navigation}</h2>
         <button type="button" className="pixel-button" onClick={() => onOpen("hills")}>
           {UI_TEXT.menu.training}
+        </button>
+        <button type="button" className="pixel-button" onClick={() => onOpen("replays")}>
+          {UI_TEXT.menu.replays}
         </button>
         <button type="button" className="pixel-button" onClick={() => onOpen("outfit")}>
           {UI_TEXT.menu.outfit}

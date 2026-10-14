@@ -12,6 +12,7 @@ describe("page title of a screen", () => {
     expect(screenTitle({ kind: "install" })).toBe("Gra jako aplikacja · Telemark");
     expect(screenTitle({ kind: "settings" })).toBe("Ustawienia · Telemark");
     expect(screenTitle({ kind: "outfit" })).toBe("Strój · Telemark");
+    expect(screenTitle({ kind: "replays" })).toBe("Powtórki · Telemark");
   });
 
   it("names the hill of a jump with its K point", () => {
