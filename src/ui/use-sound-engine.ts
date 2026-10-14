@@ -14,7 +14,10 @@ export function useSoundEngine(enabled: boolean) {
     // pointerup), not when it lands, so all of these are listened to.
     const gestures = ["pointerdown", "pointerup", "touchend", "click", "keydown"] as const;
     for (const g of gestures) window.addEventListener(g, unlock, { capture: true });
+    const onVisibility = () => engine.setHidden(document.hidden);
+    document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
       for (const g of gestures) window.removeEventListener(g, unlock, { capture: true });
       soundRef.current = null;
       engine.dispose();

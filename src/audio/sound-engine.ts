@@ -65,6 +65,11 @@ export interface SoundEngine {
   /** Call from a user gesture: browsers only start audio after one. */
   unlock(): void;
   setEnabled(on: boolean): void;
+  /**
+   * Stops the context while the page is hidden (another app, a locked screen), so nothing plays in the background
+   * and the phone does not count the game as playing; back in view it goes on if a gesture had started it.
+   */
+  setHidden(hidden: boolean): void;
   update(mix: Mix): void;
   play(cue: SoundCue): void;
   dispose(): void;
@@ -295,6 +300,14 @@ export function createSoundEngine(makeContext: () => ContextLike | null = defaul
         hush.connect(master);
         tick.start(c.currentTime, 0, 0.01);
       }
+    },
+    setHidden(hidden) {
+      const c = ctx;
+      if (!c) return;
+      if (hidden) c.suspend().catch(() => undefined);
+      // Before the first gesture it stays as `prepare` left it; a browser that refuses to resume without a gesture
+      // is resumed by the next one (`unlock` resumes anything that is not running).
+      else if (resumed) c.resume().catch(() => undefined);
     },
     setEnabled(on) {
       enabled = on;

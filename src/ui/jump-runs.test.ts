@@ -65,6 +65,7 @@ function setUp() {
     prepare: noop,
     unlock: noop,
     setEnabled: noop,
+    setHidden: noop,
     update: noop,
     play: (cue) => {
       played.push(cue);

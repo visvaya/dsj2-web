@@ -186,6 +186,22 @@ describe("sound engine", () => {
     expect(fake.resumed).toBe(1);
   });
 
+  it("stops while the page is hidden and goes on when it is back, once a gesture has started it", () => {
+    const fake = fakeContext();
+    const engine = createSoundEngine(() => fake);
+    engine.prepare();
+    // Hidden before any gesture: suspended, and back in view it still waits for a gesture.
+    engine.setHidden(true);
+    engine.setHidden(false);
+    expect(fake.resumed).toBe(0);
+    engine.unlock();
+    expect(fake.state).toBe("running");
+    engine.setHidden(true);
+    expect(fake.state).toBe("suspended");
+    engine.setHidden(false);
+    expect(fake.state).toBe("running");
+  });
+
   it("resumes at the first gesture even while its suspend has not taken effect yet", () => {
     const fake = fakeContext({ startState: "running", settle: false });
     const engine = createSoundEngine(() => fake);
