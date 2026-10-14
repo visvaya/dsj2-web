@@ -115,7 +115,8 @@ Workflow `CI` (`.github/workflows/ci.yml`), zadanie `deploy`:
    przebiegu. PR i harmonogram nigdy nie wdrażają.
 2. Zadanie `build` buduje pakiet raz, sprawdza go i zapisuje jako artefakt `telemark-dist-<commit>` razem
    z `dist.sha256`. Zadania macierzy `browser` (silniki przeglądarek i tryb pomiarowy) testują ten artefakt
-   równolegle, a zbiorcze `web` jest zielone tylko wtedy, gdy wszystkie przeszły. `deploy` pobiera ten sam
+   równolegle, obok nich zadanie `checks` uruchamia kontrole kodu i testy jednostkowe, a zbiorcze `web` jest
+   zielone tylko wtedy, gdy wszystkie przeszły. `deploy` pobiera ten sam
    artefakt, sprawdza skróty, komplet plików i commit w `release.json`; niczego nie buduje.
 3. Jeśli `master` ma już nowszy commit, przebieg kończy się bez publikacji. Jeśli wdrożona zawartość ma ten sam
    `contentId`, publikacji nie ma (gracze nie pobierają gry drugi raz), a kontrola HTTP sprawdza to, co jest

@@ -25,6 +25,11 @@ import { fnv } from "./test-support/frame-hash";
 const NARROWEST_PHONE_PX = 256;
 const NARROWEST_DESKTOP_PX = 320;
 const PROMPT_MARGIN_PX = 2;
+/**
+ * Several tests here simulate and draw whole jumps: about 1.5 s each alone, but up to 8 s on a slow laptop running
+ * the whole suite, past the default limit of 5 s.
+ */
+const WHOLE_JUMP_TIMEOUT_MS = 30_000;
 
 /** Mean of the colour channels over the whole frame. */
 function brightness(fb: FrameBuffer): number {
@@ -38,7 +43,7 @@ function barRows(fb: FrameBuffer): Uint32Array {
   return fb.pixels.slice(fb.width * (VIEW_HEIGHT_PX - 11));
 }
 
-describe("jump view", () => {
+describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
   it("fits the logical width to the screen with square pixels", () => {
     expect(viewWidthFor(1920, 1080)).toBe(356);
     expect(viewWidthFor(1280, 800)).toBe(320);
