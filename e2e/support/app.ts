@@ -16,7 +16,7 @@ export const TEXT = {
   pause: "Pauza i ustawienia",
   resume: "Wróć do gry",
   jumpAgain: /^Jeszcze raz/,
-  toHills: /^Skocznie/,
+  toHills: /^Zmień skocznię/,
   toMainMenu: "Wyjdź do menu głównego",
   scenery: /^Sceneria: /,
   sound: /^Dźwięk: /,

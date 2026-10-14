@@ -29,10 +29,10 @@ import {
   stepTrainingJump,
   type TrainingJump,
 } from "../game/training-session";
-import { PHASE, notesShownBy } from "../sim/jump-logic";
+import { PHASE } from "../sim/jump-logic";
 import { FrameBuffer } from "../render/frame-buffer";
 import { VIEW_HEIGHT_PX, drawJumpView, pictureScale, viewWidthFor, type ControlScheme } from "../render/jump-view";
-import type { HillRecord, Settings } from "../storage/save-data";
+import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
 import { HILL_LIST_TITLE, HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
 import { SettingsControls, TILT_REFUSED } from "./settings-controls";
@@ -400,14 +400,14 @@ export function JumpScreen({
       releaseLock();
       const L = jump.state.logic;
       const result: JumpResult = { distanceM: L.distanceM, points: L.points, fell: L.fallType !== 0 };
-      const best = latest.current.record;
-      const isRecord = !result.fell && result.distanceM > 0 && (!best || result.distanceM > best.distanceM);
-      newRecord = isRecord;
+      // The record is the one from before this jump until onFinished stores the jump, so this repeats the verdict
+      // given at touchdown.
+      newRecord = beatsRecord(result, latest.current.record);
       latest.current.onFinished(result);
-      setAnnouncement(resultAnnouncement(L, { newRecord: isRecord, controls: latest.current.controls }));
+      setAnnouncement(resultAnnouncement(L, { newRecord, controls: latest.current.controls }));
     };
 
-    /** Notes as they appear, the record jingle after the last one, and the continuous layers. */
+    /** Notes as they appear, the record jingle with the distance, and the continuous layers. */
     const playSounds = (clock: number) => {
       const engine = soundRef.current;
       if (!engine) return;
@@ -415,7 +415,7 @@ export function JumpScreen({
       for (const note of notesAppearing(s.logic, heardUpTo, clock))
         engine.play(note.counted ? "noteCounted" : "noteDropped");
       heardUpTo = clock;
-      if (newRecord && !recordPlayed && notesShownBy(s.logic, clock)) {
+      if (newRecord && !recordPlayed) {
         recordPlayed = true;
         engine.play("record");
       }
@@ -477,8 +477,13 @@ export function JumpScreen({
           soundRef.current?.play(event);
           if (event === "start") setAnnouncement(JUMP_STARTED_ANNOUNCEMENT);
         }
-        // The jump is scored in the frame of the touchdown, seconds before the jumper stops.
-        if (!prev.logic.finished && jump.state.logic.finished) setAnnouncement(touchdownAnnouncement(jump.state.logic));
+        // The jump is scored in the frame of the touchdown, seconds before the jumper stops. Whether it fell is
+        // settled in the same frame and never changes after, so a new record is told together with the distance.
+        if (!prev.logic.finished && jump.state.logic.finished) {
+          const L = jump.state.logic;
+          newRecord = beatsRecord({ distanceM: L.distanceM, fell: L.fallType !== 0 }, latest.current.record);
+          setAnnouncement(touchdownAnnouncement(L, newRecord));
+        }
         for (const event of soundEvents(prev, jump.state)) soundRef.current?.play(event);
       }
       meter?.stepsEnd();
@@ -702,7 +707,7 @@ export function JumpScreen({
               Jak skakać
             </button>
             <button type="button" className="pixel-button" onClick={() => setPanel("hills")}>
-              Skocznie
+              Zmień skocznię
             </button>
             <SettingsControls
               settings={settings}

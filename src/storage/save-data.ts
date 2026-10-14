@@ -115,15 +115,19 @@ export function withSettings(save: SaveData, change: Partial<Settings>): SaveDat
   return { ...save, settings: { ...save.settings, ...change } };
 }
 
-/** Returns a new save with the jump stored if it beats the hill record (falls never count). */
+/** True when the jump beats the hill record: a clean jump with a distance beyond the stored one (falls never count). */
+export function beatsRecord(jump: { distanceM: number; fell: boolean }, best: HillRecord | undefined): boolean {
+  return !jump.fell && jump.distanceM > 0 && (best === undefined || jump.distanceM > best.distanceM);
+}
+
+/** Returns a new save with the jump stored if it beats the hill record. */
 export function withJump(
   save: SaveData,
   hillId: string,
   jump: { distanceM: number; points: number; fell: boolean },
   now: Date,
 ): SaveData {
-  const best = save.records[hillId];
-  if (jump.fell || !(jump.distanceM > 0) || (best && best.distanceM >= jump.distanceM)) return save;
+  if (!beatsRecord(jump, save.records[hillId])) return save;
   return {
     ...save,
     records: {

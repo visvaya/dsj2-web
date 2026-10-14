@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, emptySave, parseSave, withJump, withSettings } from "./save-data";
+import { DEFAULT_SETTINGS, beatsRecord, emptySave, parseSave, withJump, withSettings } from "./save-data";
 import { SAVE_KEY, detectBackend, loadSave, memoryBackend, saveSave } from "./save-store";
 
 const NOW = new Date("2026-10-11T10:00:00Z");
@@ -11,6 +11,16 @@ describe("save data", () => {
     save = withJump(save, "own-1", { distanceM: 75, points: 90, fell: false }, NOW);
     save = withJump(save, "own-1", { distanceM: 95, points: 120, fell: true }, NOW);
     expect(save.records["own-1"]).toEqual({ distanceM: 80, points: 100, dateIso: NOW.toISOString() });
+  });
+
+  it("counts as a record only a clean jump with a distance beyond the stored one", () => {
+    const best = { distanceM: 80, points: 100, dateIso: NOW.toISOString() };
+    expect(beatsRecord({ distanceM: 50, fell: false }, undefined)).toBe(true);
+    expect(beatsRecord({ distanceM: 80.5, fell: false }, best)).toBe(true);
+    expect(beatsRecord({ distanceM: 80, fell: false }, best)).toBe(false);
+    expect(beatsRecord({ distanceM: 95, fell: true }, best)).toBe(false);
+    expect(beatsRecord({ distanceM: 95, fell: true }, undefined)).toBe(false);
+    expect(beatsRecord({ distanceM: 0, fell: false }, undefined)).toBe(false);
   });
 
   it("reads back what it writes and ignores broken or foreign data", () => {
