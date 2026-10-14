@@ -60,6 +60,7 @@ export function findResponseTimeProblems(samplesMs, budgetMs) {
 }
 
 const formatMs = (samplesMs) => samplesMs.map((sample) => Math.round(sample)).join(", ");
+const counted = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 
 // The report of one run, as lines of Markdown. Anything not measured (a failed step) is left out.
 export function monitorSummary({ origin, release, commitsBehind, daysLeft, samplesMs, problems }) {
@@ -68,10 +69,10 @@ export function monitorSummary({ origin, release, commitsBehind, daysLeft, sampl
     lines.push(`- Served commit: ${release.sourceSha}`, `- Served content: ${release.contentId}`);
   }
   if (commitsBehind !== undefined) lines.push(`- Commits on the branch after the served one: ${commitsBehind}`);
-  if (daysLeft !== undefined) lines.push(`- Certificate: ${daysLeft} days left`);
+  if (daysLeft !== undefined) lines.push(`- Certificate: ${counted(daysLeft, "day")} left`);
   if (samplesMs !== undefined && samplesMs.length > 0) {
     lines.push(`- Start page: median ${Math.round(medianOf(samplesMs))} ms (samples: ${formatMs(samplesMs)})`);
   }
-  lines.push(problems.length === 0 ? "- Result: no problems" : `- Result: ${problems.length} problems`);
+  lines.push(problems.length === 0 ? "- Result: no problems" : `- Result: ${counted(problems.length, "problem")}`);
   return [...lines, ...problems.map((problem) => `  - ${problem}`)];
 }
