@@ -99,7 +99,11 @@ async function checkAgainstPackage(origin, values) {
   const files = listFiles(distDir).map((path) => ({ path, sha256: sha256Hex(readFileSync(join(distDir, path))) }));
   const rules = parseHeadersFile(readFileSync(join(distDir, RELEASE_FILES.HEADERS), "utf8"));
   const local = JSON.parse(readFileSync(join(distDir, RELEASE_FILES.RELEASE_JSON), "utf8"));
-  const expectedRelease = { sourceSha: values["source-sha"] ?? local.sourceSha, contentId: local.contentId };
+  const expectedRelease = {
+    version: local.version,
+    sourceSha: values["source-sha"] ?? local.sourceSha,
+    contentId: local.contentId,
+  };
 
   await waitForRelease(origin, { contentId: local.contentId }, Number(values["wait-s"]));
   const problems = [];
@@ -206,7 +210,8 @@ async function main() {
   }
   for (const note of await notes(origin)) console.log(`check-deployment: note: ${note}`);
   console.log(
-    `check-deployment: ${origin} serves commit ${result.release.sourceSha}, content ${result.release.contentId}; ` +
+    `check-deployment: ${origin} serves ${result.release.version === undefined ? "" : `version ${result.release.version}, `}` +
+      `commit ${result.release.sourceSha}, content ${result.release.contentId}; ` +
       `${result.checked} files checked, no problems`,
   );
   return 0;

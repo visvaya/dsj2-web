@@ -678,6 +678,13 @@ h2 {
   text-align: center;
 }
 
+/* The version of the game sits on a background of its own, like the buttons: the picture shows through the menu. */
+.game.menu-open .game-toolbar .version-note {
+  width: auto;
+  padding: 0 8px;
+  background: var(--bg);
+}
+
 @media (orientation: landscape) {
   .game.touch {
     grid-template-columns: minmax(96px, 1fr) minmax(0, 4fr) minmax(96px, 1fr);

@@ -32,6 +32,14 @@ test("the release of an address is its commit and content, and only a full commi
   }
 });
 
+test("the release of an address carries its version when it names one, and only a valid one", () => {
+  const named = (version) => JSON.stringify({ name: "telemark", version, sourceSha: SHA, contentId: "c".repeat(64) });
+  assert.deepEqual(releaseOfAddress(named("0.3.1")), { sourceSha: SHA, contentId: "c".repeat(64), version: "0.3.1" });
+  for (const version of ["--upload-pack=x", "0.3", "v0.3.1", 3]) {
+    assert.throws(() => releaseOfAddress(named(version)), /names no valid version/, String(version));
+  }
+});
+
 test("a certificate is a problem when it has ended, has not begun, or ends within the margin", () => {
   const lasting = (daysLeft) => ({ validFromMs: NOW_MS - 30 * DAY_MS, validToMs: NOW_MS + daysLeft * DAY_MS });
   assert.equal(certificateDaysLeft(NOW_MS + 14.5 * DAY_MS, NOW_MS), 14);
@@ -63,7 +71,7 @@ test("the answer time is judged by the median of the samples", () => {
 });
 
 test("the report names what was measured and leaves out what was not", () => {
-  const release = { sourceSha: SHA, contentId: "c".repeat(64) };
+  const release = { version: "0.2.0", sourceSha: SHA, contentId: "c".repeat(64) };
   const whole = monitorSummary({
     origin: "https://game.example",
     release,
@@ -76,6 +84,7 @@ test("the report names what was measured and leaves out what was not", () => {
     "### Monitor",
     "",
     "- Address: https://game.example",
+    "- Served version: 0.2.0",
     `- Served commit: ${SHA}`,
     `- Served content: ${"c".repeat(64)}`,
     "- Commits on the branch after the served one: 2",
@@ -138,7 +147,7 @@ function writePackage(name, sourceSha) {
     { path: "_headers", sha256: sha256Hex(HEADERS_TEXT) },
   ];
   const contentId = contentIdOf(files, TEMPLATE, "{}");
-  const releaseJson = releaseJsonText({ sourceSha, contentId });
+  const releaseJson = releaseJsonText({ version: "0.1.0", sourceSha, contentId });
   writeFileSync(join(distDir, "release.json"), releaseJson);
   const precache = precacheOf([...files, { path: "release.json", sha256: sha256Hex(releaseJson) }]);
   writeFileSync(join(distDir, "sw.js"), renderServiceWorker(TEMPLATE, { sourceSha, contentId, precache }));
@@ -170,6 +179,7 @@ before(async () => {
   earlierSha = git(["rev-parse", "HEAD"]).trim();
   git(["commit", "--quiet", "--allow-empty", "-m", "release"]);
   servedSha = git(["rev-parse", "HEAD"]).trim();
+  git(["tag", "v0.1.0"]);
   server = await startStaticServer({ root: writePackage("dist", servedSha) });
 });
 
@@ -195,6 +205,18 @@ test("the monitor fails on a release from a commit that is not on the branch", a
   const result = await runMonitor([server.origin, "--branch", earlierSha]);
   assert.equal(result.code, 1);
   assert.match(result.stderr, new RegExp(`commit ${servedSha} is not on ${earlierSha}`));
+});
+
+test("the monitor fails when the version of the release has no tag, or a tag on another commit", async () => {
+  git(["tag", "--force", "v0.1.0", earlierSha]);
+  const moved = await runMonitor([server.origin, "--branch", "HEAD"]);
+  git(["tag", "--delete", "v0.1.0"]);
+  const missing = await runMonitor([server.origin, "--branch", "HEAD"]);
+  git(["tag", "v0.1.0", servedSha]);
+  assert.equal(moved.code, 1);
+  assert.match(moved.stderr, new RegExp(`the tag v0\\.1\\.0 is on ${earlierSha}, not on ${servedSha}`));
+  assert.equal(missing.code, 1);
+  assert.match(missing.stderr, /version 0\.1\.0: there is no tag v0\.1\.0/);
 });
 
 test("the monitor fails on a release from a commit the repository does not have", async () => {

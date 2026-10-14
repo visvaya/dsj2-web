@@ -1,5 +1,6 @@
-// Finishes the production build in dist/: adds the font licence, release.json and the service worker, and
-// writes the checksums of the whole package next to it. The rules live in scripts/lib/release-rules.mjs.
+// Finishes the production build in dist/: adds the font licence, release.json (with the version from
+// package.json) and the service worker, and writes the checksums of the whole package next to it. The rules
+// live in scripts/lib/release-rules.mjs.
 //
 // Usage: node scripts/write-release.mjs [--dist <dir>] [--source-sha <commit>] [--checksums <file>]
 //   (run after `vite build`; `pnpm build` does both)
@@ -79,7 +80,8 @@ function main() {
 
   const template = readFileSync(WORKER_TEMPLATE_FILE, "utf8");
   const contentId = contentIdOf(describeFiles(distDir), template, readFileSync(HOST_CONFIGURATION_FILE, "utf8"));
-  writeFileSync(join(distDir, RELEASE_FILES.RELEASE_JSON), releaseJsonText({ sourceSha, contentId }));
+  const { version } = JSON.parse(readFileSync(join(PROJECT_ROOT, "package.json"), "utf8"));
+  writeFileSync(join(distDir, RELEASE_FILES.RELEASE_JSON), releaseJsonText({ version, sourceSha, contentId }));
 
   const precache = precacheOf(describeFiles(distDir));
   writeFileSync(
@@ -90,7 +92,7 @@ function main() {
   const files = describeFiles(distDir);
   writeFileSync(checksumsFile, checksumText(files, basename(distDir)));
   console.log(
-    `write-release: ${files.length} files, ${precache.length} kept offline; commit ${sourceSha}; content ${contentId}`,
+    `write-release: ${files.length} files, ${precache.length} kept offline; version ${version}; commit ${sourceSha}; content ${contentId}`,
   );
   return 0;
 }

@@ -14,9 +14,9 @@ const STATS: FrameStats = {
 };
 
 describe("text of the diagnostics overlay", () => {
-  it("gives the frame rate, the frame interval, the two costs and the losses, with decimal points", () => {
-    expect(diagnosticsLines(STATS)).toEqual([
-      "59.9 kl./s",
+  it("gives the frame rate and the version, the frame interval, the two costs and the losses, with decimal points", () => {
+    expect(diagnosticsLines(STATS, "0.3.1")).toEqual([
+      "59.9 kl./s · wersja 0.3.1",
       "klatka 16.7 / 18.0 / 120.0 ms",
       "sym. 0.1 / 0.3 / 1.0 · rys. 1.4 / 2.0 / 8.0 ms",
       "zgubione kroki 2.5 · długie klatki 3",
@@ -24,8 +24,8 @@ describe("text of the diagnostics overlay", () => {
   });
 
   it("shows zeros before the first frame instead of dividing by zero", () => {
-    expect(diagnosticsLines(createFrameMeter().stats())).toEqual([
-      "0.0 kl./s",
+    expect(diagnosticsLines(createFrameMeter().stats(), "0.3.1")).toEqual([
+      "0.0 kl./s · wersja 0.3.1",
       "klatka 0.0 / 0.0 / 0.0 ms",
       "sym. 0.0 / 0.0 / 0.0 · rys. 0.0 / 0.0 / 0.0 ms",
       "zgubione kroki 0.0 · długie klatki 0",
@@ -33,7 +33,7 @@ describe("text of the diagnostics overlay", () => {
   });
 
   it("stays within four short lines", () => {
-    const lines = diagnosticsLines({ ...STATS, droppedSteps: 12345.6, longFrames: 99999 });
+    const lines = diagnosticsLines({ ...STATS, droppedSteps: 12345.6, longFrames: 99999 }, "10.123.4567");
     expect(lines.length).toBeLessThanOrEqual(4);
     for (const line of lines) expect(line.length).toBeLessThanOrEqual(48);
   });

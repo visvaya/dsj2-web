@@ -2,6 +2,8 @@
 // functions: the commit the served release names, the certificate, and the time the start page takes. The
 // requests are made by scripts/monitor-deployment.mjs.
 
+import { parseVersion } from "./version-rules.mjs";
+
 export const MONITOR_LIMITS = {
   // The host renews its certificate weeks before the end; fewer days left means the renewal did not happen.
   CERTIFICATE_MIN_DAYS_LEFT: 14,
@@ -14,7 +16,7 @@ export const MONITOR_LIMITS = {
 const MS_PER_DAY = 86_400_000;
 const SOURCE_SHA_PATTERN = /^[0-9a-f]{40}$/;
 
-// The release an address serves, from its release.json: { sourceSha, contentId }. The commit is handed to git
+// The release an address serves, from its release.json: { sourceSha, contentId, version? }. The commit is handed to git
 // afterwards, so anything that is not a full commit hash is refused here.
 export function releaseOfAddress(releaseText) {
   let release;
@@ -26,7 +28,15 @@ export function releaseOfAddress(releaseText) {
   if (typeof release?.sourceSha !== "string" || !SOURCE_SHA_PATTERN.test(release.sourceSha)) {
     throw new Error("/release.json: names no commit");
   }
-  return { sourceSha: release.sourceSha, contentId: String(release.contentId) };
+  const named = { sourceSha: release.sourceSha, contentId: String(release.contentId) };
+  // A release from before the versions names none. A version is checked before git is asked about its tag.
+  if (release.version === undefined) return named;
+  try {
+    parseVersion(release.version);
+  } catch {
+    throw new Error("/release.json: names no valid version");
+  }
+  return { ...named, version: release.version };
 }
 
 export function certificateDaysLeft(validToMs, nowMs) {
@@ -66,6 +76,7 @@ const counted = (count, noun) => `${count} ${noun}${count === 1 ? "" : "s"}`;
 export function monitorSummary({ origin, release, commitsBehind, daysLeft, samplesMs, problems }) {
   const lines = ["### Monitor", "", `- Address: ${origin}`];
   if (release !== undefined) {
+    if (release.version !== undefined) lines.push(`- Served version: ${release.version}`);
     lines.push(`- Served commit: ${release.sourceSha}`, `- Served content: ${release.contentId}`);
   }
   if (commitsBehind !== undefined) lines.push(`- Commits on the branch after the served one: ${commitsBehind}`);

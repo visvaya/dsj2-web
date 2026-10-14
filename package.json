@@ -7,7 +7,7 @@
     "type": "git",
     "url": "git+https://github.com/visvaya/telemark.git"
   },
-  "version": "0.0.0",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -27,6 +27,7 @@
     "test:browser:perf": "cross-env BROWSER_TESTS_PERF=1 playwright test",
     "test:browser:perf:edge": "cross-env BROWSER_TESTS_PERF=1 BROWSER_TESTS_EDGE=1 playwright test",
     "check:dist": "node scripts/check-dist.mjs",
+    "version:bump": "node scripts/bump-version.mjs",
     "mutation": "stryker run"
   },
   "dependencies": {

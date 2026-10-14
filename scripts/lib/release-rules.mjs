@@ -8,6 +8,8 @@
 // same bytes.
 import { createHash } from "node:crypto";
 
+import { parseVersion } from "./version-rules.mjs";
+
 export const RELEASE_FILES = {
   RELEASE_JSON: "release.json",
   SERVICE_WORKER: "sw.js",
@@ -52,9 +54,10 @@ export function contentIdOf(files, workerTemplate, hostConfiguration) {
 }
 
 // The public record of a release. `sourceSha` is the full commit hash the build was made from.
-export function releaseJsonText({ sourceSha, contentId }) {
+export function releaseJsonText({ version, sourceSha, contentId }) {
+  parseVersion(version);
   if (!SOURCE_SHA_PATTERN.test(sourceSha)) throw new Error(`not a full commit hash: "${sourceSha}"`);
-  return `${JSON.stringify({ name: "telemark", sourceSha, contentId }, null, 2)}\n`;
+  return `${JSON.stringify({ name: "telemark", version, sourceSha, contentId }, null, 2)}\n`;
 }
 
 // The address a file is fetched from: the start page is served at the root, and its own name redirects there.
