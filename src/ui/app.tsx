@@ -10,8 +10,10 @@ import { HowToScreen } from "./how-to-jump";
 import { InstallScreen } from "./install-screen";
 import type { JumpResult } from "./jump-round";
 import { JumpScreen } from "./jump-screen";
+import type { ReplaySource } from "./jump-replay";
 import { MenuScreen } from "./menu-screen";
 import { OutfitScreen } from "./outfit-screen";
+import { ReplaysScreen } from "./replays-screen";
 import { screenTitle } from "./screen-title";
 import { SettingsScreen } from "./settings-screen";
 import { useOfflineState } from "./use-offline-state";
@@ -23,7 +25,9 @@ type Screen =
   | { kind: "howto" }
   | { kind: "install" }
   | { kind: "settings" }
-  | { kind: "jump"; hill: HillChoice };
+  | { kind: "replays" }
+  /** A jump screen; with a replay of the original, it plays that first. */
+  | { kind: "jump"; hill: HillChoice; replay?: ReplaySource };
 
 interface SideProps {
   kind: "howto" | "install" | "settings";
@@ -70,15 +74,8 @@ function useFirstScreenMark(): void {
   }, []);
 }
 
-interface AppProps {
-  /** Whether the address of the page asked for the diagnostics of the jump loop. */
-  diagnostics: boolean;
-}
-
-export function App({ diagnostics }: AppProps) {
-  const { screen, navigated, show } = useScreens();
-  useFirstScreenMark();
-  const offline = useOfflineState();
+/** The player's game files and the hills read from them, kept for the next visit where the browser allows it. */
+function useGameFiles() {
   const [originalHills, setOriginalHills] = useState<HillChoice[]>([]);
   const [gameFiles, setGameFiles] = useState<GameFiles>({});
   const [filesStore] = useState<GameFilesStore>(detectGameFilesStore);
@@ -111,6 +108,19 @@ export function App({ diagnostics }: AppProps) {
     setOriginalHills([]);
     void filesStore.clear();
   };
+  return { originalHills, setOriginalHills, gameFiles, filesStoreName, onGameFiles, onForgetFiles };
+}
+
+interface AppProps {
+  /** Whether the address of the page asked for the diagnostics of the jump loop. */
+  diagnostics: boolean;
+}
+
+export function App({ diagnostics }: AppProps) {
+  const { screen, navigated, show } = useScreens();
+  useFirstScreenMark();
+  const offline = useOfflineState();
+  const { originalHills, setOriginalHills, gameFiles, filesStoreName, onGameFiles, onForgetFiles } = useGameFiles();
   const [save, setSave] = useState<SaveData>(emptySave);
   const [backend] = useState<StorageBackend>(detectBackend);
   const [saveFailed, setSaveFailed] = useState(false);
@@ -146,7 +156,8 @@ export function App({ diagnostics }: AppProps) {
     const hill = screen.hill;
     return (
       <JumpScreen
-        key={hill.id}
+        // A replay opens a screen of its own, even on the hill being jumped.
+        key={screen.replay ? `${hill.id}-replay` : hill.id}
         hill={hill}
         record={save.records[hill.id]}
         settings={save.settings}
@@ -158,6 +169,17 @@ export function App({ diagnostics }: AppProps) {
         onExit={() => show({ kind: "menu" })}
         focusOnEntry={navigated}
         diagnostics={diagnostics}
+        openingReplay={screen.replay ?? null}
+      />
+    );
+  }
+  if (screen.kind === "replays") {
+    return (
+      <ReplaysScreen
+        originalHills={originalHills}
+        onPlay={(hill, replay) => show({ kind: "jump", hill, replay })}
+        onBack={() => show({ kind: "menu" })}
+        focusOnEntry={navigated}
       />
     );
   }

@@ -6,8 +6,9 @@ test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where 
 
 test("the menu and the hill list are operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  expect(await tabThrough(page, 6)).toEqual([
+  expect(await tabThrough(page, 7)).toEqual([
     TEXT.training,
+    TEXT.replays,
     TEXT.outfit,
     TEXT.settings,
     TEXT.howTo,
@@ -16,11 +17,7 @@ test("the menu and the hill list are operated with the keyboard alone", async ({
   ]);
 
   // Back to the first button; Enter opens the hill list and the focus moves to its heading.
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Shift+Tab");
-  await page.keyboard.press("Shift+Tab");
+  for (let i = 0; i < 6; i++) await page.keyboard.press("Shift+Tab");
   await expect(button(page, TEXT.training)).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeFocused();
@@ -38,8 +35,7 @@ test("the menu and the hill list are operated with the keyboard alone", async ({
 
 test("the outfit screen is operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  await page.keyboard.press("Tab");
-  await page.keyboard.press("Tab");
+  for (let i = 0; i < 3; i++) await page.keyboard.press("Tab");
   await expect(button(page, TEXT.outfit)).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.getByRole("heading", { name: TEXT.outfitTitle })).toBeFocused();

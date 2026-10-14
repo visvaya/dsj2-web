@@ -3,6 +3,7 @@ import { ORIGINAL_POSES } from "../sim/data/pose-table";
 import { notesShownBy, type FrameInput, type JumpLogicState } from "../sim/jump-logic";
 import { createJump, jumpRunning, stepFrame, type JumpSetup, type JumpSimState } from "../sim/jump-sim";
 import { createStartWind } from "../sim/training-wind";
+import type { WindState } from "../sim/wind";
 import type { HillChoice } from "./hill-choice";
 import { displayedWindMPerS } from "./wind-display";
 
@@ -24,16 +25,31 @@ export interface TrainingJump {
 export function startTrainingJump(hill: HillChoice, seed: number): TrainingJump {
   const rng = new BorlandRandom(seed);
   const wind = createStartWind(rng);
+  return jumpFrom(hill, { wind, randomSeed: rng.seed }, seed >>> 0);
+}
+
+/** How a recorded jump of the original starts: its wind and the state of its generator, as a replay keeps them. */
+export interface RecordedStart {
+  wind: WindState;
+  randomSeed: number;
+}
+
+/** A jump that starts as a replay of the original says (the original's replays keep no seed of their own). */
+export function startRecordedJump(hill: HillChoice, start: RecordedStart): TrainingJump {
+  return jumpFrom(hill, start, start.randomSeed >>> 0);
+}
+
+function jumpFrom(hill: HillChoice, start: RecordedStart, seed: number): TrainingJump {
   const setup: JumpSetup = {
     hill: hill.profile,
     kPointM: hill.kPointM,
     poses: ORIGINAL_POSES,
-    wind,
-    randomSeed: rng.seed,
+    wind: start.wind,
+    randomSeed: start.randomSeed,
     points: 0,
     presentation: true,
   };
-  return { hill, setup, state: createJump(setup), seed: seed >>> 0, framesAfterEnd: 0, windDriftM: { x: 0, y: 0 } };
+  return { hill, setup, state: createJump(setup), seed, framesAfterEnd: 0, windDriftM: { x: 0, y: 0 } };
 }
 
 /** The session one simulation frame later; once the jump is over only the presentation clock moves. */

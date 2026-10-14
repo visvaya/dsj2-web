@@ -5,6 +5,7 @@ import { expect, type DeviceTraits } from "./fixtures";
 export const TEXT = {
   menuHeading: "Główne menu",
   training: "Trening",
+  replays: "Powtórki",
   outfit: "Strój",
   howTo: "Jak skakać",
   settings: "Ustawienia",
@@ -15,11 +16,11 @@ export const TEXT = {
   builtInHill: "Ćwiczebna",
   pause: "Pauza i ustawienia",
   resume: "Wróć do gry",
-  jumpAgain: /^Jeszcze raz/,
-  watchReplay: "Powtórka skoku",
+  jumpAgain: /^Skocz jeszcze raz/,
+  watchReplay: "Obejrzyj ostatni skok",
   replaySpeed: /^Tempo: /,
-  replayFromStart: /^Od początku/,
-  replayEnd: "Koniec powtórki",
+  replayFromStart: /^Obejrzyj od początku/,
+  replayEnd: "Wróć do skakania",
   toHills: /^Zmień skocznię/,
   toMainMenu: "Wyjdź do menu głównego",
   scenery: /^Sceneria: /,
@@ -111,8 +112,8 @@ export async function storedSave(page: Page): Promise<unknown> {
 type ScreenCheck = (screen: string) => Promise<void>;
 
 /**
- * Opens the menu, the outfit screen, the two screens of instructions and the hill list in turn and runs `check`
- * on each; ends on the hill list.
+ * Opens the menu, the outfit screen, the two screens of instructions, the settings, the replays and the hill list
+ * in turn and runs `check` on each; ends on the hill list.
  */
 export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
   await openMenu(page);
@@ -131,6 +132,10 @@ export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: 
   await press(button(page, TEXT.settings), traits);
   await expect(page.getByRole("heading", { name: TEXT.settings })).toBeVisible();
   await check("settings");
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.replays), traits);
+  await expect(page.getByRole("heading", { name: TEXT.replays })).toBeVisible();
+  await check("replays");
   await press(button(page, TEXT.back), traits);
   await openHillList(page, traits);
   await check("hill list");

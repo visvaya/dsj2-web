@@ -71,9 +71,12 @@ export function fallbackHillName(number: number): string {
   return POLISH_HILL_NAMES[number - 33] ?? `Skocznia ${number}`;
 }
 
+/** The id under which a hill of the original, by its number (1 to 37), is offered. */
+export const originalHillId = (hillNumber: number): string => `original-${hillNumber}`;
+
 export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[] {
   return hills.map((h) => ({
-    id: `original-${h.number}`,
+    id: originalHillId(h.number),
     name: h.name ?? fallbackHillName(h.number),
     kPointM: h.kPointM,
     profile: h.profile,

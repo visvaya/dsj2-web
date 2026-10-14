@@ -16,7 +16,7 @@ import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
 import { beatsRecord, type HillRecord, type Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JUMP_STARTED_ANNOUNCEMENT, resultAnnouncement, touchdownAnnouncement } from "./jump-announcement";
-import { REPLAY_START, recordedInput, type JumpRecording, type ReplayView } from "./jump-replay";
+import { REPLAY_START, recordingSource, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
 import { jumpResult, stepJump, type JumpCue, type JumpResult } from "./jump-round";
 import type { JumpSounds } from "./jump-sounds";
 
@@ -168,16 +168,11 @@ interface ReplayRun extends JumpRun {
  * A recorded jump played again: the same simulation from the same seed and inputs, heard but not felt, and
  * not scored again.
  */
-function createReplayRun(
-  hill: HillChoice,
-  recording: JumpRecording,
-  c: () => RunContext,
-  sounds: JumpSounds,
-): ReplayRun {
-  const start = () => startTrainingJump(hill, recording.seed);
+function createReplayRun(hill: HillChoice, source: ReplaySource, c: () => RunContext, sounds: JumpSounds): ReplayRun {
+  const start = () => source.start(hill);
   let jump = start();
   let newRecord = false;
-  const takeFrame = (logic: JumpLogicState) => recordedInput(recording, logic);
+  const takeFrame = (logic: JumpLogicState) => source.input(logic);
   const restart = () => {
     jump = start();
     newRecord = false;
@@ -190,7 +185,7 @@ function createReplayRun(
       jump = stepped.jump;
       playCues(stepped.cues, c(), false);
       if (stepped.touchdown) {
-        newRecord = recording.newRecord;
+        newRecord = source.newRecord;
         c().announce(touchdownAnnouncement(jump.state.logic, newRecord));
       }
     },
@@ -221,6 +216,10 @@ interface RunSwitch {
   /** The run the frames go to: the replay while one plays, the training otherwise. */
   current: () => JumpRun;
   replaying: () => boolean;
+  /** Plays a replay over the training, from its start. */
+  play: (source: ReplaySource) => void;
+  /** The name of the jumper of the replay being played, when it is not the player. */
+  jumperName: () => string | null;
   controls: JumpLoopControls;
   /** A click or a touch of the picture in a replay: pause or go on, and once it is over, a new jump. */
   press: () => void;
@@ -239,20 +238,27 @@ export function createRunSwitch(
   const endReplay = () => {
     if (!replay) return;
     replay = null;
+    jumperName = null;
     training.restart();
     c().onReplayChange(null);
   };
-  const watchReplay = () => {
-    const recording = training.lastRecording();
-    if (!recording) return;
+  let jumperName: string | null = null;
+  const play = (source: ReplaySource) => {
     releaseMouse();
-    replay = createReplayRun(hill, recording, c, sounds);
+    replay = createReplayRun(hill, source, c, sounds);
+    jumperName = source.jumperName ?? null;
     replay.restart();
     c().onReplayChange(REPLAY_START);
+  };
+  const watchReplay = () => {
+    const recording = training.lastRecording();
+    if (recording) play(recordingSource(recording));
   };
   return {
     current,
     replaying: () => replay !== null,
+    play,
+    jumperName: () => jumperName,
     controls: {
       restart() {
         current().restart();

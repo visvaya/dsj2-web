@@ -17,6 +17,7 @@ export const UI_TEXT = {
     howTo: "Jak skakać",
     install: "Gra jako aplikacja",
     settings: "Ustawienia",
+    replays: "Powtórki",
     jump: (hillLabel: string) => `Skok: ${hillLabel}`,
     /** The screen first, the name of the game after it. */
     withApp: (screen: string, app: string) => `${screen} · ${app}`,
@@ -26,6 +27,7 @@ export const UI_TEXT = {
     subtitle: (versionLabel: string) => `Skoki narciarskie · ${versionLabel}`,
     navigation: "Główne menu",
     training: "Trening",
+    replays: "Powtórki",
     outfit: "Strój",
     settings: "Ustawienia",
     howTo: "Jak skakać",
@@ -47,6 +49,19 @@ export const UI_TEXT = {
     filesForgotten: "Zapomniano pliki gry.",
     forgetFiles: "Zapomnij pliki",
     notPersistent: "Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.",
+  },
+
+  /** The screen for replays of the original game. */
+  replays: {
+    title: "Powtórki",
+    intro:
+      "Tu obejrzysz powtórki z DSJ2, pliki .rpl z katalogu gry. Własny skok obejrzysz zaraz po nim: w menu skoku „Obejrzyj ostatni skok”.",
+    load: "Wczytaj powtórkę (.rpl)",
+    needsGame: "Powtórki z DSJ2 grają na skoczniach oryginału: najpierw wczytaj pliki gry w menu głównym.",
+    notReplay: "To nie jest plik powtórki DSJ2 (.rpl).",
+    damaged: "Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.",
+    badValues: "Powtórka ma niepoprawne dane i nie da się jej odtworzyć.",
+    noHill: (hillNumber: number) => `Wczytany Dsj.exe nie ma skoczni nr ${hillNumber}, z której jest ta powtórka.`,
   },
 
   gameFiles: {
@@ -198,16 +213,16 @@ export const UI_TEXT = {
       `Skok na skoczni ${hillLabel}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`,
     resume: "Wróć do gry",
     resumeKey: " (Esc)",
-    again: "Jeszcze raz",
+    again: "Skocz jeszcze raz",
     againKey: " (R)",
     changeHill: "Zmień skocznię",
     exit: "Wyjdź do menu głównego",
     /** Watching the last jump again. */
     replay: {
-      watch: "Powtórka skoku",
+      watch: "Obejrzyj ostatni skok",
       speed: (speed: string) => `Tempo: ${speed}`,
-      fromStart: "Od początku",
-      end: "Koniec powtórki",
+      fromStart: "Obejrzyj od początku",
+      end: "Wróć do skakania",
     },
     tiltHint: "Dotknij „Pochylanie”, aby włączyć przechył.",
     padKey: { left: "L", right: "P" },
