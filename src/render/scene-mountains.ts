@@ -49,8 +49,23 @@ function noise(x: number, seed: number): number {
   return a + (b - a) * t;
 }
 
-/** Height of the ridge in rows at mountain coordinate `fx`: crests where the noise folds over. */
+/** Ridge heights already worked out, by mountain coordinate (the view scrolls slowly over the same ones). */
+const ridgeCache = new Map<number, number>();
+const RIDGE_CACHE_LIMIT = 4096;
+
+/** Height of the ridge in rows at mountain coordinate `fx`, remembered. */
 function ridgeRows(fx: number): number {
+  let rows = ridgeCache.get(fx);
+  if (rows === undefined) {
+    if (ridgeCache.size >= RIDGE_CACHE_LIMIT) ridgeCache.clear();
+    rows = ridgeOf(fx);
+    ridgeCache.set(fx, rows);
+  }
+  return rows;
+}
+
+/** Height of the ridge in rows at mountain coordinate `fx`: crests where the noise folds over. */
+function ridgeOf(fx: number): number {
   let rows = 0;
   RIDGE_OCTAVES.forEach((o, k) => {
     const n = noise(fx / o.wavelength, k * 104729);

@@ -211,12 +211,27 @@ const RAMP_SHADE_STEPS = 6;
 /** Ramp steps added towards the lower right at column `gx` and row `gy` of a glyph (counted from 1 in the rule). */
 const lighterAt = (gx: number, gy: number) => Math.max(0, Math.floor((2 * (gy + 1) + (gx + 1)) / 6));
 
+/** Ramp steps from the shadow's lowest index to the brightest body pixel. */
+const RAMP_SPAN = RAMP_SHADE_STEPS + 6;
+const rampCache = new Map<number, Uint32Array>();
+
+/** The colours of a ramp from its shadow's lowest index up, looked up once rather than for every pixel. */
+function rampColours(ramp: number): Uint32Array {
+  let colours = rampCache.get(ramp);
+  if (colours === undefined) {
+    colours = Uint32Array.from({ length: RAMP_SPAN + 1 }, (_, k) => hudColour(ramp - RAMP_SHADE_STEPS + k));
+    rampCache.set(ramp, colours);
+  }
+  return colours;
+}
+
 /**
  * Draws text with the font's relief and an optional one-pixel drop shadow (for text over the scene); returns the x
  * after the text.
  */
 export function drawText(fb: FrameBuffer, x: number, y: number, text: string, ink: Ink, shadow?: number): number {
   const flatShade = typeof ink === "number" ? darker(ink, SHADE_SHARE) : 0;
+  const ramp = typeof ink === "number" ? null : rampColours(ink.ramp);
   let cx = x;
   for (const ch of letters(text)) {
     const g = glyphOf(ch);
@@ -229,9 +244,9 @@ export function drawText(fb: FrameBuffer, x: number, y: number, text: string, in
         if (shadow !== undefined && (g.cells[cy + 1]?.[gx + 1] ?? 0) === 0) fb.put(px + 1, py + 1, shadow);
         if (typeof ink === "number") {
           fb.put(px, py, kind === BODY ? ink : flatShade);
-        } else {
+        } else if (ramp !== null) {
           const steps = kind === BODY ? RAMP_BODY_STEPS : RAMP_SHADE_STEPS;
-          fb.put(px, py, hudColour(ink.ramp - steps + lighterAt(gx, gy)));
+          fb.put(px, py, ramp[RAMP_SHADE_STEPS - steps + lighterAt(gx, gy)] ?? 0);
         }
       });
     });
