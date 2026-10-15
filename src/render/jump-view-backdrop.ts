@@ -179,24 +179,6 @@ function drawSmallPine(fb: FrameBuffer, x: number, base: number, height: number,
   }
 }
 
-/** A few birds crossing the backdrop, flapping every few frames. */
-export function drawBirds(fb: FrameBuffer, b: Backdrop, frame: number): void {
-  const span = fb.width + 60;
-  for (let i = 0; i < 3; i++) {
-    const worldX = frame * (0.12 + i * 0.03) + i * 157;
-    const sx = Math.round((((worldX - b.originX) % span) + span) % span) - 30;
-    const sy = Math.round(b.lift + 14 + i * 9 + 3 * Math.sin(frame / 23 + i));
-    if (sy < 2) continue;
-    const up = Math.floor(frame / 9 + i) % 2 === 0;
-    const c = color("bird");
-    fb.put(sx, sy, c);
-    fb.put(sx - 1, sy - (up ? 1 : 0), c);
-    fb.put(sx + 1, sy - (up ? 1 : 0), c);
-    fb.put(sx - 2, sy - (up ? 2 : 0), c);
-    fb.put(sx + 2, sy - (up ? 2 : 0), c);
-  }
-}
-
 /** Snowflake layers: parallax (1 = moves with the hill), flakes per 100 px of width, fall speed in px per frame. */
 const SNOW_LAYERS = [
   { parallax: 0.45, per100Px: 12, fallPx: 0.35, size: 1, color: "flakeFar" },

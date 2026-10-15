@@ -1,12 +1,9 @@
-import { displayedWindMPerS } from "../game/wind-display";
-import { landingSlope, type HillProfile } from "../sim/hill-profile";
-import type { JumpSimState } from "../sim/jump-sim";
+import type { HillProfile } from "../sim/hill-profile";
 import type { FrameBuffer } from "./frame-buffer";
 import {
   FAR_EDGE_PX,
   PIXELS_PER_M,
   SLOPE_HALF_WIDTH_M,
-  fastSin,
   hash,
   surfaceY,
   toScreenX,
@@ -20,29 +17,6 @@ import { band, color, rampTable } from "./palette";
 
 /** The near edge is also shifted left by the oblique projection. */
 const NEAR_EDGE_SHIFT_PX = DEPTH_TO_X * SLOPE_HALF_WIDTH_M * PIXELS_PER_M;
-
-const distanceCache = new WeakMap<HillProfile, Map<number, number>>();
-
-/** x reached after `distanceM` of arc along the landing hill from the takeoff (display only). */
-function xAtDistance(h: HillProfile, distanceM: number): number {
-  let byDistance = distanceCache.get(h);
-  if (byDistance === undefined) {
-    byDistance = new Map();
-    distanceCache.set(h, byDistance);
-  }
-  const cached = byDistance.get(distanceM);
-  if (cached !== undefined) return cached;
-  const step = 0.05;
-  let x = h.takeoffXM;
-  let length = 0;
-  while (length < distanceM && x < h.outrunStartXM + 200) {
-    const s = landingSlope(h, x + step / 2);
-    length += Math.sqrt(s * s + 1) * step;
-    x += step;
-  }
-  byDistance.set(distanceM, x);
-  return x;
-}
 
 /** The landing hill's surface from its far edge down; returns the screen row of the jumper's line per column. */
 export function drawSlope(fb: FrameBuffer, h: HillProfile, cam: Camera, bottom: number): Int32Array {
@@ -128,78 +102,6 @@ export function drawHill(fb: FrameBuffer, h: HillProfile, cam: Camera, ground: I
     if (((wx % 3) + 3) % 3 < 1 / PIXELS_PER_M) fb.rect(sx, fy - 1, 2, 5, post);
   }
   drawInrun(fb, h, cam, ground, lightsOn);
-}
-
-const SOCK_SPACING_M = 25;
-const SOCK_FIRST_AFTER_TAKEOFF_M = 15;
-const SOCK_POLE_PX = 14;
-const SOCK_LENGTH_PX = 8;
-/** Wind at which a sock flies straight out. */
-const SOCK_FULL_WIND_M_PER_S = 4.5;
-
-/**
- * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the same vector the
- * indicator box shows, blended with hanging straight down as the wind drops towards calm.
- */
-export function windSockDirection(s: JumpSimState): [number, number] {
-  const w = displayedWindMPerS(s.wind);
-  const speed = Math.hypot(w.x, w.y);
-  if (!(speed > 0)) return [0, 1];
-  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
-  const dirX = (w.x / speed) * k;
-  const dirY = (-w.y / speed) * k + (1 - k);
-  const len = Math.hypot(dirX, dirY) || 1;
-  return [dirX / len, dirY / len];
-}
-
-/**
- * Wind socks on poles behind the far fence, every 25 m along the landing hill. They stream along the game's
- * wind in the side view (along the hill and vertical) and hang down in a calm; the flutter is only for show.
- */
-export function drawWindSocks(fb: FrameBuffer, h: HillProfile, cam: Camera, s: JumpSimState, frame: number): void {
-  const pole = color("post");
-  const red = color("sockRed");
-  const white = color("sockWhite");
-  const [ux0, uy0] = windSockDirection(s);
-  const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
-  // The first sock stands clear of the takeoff table, so its pole does not show under the lip.
-  const first = h.takeoffXM + SOCK_FIRST_AFTER_TAKEOFF_M;
-  const viewFrom = cam.x - (cam.cx + 20) / PIXELS_PER_M;
-  const viewTo = cam.x + (fb.width - cam.cx + 20) / PIXELS_PER_M;
-  const start = first + Math.max(0, Math.ceil((viewFrom - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
-  for (let x = start; x <= Math.min(viewTo, h.outrunStartXM); x += SOCK_SPACING_M) {
-    const sx = Math.round(toScreenX(cam, x));
-    const base = Math.round(toScreenY(cam, surfaceY(h, x))) - FAR_EDGE_PX - 1;
-    const top = base - SOCK_POLE_PX;
-    fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
-    const flutter = 0.12 * k * fastSin(frame / 4 + x);
-    const ux = ux0 - flutter * uy0;
-    const uy = uy0 + flutter * ux0;
-    for (let i = 0; i < SOCK_LENGTH_PX; i++) {
-      const c = Math.floor(i / 2) % 2 === 0 ? red : white;
-      const px = sx + 0.5 + ux * i;
-      const py = top + uy * i;
-      fb.put(px, py, c);
-      // Wider at the mouth, thinning to the tail.
-      if (i < SOCK_LENGTH_PX - 3) fb.put(px - uy, py + ux, c);
-    }
-  }
-}
-
-/** A line across the landing hill at a distance from the takeoff, slanted by the oblique projection. */
-export function drawDistanceLine(
-  fb: FrameBuffer,
-  h: HillProfile,
-  cam: Camera,
-  distanceM: number,
-  c: number,
-  offsetPx: number,
-): void {
-  const x = xAtDistance(h, distanceM);
-  const sx = toScreenX(cam, x) + offsetPx;
-  const sy = toScreenY(cam, surfaceY(h, x));
-  if (sx < -NEAR_EDGE_SHIFT_PX - 2 || sx > fb.width + NEAR_EDGE_SHIFT_PX + 2) return;
-  fb.line(sx + NEAR_EDGE_SHIFT_PX, sy - FAR_EDGE_PX, sx - NEAR_EDGE_SHIFT_PX, sy + FAR_EDGE_PX, c);
 }
 
 const NEAR_FENCE_PX = 5;

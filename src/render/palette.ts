@@ -18,6 +18,7 @@ const RGB = {
   backdropLight: vga(206, 206, 234),
   backdropDark: vga(146, 150, 162),
   bird: vga(92, 60, 28),
+  birdBody: vga(60, 40, 20),
   nearFence: vga(190, 137, 16),
   nearFenceDark: vga(117, 85, 12),
   kLine: vga(20, 93, 24),
@@ -91,6 +92,7 @@ const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>([
   "backdropLight",
   "backdropDark",
   "bird",
+  "birdBody",
   "tree1",
   "tree2",
   "tree3",
@@ -166,6 +168,28 @@ function lit(name: ColorName, look: Look): Rgb {
   const far = BACKDROP.has(name);
   const override = look.lighting === "day" ? undefined : SKY_OVERRIDE[look.lighting][name];
   return fogged(override ?? shade(RGB[name], far, look.lighting), far, look);
+}
+
+/** A colour of the scene under the current look: far scenery (backdrop) or the lit hill and jumper. */
+export function litRgb(rgb: Rgb, far: boolean): Rgb {
+  return fogged(shade(rgb, far, look.lighting), far, look);
+}
+
+/**
+ * The sky at dusk and at night is set rather than derived (a darkened blue reads as grey): the colour of the sky
+ * at `t` from its top (0) to the horizon (1) under the current look, or null in daylight.
+ */
+export function skyAt(t: number): Rgb | null {
+  if (look.lighting === "day") return null;
+  const top = SKY_OVERRIDE[look.lighting].sky1 ?? RGB.sky1;
+  const bottom = SKY_OVERRIDE[look.lighting].sky2 ?? RGB.sky2;
+  const mix = (k: 0 | 1 | 2) => top[k] + (bottom[k] - top[k]) * t;
+  return fogged(vga(mix(0), mix(1), mix(2)), true, look);
+}
+
+/** Key of the current look, for caches of colours derived under it. */
+export function currentLookKey(): string {
+  return lookKey;
 }
 
 const DAYLIGHT: Look = { lighting: "day", fog: false };

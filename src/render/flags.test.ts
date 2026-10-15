@@ -11,11 +11,11 @@ const pictureHash = (px: FlagPixels): string => fnv(new Uint8ClampedArray(new Te
 /** Recorded from the drawn flags; a change here is a change of a picture. */
 // oxfmt-ignore
 const FLAG_HASH = {
-  AT: "8fedaed3", AU: "8edffda0", BE: "ff529d23", BY: "d92c49cf", CA: "1e2cca28", CH: "b7c6b967", CN: "6eba25d3",
+  AT: "8fedaed3", AU: "8edffda0", BE: "ff529d23", BY: "d92c49cf", CA: "6b15029f", CH: "b7c6b967", CN: "6eba25d3",
   CZ: "d983168", DE: "c16130cf", DK: "a4ac748f", EE: "30f351c7", ENG: "8b707a0b", FI: "ed012c0f", FR: "6b947ef3",
-  HU: "a88567f5", IE: "1d39316b", IS: "f611b02b", IT: "8663de93", JP: "8ed5ef63", KR: "f5906a2a", KZ: "950d4b78",
+  HU: "a88567f5", IE: "1d39316b", IS: "f611b02b", IT: "8663de93", JP: "8ed5ef63", KR: "8ddace0a", KZ: "b3a37c6c",
   LT: "6da45713", LV: "d86072cf", NL: "26a56e25", NO: "7f63a277", PL: "38be343c", RU: "5dcb7110", SE: "82d21ffb",
-  SI: "fb496a65", SK: "b7677c02", UA: "6cfe3f7d", US: "29ca8cb5",
+  SI: "1b5e731", SK: "58b2d7f", UA: "6cfe3f7d", US: "29ca8cb5",
 } as const;
 const UNKNOWN_FLAG_HASH = "e65613e7";
 

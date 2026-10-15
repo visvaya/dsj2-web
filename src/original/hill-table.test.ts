@@ -61,6 +61,17 @@ function codeBuilder(): CodeBuilder {
 interface FakeHill {
   k: number;
   takeoff: number;
+  /** Trees the branch takes out of sight, as hills 4 and 9 of v2.10P do. */
+  hide?: { layer: number; first: number; last: number };
+}
+
+/** `for i := first to last do trees[layer][i].x := -200`, as the original's branches code it. */
+function emitHide(c: CodeBuilder, layer: number, first: number, last: number): void {
+  const disp = 0x2b7e + layer * 0xa4;
+  c.bytes.push(0xc7, 0x06, 0x86, 0x3d, first, 0x00, 0xc7, 0x06, 0x88, 0x3d, 0x00, 0x00, 0xeb, 0x0a);
+  c.bytes.push(0x83, 0x06, 0x86, 0x3d, 0x01, 0x83, 0x16, 0x88, 0x3d, 0x00);
+  c.bytes.push(0x8b, 0x3e, 0x86, 0x3d, 0xc1, 0xe7, 0x03, 0xc7, 0x85, disp & 0xff, disp >> 8, 0x38, 0xff);
+  c.bytes.push(0x83, 0x3e, 0x88, 0x3d, 0x00, 0x75, 0xe2, 0x83, 0x3e, 0x86, 0x3d, last, 0x75, 0xdb);
 }
 
 function emitHill(c: CodeBuilder, h: FakeHill): void {
@@ -72,6 +83,7 @@ function emitHill(c: CodeBuilder, h: FakeHill): void {
   c.callFar(0x1eee, 0x06e1);
   c.word(0x17).word(0x39).callFar(0x003f, 0x9da5);
   c.callNear(0);
+  if (h.hide) emitHide(c, h.hide.layer, h.hide.first, h.hide.last);
 }
 
 function buildImage(hills: FakeHill[], decoy = true): Uint8Array {
@@ -132,6 +144,16 @@ describe("hill table in the executable", () => {
     });
     expect(first?.calls.map((call) => call.kind)).toEqual(["far", "far", "far", "near"]);
     expect(first?.calls[2]?.words).toEqual([0x17, 0x39]);
+  });
+
+  it("finds the trees a branch takes out of sight", () => {
+    const hills = readHillTable(
+      buildImage([
+        { k: 105, takeoff: 52.3 },
+        { k: 170, takeoff: 76.8, hide: { layer: 9, first: 3, last: 5 } },
+      ]),
+    );
+    expect(hills.map((h) => h.hiddenTrees)).toEqual([[], [{ layer: 9, first: 3, last: 5 }]]);
   });
 
   it("decodes short pushes as sign-extended words", () => {

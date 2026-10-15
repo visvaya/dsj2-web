@@ -45,5 +45,4 @@ export function treeColors() {
   return { dark: color("tree1"), mid: color("tree2"), light: color("tree3"), trunk: color("trunk") };
 }
 
-export const CAMERA_AHEAD_M = 4;
 export const CAMERA_BELOW_JUMPER_M = 2;

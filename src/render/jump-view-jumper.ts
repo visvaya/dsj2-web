@@ -115,6 +115,47 @@ export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   });
 }
 
+/** Where a figure stands on the screen: the foot of its front leg, and pixels per metre across and down. */
+export interface FigureAnchor {
+  x: number;
+  y: number;
+  pxPerMX: number;
+  pxPerMY: number;
+}
+
+/** The jumper's figure (1cb6:20e1): every bone in its outfit colour, far side darker. */
+export function drawFigure(fb: FrameBuffer, h: HillProfile, s: JumpSimState, a: FigureAnchor, outfit: Outfit): void {
+  const pts = figurePoints(h, s);
+  const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
+  const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
+  const sy = (p: Point3) => a.y - (p.y - DEPTH_TO_Y * p.z) * a.pxPerMY;
+  for (const b of BONES) {
+    const from = at(b.from);
+    const to = at(b.to);
+    const c = band(swatchRampTable(outfit[PART_COLOUR[b.part]], BONE_SHADES), b.shade / BONE_SHADES);
+    brushLine((x, y) => fb.put(x, y, c), sx(from), sy(from), sx(to), sy(to), b.thick);
+  }
+}
+
+/**
+ * The jumper's shadow (1cb6:1d2a): the figure flattened onto the plane of the terrain under the jumper, which
+ * slopes by `slope` along the hill, `dropPx` rows below the foot; only columns `fromX`..`toX` are drawn.
+ */
+export function drawShadow(
+  h: HillProfile,
+  s: JumpSimState,
+  a: FigureAnchor,
+  dropPx: number,
+  slope: number,
+  put: Plot,
+): void {
+  const pts = figurePoints(h, s);
+  const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
+  const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
+  const sy = (p: Point3) => a.y + dropPx - (slope * p.x - DEPTH_TO_Y * p.z) * a.pxPerMY;
+  for (const b of BONES) brushLine(put, sx(at(b.from)), sy(at(b.from)), sx(at(b.to)), sy(at(b.to)), b.thick);
+}
+
 export function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {
   const j = s.jumper;
   const S = PIXELS_PER_M;

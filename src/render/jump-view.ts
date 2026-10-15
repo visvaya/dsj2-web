@@ -4,19 +4,23 @@ import type { HillProfile } from "../sim/hill-profile";
 import { notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
-import { backdropFor, drawBackdrop, drawBirds, drawSnowfall } from "./jump-view-backdrop";
-import { CAMERA_AHEAD_M, CAMERA_BELOW_JUMPER_M, type Camera } from "./jump-view-camera";
+import { backdropFor, drawBackdrop, drawSnowfall } from "./jump-view-backdrop";
+import { type Camera } from "./jump-view-camera";
 import { BAR_HEIGHT_PX, drawBar, drawNotes, drawWindBox, prompt } from "./jump-view-hud";
 import { drawGhost } from "./jump-view-ghost";
 import { drawJumper } from "./jump-view-jumper";
-import { drawDistanceLine, drawHill, drawNearFence, drawSlope, drawWindSocks } from "./jump-view-landing";
+import { drawHill, drawNearFence, drawSlope } from "./jump-view-landing";
+import { drawHillScene } from "./jump-view-scene";
+import { DEFAULT_HILL_LOOK } from "./hill-look";
+import { drawBirds, drawFloodlights, drawInrunLamps, drawNightSky, drawWindSocks } from "./scene-extras";
+import { SQUARE_PIXEL_WIDTH } from "./scene-layers";
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
 import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 import { UI_TEXT } from "../text/ui-text";
 
 export { FALLEN_MAX_HEIGHT_M, figureHalfWidthM, figurePoints } from "./jump-view-jumper";
-export { windSockDirection } from "./jump-view-landing";
+export { windSockDirection } from "./scene-extras";
 export { type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
@@ -39,6 +43,8 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
   return Math.min(VIEW_MAX_WIDTH_PX, Math.max(VIEW_MIN_WIDTH_PX, w));
 }
 
+/** Rows of the sky bands at the top of the scene; stars and the moon are drawn there only. */
+const SKY_ROWS = 48;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
 /** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
@@ -89,26 +95,40 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   const s = m.state;
   const h = m.profile;
   const groundBottom = fb.height - BAR_HEIGHT_PX;
-  const cam: Camera = {
-    x: s.jumper.xM + CAMERA_AHEAD_M,
-    y: s.jumper.yM - CAMERA_BELOW_JUMPER_M,
-    cx: Math.round(fb.width * 0.45),
-    cy: Math.round(groundBottom * 0.45),
-  };
-  const backdrop = backdropFor(h, cam);
-  drawBackdrop(fb, backdrop, cam, groundBottom, clearNight, m.frame);
-  if (!night) drawBirds(fb, backdrop, m.frame);
-  const ground = drawSlope(fb, h, cam, groundBottom);
-  // Lamps are on from dusk.
-  drawHill(fb, h, cam, ground, scenery.lighting !== "day");
-  drawWindSocks(fb, h, cam, s, m.frame);
-  drawDistanceLine(fb, h, cam, m.kPointM, color("kLine"), 0);
-  if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
-  // Under the player's jumper, so the player's own figure is never covered.
-  if (m.ghost !== undefined) drawGhost(fb, h, m.ghost, cam);
-  drawJumper(fb, h, s, cam, m.outfit ?? DEFAULT_OUTFIT);
-  drawNearFence(fb, h, cam, groundBottom);
-  if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
+  const lightsOn = scenery.lighting !== "day";
+  drawHillScene(
+    fb,
+    {
+      profile: h,
+      kPointM: m.kPointM,
+      look: m.look ?? DEFAULT_HILL_LOOK,
+      state: s,
+      outfit: m.outfit ?? DEFAULT_OUTFIT,
+      recordM: m.recordM ?? 0,
+      pixelWidth: SQUARE_PIXEL_WIDTH,
+      ...(m.ghost === undefined ? {} : { ghost: m.ghost, drawGhost: (f, g, a) => drawGhost(f, h, g, a) }),
+    },
+    groundBottom - 1,
+    {
+      afterSky: (view) => {
+        if (clearNight) drawNightSky(fb, view, m.frame, (i) => i < SKY_ROWS * fb.width);
+      },
+      afterBackground: (view) => {
+        if (!night) drawBirds(fb, view, m.frame);
+      },
+      afterFarFence: (view) => {
+        if (lightsOn) drawFloodlights(fb, h, view);
+        drawWindSocks(fb, h, view, s, m.frame);
+      },
+      afterInrun: (view, railPx) => {
+        if (lightsOn) drawInrunLamps(fb, h, view, railPx);
+      },
+    },
+  );
+  if (scenery.snowfall) {
+    const cam = { x: s.jumper.xM, y: s.jumper.yM, cx: fb.width / 2, cy: groundBottom / 2 };
+    drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
+  }
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
   drawText(
     fb,

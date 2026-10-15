@@ -2,6 +2,7 @@ import type { HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { OriginalHill } from "../original/original-hills";
 import type { CountryCode } from "../render/flags";
+import { DEFAULT_HILL_LOOK, type HillLook } from "../render/hill-look";
 import { UI_TEXT } from "../text/ui-text";
 
 /** A hill the player can pick, from this project or from the player's original files. */
@@ -10,6 +11,8 @@ export interface HillChoice {
   name: string;
   kPointM: number;
   profile: HillProfile;
+  /** How the hill looks besides its profile. */
+  look: HillLook;
   source: "own" | "original";
   /** Country the hill stands in, for its flag; none for this project's own hills. */
   country: CountryCode | null;
@@ -23,6 +26,7 @@ export const OWN_HILLS: readonly HillChoice[] = [
     kPointM: 90,
     source: "own",
     country: null,
+    look: DEFAULT_HILL_LOOK,
     profile: buildHillProfile(
       {
         startXM: 11.4,
@@ -86,6 +90,7 @@ export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[
     name: h.name ?? fallbackHillName(h.number),
     kPointM: h.kPointM,
     profile: h.profile,
+    look: h.look,
     source: "original",
     country: ORIGINAL_HILL_COUNTRY[h.number - 1] ?? null,
   }));

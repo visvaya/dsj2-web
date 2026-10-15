@@ -36,10 +36,12 @@ przyjmuje nasz renderer). 16 kości w stałej kolejności (dalsza połowa, tuł�
 ma część stroju (kombinezon, spodnie, rękawy, rękawice, kask, narty) i odcień. Pędzel 2×2 piksele albo
 plamka 4×4 dla kości grubych; kość z punktu do niego samego to kropka (dłonie, głowa, czubki nart).
 
-Cień (1cb6:1d2a) to te same kości jednym kolorem, rzucone na płaszczyznę terenu pod skoczkiem.
+Cień (1cb6:1d2a) to te same kości jednym kolorem (indeks 24), rzucone na płaszczyznę terenu pod skoczkiem:
+kolumna 147 zamiast 148, wiersz obniżony o round((y_skoczka − y_terenu)·1,33·14) i pochylony z nachyleniem
+terenu; przy progu rysowane są dwa cienie (na najeździe i na zeskoku), każdy obcięty na krawędzi progu.
 
 ## Weryfikacja
 
 **[pomiar]** Punkty liczone przez port z pozy zapisanej w śladzie zgadzają się z punktami zapisanymi przez
 oryginał we wszystkich klatkach 11 śladów (różnica poniżej 0,1 mm; `jumper-skeleton.golden.test.ts`).
-Kolory stroju i wygląd najazdu są własne.
+Kolory stroju są własne. Jak figura i cień stoją w scenie: `jump-scene.md`.

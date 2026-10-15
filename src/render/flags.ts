@@ -1,6 +1,7 @@
 /**
  * Pixel flags (15 x 10) for the hill list. Drawn for this project in the game's low-resolution style,
- * simplified where a real flag has more detail than 150 pixels can hold.
+ * simplified where a real flag has more detail than 150 pixels can hold; flags with an emblem are drawn pixel
+ * by pixel.
  */
 
 export const FLAG_WIDTH_PX = 15;
@@ -63,6 +64,18 @@ function grid(fill: string): Grid {
   return self;
 }
 
+/** A flag drawn pixel by pixel: one string per row, each character a colour of `colours` ("." the background). */
+function pixelArt(background: string, colours: Readonly<Record<string, string>>, rows: readonly string[]): Grid {
+  const g = grid(background);
+  rows.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const c = colours[row[x] ?? "."];
+      if (c !== undefined) g.set(x, y, c);
+    }
+  });
+  return g;
+}
+
 /** Three horizontal bands of 3, 4 and 3 rows. */
 const horizontal = (a: string, b: string, c: string) => grid(b).rect(0, 0, 15, 3, a).rect(0, 7, 15, 3, c);
 /** Three vertical bands of 5 columns. */
@@ -97,14 +110,18 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
     return g;
   },
   CA: () =>
-    grid(C.white)
-      .rect(0, 0, 4, 10, C.red)
-      .rect(11, 0, 4, 10, C.red)
-      .rect(7, 2, 1, 7, C.red)
-      .rect(6, 3, 3, 4, C.red)
-      .rect(5, 4, 5, 2, C.red)
-      .set(5, 3, C.red)
-      .set(9, 3, C.red),
+    pixelArt(C.white, { R: C.red }, [
+      "RRRR.......RRRR",
+      "RRRR...R...RRRR",
+      "RRRR..RRR..RRRR",
+      "RRRR.R.R.R.RRRR",
+      "RRRR.RRRRR.RRRR",
+      "RRRR..RRR..RRRR",
+      "RRRR.RRRRR.RRRR",
+      "RRRR..RRR..RRRR",
+      "RRRR...R...RRRR",
+      "RRRR.......RRRR",
+    ]),
   CH: () => grid(C.red).rect(6, 2, 3, 6, C.white).rect(4, 4, 7, 2, C.white),
   CN: () =>
     grid(C.red)
@@ -136,23 +153,31 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
   IT: () => vertical(C.green, C.white, C.red),
   JP: () => grid(C.white).disc(7, 4.5, 3, C.red),
   KR: () =>
-    grid(C.white)
-      .disc(7, 4.5, 3, C.blue)
-      .rect(4, 2, 7, 3, C.red)
-      .rect(5, 1, 5, 1, C.red)
-      .rect(1, 1, 2, 1, C.black)
-      .rect(12, 1, 2, 1, C.black)
-      .rect(1, 8, 2, 1, C.black)
-      .rect(12, 8, 2, 1, C.black)
-      .rect(1, 2, 1, 1, C.black)
-      .rect(13, 2, 1, 1, C.black)
-      .rect(1, 7, 1, 1, C.black)
-      .rect(13, 7, 1, 1, C.black),
-  KZ: () => {
-    const g = grid(C.teal).disc(8, 4, 2, C.yellow).rect(6, 7, 5, 1, C.yellow);
-    for (let y = 0; y < 10; y += 2) g.set(1, y, C.yellow);
-    return g;
-  },
+    pixelArt(C.white, { R: C.red, B: C.blue, K: C.black }, [
+      "...............",
+      "..K.........K..",
+      ".K.K..RRR..K.K.",
+      "..K..RRRRR..K..",
+      "....RRRRRRR....",
+      "....RRRRRBB....",
+      "..K.RRBBBBB.K..",
+      ".K.K.BBBBB.K.K.",
+      "..K...BBB...K..",
+      "...............",
+    ]),
+  KZ: () =>
+    pixelArt(C.teal, { Y: C.yellow, T: C.teal }, [
+      "TYTTTTTTTTTTTTT",
+      "YTYTTTTTYTTTTTT",
+      "TYTTTTYTTTYTTTT",
+      "YTYTTTTYYYTTTTT",
+      "TYTTTYTYYYTYTTT",
+      "YTYTTTTYYYTTTTT",
+      "TYTTTTYTTTYTTTT",
+      "YTYTYYTTYTTYYTT",
+      "TYTTTTYYYYYTTTT",
+      "YTYTTTTTTTTTTTT",
+    ]),
   LT: () => horizontal(C.yellow, C.darkGreen, C.red),
   LV: () => grid(C.darkRed).rect(0, 4, 15, 2, C.white),
   NL: () => horizontal(C.red, C.white, C.blue),
@@ -161,24 +186,31 @@ const FLAGS: Readonly<Record<CountryCode, () => Grid>> = {
   RU: () => horizontal(C.white, C.blue, C.red),
   SE: () => nordic(C.blue, C.yellow),
   SI: () =>
-    horizontal(C.white, C.blue, C.red)
-      .rect(3, 1, 4, 4, C.blue)
-      .rect(3, 1, 4, 1, C.red)
-      .set(4, 3, C.white)
-      .set(5, 2, C.white)
-      .set(6, 3, C.white)
-      .set(3, 4, C.white)
-      .set(4, 4, C.white)
-      .set(5, 4, C.white)
-      .set(6, 4, C.white),
+    pixelArt(C.white, { R: C.red, B: C.blue, Y: C.yellow, W: C.white }, [
+      "...............",
+      "..RRRRRR.......",
+      "..RYBBYR.......",
+      "..RBWWBR.......",
+      "BBRWWWWRBBBBBBB",
+      "BBRBWBWRBBBBBBB",
+      "BBBRBBRBBBBBBBB",
+      "RRRRRRRRRRRRRRR",
+      "RRRRRRRRRRRRRRR",
+      "RRRRRRRRRRRRRRR",
+    ]),
   SK: () =>
-    horizontal(C.white, C.blue, C.red)
-      .rect(3, 2, 5, 6, C.white)
-      .rect(4, 2, 3, 5, C.red)
-      .rect(5, 3, 1, 3, C.white)
-      .rect(4, 4, 3, 1, C.white)
-      .rect(4, 6, 3, 1, C.blue)
-      .set(5, 7, C.red),
+    pixelArt(C.white, { R: C.red, B: C.blue, W: C.white }, [
+      "...............",
+      "..WWWWWWW......",
+      "..WRRWRRW......",
+      "BBWRWWWRWBBBBBB",
+      "BBWRRWRRWBBBBBB",
+      "BBWWWWWWWBBBBBB",
+      "BBWRRWRRWBBBBBB",
+      "RRWBBBBBWRRRRRR",
+      "RRRWBBBWRRRRRRR",
+      "RRRRWWWRRRRRRRR",
+    ]),
   UA: () => grid(C.blue).rect(0, 5, 15, 5, C.yellow),
   US: () => {
     const g = grid(C.white);
