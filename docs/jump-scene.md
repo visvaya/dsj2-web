@@ -100,13 +100,16 @@ rysowane przez port (`jump-view-hud.ts`):
 - Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
   zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
 - Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki, wyrównany do prawej
-  w polu 4 znaków jak `Str(note:4:1)` (8,0 stoi pod 0 i 5 z 10,0); do 45 klatek po ostatniej wszystkie przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
+  w polu 4 znaków jak `Str(note:4:1)` (8,0 stoi pod 0 i 5 z 10,0); do 45 klatek po ostatniej wszystkie
+  przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
 - Pasek: 13 wierszy (górna linia 0x11, lewa kolumna 0x0A, wypełnienie 0x05, dolna linia 0x08), teksty 5 pikseli od
   brzegu i 3 wiersze pod górną linią, kolorem 0x79; po skoku odległość z małym „m” od 47% szerokości (kolumna 150
   z 320) w polu 5 znaków wyrównanym do prawej, jak `Str(x:5:1)` oryginału (na jego zrzucie 89,5 m zaczyna się
   w kolumnie 156). Punkty oryginał pisze od kolumny 248 w polu 7 znaków (128,5 zaczyna się w kolumnie 260); port
   kończy je przy prawym brzegu paska, 5 pikseli od niego, tam gdzie przed lądowaniem stała prędkość, bo na
   szerszym widoku kolumna 248 z 320 zostawiała je w połowie pustej części paska.
+- Liczby w obrazie (odległość, punkty, noty, prędkość, wiatr) port pisze z przecinkiem dziesiętnym, jak ekrany
+  gry i polska pisownia; oryginał pisze kropkę. Za punktami stoi „PKT”, żeby nie brać ich za drugą odległość.
 
 Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (porównanie
 z czcionką oryginału przy każdym przesunięciu w komórce: zgodne są tylko spacja, kropka i dwukropek, a żaden inny

@@ -400,6 +400,8 @@ export const UI_TEXT = {
     /** The small "m" of the original after a distance is a sign of its own in the picture's font (U+FF4D). */
     distance: (distance: string) => `${distance}ｍ`,
     speed: (speed: string) => `${speed} KM/H`,
+    /** Points after a jump, named so the number in the bar is not taken for another distance. */
+    points: (points: string) => `${points} PKT`,
     /** A replay, with its tempo (1, 1/2, 1/4); the second while it is paused. */
     replay: (speed: string) => `POWTÓRKA ${speed}`,
     replayPaused: (speed: string) => `POWTÓRKA ${speed}: PAUZA`,
