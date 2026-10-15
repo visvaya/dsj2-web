@@ -66,6 +66,16 @@ export function tiltStep(state: TiltState, angleDeg: number, gain = 1): { state:
   return { state: { previousDeg: angleDeg, carry: pending - motion }, motion };
 }
 
+/** Whether the browser knows the motion sensor at all; without it only the finger leans the jumper. */
+export function tiltSupported(ctor: unknown = globalThis.DeviceOrientationEvent): boolean {
+  return typeof ctor === "function";
+}
+
+/** Whether the browser asks the player before it gives the motion sensor (iOS), which takes a tap. */
+export function tiltAsksFirst(ctor: unknown = globalThis.DeviceOrientationEvent): boolean {
+  return typeof ctor === "function" && typeof Reflect.get(ctor, "requestPermission") === "function";
+}
+
 /** iOS asks for permission (from a tap, over HTTPS); other browsers allow it directly. */
 export async function requestTiltPermission(ctor: unknown = globalThis.DeviceOrientationEvent): Promise<boolean> {
   if (typeof ctor !== "function") return false;

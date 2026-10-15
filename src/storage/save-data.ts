@@ -19,7 +19,10 @@ export type WeatherChoice = "varied" | "clear" | "snow" | "fog" | "snowFog";
 const WEATHER_CHOICES: readonly WeatherChoice[] = ["varied", "clear", "snow", "fog", "snowFog"];
 
 export interface Settings {
-  /** How a touch screen leans the jumper: dragging the left pad or tilting the phone. */
+  /**
+   * How a touch screen leans the jumper: dragging the left pad or tilting the phone. Tilting by default; the game
+   * falls back to the finger where the phone has no motion sensor or the player says no to it.
+   */
   leanControl: LeanControl;
   vibration: boolean;
   /** Added after version 2 was introduced; older saves read it as the default. */
@@ -64,7 +67,7 @@ export const REPLAY_SETTING_RANGES = {
 const DEFAULT_REPLAY_SETTINGS: ReplaySettings = { recentCount: 5, maxAgeDays: null, maxSizeKb: null, slider: true };
 
 export const DEFAULT_SETTINGS: Settings = {
-  leanControl: "drag",
+  leanControl: "tilt",
   vibration: true,
   scenery: "varied",
   weather: "varied",

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { requestTiltPermission } from "../game/tilt-input";
+import { requestTiltPermission, tiltSupported } from "../game/tilt-input";
 import type { Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import type { Steering } from "./how-to-jump-text";
@@ -21,7 +21,8 @@ export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: P
   const headingRef = useRef<HTMLHeadingElement>(null);
   useEntryFocus(headingRef, focusOnEntry);
   const touch = useMediaQuery(TOUCH_QUERY);
-  const tiltOn = settings.leanControl === "tilt";
+  // Tilting is the default, but a browser without the motion sensor leans with the finger.
+  const tiltOn = settings.leanControl === "tilt" && tiltSupported();
   const controls: Steering = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
   const [tiltRefused, setTiltRefused] = useState(false);
   const toggleTilt = () => {

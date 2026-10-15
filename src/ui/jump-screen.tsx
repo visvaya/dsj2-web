@@ -17,6 +17,7 @@ import { useEntryFocus } from "./use-entry-focus";
 import { useJumpLoop } from "./use-jump-loop";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import { usePauseMenu } from "./use-pause-menu";
+import { ScreenNote } from "./screen-note";
 import { useSoundEngine } from "./use-sound-engine";
 import { useSteering } from "./use-steering";
 
@@ -129,6 +130,13 @@ function PauseSign({ touch }: { touch: boolean }) {
   );
 }
 
+/** The question about tilting stops the jump at once, before the player starts; not again after a "back". */
+function useAskAboutTilt(question: boolean, jumping: boolean, openMenu: () => void) {
+  useEffect(() => {
+    if (question && jumping) openMenu();
+  }, [question, jumping, openMenu]);
+}
+
 /** The classes of the screen: how it is played, and what is over the picture or under it. */
 function gameClass(c: { touch: boolean; controls: string; menuOpen: boolean; replaying: boolean; bar: boolean }) {
   const classes = [
@@ -184,6 +192,7 @@ export function JumpScreen(props: Props) {
   useNowPlaying(UI_TEXT.hillLabel(hill.name, hill.kPointM));
   const keepLast = useKeepLastJump(loop, props.onKeepJump);
   const bar = replay !== null && settings.replays.slider;
+  useAskAboutTilt(steering.tiltQuestion, replay === null, menu.openMenu);
   const pad = (side: "left" | "right") => (
     <TouchPad
       side={side}
@@ -253,6 +262,8 @@ export function JumpScreen(props: Props) {
           tiltOn={tiltOn}
           onToggleTilt={steering.toggleTilt}
           tiltNote={steering.tiltNote}
+          tiltQuestion={steering.tiltQuestion}
+          onTiltAnswer={steering.answerTiltQuestion}
           onExit={props.onExit}
           offline={props.offline}
           onOtherReplay={props.onOpenReplays}
@@ -260,6 +271,7 @@ export function JumpScreen(props: Props) {
       </div>
       {touch && pad("left")}
       {touch && pad("right")}
+      {!menu.menuOpen && <ScreenNote touch={touch} jumping={replay === null} tiltNote={steering.tiltNote} />}
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>

@@ -35,6 +35,9 @@ interface Props {
   onToggleTilt: () => void;
   /** A note about the motion sensor, or nothing. */
   tiltNote: string;
+  /** Whether the menu asks first whether to lean by tilting the phone (the browser gives the sensor after a tap). */
+  tiltQuestion: boolean;
+  onTiltAnswer: (yes: boolean) => void;
   onExit: () => void;
   /** How the replay is being watched; null while jumping. */
   replay: ReplayView | null;
@@ -166,6 +169,26 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
           {UI_TEXT.back}
         </button>
       </>
+    );
+  }
+  if (p.menuOpen && p.tiltQuestion && p.replay === null) {
+    const answer = (yes: boolean) => {
+      p.onTiltAnswer(yes);
+      p.onResume();
+    };
+    // The answer closes the menu and the jump goes on; the focus starts on the yes, as tilting is the default.
+    return (
+      <div className="tilt-question" role="group" aria-labelledby="tilt-question-text">
+        <p className="note" id="tilt-question-text">
+          {JUMP_TEXT.tiltQuestion}
+        </p>
+        <button type="button" className="pixel-button" ref={resumeRef} onClick={() => answer(true)}>
+          {JUMP_TEXT.tiltYes}
+        </button>
+        <button type="button" className="pixel-button" onClick={() => answer(false)}>
+          {JUMP_TEXT.tiltNo}
+        </button>
+      </div>
     );
   }
   return (

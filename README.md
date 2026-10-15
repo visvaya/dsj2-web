@@ -26,7 +26,8 @@ As of 2026-10-14: in active development.
 - Jump physics, wind, landing and judges' notes identical to DSJ2 v2.10P (deterministic on every device).
 - One built-in hill; the 37 hills of the original become available when you load `Dsj.exe` from your own copy
   of the game. The file is read in the browser and kept only there; nothing from the original is distributed.
-- Mouse, keyboard and touch controls; optional tilt steering on phones; haptics where supported.
+- Mouse, keyboard and touch controls; on phones tilt steering by default, with the finger as the fallback and the
+  choice; haptics where supported.
 - Pixel graphics with a responsive width, time of day (day, dusk, night) and weather (snow, fog).
 - Synthesised sound (Web Audio, no recordings).
 - A replay of the last jump, with pause, slow motion and a slider under the picture to any moment; the original's `.rpl` replays play the same way, on

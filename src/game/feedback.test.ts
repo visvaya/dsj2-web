@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { makeBot } from "../sim/test-support/synthetic";
 import { canVibrate, feedbackEvents, vibrate } from "./haptics";
 import { OWN_HILLS } from "./hill-choice";
-import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltStep } from "./tilt-input";
+import { TILT_AT_REST, pitchDeg, requestTiltPermission, tiltAsksFirst, tiltStep, tiltSupported } from "./tilt-input";
 import { isJumpOver, startTrainingJump, stepTrainingJump } from "./training-session";
 
 function run(landingHeightM: number | null): string[] {
@@ -99,5 +99,15 @@ describe("tilt steering", () => {
     });
     expect(await requestTiltPermission(ios)).toBe(false);
     expect(await requestTiltPermission(undefined)).toBe(false);
+  });
+
+  it("tells a browser without the sensor and one that asks first from one that gives it at once", () => {
+    const plain = function DeviceOrientationEvent() {};
+    const ios = Object.assign(function DeviceOrientationEvent() {}, {
+      requestPermission: () => Promise.resolve("granted"),
+    });
+    expect([tiltSupported(undefined), tiltAsksFirst(undefined)]).toEqual([false, false]);
+    expect([tiltSupported(plain), tiltAsksFirst(plain)]).toEqual([true, false]);
+    expect([tiltSupported(ios), tiltAsksFirst(ios)]).toEqual([true, true]);
   });
 });
