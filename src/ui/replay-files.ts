@@ -1,5 +1,11 @@
 import type { HillChoice } from "../game/hill-choice";
-import { readReplayFile, replayArchiveName, replayFileName, replayFileText } from "../storage/replay-file";
+import {
+  REPLAY_FILE_MAX_ENTRIES,
+  readReplayFile,
+  replayArchiveName,
+  replayFileName,
+  replayFileText,
+} from "../storage/replay-file";
 import type { ShelfEntry } from "../storage/replay-shelf";
 import { looksLikeZip, readZip, zipFile, type ZipEntry } from "../storage/zip-file";
 import { UI_TEXT } from "../text/ui-text";
@@ -65,7 +71,14 @@ async function readArchive(bytes: Uint8Array<ArrayBuffer>, originalHills: readon
     } else if (entry) entries.push(entry);
     else skipped++;
   }
-  return { kind: "replays", entries, unreadable, skipped } as const;
+  // Every replay is played through to check it, so the archive as a whole gives no more than one file may.
+  const extra = Math.max(0, entries.length - REPLAY_FILE_MAX_ENTRIES);
+  return {
+    kind: "replays",
+    entries: entries.slice(0, REPLAY_FILE_MAX_ENTRIES),
+    unreadable: unreadable + extra,
+    skipped,
+  } as const;
 }
 
 /**

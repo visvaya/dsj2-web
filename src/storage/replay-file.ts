@@ -9,6 +9,8 @@ const REPLAY_FILE_FORMAT = "telemark-replays";
 /** Version 2 writes the input in the compact form of input-codec.ts; version 1 files are read as well. */
 const REPLAY_FILE_VERSION = 2;
 const READ_VERSIONS: readonly number[] = [1, 2];
+/** More replays than the shelf holds besides the records (kept, read and last ones); the rest of a file is not read. */
+export const REPLAY_FILE_MAX_ENTRIES = 300;
 /** Larger than any file of replays the shelf could fill (its budget is 5 MB); anything larger is not one. */
 export const REPLAY_FILE_MAX_BYTES = 6_000_000;
 
@@ -77,6 +79,10 @@ export function readReplayFile(text: string): ReadReplayFile | null {
     return null;
   }
   if (!Array.isArray(replays)) return null;
-  const entries = replays.map(asShelfEntry).filter((e): e is ShelfEntry => e !== null);
+  // Each replay read is played through to check it: a file of thousands would hold the page for minutes.
+  const entries = replays
+    .slice(0, REPLAY_FILE_MAX_ENTRIES)
+    .map(asShelfEntry)
+    .filter((e): e is ShelfEntry => e !== null);
   return { entries, unreadable: replays.length - entries.length };
 }

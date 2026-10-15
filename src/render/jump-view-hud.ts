@@ -102,8 +102,9 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   // A player who knows the game can switch every prompt on the hill off.
   if (m.hints === false) return [];
   const phase = m.state.logic.phase;
-  // The next jump can start as soon as the notes are up; the jumper may still be sliding out.
-  if (nextJumpAllowed) return [text.nextJump];
+  // The next jump can start as soon as the notes are up; the jumper may still be sliding out. Once the jumper
+  // stands still the jump can be watched again and kept, from the menu.
+  if (nextJumpAllowed) return m.over ? [text.nextJump, UI_TEXT.hud.replayReady] : [text.nextJump];
   if (phase === PHASE.gate) return [text.start];
   if (phase === PHASE.inrun || phase === PHASE.crouch) return [text.takeoff];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores
