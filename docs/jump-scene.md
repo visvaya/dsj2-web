@@ -88,6 +88,22 @@ Na warstwach 2..10 część drzew oryginału dostaje kępę sąsiadów tego same
 `sceneTrees`), a drzewa dalszych warstw lekko bledną ku kolorowi śniegu (do 20 % na najdalszej warstwie,
 bez zmiany od `p` = 0,35).
 
+## HUD
+
+Ramka wiatru (0baf:3389) i sygnalizator startu mają wymiary i kolory bitmap oryginału (zasoby 11 i 13 z `Dsj.dat`),
+rysowane przez port (`jump-view-hud.ts`):
+
+- Strzałka (1cb6:1ee9): środek w (13, 8) ramki, ogon i grot w `±(11 cos a, 5,5 sin a)`, wąsy do
+  `(8 cos(a ± 1,25), 4 sin(a ± 1,25))`, `a` to kierunek wskaźnika; najpierw cień kolorem 0x44 o wiersz niżej, potem
+  0x47, linie pędzlem 2x2. Dodatni `sin a` to grot w dół: składowa poprzeczna wiatru (bez wpływu na skoczka) leży
+  w głąb sceny, ściśnięta o połowę. Rękawy wiatru i śnieg idą za tym samym wektorem (`game/wind-display.ts`).
+- Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
+  zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
+- Noty: do 45 klatek po ostatniej wszystkie przygaszone, potem liczone jasne, odrzucone przygaszone.
+
+Różnice: cyfry i napisy własną czcionką portu (czcionka oryginału jest w `Dsj.exe`); nazwa skoczni w lewym górnym
+rogu oraz etykieta fazy i prędkość na pasku to dodatki portu.
+
 ## Różnice portu (świadome)
 
 - Widok ma kwadratowe piksele i szerokość od 256 do 432 kolumn: kolumna portu odpowiada 6/5 kolumny oryginału
