@@ -66,9 +66,26 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
   " ": [".....", ".....", ".....", ".....", ".....", "....."],
 };
 
-/** The small "m" of metres after a distance, as the original writes it; a sign of its own so names are not affected. */
-const METRE_SIGN = "ｍ";
-const METRE_GLYPH = [".....", ".....", "####.", "#.#.#", "#.#.#", "#.#.#"];
+/**
+ * Small letters of units: the "m" of metres after a distance, as the original writes it, and in the same thin
+ * style this project's "km/h" and "pkt". Signs of their own (full-width forms), so names are not affected; the
+ * "p" reaches into the two rows under the capitals.
+ */
+// oxfmt-ignore
+const UNIT_GLYPHS: Readonly<Record<string, readonly string[]>> = {
+  "ｍ": [".....", ".....", "####.", "#.#.#", "#.#.#", "#.#.#"],
+  "ｋ": ["#....", "#....", "#..#.", "###..", "#.#..", "#..#."],
+  "ｐ": [".....", ".....", "###..", "#..#.", "#..#.", "###..", "#....", "#...."],
+  "ｔ": [".#...", ".#...", "###..", ".#...", ".#...", "..##."],
+  "ｈ": ["#....", "#....", "###..", "#..#.", "#..#.", "#..#."],
+  "／": ["....#", "...#.", "...#.", "..#..", ".#...", "#...."],
+};
+/**
+ * The gap between a number and its unit: a thin space, so "m", "km/h" and "pkt" stand the same three pixels from
+ * the number. Units are set tighter than capitals, each as wide as its body and one pixel.
+ */
+const UNIT_GAP = "\u2009";
+const UNIT_GAP_PX = 2;
 
 /** Marks above a capital (two rows) and below it (two rows), five columns wide. */
 // oxfmt-ignore
@@ -140,6 +157,8 @@ interface Glyph {
   cells: readonly (readonly number[])[];
   /** Row of the first line relative to the cap height (negative: a mark above it). */
   top: number;
+  /** Pixels to the next character's start. */
+  advance: number;
 }
 
 /** A glyph's body rows with its shadow cast one row down onto the empty pixels under it (and one row below). */
@@ -156,8 +175,9 @@ const DOTTED_I = /i̇/gu;
 const letters = (text: string) => Array.from(text.replace(DOTTED_I, "İ"));
 
 function bodyOf(ch: string): { rows: readonly string[]; top: number } {
-  if (ch === METRE_SIGN) return { rows: METRE_GLYPH, top: 0 };
-  if (COMBINING.test(ch)) return { rows: [], top: 0 };
+  const unit = UNIT_GLYPHS[ch];
+  if (unit) return { rows: unit, top: 0 };
+  if (COMBINING.test(ch) || ch === UNIT_GAP) return { rows: [], top: 0 };
   // The sharp s keeps a glyph of its own: its capital is two letters.
   const up = ch === "ß" ? ch : ch.toUpperCase();
   const own = OWN[up];
@@ -172,13 +192,20 @@ function bodyOf(ch: string): { rows: readonly string[]; top: number } {
   return { rows: GLYPHS[up] ?? GLYPHS["?"] ?? [], top: 0 };
 }
 
+function advanceOf(ch: string, rows: readonly string[]): number {
+  if (ch === UNIT_GAP) return UNIT_GAP_PX;
+  if (rows.length === 0) return 0;
+  if (UNIT_GLYPHS[ch] === undefined) return ADVANCE_PX;
+  return Math.max(...rows.map((row) => row.lastIndexOf("#"))) + 1 + LETTER_SPACING_PX;
+}
+
 const glyphCache = new Map<string, Glyph>();
 
 function glyphOf(ch: string): Glyph {
   const cached = glyphCache.get(ch);
   if (cached !== undefined) return cached;
   const { rows, top } = bodyOf(ch);
-  const glyph = { cells: withShadow(rows), top };
+  const glyph = { cells: withShadow(rows), top, advance: advanceOf(ch, rows) };
   glyphCache.set(ch, glyph);
   return glyph;
 }
@@ -201,7 +228,7 @@ export const GLYPH_FRAME = {
 
 /** Every character the font draws a glyph of its own for (upper case; lower case is drawn as these). */
 export function fontCharacters(): string[] {
-  return [...Object.keys(GLYPHS), ...Object.keys(MARKED), ...Object.keys(OWN), METRE_SIGN];
+  return [...Object.keys(GLYPHS), ...Object.keys(MARKED), ...Object.keys(OWN), ...Object.keys(UNIT_GLYPHS)];
 }
 
 /**
@@ -220,8 +247,8 @@ export function glyphPixels(ch: string): string[] {
 }
 
 export function textWidth(text: string): number {
-  const chars = letters(text).filter((ch) => !COMBINING.test(ch)).length;
-  return Math.max(0, chars * ADVANCE_PX - LETTER_SPACING_PX);
+  const advances = letters(text).reduce((sum, ch) => sum + glyphOf(ch).advance, 0);
+  return Math.max(0, advances - LETTER_SPACING_PX);
 }
 
 /** Share of a flat colour kept in the shadow of its letters. */
@@ -286,7 +313,7 @@ export function drawText(fb: FrameBuffer, x: number, y: number, text: string, in
         }
       });
     });
-    if (g.cells.length > 0) cx += ADVANCE_PX;
+    cx += g.advance;
   }
   return cx;
 }

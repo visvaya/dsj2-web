@@ -109,19 +109,23 @@ rysowane przez port (`jump-view-hud.ts`):
   kończy je przy prawym brzegu paska, 5 pikseli od niego, tam gdzie przed lądowaniem stała prędkość, bo na
   szerszym widoku kolumna 248 z 320 zostawiała je w połowie pustej części paska.
 - Liczby w obrazie (odległość, punkty, noty, prędkość, wiatr) port pisze z przecinkiem dziesiętnym, jak ekrany
-  gry i polska pisownia; oryginał pisze kropkę. Za punktami stoi „PKT”, żeby nie brać ich za drugą odległość.
+  gry i polska pisownia; oryginał pisze kropkę. Za punktami stoi „pkt”, żeby nie brać ich za drugą odległość,
+  a prędkość ma jednostkę „km/h”; obie małymi literami, jak małe „m” oryginału po odległości. Każdą jednostkę
+  od liczby dzieli ten sam wąski odstęp (spacja U+2009, 2 piksele), a małe litery stoją ciaśniej niż wersaliki
+  (szerokość litery i piksel odstępu); oryginał pisze „m” tuż za liczbą.
 
 Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (porównanie
 z czcionką oryginału przy każdym przesunięciu w komórce: zgodne są tylko spacja, kropka i dwukropek, a żaden inny
 znak nie różni się od niej o jeden piksel; wykrzyknik, później wyprostowany do pionowej kreski z kropką, bo
-skośny z daleka przypominał znak zapytania, nie był z nią porównany ponownie). Znak ma ciało 5x6 z pionowymi kreskami szerokości 2 px i cień: piksel
+skośny z daleka przypominał znak zapytania, i małe k, p, t, h, dodane później, nie były z nią porównane). Znak ma ciało 5x6 z pionowymi kreskami szerokości 2 px i cień: piksel
 pusty pod pikselem ciała jest cieniem, więc cień wypełnia wnętrza liter, wewnętrzne narożniki i siódmy wiersz pod
 literą. Każdy znak zajmuje 5 kolumn i 1 kolumnę odstępu, jak w oryginale. Kolor z rampy palety jak w oryginale:
 indeks = wartość - 7 + rampa + `(2 wiersz + kolumna) div 6` (wiersz 1..7, kolumna 1..5; ciało ma wartość 6, cień 1),
 więc ciało to rampa - 1, cień rampa - 6, oba jaśniejsze ku prawemu dolnemu rogowi. Przy jednolitym kolorze cień ma
 połowę jego jasności.
 
-Zestaw: A..Z, 0..9, `. , : ; / + - = ! ? ( ) ' " % ·`, spacja, małe „m” po odległości i wersaliki Latin Extended
+Zestaw: A..Z, 0..9, `. , : ; / + - = ! ? ( ) ' " % ·`, spacja, małe litery jednostek (m, k, p, t, h i cienki
+ukośnik; jak „m” oryginału, „p” sięga dwa wiersze pod linię) i wersaliki Latin Extended
 z ß. Litery ze znakami diakrytycznymi to litera bazowa ze znakiem w dwóch wierszach nad nią (ogonek, cedylla
 i przecinek pod nią); kropki, kreska i kropka nad literą zajmują górny z tych wierszy, więc od litery dzieli je
 wiersz cienia. Ł, Đ, Ø, Æ i ß mają własne kształty, małe litery rysuje się jak wersaliki, znaki łączące pomija się

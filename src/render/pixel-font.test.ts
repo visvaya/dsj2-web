@@ -95,6 +95,34 @@ describe("pixel font", () => {
     expect(render("m")).toEqual(render("M"));
   });
 
+  it("writes the units km/h and pkt in small letters of their own, with the p reaching under the line", () => {
+    for (const [small, capital] of [
+      ["ｋ", "K"],
+      ["ｐ", "P"],
+      ["ｔ", "T"],
+      ["ｈ", "H"],
+    ] as const) {
+      expect(render(small)).not.toEqual(render(capital));
+    }
+    const lastBodyRow = (ch: string) => glyphPixels(ch).findLastIndex((row) => row.includes("#"));
+    expect(lastBodyRow("ｐ")).toBe(lastBodyRow("H") + 2);
+  });
+
+  it("parts every unit from its number by the same thin gap, and sets units tighter than capitals", () => {
+    const firstBodyAfterNumber = (unit: string) => {
+      const fb = new FrameBuffer(64, 14);
+      drawText(fb, 0, 3, "0\u2009" + unit, INK);
+      for (let x = 5; x < fb.width; x++) {
+        for (let y = 0; y < fb.height; y++) if (fb.pixels[y * fb.width + x] === INK) return x;
+      }
+      return -1;
+    };
+    expect(firstBodyAfterNumber("ｍ")).toBe(8);
+    expect(firstBodyAfterNumber("ｋｍ／ｈ")).toBe(8);
+    expect(firstBodyAfterNumber("ｐｋｔ")).toBe(8);
+    expect(textWidth("ｐｋｔ")).toBeLessThan(textWidth("PKT"));
+  });
+
   it("colours a flat ink's shadow in a darker tone of it", () => {
     const fb = new FrameBuffer(16, 12);
     drawText(fb, 1, 1, "H", INK);
