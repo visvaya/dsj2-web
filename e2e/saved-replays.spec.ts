@@ -37,6 +37,7 @@ test("a record keeps its replay, a jump can be kept by hand, and both stay after
   await closeJumpControls(page, traits);
 
   // A reload reads the replays back from the browser's store.
+  await page.reload();
   await openReplays(page, traits);
   const distance = landed?.distance ?? "";
   await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);

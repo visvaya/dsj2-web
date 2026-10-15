@@ -95,75 +95,51 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
 const MAST_SPACING_M = 30;
 const MAST_FIRST_AFTER_TAKEOFF_M = 12;
 const MAST_HEIGHT_PX = 78;
-/** The floodlight's head: a bar this wide with a bulb every other pixel, and the radius of its glow. */
-const FLOODLIGHT_WIDTH_PX = 9;
-const FLOODLIGHT_GLOW_PX = 12;
-const FLOODLIGHT_GLOW_STRENGTH = 0.55;
+/** The floodlight's head: lamps in one row inside a dark frame, and the short rays of light either side of it. */
+const FLOODLIGHT_LAMPS = 4;
+const FLOODLIGHT_RAY_PX = 2;
 const INRUN_LAMP_SPACING_M = 8;
-/** Inrun lamps stand on posts on the far rail; their glow is small. */
+/** Inrun lamps stand on short posts on the far rail. */
 const INRUN_LAMP_POST_PX = 3;
-const INRUN_LAMP_GLOW_PX = 4;
-const INRUN_LAMP_GLOW_STRENGTH = 0.45;
 
 /**
- * A soft glow around (cx, cy): every pixel within `radius` moves towards `colour` by `strength` at the centre,
- * fading with the square of the distance; what is already drawn shows through.
- */
-function drawGlow(fb: FrameBuffer, cx: number, cy: number, radius: number, colour: number, strength: number) {
-  const px = fb.pixels;
-  const r0 = colour & 0xff;
-  const g0 = (colour >>> 8) & 0xff;
-  const b0 = (colour >>> 16) & 0xff;
-  for (let y = Math.max(0, Math.round(cy - radius)); y <= Math.min(fb.height - 1, Math.round(cy + radius)); y++) {
-    for (let x = Math.max(0, Math.round(cx - radius)); x <= Math.min(fb.width - 1, Math.round(cx + radius)); x++) {
-      const d = Math.hypot(x - cx, y - cy) / radius;
-      if (d >= 1) continue;
-      const k = strength * (1 - d) * (1 - d);
-      const i = y * fb.width + x;
-      const c = px[i] ?? 0;
-      const r = (c & 0xff) + (r0 - (c & 0xff)) * k;
-      const g = ((c >>> 8) & 0xff) + (g0 - ((c >>> 8) & 0xff)) * k;
-      const b = ((c >>> 16) & 0xff) + (b0 - ((c >>> 16) & 0xff)) * k;
-      px[i] = ((0xff << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r)) >>> 0;
-    }
-  }
-}
-
-/**
- * Floodlight masts on the far fence, every 30 m from the takeoff: a pole with a bar of bulbs on top, glowing
- * softly into the night.
+ * Floodlight masts on the far fence, every 30 m from the takeoff, drawn plainly like the rest of the scene: a thin
+ * mast, a row of lamps in a dark frame on top, and short rays of light either side and above.
  */
 export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView) {
   const pole = color("post");
   const lamp = color("lampLight");
   const glow = color("lampGlow");
+  const headW = FLOODLIGHT_LAMPS + 2;
   const first = h.takeoffXM + MAST_FIRST_AFTER_TAKEOFF_M;
-  const [from, to] = farRange(view, FLOODLIGHT_GLOW_PX + 4);
+  const [from, to] = farRange(view, headW + FLOODLIGHT_RAY_PX);
   const start = first + Math.max(0, Math.ceil((from - first) / MAST_SPACING_M)) * MAST_SPACING_M;
   for (let x = start; x <= to; x += MAST_SPACING_M) {
     const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
-    fb.rect(sx, top, 2, MAST_HEIGHT_PX, pole);
-    const left = sx + 1 - (FLOODLIGHT_WIDTH_PX >> 1);
-    drawGlow(fb, sx + 1, top - 1, FLOODLIGHT_GLOW_PX, glow, FLOODLIGHT_GLOW_STRENGTH);
-    // The bar holding the bulbs, the bulbs along its top.
-    fb.rect(left, top - 1, FLOODLIGHT_WIDTH_PX, 2, pole);
-    for (let i = 0; i < FLOODLIGHT_WIDTH_PX; i += 2) fb.put(left + i, top - 2, lamp);
+    fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
+    const left = sx - (headW >> 1);
+    // The frame, the lamps in its upper row.
+    fb.rect(left, top - 3, headW, 3, pole);
+    fb.rect(left + 1, top - 3, FLOODLIGHT_LAMPS, 1, lamp);
+    fb.rect(left - FLOODLIGHT_RAY_PX, top - 3, FLOODLIGHT_RAY_PX, 1, glow);
+    fb.rect(left + headW, top - 3, FLOODLIGHT_RAY_PX, 1, glow);
+    fb.rect(left + 1, top - 4, FLOODLIGHT_LAMPS, 1, glow);
   }
 }
 
-/** Lamps on posts along the inrun's far rail, every 8 m from the start, each with a small glow. */
+/** Lamps on short posts along the inrun's far rail, every 8 m from the start. */
 export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView, railPx: number) {
   const lamp = color("lampLight");
   const glow = color("lampGlow");
   const pole = color("post");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
     const [sx, track] = onLayer(view, LAYER.inrunFar, x, inrunYM(h, x));
-    if (sx < -INRUN_LAMP_GLOW_PX || sx >= fb.width + INRUN_LAMP_GLOW_PX) continue;
+    if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
-    drawGlow(fb, sx, top - 1, INRUN_LAMP_GLOW_PX, glow, INRUN_LAMP_GLOW_STRENGTH);
     fb.rect(sx - 1, top - 1, 2, 1, lamp);
+    fb.put(sx - 1, top - 2, glow);
   }
 }
 
