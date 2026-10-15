@@ -107,6 +107,15 @@ function replayHandlers(
   };
 }
 
+/** What became of a jump kept with the S key, over the picture; with the menu open the menu says it. */
+function KeepNote({ text }: { text: string }) {
+  return text === "" ? null : (
+    <p className="keep-note" role="status">
+      {text}
+    </p>
+  );
+}
+
 /** What the pause button shows: the sign of a pause, or with a mouse the key that opens the menu. */
 function PauseSign({ touch }: { touch: boolean }) {
   return touch ? (
@@ -164,6 +173,8 @@ export function JumpScreen(props: Props) {
     pauseButtonRef,
     openMenu: menu.openMenu,
     toggleMenu: menu.toggleMenu,
+    // The S key; called only after this render, once the handler below exists.
+    keepLast: () => keepLast.onKeepLast(),
     announce: setAnnouncement,
     onReplayAvailable: setReplayAvailable,
     onReplayChange: setReplay,
@@ -207,6 +218,7 @@ export function JumpScreen(props: Props) {
           role="img"
           aria-label={JUMP_TEXT.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM))}
         />
+        {!menu.menuOpen && <KeepNote text={keepLast.keepNote} />}
         {props.diagnostics && <pre className="jump-diagnostics" aria-hidden="true" ref={diagnosticsRef} />}
       </div>
       {bar && <ReplayBar position={loop.replayPosition} onSeek={loop.seekReplay} />}

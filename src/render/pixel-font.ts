@@ -183,6 +183,42 @@ function glyphOf(ch: string): Glyph {
   return glyph;
 }
 
+/** Rows of a capital's body. */
+const CAP_ROWS = 6;
+
+/**
+ * The frame every glyph is given in for a generator of other fonts (tools/font): `rows` rows from `topRow`
+ * relative to the cap height (the two mark rows above the capitals) down to the shadow under a mark below them,
+ * `width` columns, and the advance in pixels. The body's last row is row `CAP_ROWS - 1`, on the baseline.
+ */
+export const GLYPH_FRAME = {
+  topRow: -MARK_ROWS,
+  rows: MARK_ROWS + CAP_ROWS + MARK_ROWS + 1,
+  width: GLYPH_WIDTH_PX,
+  advance: ADVANCE_PX,
+  baselineRow: CAP_ROWS - 1,
+} as const;
+
+/** Every character the font draws a glyph of its own for (upper case; lower case is drawn as these). */
+export function fontCharacters(): string[] {
+  return [...Object.keys(GLYPHS), ...Object.keys(MARKED), ...Object.keys(OWN), METRE_SIGN];
+}
+
+/**
+ * A character's pixels in `GLYPH_FRAME`, row by row: `#` the body, `o` its shadow, `.` empty. The same pixels
+ * `drawText` puts on the picture in a flat colour.
+ */
+export function glyphPixels(ch: string): string[] {
+  const g = glyphOf(ch);
+  return Array.from({ length: GLYPH_FRAME.rows }, (_row, r) => {
+    const cells = g.cells[r + GLYPH_FRAME.topRow - g.top];
+    return Array.from({ length: GLYPH_FRAME.width }, (_cell, x) => {
+      const kind = cells?.[x] ?? 0;
+      return kind === BODY ? "#" : kind === SHADE ? "o" : ".";
+    }).join("");
+  });
+}
+
 export function textWidth(text: string): number {
   const chars = letters(text).filter((ch) => !COMBINING.test(ch)).length;
   return Math.max(0, chars * ADVANCE_PX - LETTER_SPACING_PX);

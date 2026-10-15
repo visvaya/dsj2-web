@@ -42,7 +42,9 @@ function resultParts(jump: ScoredJump, newRecord: boolean): string[] {
 
 /** Said once the jumper has stopped: the result, and how to jump again. */
 export function resultAnnouncement(jump: ScoredJump, context: ResultContext): string {
-  return [...resultParts(jump, context.newRecord), T.replayReady, T.nextJump[context.controls]].join(" ");
+  return [...resultParts(jump, context.newRecord), T.replayReady[context.controls], T.nextJump[context.controls]].join(
+    " ",
+  );
 }
 
 /** Said once a replay is over: the result as the jump had it, and what a press of the picture does now. */

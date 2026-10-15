@@ -1,6 +1,7 @@
-import { button, jumpCanvas, openMenu, TEXT } from "./support/app";
+import { announcement, button, jumpCanvas, openJumpFromStart, openMenu, TEXT } from "./support/app";
 import { expect, test } from "./support/fixtures";
 import { expectVisibleFocus, tabThrough } from "./support/focus";
+import { playJump } from "./support/jump";
 
 test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where there is a keyboard");
 
@@ -139,4 +140,22 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await button(page, TEXT.toMainMenu).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Telemark" })).toBeFocused();
+});
+
+test("after a jump P watches it again and S keeps it, as the original's (P)owtórka; before that they do nothing", async ({
+  page,
+  traits,
+}) => {
+  await openJumpFromStart(page, traits);
+  await page.keyboard.press("KeyS");
+  await page.keyboard.press("KeyP");
+  await expect(page.getByText("Ostatni skok jest zachowany")).toHaveCount(0);
+  await expect(announcement(page)).not.toHaveText(/^Powtórka skoku\./);
+
+  // Any end of a jump will do, a fall too.
+  await playJump(page, traits);
+  await page.keyboard.press("KeyS");
+  await expect(page.getByRole("status").filter({ hasText: "Ostatni skok jest zachowany" })).toBeVisible();
+  await page.keyboard.press("KeyP");
+  await expect(announcement(page)).toHaveText(/^Powtórka skoku\./);
 });

@@ -35,7 +35,7 @@ describe("jump announcements", () => {
 
   it("reads the outcome, the notes, the points and the way to jump again", () => {
     expect(resultAnnouncement(clean, mouse)).toBe(
-      "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Skok obejrzysz i zachowasz w menu. Lewy przycisk lub R: jeszcze raz.",
+      "Lądowanie: 67,38 metra. Noty: 16,0; 16,5; 16,0; 15,5; 16,0. Wynik: 62,0 punktu. Skok obejrzysz klawiszem P i zachowasz klawiszem S. Lewy przycisk lub R: jeszcze raz.",
     );
   });
 
@@ -52,7 +52,7 @@ describe("jump announcements", () => {
   it("reads a fall with the lowered notes", () => {
     const fallen = { ...clean, fallType: 4, points: 23.5, judges: judges.map((judge) => ({ ...judge, note: 2.5 })) };
     expect(resultAnnouncement(fallen, mouse)).toBe(
-      "Upadek: 67,38 metra. Noty: 2,5; 2,5; 2,5; 2,5; 2,5. Wynik: 23,5 punktu. Skok obejrzysz i zachowasz w menu. Lewy przycisk lub R: jeszcze raz.",
+      "Upadek: 67,38 metra. Noty: 2,5; 2,5; 2,5; 2,5; 2,5. Wynik: 23,5 punktu. Skok obejrzysz klawiszem P i zachowasz klawiszem S. Lewy przycisk lub R: jeszcze raz.",
     );
   });
 
@@ -67,7 +67,7 @@ describe("jump announcements", () => {
 
   it("leaves the notes out of a disqualification", () => {
     expect(resultAnnouncement({ ...clean, distanceM: 0, points: -120 }, mouse)).toBe(
-      "Dyskwalifikacja. Wynik: -120,0 punktu. Skok obejrzysz i zachowasz w menu. Lewy przycisk lub R: jeszcze raz.",
+      "Dyskwalifikacja. Wynik: -120,0 punktu. Skok obejrzysz klawiszem P i zachowasz klawiszem S. Lewy przycisk lub R: jeszcze raz.",
     );
   });
 });

@@ -11,6 +11,7 @@ const WEB_FONT_REQUESTS = [
   { font: '1em "Silkscreen"', text: "Telemark" },
   { font: '1em "Silkscreen"', text: "Ā" },
   { font: '1em "Telemark Polish"', text: "ą" },
+  { font: '1em "Telemark Screen"', text: "Telemark" },
 ] as const;
 
 /**

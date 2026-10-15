@@ -16,13 +16,20 @@ afterEach(() => {
 });
 
 /** A key pressed or let go, as the browser reports it to the window. */
-function key(type: "keydown" | "keyup", code: string): Event {
-  const event = Object.assign(new Event(type, { cancelable: true }), { code });
+function key(type: "keydown" | "keyup", code: string, extra: Partial<KeyboardEvent> = {}): Event {
+  const event = Object.assign(new Event(type, { cancelable: true }), {
+    code,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    repeat: false,
+    ...extra,
+  });
   page.window.dispatchEvent(event);
   return event;
 }
 
-function setUp(replaying: boolean) {
+function setUp(replaying: boolean, lastJump = false) {
   let captured = 0;
   const picture = Object.assign(new EventTarget(), {
     requestPointerLock: () => {
@@ -31,7 +38,7 @@ function setUp(replaying: boolean) {
     },
   });
   const input = createPlayerInput();
-  const calls = { restart: 0, escape: 0, replayPress: 0 };
+  const calls = { restart: 0, escape: 0, replayPress: 0, watchLast: 0, keepLast: 0 };
   const stop = listenToPlayerInput(picture, input, {
     paused: () => false,
     mouseGain: () => 1,
@@ -39,6 +46,9 @@ function setUp(replaying: boolean) {
     escape: () => calls.escape++,
     replaying: () => replaying,
     replayPress: () => calls.replayPress++,
+    hasLastJump: () => lastJump,
+    watchLast: () => calls.watchLast++,
+    keepLast: () => calls.keepLast++,
   });
   const pointer = (type: "pointerdown" | "pointermove", extra: Record<string, number>): void => {
     picture.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerType: "mouse", ...extra }));
@@ -58,6 +68,38 @@ describe("player input on the jump screen", () => {
     t.stop();
   });
 
+  it("after a jump P watches it again and S keeps it", () => {
+    const t = setUp(false, true);
+    expect(key("keydown", "KeyP").defaultPrevented).toBe(true);
+    expect(t.calls.watchLast).toBe(1);
+    expect(key("keydown", "KeyS").defaultPrevented).toBe(true);
+    expect(t.calls.keepLast).toBe(1);
+    key("keyup", "KeyS");
+    expect(t.calls.keepLast).toBe(1);
+    t.stop();
+  });
+
+  it("leaves Ctrl+S, Ctrl+P and their Cmd forms to the browser, and acts once for a held key", () => {
+    const t = setUp(false, true);
+    for (const code of ["KeyP", "KeyS"]) {
+      expect(key("keydown", code, { ctrlKey: true }).defaultPrevented).toBe(false);
+      expect(key("keydown", code, { metaKey: true }).defaultPrevented).toBe(false);
+    }
+    expect(t.calls).toMatchObject({ watchLast: 0, keepLast: 0 });
+    key("keydown", "KeyS");
+    expect(key("keydown", "KeyS", { repeat: true }).defaultPrevented).toBe(true);
+    expect(t.calls.keepLast).toBe(1);
+    t.stop();
+  });
+
+  it("without a finished jump P and S do nothing", () => {
+    const t = setUp(false, false);
+    expect(key("keydown", "KeyP").defaultPrevented).toBe(false);
+    expect(key("keydown", "KeyS").defaultPrevented).toBe(false);
+    expect(t.calls).toMatchObject({ watchLast: 0, keepLast: 0 });
+    t.stop();
+  });
+
   it("in a replay takes no hands: only R, Escape and keys let go still count", () => {
     const t = setUp(true);
     const z = key("keydown", "KeyZ");
@@ -69,6 +111,9 @@ describe("player input on the jump screen", () => {
     expect(t.calls.restart).toBe(1);
     key("keydown", "Escape");
     expect(t.calls.escape).toBe(1);
+    key("keydown", "KeyP");
+    key("keydown", "KeyS");
+    expect(t.calls).toMatchObject({ watchLast: 0, keepLast: 0 });
     t.stop();
   });
 

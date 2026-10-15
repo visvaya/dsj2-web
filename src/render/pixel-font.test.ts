@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FrameBuffer } from "./frame-buffer";
-import { drawText, textWidth } from "./pixel-font";
+import { drawText, fontCharacters, GLYPH_FRAME, glyphPixels, textWidth } from "./pixel-font";
 import { hudColour } from "./scene-palette";
 
 const INK = 0xff00c8f0;
@@ -121,5 +121,28 @@ describe("pixel font", () => {
     drawText(fb, 1, 1, "I", INK, shadow);
     expect(fb.pixels[8 * fb.width + 2]).toBe(shadow);
     expect(fb.pixels[1 * fb.width + 1]).toBe(INK);
+  });
+});
+
+/** A character as `render` draws it, cut to the frame `glyphPixels` gives it in. */
+const inFrame = (text: string) =>
+  render(text)
+    .slice(1, 1 + GLYPH_FRAME.rows)
+    .map((r) => r.slice(1, 6));
+
+describe("pixel font for other fonts", () => {
+  it.each(["H", "Ą", "Ś", "ß", "ｍ", "?"])("gives the pixels of %s in the frame as the picture draws them", (ch) => {
+    expect(glyphPixels(ch)).toEqual(inFrame(ch));
+  });
+
+  it("gives a lower-case letter the capital's pixels", () => {
+    expect(glyphPixels("ś")).toEqual(glyphPixels("Ś"));
+  });
+
+  it("lists every character with a glyph of its own, the Polish capitals among them", () => {
+    const chars = fontCharacters();
+    expect(new Set(chars).size).toBe(chars.length);
+    for (const ch of "AZ09ĄĆĘŁŃÓŚŹŻ.?·") expect(chars).toContain(ch);
+    expect(chars.every((ch) => glyphPixels(ch).length === GLYPH_FRAME.rows)).toBe(true);
   });
 });

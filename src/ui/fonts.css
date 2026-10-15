@@ -36,3 +36,37 @@
   src: url("./fonts/telemark-polish.woff2") format("woff2");
   unicode-range: U+0104-0107, U+0118-0119, U+0141-0144, U+015A-015B, U+0179-017C;
 }
+
+/*
+ * The screens' headings, labels and choices in the jump picture's own letters (src/render/pixel-font.ts, built by
+ * tools/font/make_screen_font.py): a colour font whose body takes the text's colour and whose shadow is palette
+ * entry 0, set for each tone below. 8 pixels to the em, so sizes that are whole multiples of 8 px keep the pixels
+ * sharp.
+ */
+@font-face {
+  font-family: "Telemark Screen";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("./fonts/telemark-screen.woff2") format("woff2");
+}
+
+@font-palette-values --tone-yellow {
+  font-family: "Telemark Screen";
+  override-colors: 0 #74741e;
+}
+
+@font-palette-values --tone-white {
+  font-family: "Telemark Screen";
+  override-colors: 0 #6a6a78;
+}
+
+@font-palette-values --tone-violet {
+  font-family: "Telemark Screen";
+  override-colors: 0 #5a3c8c;
+}
+
+@font-palette-values --tone-grey {
+  font-family: "Telemark Screen";
+  override-colors: 0 #44485a;
+}

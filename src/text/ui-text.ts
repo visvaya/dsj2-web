@@ -289,7 +289,7 @@ export const UI_TEXT = {
         "Ruch myszy do siebie i od siebie pochyla skoczka; to samo robią strzałki w górę i w dół.",
         "Tuż nad ziemią naciśnij lewy albo prawy przycisk; najlepiej około 0,4 sekundy przed lądowaniem. Drugi przycisk naciśnięty zaraz po pierwszym daje wąski telemark; im dłuższa przerwa, tym szerszy.",
         "Naciśnij oba przyciski naraz. Tak ląduje się pewniej przy bardzo długim skoku, ale noty za styl są niższe.",
-        "Gdy pojawią się noty, kliknij lewym przyciskiem albo naciśnij R.",
+        "Gdy pojawią się noty, kliknij lewym przyciskiem albo naciśnij R. Gdy skoczek zatrzyma się na wybiegu, klawisz P pokazuje powtórkę skoku, a S go zachowuje.",
         "Esc otwiera menu z ustawieniami i tą instrukcją; gra wtedy stoi. Pełny ekran włączysz w menu albo klawiszem F11 w przeglądarce.",
       ],
       touch: [
@@ -328,7 +328,7 @@ export const UI_TEXT = {
     pause: "Pauza i ustawienia",
     pauseKey: "ESC: MENU",
     canvas: (hillLabel: string) =>
-      `Skok na skoczni ${hillLabel}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, Esc: menu z ustawieniami i instrukcją.`,
+      `Skok na skoczni ${hillLabel}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, P: powtórka, S: zachowanie skoku, Esc: menu z ustawieniami i instrukcją.`,
     resume: "Wróć do gry",
     resumeKey: " (Esc)",
     again: "Skocz jeszcze raz",
@@ -373,7 +373,11 @@ export const UI_TEXT = {
       original: "Koniec powtórki. Kliknięcie lub dotknięcie obrazu: menu.",
     },
     /** Said once the jumper stands still: from then on the jump can be watched again and kept. */
-    replayReady: "Skok obejrzysz i zachowasz w menu.",
+    replayReady: {
+      mouse: "Skok obejrzysz klawiszem P i zachowasz klawiszem S.",
+      touch: "Skok obejrzysz i zachowasz w menu.",
+      tilt: "Skok obejrzysz i zachowasz w menu.",
+    },
     nextJump: {
       mouse: "Lewy przycisk lub R: jeszcze raz.",
       touch: "Pole L: jeszcze raz.",
@@ -391,8 +395,6 @@ export const UI_TEXT = {
   /** Drawn in the picture of the jump with the pixel font. */
   hud: {
     playerName: "GRACZ 1",
-    /** Under the prompt for the next jump, once the jumper stands still and the jump can be watched and kept. */
-    replayReady: "W MENU: OBEJRZYJ LUB ZACHOWAJ SKOK",
     newRecord: "NOWY REKORD SKOCZNI!",
     disqualified: "DYSKWALIFIKACJA",
     /** The small "m" of the original after a distance is a sign of its own in the picture's font (U+FF4D). */
@@ -415,6 +417,8 @@ export const UI_TEXT = {
         replay: "KLIKNIJ: PAUZA   ESC: MENU",
         replayMenu: "KLIKNIJ: MENU",
         nextJump: "KLIKNIJ: JESZCZE RAZ   ESC: MENU",
+        /** Under the prompt for the next jump, once the jumper stands still and the jump can be watched and kept. */
+        replayReady: "P: OBEJRZYJ · S: ZACHOWAJ",
         start: "LEWY PRZYCISK: START",
         takeoff: "OBA PRZYCISKI NA PROGU",
         lean: "MYSZ: POCHYLENIE",
@@ -426,6 +430,7 @@ export const UI_TEXT = {
         replay: "DOTKNIJ OBRAZU: PAUZA",
         replayMenu: "DOTKNIJ OBRAZU: MENU",
         nextJump: "L: JESZCZE RAZ",
+        replayReady: "W MENU: OBEJRZYJ LUB ZACHOWAJ SKOK",
         start: "L: START",
         takeoff: "L+P NA PROGU: WYBICIE",
         lean: "PRZECIĄGAJ W POLU L: POCHYLENIE",
@@ -437,6 +442,7 @@ export const UI_TEXT = {
         replay: "DOTKNIJ OBRAZU: PAUZA",
         replayMenu: "DOTKNIJ OBRAZU: MENU",
         nextJump: "DOTKNIJ EKRANU: JESZCZE RAZ",
+        replayReady: "W MENU: OBEJRZYJ LUB ZACHOWAJ SKOK",
         start: "DOTKNIJ EKRANU: START",
         takeoff: "DWA KCIUKI NA PROGU: WYBICIE",
         lean: "PRZECHYLAJ TELEFON: POCHYLENIE",
