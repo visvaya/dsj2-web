@@ -3,6 +3,7 @@ import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import type { ControlScheme, JumpViewModel } from "./jump-view-model";
 import { roundHalfEven } from "../sim/pascal-numeric";
+import { color } from "./palette";
 import { hudColour } from "./scene-palette";
 import { rowRunLine } from "./scene-lines";
 import { drawText, textWidth } from "./pixel-font";
@@ -24,20 +25,19 @@ const BAR = { fill: 0x05, top: 0x11, left: 0x0a, bottom: 0x08 } as const;
 const NOTES_TOP_PX = 57;
 const NOTES_STEP_PX = 12;
 const NOTE_BOX = { width: 27, height: 11, inset: 2 } as const;
-/** Where the points stand on the bar after the jump, as a share of its width (column 248 of the original's 320). */
-const BAR_POINTS_AT = 248 / 320;
+const NOTE_CHARS = 4;
 /**
- * Characters of the fields the distance and the points are written in, right-aligned as the original's `Str(x:w:1)`
- * writes them (a distance under 100 m starts one character further right, points under 1000 two).
+ * Characters of the field the distance is written in, right-aligned as the original's `Str(x:5:1)` writes it (a
+ * distance under 100 m starts one character further right).
  */
 const BAR_DISTANCE_CHARS = 5;
-const BAR_POINTS_CHARS = 7;
 
 /** How far right a number starts in a field `chars` characters wide, right-aligned in it. */
 const fieldInsetPx = (text: string, chars: number) => Math.max(0, textWidth("0".repeat(chars)) - textWidth(text));
 /**
  * Colours of the texts: ramps of the original's palette (its bar texts 0x79, its wind speed and counted notes 0xCC,
- * dropped notes 0xC7); the phase, the speed and warnings are this project's, in ramps of the same palette.
+ * dropped notes 0xC7); the phase and warnings are this project's, in ramps of the same palette. The speed is this
+ * project's too, in plain white: the grey ramp has 64 steps, so the font's shadow five steps down would hardly show.
  */
 export const INK = {
   bar: 0x79,
@@ -46,7 +46,6 @@ export const INK = {
   noteDim: 0xc7,
   warning: 0x4c,
   phase: 0x58,
-  speed: 0x3c,
 } as const;
 const MS_TO_KMH = 3.6;
 
@@ -178,7 +177,8 @@ export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void
     if (frame < judge.showFrame) continue;
     hudBox(fb, x, y, NOTE_BOX.width, NOTE_BOX.height);
     const label = judge.note.toFixed(1);
-    drawText(fb, x + NOTE_BOX.inset, y + NOTE_BOX.inset, label, {
+    // Right-aligned in a field of four characters, as the original writes Str(note:4:1).
+    drawText(fb, x + NOTE_BOX.inset + fieldInsetPx(label, NOTE_CHARS), y + NOTE_BOX.inset, label, {
       ramp: settled && judge.counted ? INK.note : INK.noteDim,
     });
     y += NOTES_STEP_PX;
@@ -265,7 +265,9 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
     drawText(fb, distanceAt, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(distance), { ramp: INK.bar });
     if (notesShown) {
       const points = L.points.toFixed(1);
-      const pointsAt = Math.round(fb.width * BAR_POINTS_AT) + fieldInsetPx(points, BAR_POINTS_CHARS);
+      // The original writes them from column 248 of its 320; here they end at the right edge where the speed did,
+      // so on a wider picture they do not hang in the middle of the bar.
+      const pointsAt = fb.width - BAR_TEXT_SIDE_PX - textWidth(points);
       drawText(fb, pointsAt, top + BAR_TEXT_TOP_PX, points, { ramp: INK.bar });
     }
     return;
@@ -276,5 +278,5 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
   // The simulation keeps `speedMPerS` for the ground; in the air the velocity vector is shown.
   const v = s.jumper.airborne ? Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS) : s.jumper.speedMPerS;
   const speed = UI_TEXT.hud.speed((v * MS_TO_KMH).toFixed(1));
-  drawText(fb, fb.width - BAR_TEXT_SIDE_PX - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, { ramp: INK.speed });
+  drawText(fb, fb.width - BAR_TEXT_SIDE_PX - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, color("white"));
 }
