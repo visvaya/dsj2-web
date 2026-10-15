@@ -6,13 +6,20 @@ import { mouseGain, sensitivityGain } from "../game/sensitivity";
 import { tiltStep } from "../game/tilt-input";
 import type { TrainingJump } from "../game/training-session";
 import type { JumpSimState } from "../sim/jump-sim";
-import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor } from "../render/jump-view";
+import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type Scenery } from "../render/jump-view";
 import { UI_TEXT } from "../text/ui-text";
 import { createJumpDiagnostics } from "./jump-diagnostics";
 import { listenToPlayerInput, watchPointerLock } from "./jump-input-listeners";
 import { makePicture, pictureSize, titleInsetFor, type JumpPicture } from "./jump-picture";
 import { REPLAY_SPEED_LABEL, type ReplaySource, type ReplayView } from "./jump-replay";
-import { NO_CONTROLS, createRunSwitch, type JumpLoopControls, type LiveProps, type RunContext } from "./jump-runs";
+import {
+  NO_CONTROLS,
+  createRunSwitch,
+  type JumpLoopControls,
+  type LiveProps,
+  type RunContext,
+  type RunSwitch,
+} from "./jump-runs";
 import { createJumpSounds } from "./jump-sounds";
 import type { TiltReading } from "./use-steering";
 
@@ -35,7 +42,14 @@ interface FrameView {
   titleInsetPx: number;
   replay: ReplayView | null;
   playerName: string;
+  scenery: Scenery;
 }
+
+/** Who jumps in the picture and how the hill looks: a replay's own jumper and look, or the player's. */
+const lookOf = (runs: Pick<RunSwitch, "jumperName" | "scenery">) => ({
+  playerName: runs.jumperName() ?? UI_TEXT.hud.playerName,
+  scenery: runs.scenery(),
+});
 
 /** Draws a frame of the jump into the picture, as the player has the screen set up. */
 function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: FrameView): void {
@@ -52,7 +66,7 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
     frame: v.clock,
     over: v.over,
     newRecord: v.newRecord,
-    scenery: live.scenery,
+    scenery: v.scenery,
     outfit: live.settings.outfit,
     windDriftM: v.jump.windDriftM,
     ...(best === undefined ? {} : { recordM: best.distanceM }),
@@ -171,8 +185,8 @@ export function useJumpLoop(options: JumpLoopOptions) {
       const { jump, newRecord, ghost } = current.now();
       sounds.play(jump.state, clock, newRecord, paused || document.hidden);
       meter?.drawBegin();
-      const playerName = runs.jumperName() ?? UI_TEXT.hud.playerName;
-      drawFrame(picture, hill, live, { jump, newRecord, ghost, over, clock, titleInsetPx, replay: view, playerName });
+      const v = { jump, newRecord, ghost, over, clock, titleInsetPx, replay: view, ...lookOf(runs) };
+      drawFrame(picture, hill, live, v);
       ctx.putImageData(picture.image, 0, 0);
       meter?.frameEnd(now, plan, paused);
       if (!firstFrameMarked) {

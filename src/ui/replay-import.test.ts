@@ -19,7 +19,7 @@ const entry = (seed: number, kind: ShelfEntry["kind"] = "record"): ShelfEntry =>
 });
 
 describe("replays from a file", () => {
-  it("are kept, each once, beside what was there", () => {
+  it("are read into a group of their own, each once, beside what was there", () => {
     const shelf: Shelf = [entry(1, "kept")];
     const outcome = importedShelf(shelf, [entry(1), entry(2), entry(2), entry(3)], NOW, (e) => e);
     expect(outcome.added).toBe(2);
@@ -27,18 +27,18 @@ describe("replays from a file", () => {
     expect(outcome.refused).toBeNull();
     expect(outcome.shelf.map((e) => [e.kind, e.replay.kind === "own" ? e.replay.seed : 0])).toEqual([
       ["kept", 1],
-      ["kept", 2],
-      ["kept", 3],
+      ["loaded", 2],
+      ["loaded", 3],
     ]);
     // New ids: an imported record does not take a hill's record over.
     expect(new Set(outcome.shelf.map((e) => e.id)).size).toBe(3);
   });
 
-  it("stop at the limit of the kept ones and say so", () => {
-    const many = Array.from({ length: REPLAY_LIMITS.KEPT_MAX_COUNT + 5 }, (_, i) => entry(100 + i));
+  it("stop at the limit of the read ones and say so", () => {
+    const many = Array.from({ length: REPLAY_LIMITS.LOADED_MAX_COUNT + 5 }, (_, i) => entry(100 + i));
     const outcome = importedShelf([], many, NOW, (e) => e);
-    expect(outcome.added).toBe(REPLAY_LIMITS.KEPT_MAX_COUNT);
-    expect(outcome.refused).toBe("keptFull");
+    expect(outcome.added).toBe(REPLAY_LIMITS.LOADED_MAX_COUNT);
+    expect(outcome.refused).toBe("loadedFull");
   });
 });
 

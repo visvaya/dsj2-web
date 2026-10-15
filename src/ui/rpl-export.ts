@@ -1,9 +1,11 @@
 import { originalHillNumber, type HillChoice } from "../game/hill-choice";
 import { isJumpOver, startRecordedJump, stepTrainingJump, type TrainingJump } from "../game/training-session";
-import type { FrameInput } from "../sim/jump-logic";
 import { decodeReplayFile, parseReplayRecord } from "../sim/replay";
+import { PHASE, type FrameInput } from "../sim/jump-logic";
+import type { JumpSimState } from "../sim/jump-sim";
 import {
   BUTTON_WINDOW_FRAMES,
+  MOTION_CAPACITY_FRAMES,
   encodeReplayFile,
   planFromInputs,
   planToRecord,
@@ -21,7 +23,14 @@ const MAX_REPLAY_FRAMES = 6000;
 const NO_INPUT: FrameInput = { left: false, right: false, dy: 0 };
 
 /** A replay of the shelf as a file of the original, or what to tell the player. */
-export type RplExport = { ok: true; file: Uint8Array<ArrayBuffer> } | { ok: false; message: string };
+export type RplExport =
+  | {
+      ok: true;
+      file: Uint8Array<ArrayBuffer>;
+      /** The file plays to the same result, but not the same jump frame by frame (see `approximateInputs`). */
+      approximate: boolean;
+    }
+  | { ok: false; message: string };
 
 /** Whether a replay can become a file of the original: it is one, or it was jumped on one of the original's hills. */
 export const rplExportable = (entry: ShelfEntry): boolean =>
@@ -36,17 +45,20 @@ function playedThrough(source: ReplaySource, hill: HillChoice): TrainingJump | n
   return isJumpOver(jump) ? jump : null;
 }
 
-/** The frames in which a replay's jump turned to another phase (left the gate, took off, landed...). */
-function phaseTurns(source: ReplaySource, hill: HillChoice): number[] {
+/** The phase of a replay's jump after each frame, by the number of the frame (0 and 1 are at the gate). */
+function phasesOf(source: ReplaySource, hill: HillChoice): number[] {
   let jump = source.start(hill);
-  const turns: number[] = [];
+  const phases = [jump.state.logic.phase, jump.state.logic.phase];
   for (let f = 0; f < MAX_REPLAY_FRAMES && !isJumpOver(jump); f++) {
-    const phase = jump.state.logic.phase;
     jump = stepTrainingJump(jump, source.input(jump.state.logic));
-    if (jump.state.logic.phase !== phase) turns.push(jump.state.logic.frame);
+    phases[jump.state.logic.frame] = jump.state.logic.phase;
   }
-  return turns;
+  return phases;
 }
+
+/** The frames in which the jump turned to another phase (left the gate, took off, landed...). */
+const turnsOf = (phases: readonly number[]): number[] =>
+  phases.flatMap((phase, frame) => (frame > 0 && phase !== phases[frame - 1] ? [frame] : []));
 
 const pad2 = (n: number): string => String(n).padStart(2, "0");
 
@@ -122,8 +134,13 @@ function partsOf(press: Press, turns: readonly number[]): [number, number][] {
 const withLeftBeside = (inputs: readonly FrameInput[], press: Press): FrameInput[] =>
   inputs.map((input, frame) => (frame >= press.from && frame < press.to ? { ...input, left: true } : input));
 
-const withoutMotionBefore = (inputs: readonly FrameInput[], end: number): FrameInput[] =>
-  inputs.map((input, frame) => (frame < end && input.dy !== 0 ? { ...input, dy: 0 } : input));
+/** The input without motion in the frames `still` names. */
+const withoutMotion = (inputs: readonly FrameInput[], still: (frame: number) => boolean): FrameInput[] =>
+  inputs.map((input, frame) => (input.dy !== 0 && still(frame) ? { ...input, dy: 0 } : input));
+
+/** The phases from the takeoff to the touchdown: the jumper leans with the mouse only then. */
+const inAir = (phase: number | undefined): boolean =>
+  phase !== undefined && phase >= PHASE.takeoff && phase <= PHASE.landing;
 
 /**
  * The input of a jump without what the jump did not react to: a press on the gate, another press in the air after
@@ -135,13 +152,13 @@ const withoutMotionBefore = (inputs: readonly FrameInput[], end: number): FrameI
  */
 function essentialInputs(
   inputs: readonly FrameInput[],
-  turns: readonly number[],
+  phases: readonly number[],
   samePlay: (inputs: readonly FrameInput[]) => boolean,
 ): readonly FrameInput[] {
   const fewerPresses = pressesInOrder(inputs)
     .slice(0, MAX_PRESSES_TRIED)
     .reduce<readonly FrameInput[]>((kept, press) => {
-      for (const [keepFrom, keepTo] of partsOf(press, turns)) {
+      for (const [keepFrom, keepTo] of partsOf(press, turnsOf(phases))) {
         const fewer = keepPart(kept, press, keepFrom, keepTo);
         if (samePlay(fewer)) return fewer;
       }
@@ -155,21 +172,57 @@ function essentialInputs(
       const both = withLeftBeside(kept, press);
       return samePlay(both) ? both : kept;
     }, fewerPresses);
-  // The takeoff is the first press after the start; motion before it is the inrun's.
-  const takeoff = pressesInOrder(paired)[1];
-  const stiller = takeoff ? withoutMotionBefore(paired, takeoff.from) : paired;
-  return stiller !== paired && samePlay(stiller) ? stiller : paired;
+  // Motion on the gate, in the inrun and in the outrun (a mouse moved all along): the air keeps its own.
+  const firstAir = phases.findIndex(inAir);
+  const lastAir = phases.findLastIndex(inAir);
+  const tries = [
+    withoutMotion(paired, (frame) => !inAir(phases[frame])),
+    withoutMotion(paired, (frame) => frame < firstAir),
+    withoutMotion(paired, (frame) => frame > lastAir),
+  ];
+  return tries.find((still) => samePlay(still)) ?? paired;
 }
 
-/** A file of the original made from a jump of this game, checked by playing it: the same jump, or null. */
-function ownJumpFile(
-  entry: ShelfEntry,
-  hill: HillChoice,
-  hillNumber: number,
-  jump: TrainingJump,
-): Uint8Array<ArrayBuffer> | null {
-  const inputs = entry.replay.kind === "own" ? decodeInputs(entry.replay.inputs) : null;
-  if (inputs === null) return null;
+/**
+ * Why a jump does not become a file: too long a stretch of motion, more presses than the format keeps, or a file
+ * that plays another jump.
+ */
+type Unfit = "motion" | "presses" | "differs";
+
+/** What the player is told of a jump: its distance, the judges' notes, the points and the kind of fall. */
+const resultOf = (state: JumpSimState): string => {
+  const { distanceM, points, fallType, judges, finished } = state.logic;
+  return JSON.stringify({ distanceM, points, fallType, notes: judges.map((judge) => judge.note), finished });
+};
+
+/**
+ * The input changed into what the format holds, whether the jump reacted to it or not: motion only in the air (a
+ * mouse moved on after a fall moves the fallen jumper), a lone right press with the left one beside it, and each
+ * press but the takeoff only in the frame the jump turned in or its first. Each step may change the jump; a file
+ * from it is taken only when it plays to the same result.
+ */
+export function approximateInputs(inputs: readonly FrameInput[], phases: readonly number[]): FrameInput[][] {
+  const still = withoutMotion(inputs, (frame) => !inAir(phases[frame]));
+  const paired = pressesInOrder(still)
+    .filter((press) => press.button === "right" && still[press.from]?.left === false)
+    .reduce<FrameInput[]>((kept, press) => withLeftBeside(kept, press), still);
+  const turns = turnsOf(phases);
+  const takeoff = pressesInOrder(paired)[1]?.from;
+  const short = pressesInOrder(paired)
+    .filter((press) => press.to - press.from > 1 && press.from !== takeoff)
+    .reduce<FrameInput[]>((kept, press) => {
+      const at = turns.find((frame) => frame >= press.from && frame < press.to) ?? press.from;
+      return keepPart(kept, press, at, at + 1);
+    }, paired);
+  return [still, paired, short];
+}
+
+/** A file made from a jump of this game; `approximate` when it plays to the same result but not the same jump. */
+type Made = { file: Uint8Array<ArrayBuffer>; approximate: boolean };
+
+/** A file of the original made from a jump of this game, checked by playing it: the same jump, or why not. */
+function ownJumpFile(entry: ShelfEntry, hill: HillChoice, hillNumber: number, jump: TrainingJump): Made | Unfit {
+  const inputs = entry.replay.kind === "own" ? (decodeInputs(entry.replay.inputs) ?? []) : [];
   const start = { wind: jump.setup.wind, randomSeed: jump.setup.randomSeed };
   const expected = JSON.stringify(jump.state);
   const playsTrue = (source: ReplaySource): boolean => {
@@ -185,21 +238,41 @@ function ownJumpFile(
   // The recording starts with the input that computes frame 2; a plan is indexed by the frame being computed.
   const byFrame = [NO_INPUT, NO_INPUT, ...inputs];
   const base = { hillNumber, randomSeed: start.randomSeed >>> 0, wind: start.wind };
-  const fileOf = (tried: readonly FrameInput[]): Uint8Array<ArrayBuffer> | null => {
+  const fileOf = (tried: readonly FrameInput[], approximate: boolean): Made | Unfit => {
     const plan = planOf(tried, base);
-    if (plan === null) return null;
+    if (plan === null) return motionSpan(tried) > MOTION_CAPACITY_FRAMES ? "motion" : "presses";
     const file = encodeReplayFile(replayHeader(hillNumber), planToRecord(plan, labelsOf(entry)));
     const { header, record } = decodeReplayFile(file);
-    return playsTrue(originalReplaySource(parseReplayRecord(header, record))) ? file : null;
+    const played = playedThrough(originalReplaySource(parseReplayRecord(header, record)), hill);
+    if (played === null) return "differs";
+    const same = approximate
+      ? resultOf(played.state) === resultOf(jump.state)
+      : JSON.stringify(played.state) === expected;
+    return same ? { file, approximate } : "differs";
   };
-  // Most jumps fit as they were played; the others are tried again without what they did not react to.
-  return (
-    fileOf(byFrame) ??
-    fileOf(
-      essentialInputs(byFrame, phaseTurns(byFrameSource(byFrame), hill), (fewer) => playsTrue(byFrameSource(fewer))),
-    )
-  );
+  // Most jumps fit as they were played; the others are tried again without what they did not react to, and last
+  // as near as the format comes, for the same result.
+  const asPlayed = fileOf(byFrame, false);
+  if (typeof asPlayed !== "string") return asPlayed;
+  const phases = phasesOf(byFrameSource(byFrame), hill);
+  const essential = essentialInputs(byFrame, phases, (fewer) => playsTrue(byFrameSource(fewer)));
+  const exact = fileOf(essential, false);
+  if (typeof exact !== "string") return exact;
+  const near = approximateInputs(essential, phases).map((tried) => fileOf(tried, true));
+  return near.find((made): made is Made => typeof made !== "string") ?? exact;
 }
+
+/** Frames from the first to the last with motion. */
+function motionSpan(inputs: readonly FrameInput[]): number {
+  const first = inputs.findIndex((input) => input.dy !== 0);
+  return first === -1 ? 0 : inputs.findLastIndex((input) => input.dy !== 0) - first + 1;
+}
+
+const UNFIT_MESSAGE: Readonly<Record<Unfit, string>> = {
+  motion: T.rplUnfitMotion,
+  presses: T.rplUnfit,
+  differs: T.rplUnfitDiffers,
+};
 
 /** The plan that gives back this input frame by frame; null when the format cannot hold it. */
 function planOf(byFrame: readonly FrameInput[], base: Parameters<typeof planFromInputs>[1]) {
@@ -220,7 +293,7 @@ function planOf(byFrame: readonly FrameInput[], base: Parameters<typeof planFrom
 export function rplExport(entry: ShelfEntry, hills: readonly HillChoice[]): RplExport {
   if (entry.replay.kind === "original") {
     const file = bytesOfBase64(entry.replay.rpl);
-    return file === null ? { ok: false, message: T.notTrue } : { ok: true, file };
+    return file === null ? { ok: false, message: T.notTrue } : { ok: true, file, approximate: false };
   }
   const hillNumber = originalHillNumber(entry.hill.id);
   const hill = hills.find((h) => h.id === entry.hill.id);
@@ -229,5 +302,5 @@ export function rplExport(entry: ShelfEntry, hills: readonly HillChoice[]): RplE
   const jump = source && entryPlaysTrue(entry, source, hill) ? playedThrough(source, hill) : null;
   if (source === null || jump === null) return { ok: false, message: T.notTrue };
   const file = ownJumpFile(entry, hill, hillNumber, jump);
-  return file === null ? { ok: false, message: T.rplUnfit } : { ok: true, file };
+  return typeof file === "string" ? { ok: false, message: UNFIT_MESSAGE[file] } : { ok: true, ...file };
 }

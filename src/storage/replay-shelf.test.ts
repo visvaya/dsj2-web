@@ -13,6 +13,7 @@ import {
   shelfBytes,
   shelfRecord,
   withKept,
+  withLoaded,
   withRecent,
   withRecord,
   withoutEntries,
@@ -94,6 +95,19 @@ describe("the shelf of replays", () => {
     expect(withKept(withRecords, distinct("new", 1)).refused).toBeNull();
   });
 
+  it("reads a file's replay into its own group, once, up to its own limit", () => {
+    const kept: Shelf = [entry("a")];
+    expect(withLoaded(kept, entry("b")).refused).toBe("alreadyKept");
+    const other = entry("b", { replay: { kind: "own", seed: 43, inputs: encodeInputs(inputs) } });
+    const read = withLoaded(kept, other);
+    expect(read.shelf.map((e) => e.kind)).toEqual(["kept", "loaded"]);
+    expect(withLoaded(read.shelf, other).refused).toBe("alreadyKept");
+    const full = Array.from({ length: REPLAY_LIMITS.LOADED_MAX_COUNT }, (_, i) =>
+      entry(`l${i}`, { kind: "loaded", replay: { kind: "own", seed: 1000 + i, inputs: "" } }),
+    );
+    expect(withLoaded(full, other)).toEqual({ shelf: full, refused: "loadedFull" });
+  });
+
   it("keeps only the newest of the last jumps, as many as the player chose", () => {
     let shelf: Shelf = [entry("kept")];
     for (const id of ["1", "2", "3", "4"]) shelf = withRecent(shelf, entry(id, { kind: "recent" }), 2).shelf;
@@ -139,8 +153,25 @@ describe("the stored shelf", () => {
     const shelf = [
       entry("a"),
       entry("b", { kind: "record", replay: { kind: "original", rpl: "AAAA", jumperName: "X" } }),
+      entry("c", {
+        kind: "loaded",
+        replay: { kind: "own", seed: 7, inputs: "", scenery: { lighting: "night", snowfall: true, fog: false } },
+      }),
     ];
     expect(parseShelf(JSON.parse(JSON.stringify(shelfRecord(shelf))))).toEqual(shelf);
+  });
+
+  it("reads a look that is not one as none, and the read ones of before as read ones", () => {
+    const odd = entry("a", { replay: { kind: "own", seed: 7, inputs: "" } });
+    const stored = [
+      { ...odd, replay: { ...odd.replay, scenery: { lighting: "noon", snowfall: true, fog: false } } },
+      entry("import:2026-10-14T12:00:00.000Z:0"),
+      entry("original:original-35:2026-10-14T12:00:00.000Z"),
+      entry("kept:import:2026-10-14T12:00:00.000Z:0"),
+    ];
+    const read = parseShelf(JSON.parse(JSON.stringify({ ...shelfRecord([]), entries: stored })));
+    expect(read[0]?.replay).toEqual({ kind: "own", seed: 7, inputs: "" });
+    expect(read.map((e) => e.kind)).toEqual(["kept", "loaded", "loaded", "kept"]);
   });
 
   it("leaves out damaged entries and reads an unknown version as empty", () => {

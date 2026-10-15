@@ -4,7 +4,7 @@ import { formatDecimal, formatSize } from "./number-text";
 import { rplExportable } from "./rpl-export";
 
 const T = UI_TEXT.replays;
-const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent"];
+const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent", "loaded"];
 
 /** The name of a replay: its hill, and the jumper's name for a file of the original. */
 const replayName = (entry: ShelfEntry): string => {
@@ -30,11 +30,25 @@ function rowText(entry: ShelfEntry): string {
   );
 }
 
+/**
+ * A message framed where it belongs, like the note under the button that quits the game: in the colour of the game,
+ * or in red for what did not work. A screen reader hears it from the status of the screen instead.
+ */
+export function FramedNote({ text, error }: { text: string; error: boolean }) {
+  return (
+    <p className={error ? "note framed-note error-frame" : "note framed-note"} aria-hidden="true">
+      {text}
+    </p>
+  );
+}
+
 interface ListProps {
   shelf: Shelf;
   selected: ReadonlySet<string>;
   /** The replay whose removal waits for a second press. */
   confirming: string | null;
+  /** What the screen tells, shown under the replay it is about. */
+  note: { text: string; error: boolean; at: string } | null;
   onToggle: (entry: ShelfEntry) => void;
   onWatch: (entry: ShelfEntry) => void;
   onKeep: (entry: ShelfEntry) => void;
@@ -63,7 +77,8 @@ function ReplayRow({ entry, p, keepable }: { entry: ShelfEntry; p: ListProps; ke
         </button>
         {keepable && (
           <button type="button" className="pixel-button small-button" onClick={() => p.onKeep(entry)}>
-            {T.keep}
+            {/* A record's replay goes once the record is beaten; kept, it stays. */}
+            {entry.kind === "record" ? T.keepForGood : T.keep}
           </button>
         )}
         {rplExportable(entry) && (
@@ -80,6 +95,7 @@ function ReplayRow({ entry, p, keepable }: { entry: ShelfEntry; p: ListProps; ke
           {p.confirming === entry.id ? T.confirmRemove : T.remove}
         </button>
       </span>
+      {p.note?.at === entry.id && <FramedNote text={p.note.text} error={p.note.error} />}
     </li>
   );
 }

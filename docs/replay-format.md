@@ -88,19 +88,34 @@ Ekran „Powtórki” zapisuje skok oddany na skoczni z oryginału jako plik `.r
 `src/storage/original-replay-file.ts`). Pola jak przy `from-plan`: znacznik nagłówka, który zapisałaby gra, zera
 w polach 21 i 449, pusty licencjobiorca; do tego odległość z dwoma miejscami po kropce, nazwa `GRACZ 1` i data
 skoku. Plik `.rpl` gracza zachowany na liście wychodzi bez zmian. Nazwa pliku to dzień, godzina, minuta i sekunda
-skoku (osiem znaków, jak w DOS-ie; miesiąc i rok są w pliku); tę samą nazwę dostałyby tylko skoki z tej samej
-sekundy różnych miesięcy.
+skoku (osiem znaków, jak w DOS-ie; miesiąc i rok są w pliku); drugi plik z tej samej sekundy dostaje literę na
+ósmym miejscu. Kilka zaznaczonych powtórek wychodzi w jednym archiwum ZIP bez kompresji (`src/storage/zip-file.ts`),
+bo przeglądarki pytają o zgodę na wiele pobrań naraz albo ich odmawiają.
 
 Format trzyma jedno naciśnięcie startu, jedno okno 20 klatek przy wybiciu (prawy przycisk tylko razem z lewym),
 po jednym naciśnięciu każdego przycisku poza nim, każde w jednej klatce, i najwyżej 1049 klatek ruchu w pionie.
 Gra najpierw próbuje zapisać wejście skoku w całości. Gdy się nie mieści, po kolei pomija każde naciśnięcie albo
 skraca je do pierwszej klatki lub do 20 klatek, jeśli przeliczony bez tego skok kończy się w tym samym stanie:
 naciśnięcie na belce przed startem, kliknięcie myszy trwające kilka klatek, drugie naciśnięcie tego samego przycisku
-po naciśnięciu do lądowania. Potem tak samo z ruchem przed wybiciem. Plik jest oddany graczowi tylko wtedy, gdy
-odczytany z powrotem i przeliczony w tej grze daje ten sam stan skoku w ostatniej klatce; inaczej gra mówi, że tego
-skoku nie da się zapisać. Przykład takiego skoku: wybicie samym prawym przyciskiem.
+po naciśnięciu do lądowania; samotne prawe naciśnięcie w oknie wybicia może dostać lewe obok. Potem tak samo
+z ruchem poza lotem (od wybicia do lądowania): na belce, na rozbiegu i na wybiegu. Plik jest oddany graczowi, gdy
+odczytany z powrotem i przeliczony w tej grze daje ten sam stan skoku w ostatniej klatce.
+
+Gdy to się nie udaje, gra próbuje zapisu „z drobną różnicą”: ruch tylko w locie, samotne prawe naciśnięcie
+z lewym obok i każde naciśnięcie poza wybiciem w jednej klatce (tej, w której skok zmienił fazę, albo pierwszej),
+bez sprawdzania, czy skok na to reagował. Taki plik jest oddany tylko wtedy, gdy przeliczony daje ten sam wynik:
+odległość, noty, punkty i rodzaj upadku; gra mówi wtedy, że ruchy skoczka (na przykład po upadku, gdy mysz dalej się
+ruszała) mogą w DSJ2 wyglądać trochę inaczej. Inaczej gra mówi, dlaczego skoku nie da się zapisać: za długi ruch,
+na który skok reagował, za dużo naciśnięć (na przykład wybicie samym prawym przyciskiem) albo plik dający inny
+skok.
 
 Sprawdzenie **[pomiar, 2026-10-15]**: dwa skoki na Karpaczu oddane w przeglądarce (myszą na komputerze i dotykiem
 w emulowanym telefonie z Androidem), zapisane przyciskiem „Eksportuj .rpl” i odtworzone przez oryginał
 (`tools/re/trace_capture.py`, kopia z licencją): 21,89 m i 21,63 m, tyle samo co w tej grze. Oba skoki wymagały
-pominięcia albo skrócenia naciśnięć opisanego wyżej. Niesprawdzone: wygląd listy studia powtórek z tymi polami.
+pominięcia albo skrócenia naciśnięć opisanego wyżej.
+
+Sprawdzenie **[pomiar, 2026-10-15, `tools/re/game_session.py` ze zrzutami ekranu]**: studio powtórek oryginału
+pokazuje na liście pliki z archiwum zbiorczego eksportu (w tym nazwę z literą na ósmym miejscu), a w szczegółach
+skocznię („KARPACZ, K85”), zawodnika „GRACZ 1”, odległość z pliku i datę; pole „ZAREJESTR.” jest puste. Plik
+odtwarza się do lądowania. Odległości w oryginale (`trace_capture.py`): 22,41 m dla skoku na Karpaczu i 94,53 m dla skoku z upadkiem na
+skoczni 19 (K180) zapisanego „z drobną różnicą”, tyle samo co w tej grze.

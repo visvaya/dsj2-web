@@ -35,6 +35,8 @@ export interface LiveProps {
   settings: Settings;
   controls: ControlScheme;
   scenery: Scenery;
+  /** Whether the player chose another look in this visit: a replay then shows that one, not the jump's own. */
+  sceneryChosen: boolean;
   /** How the replay is being watched, while one plays. */
   replay: ReplayView | null;
   /** The replay of the hill's record, played as a ghost beside each training jump; null for none. */
@@ -177,7 +179,7 @@ function createTrainingRun(
     newRecord = beatsRecord(result, c().live.record);
     // A jump left while the jumper still slides out is kept as far as it went; the replay plays the rest with
     // no hands, after the result was settled.
-    recording = { seed: jump.seed, inputs, newRecord };
+    recording = { seed: jump.seed, inputs, newRecord, scenery: c().live.scenery };
     last = { recording, result };
     c().live.onFinished(result, recording);
     c().onReplayAvailable(true);
@@ -347,7 +349,7 @@ export const NO_CONTROLS: JumpLoopControls = {
   seekReplay: () => undefined,
 };
 
-interface RunSwitch {
+export interface RunSwitch {
   /** The run the frames go to: the replay while one plays, the training otherwise. */
   current: () => JumpRun;
   replaying: () => boolean;
@@ -355,6 +357,8 @@ interface RunSwitch {
   play: (source: ReplaySource) => void;
   /** The name of the jumper of the replay being played, when it is not the player. */
   jumperName: () => string | null;
+  /** The look of the hill to draw: a replay's own, unless the player chose another in this visit. */
+  scenery: () => Scenery;
   controls: JumpLoopControls;
   /** A click or a touch of the picture in a replay: pause or go on, and once it is over, a new jump. */
   press: () => void;
@@ -374,15 +378,18 @@ export function createRunSwitch(
     if (!replay) return;
     replay = null;
     jumperName = null;
+    replayScenery = null;
     training.restart();
     c().onReplayChange(null);
   };
   let jumperName: string | null = null;
+  let replayScenery: Scenery | null = null;
   let replayOrigin: ReplaySource["origin"] = "own";
   const play = (source: ReplaySource) => {
     releaseMouse();
     replay = createReplayRun(hill, source, c, sounds);
     jumperName = source.jumperName ?? null;
+    replayScenery = source.scenery ?? null;
     replayOrigin = source.origin;
     replay.restart();
     c().onReplayChange(replayStart(source.origin));
@@ -396,6 +403,7 @@ export function createRunSwitch(
     replaying: () => replay !== null,
     play,
     jumperName: () => jumperName,
+    scenery: () => (replayScenery !== null && !c().live.sceneryChosen ? replayScenery : c().live.scenery),
     controls: {
       restart() {
         current().restart();

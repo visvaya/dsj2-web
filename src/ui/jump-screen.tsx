@@ -51,11 +51,23 @@ const KEEP_NOTE: Readonly<Record<KeepOutcome, string>> = {
   notReady: UI_TEXT.replays.notReady,
   alreadyKept: UI_TEXT.jumpScreen.replay.alreadyKept,
   keptFull: UI_TEXT.replays.keptFull,
+  loadedFull: UI_TEXT.replays.loadedFull,
   budgetFull: UI_TEXT.replays.budgetFull,
 };
 
 /** How long the note about a kept jump stays in the menu. */
 const KEEP_NOTE_MS = 5000;
+
+/**
+ * The look of the hill, drawn once per visit (not per jump) from its own seed, and whether the player chose another
+ * kind of look during the visit; until then a replay shows the look its jump had.
+ */
+function useVisitScenery(choice: Settings["scenery"]) {
+  const [visitSeed] = useState(newSeed);
+  const [entryChoice] = useState(choice);
+  const scenery = useMemo(() => pickScenery(choice, visitSeed), [choice, visitSeed]);
+  return { scenery, sceneryChosen: choice !== entryChoice };
+}
 
 /** Keeps the last jump that ended and leaves a note of what became of it, which goes away on its own. */
 function useKeepLastJump(loop: JumpLoopControls, onKeepJump: Props["onKeepJump"]) {
@@ -131,9 +143,7 @@ export function JumpScreen(props: Props) {
   const { controls, tiltOn } = steering;
   const { pausedRef, panelHeadingRef, pauseButtonRef, resumeButtonRef, ...menu } = usePauseMenu();
   const soundRef = useSoundEngine(settings.sound);
-  // The look is drawn once per visit to the hill (not per jump), from its own seed.
-  const [visitSeed] = useState(newSeed);
-  const scenery = useMemo(() => pickScenery(settings.scenery, visitSeed), [settings.scenery, visitSeed]);
+  const look = useVisitScenery(settings.scenery);
   const ghost = props.recordGhost;
   const {
     stageRef,
@@ -142,7 +152,7 @@ export function JumpScreen(props: Props) {
     controls: loop,
   } = useJumpLoop({
     hill,
-    live: { onFinished: props.onFinished, record: props.record, settings, controls, scenery, replay, ghost },
+    live: { onFinished: props.onFinished, record: props.record, settings, controls, ...look, replay, ghost },
     inputRef: steering.inputRef,
     tiltRef: steering.tiltRef,
     resetHands: steering.resetHands,

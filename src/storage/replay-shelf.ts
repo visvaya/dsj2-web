@@ -1,3 +1,4 @@
+import type { Scenery } from "../render/jump-view";
 import type { FrameInput } from "../sim/jump-logic";
 import { field } from "./save-data";
 
@@ -16,18 +17,23 @@ export const ENGINE_REVISION = 1;
 export const REPLAY_LIMITS = {
   /** Replays kept by hand; the hill records are not counted, one per hill however many hills there are. */
   KEPT_MAX_COUNT: 100,
+  /** Replays read from files. */
+  LOADED_MAX_COUNT: 100,
   /** The most that "keep the last jumps" may keep. */
   RECENT_MAX_COUNT: 20,
   /** All replays together, as stored. */
   BUDGET_BYTES: 5_000_000,
 } as const;
 
-/** Why a replay is on the shelf: a hill record (kept on its own), kept by hand, or one of the last jumps. */
-export type ShelfKind = "record" | "kept" | "recent";
+/**
+ * Why a replay is on the shelf: a hill record (kept on its own), kept by hand, one of the last jumps, or read from
+ * a file (a file of the original or a file of replays of this game).
+ */
+export type ShelfKind = "record" | "kept" | "recent" | "loaded";
 
 /** What a replay plays: a jump of this game from its seed and inputs, or a file of the original as it was. */
 type ShelfReplay =
-  | { kind: "own"; seed: number; inputs: string }
+  | { kind: "own"; seed: number; inputs: string; scenery?: Scenery }
   | { kind: "original"; rpl: string; jumperName?: string };
 
 export interface ShelfEntry {
@@ -44,7 +50,7 @@ export interface ShelfEntry {
 export type Shelf = readonly ShelfEntry[];
 
 /** Why a replay was not put on the shelf. */
-export type ShelfRefusal = "alreadyKept" | "keptFull" | "budgetFull";
+export type ShelfRefusal = "alreadyKept" | "keptFull" | "loadedFull" | "budgetFull";
 
 export type ShelfOutcome = { shelf: Shelf; refused: null } | { shelf: Shelf; refused: ShelfRefusal };
 
@@ -116,6 +122,20 @@ export function withKept(shelf: Shelf, entry: ShelfEntry): ShelfOutcome {
   return fits(next) ? { shelf: next, refused: null } : { shelf, refused: "budgetFull" };
 }
 
+/**
+ * A replay read from a file; refused when the same jump is among the kept or the read ones already, once the read
+ * ones or the budget are full.
+ */
+export function withLoaded(shelf: Shelf, entry: ShelfEntry): ShelfOutcome {
+  const held = shelf.filter((e) => e.kind === "kept" || e.kind === "loaded");
+  if (held.some((e) => sameReplay(e, entry))) return { shelf, refused: "alreadyKept" };
+  if (shelf.filter((e) => e.kind === "loaded").length >= REPLAY_LIMITS.LOADED_MAX_COUNT) {
+    return { shelf, refused: "loadedFull" };
+  }
+  const next = [...shelf, { ...entry, kind: "loaded" as const }];
+  return fits(next) ? { shelf: next, refused: null } : { shelf, refused: "budgetFull" };
+}
+
 /** One of the last jumps: only the newest `keep` stay (the player chose the number). */
 export function withRecent(shelf: Shelf, entry: ShelfEntry, keep: number): ShelfOutcome {
   const count = Math.min(Math.max(0, keep), REPLAY_LIMITS.RECENT_MAX_COUNT);
@@ -142,7 +162,23 @@ const isText = (v: unknown): v is string => typeof v === "string";
  */
 const MAX_TEXT_CHARS = { id: 200, name: 100, inputs: 16_000, rpl: 1700 } as const;
 const isNumber = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-const SHELF_KINDS: readonly ShelfKind[] = ["record", "kept", "recent"];
+const SHELF_KINDS: readonly ShelfKind[] = ["record", "kept", "recent", "loaded"];
+const LIGHTINGS: readonly Scenery["lighting"][] = ["day", "dusk", "night"];
+
+/** The look of a jump as stored; undefined when absent or not one. */
+function asScenery(v: unknown): Scenery | undefined {
+  const [lighting, snowfall, fog] = ["lighting", "snowfall", "fog"].map((key) => field(v, key));
+  const known = LIGHTINGS.find((l) => l === lighting);
+  return known !== undefined && typeof snowfall === "boolean" && typeof fog === "boolean"
+    ? { lighting: known, snowfall, fog }
+    : undefined;
+}
+
+/**
+ * Before the read ones had a group of their own they were kept with the ones kept by hand, under ids that tell
+ * them apart: those come back as read ones.
+ */
+const LOADED_ID_PREFIXES = ["import:", "original:"];
 
 function asReplay(v: unknown): ShelfReplay | null {
   const kind = field(v, "kind");
@@ -151,7 +187,8 @@ function asReplay(v: unknown): ShelfReplay | null {
     const inputs = field(v, "inputs");
     if (!isNumber(seed) || !Number.isInteger(seed) || seed < 0 || seed > 0xffffffff) return null;
     if (!isText(inputs) || inputs.length > MAX_TEXT_CHARS.inputs || decodeInputs(inputs) === null) return null;
-    return { kind, seed, inputs };
+    const scenery = asScenery(field(v, "scenery"));
+    return scenery === undefined ? { kind, seed, inputs } : { kind, seed, inputs, scenery };
   }
   if (kind === "original") {
     const rpl = field(v, "rpl");
@@ -180,7 +217,10 @@ export function asShelfEntry(v: unknown): ShelfEntry | null {
   if (typeof newRecord !== "boolean" || !isNumber(engineRevision)) return null;
   return {
     id,
-    kind: SHELF_KINDS.find((k) => k === kind) ?? "kept",
+    kind:
+      kind === "kept" && LOADED_ID_PREFIXES.some((prefix) => id.startsWith(prefix))
+        ? "loaded"
+        : (SHELF_KINDS.find((k) => k === kind) ?? "kept"),
     hill: { id: hillId, name: hillName, kPointM },
     dateIso,
     result: { distanceM, points, fell },

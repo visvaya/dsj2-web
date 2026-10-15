@@ -31,7 +31,12 @@ export function ownEntry(
     result: jump.result,
     newRecord: jump.recording.newRecord,
     engineRevision: ENGINE_REVISION,
-    replay: { kind: "own", seed: jump.recording.seed, inputs: encodeInputs(jump.recording.inputs) },
+    replay: {
+      kind: "own",
+      seed: jump.recording.seed,
+      inputs: encodeInputs(jump.recording.inputs),
+      ...(jump.recording.scenery === undefined ? {} : { scenery: jump.recording.scenery }),
+    },
   };
 }
 
@@ -49,7 +54,9 @@ export function sourceOfEntry(entry: ShelfEntry): ReplaySource | null {
   const { replay } = entry;
   if (replay.kind === "own") {
     const inputs = decodeInputs(replay.inputs);
-    return inputs === null ? null : recordingSource({ seed: replay.seed, inputs, newRecord: entry.newRecord });
+    if (inputs === null) return null;
+    const { seed, scenery } = replay;
+    return recordingSource({ seed, inputs, newRecord: entry.newRecord, ...(scenery === undefined ? {} : { scenery }) });
   }
   const file = bytesOfBase64(replay.rpl);
   if (file === null) return null;
