@@ -30,7 +30,10 @@ describe("layers of the scene", () => {
   it("maps the view's columns onto the original's, centre on centre", () => {
     const view = sceneView(0, 0, 356, SQUARE_PIXEL_WIDTH);
     expect(originalColumn(view, 178)).toBe(160);
-    for (const sx of [0, 50, 177, 300, 355]) expect(viewColumn(view, originalColumn(view, sx))).toBeCloseTo(sx, -0.5);
+    // A view column is 6/5 of the original's, so going there and back lands on the same column or its neighbour.
+    for (const sx of [0, 50, 177, 300, 355]) {
+      expect(Math.abs(viewColumn(view, originalColumn(view, sx)) - sx)).toBeLessThanOrEqual(1);
+    }
     const original = sceneView(0, 0, 320, 1);
     expect([0, 160, 319].map((sx) => originalColumn(original, sx))).toEqual([0, 160, 319]);
   });

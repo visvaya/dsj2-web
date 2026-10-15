@@ -101,7 +101,7 @@ function shadow(c: SceneCanvas, m: HillSceneModel, view: SceneView, anchor: Figu
 /** Places in the original's drawing order where this project's additions go. */
 export interface SceneHooks {
   /** After the sky, before the background's hills (stars, moon). */
-  afterSky?: (view: SceneView, indices: Uint8Array) => void;
+  afterSky?: (view: SceneView) => void;
   /** After the background, before the landing hill (birds). */
   afterBackground?: (view: SceneView) => void;
   /** After the far fence (wind socks, floodlights). */
@@ -120,7 +120,7 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   const near = scenePalette(m.look.skyRgb6, false);
   const walls = inrunLook(m.look);
   drawSky(c, far);
-  hooks.afterSky?.(view, c.indices);
+  hooks.afterSky?.(view);
   // Bands of the background with the trees of the layers between them, in the original's order.
   drawBackgroundBands(c, h, m.look, view, far, 0, 0);
   drawTrees(c, h, m.look, view, far, 1, 2);

@@ -125,6 +125,7 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
   const lamp = color("lampLight");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
     const [sx, track] = onLayer(view, LAYER.inrunFar, x, inrunYM(h, x));
+    if (sx < -2 || sx >= fb.width) continue;
     fb.rect(sx, track - railPx - INRUN_LAMP_ABOVE_RAIL_PX, 2, 2, lamp);
   }
 }
@@ -137,17 +138,16 @@ const MOON_ROW = 7;
 const STAR_DRIFT = 0.01;
 
 /**
- * Stars and the moon, drawn over the sky only (its own palette index range), so the background's hills stay in
- * front of them. `isSky` tells whether a pixel still shows the sky.
+ * Stars and the moon, drawn over the sky's rows (0..`skyRows` - 1) before the background, so its hills stay in
+ * front of them.
  */
-export function drawNightSky(fb: FrameBuffer, view: SceneView, frame: number, isSky: (i: number) => boolean) {
+export function drawNightSky(fb: FrameBuffer, view: SceneView, frame: number, skyRows: number) {
   const star = color("star");
   const drift = Math.round(view.camX * STAR_DRIFT);
   const px = fb.pixels;
-  for (let y = 0; y < fb.height; y++) {
+  for (let y = 0; y < Math.min(skyRows, fb.height); y++) {
     for (let x = 0; x < fb.width; x++) {
       const i = y * fb.width + x;
-      if (!isSky(i)) continue;
       const r = hash((x + drift) * 977 + y * 131);
       if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0) px[i] = star;
     }
@@ -158,7 +158,7 @@ export function drawNightSky(fb: FrameBuffer, view: SceneView, frame: number, is
       if (dx * dx + dy * dy > MOON_RADIUS_PX * MOON_RADIUS_PX) continue;
       const x = cx + dx;
       const y = MOON_ROW + dy;
-      if (x < 0 || x >= fb.width || y < 0 || !isSky(y * fb.width + x)) continue;
+      if (x < 0 || x >= fb.width || y < 0 || y >= skyRows) continue;
       const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1) || dx + dy > 4;
       fb.put(x, y, color(crater ? "moonShade" : "moon"));
     }

@@ -1,4 +1,4 @@
-import { DEFAULT_HILL_LOOK, type HillLook } from "../render/hill-look";
+import type { HillLook } from "../render/hill-look";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { HillProfile } from "../sim/hill-profile";
 import { HILL_NAME_TEXT_BASE, TEXT_RESOURCE_ID, readResource, readText } from "./dsj-dat";
@@ -13,8 +13,8 @@ export interface OriginalHill {
   name: string | null;
   kPointM: number;
   profile: HillProfile;
-  /** How the hill looks besides its profile (sky, background, inrun, fences, marks). */
-  look: HillLook;
+  /** How the hill looks besides its profile (sky, background, inrun, fences, marks); null if it cannot be read. */
+  look: HillLook | null;
   definition: HillDefinition;
 }
 
@@ -30,7 +30,7 @@ export function readOriginalHills(exe: Uint8Array, dat?: Uint8Array): OriginalHi
     name: texts ? readText(texts, HILL_NAME_TEXT_BASE + definition.number) : null,
     kPointM: definition.kPointM,
     profile: buildHillProfile(definition.inrun, definition.landing),
-    look: readHillLook(definition) ?? DEFAULT_HILL_LOOK,
+    look: readHillLook(definition),
     definition,
   }));
 }

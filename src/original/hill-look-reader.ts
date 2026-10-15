@@ -4,7 +4,7 @@ import { int16, single, type HillDefinition } from "./hill-table";
 /**
  * Reads how a hill looks from its definition in the original (docs/hill-format.md): the graphics arguments of the
  * inrun and landing setup and the calls after them (supports 1eee:0437, sky 003f:9da5, background 0baf:1c31,
- * trees 0baf:602e). Returns null when the branch does not have the expected calls.
+ * trees 0baf:602e). Returns null when the branch does not have the expected calls or its values make no sense.
  */
 
 const SUPPORTS_CALL = 2;
@@ -36,6 +36,24 @@ function supportsFrom(words: readonly number[]): InrunSupport[] {
   return supports;
 }
 
+/** Whether the values read could come from a sound branch (finite, ranges in order, counts not negative). */
+function plausible(look: HillLook): boolean {
+  const t = look.trees;
+  const numbers = [
+    look.inrun.platformStartXM,
+    look.marks.fenceStartM,
+    ...look.supports.flatMap((s) => [s.fromXM, s.toXM]),
+  ];
+  return (
+    numbers.every((v) => Number.isFinite(v)) &&
+    t.firstCount >= 0 &&
+    t.secondCount >= 0 &&
+    t.toXM > t.fromXM &&
+    look.marks.markCount >= 0 &&
+    look.supports.every((s) => s.toXM >= s.fromXM)
+  );
+}
+
 export function readHillLook(def: HillDefinition): HillLook | null {
   const [inrun, landing] = def.calls;
   const supports = def.calls[SUPPORTS_CALL];
@@ -54,7 +72,7 @@ export function readHillLook(def: HillDefinition): HillLook | null {
   }
   const i = inrun.words;
   const l = landing.words;
-  return {
+  const look: HillLook = {
     skyRgb6: [byte(sky.words, 0), byte(sky.words, 1), byte(sky.words, 2)],
     terrain: { seed: word(terrain.words, 0), amplitudeM: int16(terrain.words, 1), baseOverOutrunM: int16(l, 15) },
     trees: {
@@ -80,4 +98,5 @@ export function readHillLook(def: HillDefinition): HillLook | null {
       fenceStartM: single(l, 17),
     },
   };
+  return plausible(look) ? look : null;
 }

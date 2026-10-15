@@ -111,7 +111,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     groundBottom - 1,
     {
       afterSky: (view) => {
-        if (clearNight) drawNightSky(fb, view, m.frame, (i) => i < SKY_ROWS * fb.width);
+        if (clearNight) drawNightSky(fb, view, m.frame, SKY_ROWS);
       },
       afterBackground: (view) => {
         if (!night) drawBirds(fb, view, m.frame);

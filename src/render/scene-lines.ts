@@ -38,7 +38,7 @@ export function rowRunLine(x0: number, y0: number, x1: number, y1: number, put: 
   const [ax, ay, bx, by] = y0 < y1 ? [x0, y0, x1, y1] : [x1, y1, x0, y0];
   const rows = by - ay + 1;
   const dir = bx >= ax ? 1 : -1;
-  const advance = Math.floor(((Math.abs(bx - ax) & 0xff) << 8) / rows) + 1;
+  const advance = Math.floor((Math.abs(bx - ax) << 8) / rows) + 1;
   let frac = 0;
   let x = ax;
   for (let y = ay; y <= by; y++) {

@@ -90,7 +90,7 @@ export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[
     name: h.name ?? fallbackHillName(h.number),
     kPointM: h.kPointM,
     profile: h.profile,
-    look: h.look,
+    look: h.look ?? DEFAULT_HILL_LOOK,
     source: "original",
     country: ORIGINAL_HILL_COUNTRY[h.number - 1] ?? null,
   }));

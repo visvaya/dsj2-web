@@ -267,8 +267,9 @@ export function drawInrunSupports(
     for (const b of boxes) if (cf <= b.b19 && cn > b.b21) sideFace(sx, cn, b.b19, b.b21, b.colour);
     for (const b of boxes) {
       if (cn < b.a21 || cn > b.b21) continue;
-      const shade =
-        Math.trunc(((b.front - b.colour) * (cn - b.a21)) / (b.b21 - b.a21)) + b.colour + SUPPORT_FRONT_SHADE;
+      // A support narrower than one table index has a single shade.
+      const across = b.b21 > b.a21 ? Math.trunc(((b.front - b.colour) * (cn - b.a21)) / (b.b21 - b.a21)) : 0;
+      const shade = across + b.colour + SUPPORT_FRONT_SHADE;
       colourSpan(c, pal, sx, rowOf(near, cn) + look.inrun.nearWallDownPx, ground(cn), shade << 8, shade << 8);
     }
   }

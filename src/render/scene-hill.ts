@@ -54,37 +54,47 @@ export function distanceLines(marks: HillMarks, recordM: number): DistanceLine[]
   return lines;
 }
 
-interface Edges {
-  far: { j: number; y: number };
-  near: { j: number; y: number };
-}
-
-function edgesAt(h: HillProfile, view: SceneView, sx: number): Edges {
-  const t = hillLayerTables(h);
-  const column = originalColumn(view, sx);
-  const far = layerOffset(view, LAYER.farEdge);
-  const near = layerOffset(view, LAYER.nearEdge);
-  const jf = far.x + column;
-  const jn = near.x + column;
-  return { far: { j: jf, y: rowsAt(t.farEdge, jf) + far.y }, near: { j: jn, y: rowsAt(t.nearEdge, jn) + near.y } };
-}
-
 /** The landing hill: from the far edge (layer 17) to the near edge (layer 23), lighter where it is flatter. */
 export function drawLandingHill(c: SceneCanvas, h: HillProfile, view: SceneView, pal: Uint32Array) {
   const t = hillLayerTables(h);
+  const far = layerOffset(view, LAYER.farEdge);
+  const near = layerOffset(view, LAYER.nearEdge);
   for (let sx = 0; sx < c.fb.width; sx++) {
-    const e = edgesAt(h, view, sx);
-    colourSpan(c, pal, sx, e.far.y, e.near.y, colourAt(t.farEdge, e.far.j), colourAt(t.nearEdge, e.near.j));
+    const column = originalColumn(view, sx);
+    const jf = far.x + column;
+    const jn = near.x + column;
+    const top = rowsAt(t.farEdge, jf) + far.y;
+    const bottom = rowsAt(t.nearEdge, jn) + near.y;
+    colourSpan(c, pal, sx, top, bottom, colourAt(t.farEdge, jf), colourAt(t.nearEdge, jn));
   }
 }
 
 /** Snow in front of the near edge, down to the bottom of the picture. */
 export function drawNearGround(c: SceneCanvas, h: HillProfile, view: SceneView, pal: Uint32Array) {
   const t = hillLayerTables(h);
+  const near = layerOffset(view, LAYER.nearEdge);
   for (let sx = 0; sx < c.fb.width; sx++) {
-    const e = edgesAt(h, view, sx);
-    colourSpan(c, pal, sx, e.near.y, 200, colourAt(t.nearEdge, e.near.j), GROUND_FAR_COLOUR);
+    const jn = near.x + originalColumn(view, sx);
+    colourSpan(c, pal, sx, rowsAt(t.nearEdge, jn) + near.y, 200, colourAt(t.nearEdge, jn), GROUND_FAR_COLOUR);
   }
+}
+
+/** Where a line at an arc distance from the takeoff crosses the landing hill (x, y), per hill and distance. */
+const lineCache = new WeakMap<HillProfile, Map<number, readonly [number, number]>>();
+
+function linePoint(h: HillProfile, distanceM: number): readonly [number, number] {
+  let byDistance = lineCache.get(h);
+  if (byDistance === undefined) {
+    byDistance = new Map();
+    lineCache.set(h, byDistance);
+  }
+  let point = byDistance.get(distanceM);
+  if (point === undefined) {
+    const x = landingXAtArcLength(h, h.takeoffXM, distanceM, 1);
+    point = [x, landingYM(h, x)];
+    byDistance.set(distanceM, point);
+  }
+  return point;
 }
 
 /** Lines across the landing hill, each from its point on the far edge to the same point on the near edge. */
@@ -98,8 +108,7 @@ export function drawDistanceLines(
   const far = layerOffset(view, LAYER.farEdge);
   const near = layerOffset(view, LAYER.nearEdge);
   for (const line of lines) {
-    const x = landingXAtArcLength(h, h.takeoffXM, line.distanceM, 1);
-    const y = landingYM(h, x);
+    const [x, y] = linePoint(h, line.distanceM);
     const x0 = viewColumn(view, layerIndex(LAYER.farEdge, x) - far.x);
     const y0 = layerRows(LAYER.farEdge, y) + far.y;
     const x1 = viewColumn(view, layerIndex(LAYER.nearEdge, x) - near.x);

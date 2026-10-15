@@ -50,6 +50,7 @@ function check(hill: OriginalHill, v: DataView): string[] {
   };
   const h = hill.profile;
   const look = hill.look;
+  if (look === null) return ["its look could not be read"];
   const long = (a: number) => v.getInt32(a, true);
   expectEqual(
     "palette",
