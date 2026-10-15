@@ -20,11 +20,12 @@ const GREY_SPREAD = 30;
 const LIGHT_FROM = 120;
 const BACKDROP_LIGHTEN = 0.3;
 
+const towardWhite = (c: number) => Math.round(c + (255 - c) * BACKDROP_LIGHTEN);
+
 /** A pixel moved towards white when it is nearly grey. */
 function lightenedIfGrey(r: number, g: number, b: number): [number, number, number] {
   if (Math.max(r, g, b) - Math.min(r, g, b) > GREY_SPREAD || Math.min(r, g, b) < LIGHT_FROM) return [r, g, b];
-  const up = (c: number) => Math.round(c + (255 - c) * BACKDROP_LIGHTEN);
-  return [up(r), up(g), up(b)];
+  return [towardWhite(r), towardWhite(g), towardWhite(b)];
 }
 
 export interface IconPicture {
