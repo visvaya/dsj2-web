@@ -91,6 +91,7 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
     "Mniejsza czułość",
     "Większa czułość",
     expect.stringMatching(TEXT.scenery),
+    expect.stringMatching(TEXT.weather),
     expect.stringMatching(TEXT.sound),
   ]);
 
@@ -101,6 +102,7 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   await expect(sound).toBeFocused();
   await expectVisibleFocus(page);
 
+  await page.keyboard.press("Shift+Tab");
   await page.keyboard.press("Shift+Tab");
   const scenery = button(page, TEXT.scenery);
   await expect(scenery).toBeFocused();

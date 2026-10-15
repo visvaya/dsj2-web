@@ -10,7 +10,7 @@ const TAKEOFF_LEAD_M = 3;
  * Frames of flight before the picture is taken: the jumper has settled into the V, and no tree of the background
  * stands behind him.
  */
-const FLIGHT_FRAMES = 28;
+const FLIGHT_FRAMES = 22;
 const PREVIEW_SEED = 2001;
 
 /** A jumper in flight on the given hill, from a fixed seed and fixed inputs, for the outfit preview. */

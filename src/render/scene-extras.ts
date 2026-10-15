@@ -33,7 +33,13 @@ const FAR_FENCE_ROWS = 5;
 const SOCK_SPACING_M = 25;
 const SOCK_FIRST_AFTER_TAKEOFF_M = 15;
 const SOCK_POLE_PX = 14;
-const SOCK_LENGTH_PX = 8;
+const SOCK_LENGTH_PX = 9;
+/** Half the width of the sock at its ring when full of wind, and at its tail; its bands, red first. */
+const SOCK_MOUTH_HALF_PX = 1.6;
+const SOCK_TAIL_HALF_PX = 0.5;
+const SOCK_BANDS = 5;
+/** A slack sock is narrower: this share of its full width in a calm. */
+const SOCK_SLACK_WIDTH = 0.55;
 /** Wind at which a sock flies straight out. */
 const SOCK_FULL_WIND_M_PER_S = 4.5;
 
@@ -62,8 +68,9 @@ function farRange(view: SceneView, marginPx: number): [number, number] {
 }
 
 /**
- * Wind socks on poles on the far fence, every 25 m along the landing hill. They stream along the game's wind in the
- * side view (along the hill and vertical) and hang down in a calm; the flutter is only for show.
+ * Wind socks on poles on the far fence, every 25 m along the landing hill: cones in bands of red and white that
+ * stream the way the box's arrow points and fill with the wind, narrower and hanging down in a calm; the flutter
+ * is only for show.
  */
 export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, s: JumpSimState, frame: number) {
   const pole = color("post");
@@ -81,13 +88,15 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
     const ux = ux0 - flutter * uy0;
     const uy = uy0 + flutter * ux0;
-    for (let i = 0; i < SOCK_LENGTH_PX; i++) {
-      const c = Math.floor(i / 2) % 2 === 0 ? red : white;
-      const px = sx + 0.5 + ux * i;
-      const py = top + uy * i;
-      fb.put(px, py, c);
-      // Wider at the mouth, thinning to the tail.
-      if (i < SOCK_LENGTH_PX - 3) fb.put(px - uy, py + ux, c);
+    // A cone from the ring at the top of the pole to the tail, filled across its width, in bands of red and white.
+    const full = SOCK_SLACK_WIDTH + (1 - SOCK_SLACK_WIDTH) * k;
+    for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.5) {
+      const share = t / SOCK_LENGTH_PX;
+      const half = (SOCK_MOUTH_HALF_PX + (SOCK_TAIL_HALF_PX - SOCK_MOUTH_HALF_PX) * share) * full;
+      const c = Math.min(SOCK_BANDS - 1, Math.floor(share * SOCK_BANDS)) % 2 === 0 ? red : white;
+      for (let w = -half; w <= half; w += 0.5) {
+        fb.put(sx + 0.5 + ux * t - uy * w, top + uy * t + ux * w, c);
+      }
     }
   }
 }

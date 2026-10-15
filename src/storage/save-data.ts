@@ -14,6 +14,9 @@ export interface HillRecord {
 type LeanControl = "drag" | "tilt";
 /** Time of day of the hills: chosen at random per visit, or a fixed one. */
 export type SceneryChoice = "varied" | "day" | "dusk" | "night";
+/** Weather on the hills: chosen at random per visit, or a fixed one. */
+export type WeatherChoice = "varied" | "clear" | "snow" | "fog" | "snowFog";
+const WEATHER_CHOICES: readonly WeatherChoice[] = ["varied", "clear", "snow", "fog", "snowFog"];
 
 export interface Settings {
   /** How a touch screen leans the jumper: dragging the left pad or tilting the phone. */
@@ -21,6 +24,8 @@ export interface Settings {
   vibration: boolean;
   /** Added after version 2 was introduced; older saves read it as the default. */
   scenery: SceneryChoice;
+  /** Snowfall and fog (added after version 2 too; varied by default). */
+  weather: WeatherChoice;
   /** The player's colours (added after version 2 too). */
   outfit: Outfit;
   /** Game sounds (added after version 2 too; on by default). */
@@ -62,6 +67,7 @@ export const DEFAULT_SETTINGS: Settings = {
   leanControl: "drag",
   vibration: true,
   scenery: "varied",
+  weather: "varied",
   outfit: DEFAULT_OUTFIT,
   sound: true,
   sensitivity: DEFAULT_SENSITIVITY,
@@ -123,6 +129,7 @@ function parseSettings(v: unknown): Settings {
   const lean = field(v, "leanControl");
   const vibration = field(v, "vibration");
   const scenery = field(v, "scenery");
+  const weather = field(v, "weather");
   const sound = field(v, "sound");
   const recordGhost = field(v, "recordGhost");
   // The name the setting had for a day, when it covered the flight only.
@@ -134,6 +141,7 @@ function parseSettings(v: unknown): Settings {
       scenery === "varied" || scenery === "day" || scenery === "dusk" || scenery === "night"
         ? scenery
         : DEFAULT_SETTINGS.scenery,
+    weather: WEATHER_CHOICES.find((w) => w === weather) ?? DEFAULT_SETTINGS.weather,
     outfit: parseOutfit(field(v, "outfit")),
     sound: typeof sound === "boolean" ? sound : DEFAULT_SETTINGS.sound,
     sensitivity: parseSensitivity(field(v, "sensitivity")),

@@ -18,6 +18,12 @@ export interface HillChoice {
   country: CountryCode | null;
 }
 
+/**
+ * Ids of this project's hills whose profile was replaced under a new id: replays and records made on them belong to
+ * a hill the game no longer has.
+ */
+export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set(["own-1"]);
+
 /** Hills made for this project (not taken from the original game). */
 export const OWN_HILLS: readonly HillChoice[] = [
   {

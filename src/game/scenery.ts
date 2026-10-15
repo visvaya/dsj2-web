@@ -1,5 +1,5 @@
 import type { Scenery } from "../render/jump-view";
-import type { SceneryChoice } from "../storage/save-data";
+import type { SceneryChoice, WeatherChoice } from "../storage/save-data";
 
 /** With a varied choice: share of visits at night and at dusk (the rest by day). */
 export const NIGHT_CHANCE = 1 / 4;
@@ -16,10 +16,20 @@ function unit(seed: number, salt: number): number {
   return h / 0x100000000;
 }
 
-/** Look of a visit to a hill: the chosen time of day (or a random one), and now and then snowfall or fog. */
-export function pickScenery(choice: SceneryChoice, seed: number): Scenery {
+/**
+ * Look of a visit to a hill: the chosen time of day and weather, each a fixed choice or a random one (now and then
+ * snowfall or fog).
+ */
+export function pickScenery(choice: SceneryChoice, seed: number, weather: WeatherChoice = "varied"): Scenery {
   const time = unit(seed, 1);
   const lighting =
     choice !== "varied" ? choice : time < NIGHT_CHANCE ? "night" : time < NIGHT_CHANCE + DUSK_CHANCE ? "dusk" : "day";
-  return { lighting, snowfall: unit(seed, 2) < SNOWFALL_CHANCE, fog: unit(seed, 3) < FOG_CHANCE };
+  if (weather === "varied") {
+    return { lighting, snowfall: unit(seed, 2) < SNOWFALL_CHANCE, fog: unit(seed, 3) < FOG_CHANCE };
+  }
+  return {
+    lighting,
+    snowfall: weather === "snow" || weather === "snowFog",
+    fog: weather === "fog" || weather === "snowFog",
+  };
 }

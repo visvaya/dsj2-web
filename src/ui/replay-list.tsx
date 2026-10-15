@@ -1,6 +1,7 @@
 import { entryBytes, sameReplay, type Shelf, type ShelfEntry, type ShelfKind } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { formatDecimal, formatSize } from "./number-text";
+import { replayHillLabel } from "./replay-hill";
 import { RPL_EXPORT_OFFERED, rplExportable } from "./rpl-export";
 
 const T = UI_TEXT.replays;
@@ -8,7 +9,7 @@ const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent", "loaded"];
 
 /** The name of a replay: its hill, and the jumper's name for a file of the original. */
 const replayName = (entry: ShelfEntry): string => {
-  const name = UI_TEXT.hillLabel(entry.hill.name, entry.hill.kPointM);
+  const name = replayHillLabel(entry);
   const jumper = entry.replay.kind === "original" ? entry.replay.jumperName : undefined;
   return jumper === undefined ? name : `${name} · ${jumper}`;
 };

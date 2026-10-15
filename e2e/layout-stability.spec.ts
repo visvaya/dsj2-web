@@ -60,7 +60,7 @@ test("settings and the pause controls do not move the picture or the main contro
   await press(button(page, TEXT.sound), traits);
   await expect(button(page, TEXT.sound)).toHaveAttribute("aria-pressed", "false");
   await press(button(page, TEXT.scenery), traits);
-  await expect(button(page, TEXT.scenery)).toHaveText("Sceneria: dzień");
+  await expect(button(page, TEXT.scenery)).toHaveText("Pora dnia: dzień");
   await closeJumpControls(page, traits);
 
   const shift = largestShift(before, await jumpPositions(page, traits));

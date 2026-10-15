@@ -7,7 +7,7 @@ import {
   stepSensitivity,
   withSensitivity,
 } from "../game/sensitivity";
-import type { SceneryChoice, Settings } from "../storage/save-data";
+import type { SceneryChoice, Settings, WeatherChoice } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import type { Steering } from "./how-to-jump-text";
 import { useMediaQuery } from "./use-media-query";
@@ -17,6 +17,13 @@ const NEXT_SCENERY: Readonly<Record<SceneryChoice, SceneryChoice>> = {
   day: "dusk",
   dusk: "night",
   night: "varied",
+};
+const NEXT_WEATHER: Readonly<Record<WeatherChoice, WeatherChoice>> = {
+  varied: "clear",
+  clear: "snow",
+  snow: "fog",
+  fog: "snowFog",
+  snowFog: "varied",
 };
 const T = UI_TEXT.settings;
 /** The display mode a browser reports for its own full screen (F11) as well as for the page's. */
@@ -114,6 +121,14 @@ export function SettingsControls({
       >
         {T.scenery}
         {T.sceneryName[settings.scenery]}
+      </button>
+      <button
+        type="button"
+        className="pixel-button"
+        onClick={() => onSettings({ weather: NEXT_WEATHER[settings.weather] })}
+      >
+        {T.weather}
+        {T.weatherName[settings.weather]}
       </button>
       <button
         type="button"

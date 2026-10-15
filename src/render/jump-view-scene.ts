@@ -13,7 +13,6 @@ import {
   drawLandingHill,
   drawNearFence,
   drawNearGround,
-  drawNearLip,
   type HillMarks,
 } from "./scene-hill";
 import {
@@ -158,5 +157,4 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   drawInrunNearWall(c, h, walls, view, near);
   drawNearFence(c, h, view, marksOf(m), near);
   drawNearGround(c, h, view, near);
-  drawNearLip(c, h, view, marksOf(m), near);
 }

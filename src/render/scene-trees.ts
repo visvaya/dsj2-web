@@ -116,14 +116,14 @@ export function placeTrees(h: HillProfile, look: HillLook): PlacedTree[] {
 
 /**
  * Groves around the original's trees (this project's addition): the original scatters single trees evenly, so
- * on the farther layers a few neighbours of the same kind join some of them, a little smaller or of the same size,
+ * on the farther layers a few neighbours, mostly spruces, join some of them, a little smaller or of the same size,
  * each standing on its own ground. The original's trees keep their places.
  */
 const GROVE_LAST_LAYER = 10;
 /** Companions per tree: 0..GROVE_MAX - 1, chosen from the tree's place. */
 const GROVE_MAX = 4;
 /** Distance of a companion from its tree, in tree widths. */
-const GROVE_NEAR_WIDTHS = 0.55;
+const GROVE_NEAR_WIDTHS = 0.95;
 const GROVE_SPREAD_WIDTHS = 1.1;
 
 const sceneTreeCache = new WeakMap<HillProfile, Map<HillLook, PlacedTree[]>>();
@@ -153,7 +153,9 @@ export function sceneTrees(h: HillProfile, look: HillLook): PlacedTree[] {
       const ground = groundOf(h, look, t.layer, xM);
       if (ground === null || ground.j <= 0) continue;
       const size = Math.max(SMALLEST_SIZE, t.size - ((ri >>> 8) % 2));
-      trees.push({ ...t, size, xM, j: indexOn(t.layer, xM), rows: roundHalfEven(ground.rows) });
+      // Mostly spruces around a tree, so a grove never shows a row of bare pine trunks.
+      const kind: TreeKind = (ri >>> 12) % 4 === 0 ? t.kind : "spruce";
+      trees.push({ ...t, kind, size, xM, j: indexOn(t.layer, xM), rows: roundHalfEven(ground.rows) });
     }
   }
   byLook.set(look, trees);
@@ -211,7 +213,7 @@ export function drawTrees(
   const trees = sceneTrees(h, look);
   for (let layer = fromLayer; layer <= toLayer; layer++) {
     const off = layerOffset(view, layer);
-    const layerPal = hazedPalette(pal, HAZE_INDEX, hazeShare(layer));
+    const layerPal = hazedPalette(pal, pal[HAZE_INDEX] ?? 0, hazeShare(layer));
     for (const t of trees) {
       if (t.layer !== layer) continue;
       // Whether the tree shows at all, before its bitmap is made: most of a hill's trees are out of the view.

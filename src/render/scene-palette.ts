@@ -163,21 +163,20 @@ export function scenePalette(sky: Rgb6, far: boolean): Uint32Array {
 
 const hazeCache = new WeakMap<Uint32Array, Map<string, Uint32Array>>();
 
-/** `pal` with every colour moved `share` (0..1) of the way towards colour `towardIndex` of the same palette. */
-export function hazedPalette(pal: Uint32Array, towardIndex: number, share: number): Uint32Array {
+/** `pal` with every colour moved `share` (0..1) of the way towards the packed colour `toward`. */
+export function hazedPalette(pal: Uint32Array, toward: number, share: number): Uint32Array {
   if (share === 0) return pal;
   let byKey = hazeCache.get(pal);
   if (byKey === undefined) {
     byKey = new Map();
     hazeCache.set(pal, byKey);
   }
-  const key = `${towardIndex}:${share}`;
+  const key = `${toward}:${share}`;
   let out = byKey.get(key);
   if (out === undefined) {
-    const haze = pal[towardIndex] ?? 0;
     const mix = (c: number, shift: number) => {
       const a = (c >>> shift) & 0xff;
-      const b = (haze >>> shift) & 0xff;
+      const b = (toward >>> shift) & 0xff;
       return Math.round(a + (b - a) * share) << shift;
     };
     out = pal.map((c) => ((c & 0xff000000) | mix(c, 0) | mix(c, 8) | mix(c, 16)) >>> 0);

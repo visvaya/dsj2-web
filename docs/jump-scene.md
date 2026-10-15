@@ -113,8 +113,7 @@ rogu oraz etykieta fazy i prędkość na pasku to dodatki portu.
 - Linia wychodząca poza ekran: oryginał przycina tylko jej wiersze (zmienia nachylenie), port rysuje ją całą
   i obcina piksele.
 - Dodatki portu: pora dnia i pogoda, góry w tle (`scene-mountains.ts`: pasmo szczytów na najdalszej warstwie tła,
-  przesuwane o połowę wolniej od niej, z mgiełką ku kolorowi nieba), linia bliższej krawędzi zeskoku od buli do
-  początku bliższego płotu (oryginał nie rysuje tam krawędzi), rękawy wiatru i maszty z reflektorami na dalszym
+  przesuwane o połowę wolniej od niej, z mgiełką ku kolorowi nieba), rękawy wiatru i maszty z reflektorami na dalszym
   płocie, lampki na słupkach wzdłuż najazdu, gwiazdy i księżyc (rysowane po górach, tylko na niebie; księżyc staje
   tam, gdzie widać najwięcej nieba), ptaki (w żadnej fazie lotu nie są płaską kreską), duch rekordu
   (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane

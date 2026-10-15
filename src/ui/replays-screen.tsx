@@ -22,6 +22,7 @@ import { FramedNote, ReplayList } from "./replay-list";
 import { ReplaySettingsControls } from "./replay-settings";
 import { checkAgainst, importedShelf } from "./replay-import";
 import { RPL_EXPORT_OFFERED, rplExportable } from "./rpl-export";
+import { missingHillNote } from "./replay-hill";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -151,7 +152,7 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
     selectNone: () => setSelected(new Set()),
     watch: (entry: ShelfEntry) => {
       const hill = hills.find((h) => h.id === entry.hill.id);
-      if (!hill) return sayAt(entry.id)(T.hillMissing, true);
+      if (!hill) return sayAt(entry.id)(missingHillNote(entry), true);
       const source = sourceOfEntry(entry);
       if (!source || !entryPlaysTrue(entry, source, hill)) return sayAt(entry.id)(T.notTrue, true);
       // Opened here, the replay leads back here.

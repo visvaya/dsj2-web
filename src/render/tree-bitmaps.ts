@@ -53,7 +53,7 @@ const COMPACT_PINE_BELOW_PX = 30;
 
 /** A needle colour for a light level (0 dark .. 1 lit), with a speckle of noise `r`. */
 function needle(light: number, r: number): number {
-  return green(Math.floor(light * 4.2 + ((r % 100) / 100) * 1.4 - 0.4));
+  return green(Math.floor(light * 3.8 + ((r % 100) / 100) * 1.3 - 0.9));
 }
 
 /** A random number in 0..1 from a seed and a key. */
@@ -285,10 +285,11 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
     const shape = 0.35 + 0.65 * Math.sin(Math.PI * (0.18 + 0.7 * t));
     for (const side of [-1, 1] as const) {
       const r = unit(seed, k * 2 + (side > 0 ? 1 : 0) + 200);
-      if (k > 0 && r < 0.05 + 0.25 * t * t) continue;
+      // Branches on both sides, a few missing low in the crown.
+      if (t > 0.6 && r < 0.3 * t * t) continue;
       const room = (side < 0 ? m : width - 1 - m) + 0.5 - clumpRx * 1.1;
-      const bias = side === favoured ? 1 : 0.8;
-      const len = Math.max(1, room * shape * bias * (0.75 + 0.25 * unit(seed, k * 2 + side + 300)));
+      const bias = side === favoured ? 1 : 0.88;
+      const len = Math.max(1, room * shape * bias * (0.85 + 0.15 * unit(seed, k * 2 + side + 300)));
       const tipX = m + side * len;
       const tipY = y - len * (0.15 + 0.25 * unit(seed, k + 350));
       const steps = Math.ceil(len);

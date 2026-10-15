@@ -65,12 +65,9 @@ export function colourSpan(
   }
 }
 
-/**
- * Darkens a pixel of the snow (palette index `limit` or below) by `by` indices, as the original's ski tracks do; a
- * negative `by` lightens it, never past `limit`.
- */
+/** Darkens a pixel of the snow (palette index `limit` or below) by `by` indices, as the original's ski tracks do. */
 export function darkenSnow(c: SceneCanvas, pal: Uint32Array, x: number, y: number, by: number, limit: number): void {
   if (x < 0 || x >= c.fb.width || y < 0 || y > c.lastRow) return;
   const index = c.indices[y * c.fb.width + x] ?? 0;
-  if (index <= limit) putIndex(c, pal, x, y, Math.min(limit, Math.max(0, index - by)));
+  if (index <= limit) putIndex(c, pal, x, y, Math.max(0, index - by));
 }

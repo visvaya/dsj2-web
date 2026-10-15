@@ -4,11 +4,16 @@ import { expect, test } from "./support/fixtures";
 /** One desktop and one phone project: the save is the same code everywhere, the controls differ by pointer. */
 const PROJECTS = ["desktop-chromium", "android-portrait"];
 /** The scenery button steps through the choices; the first step from the default ("zmienna") is the day. */
-const SCENERY_AFTER_ONE_STEP = "Sceneria: dzień";
+const SCENERY_AFTER_ONE_STEP = "Pora dnia: dzień";
+/** The weather button: the first step from the default ("zmienna") is no snowfall and no fog. */
+const WEATHER_AFTER_ONE_STEP = "Pogoda: bez opadów";
 
 test.skip(({ traits }) => !PROJECTS.includes(traits.project), `settings are checked on ${PROJECTS.join(" and ")}`);
 
-test("sound, scenery and sensitivity chosen on the jump screen survive a reload", async ({ page, traits }) => {
+test("sound, time of day, weather and sensitivity chosen on the jump screen survive a reload", async ({
+  page,
+  traits,
+}) => {
   await openJumpFromStart(page, traits);
   await openJumpControls(page, traits);
 
@@ -19,9 +24,14 @@ test("sound, scenery and sensitivity chosen on the jump screen survive a reload"
   await expect(sound).toHaveAttribute("aria-pressed", "false");
 
   const scenery = button(page, TEXT.scenery);
-  await expect(scenery).toHaveText("Sceneria: zmienna");
+  await expect(scenery).toHaveText("Pora dnia: zmienna");
   await press(scenery, traits);
   await expect(scenery).toHaveText(SCENERY_AFTER_ONE_STEP);
+
+  const weather = button(page, TEXT.weather);
+  await expect(weather).toHaveText("Pogoda: zmienna");
+  await press(weather, traits);
+  await expect(weather).toHaveText(WEATHER_AFTER_ONE_STEP);
 
   // The sensitivity is kept per way of steering: the mouse on a desktop, a dragged finger on a phone.
   const sensitivity = page.getByRole("group", { name: "Czułość sterowania" });
@@ -32,12 +42,13 @@ test("sound, scenery and sensitivity chosen on the jump screen survive a reload"
 
   await expect
     .poll(() => storedSave(page))
-    .toMatchObject({ settings: { sound: false, scenery: "day", sensitivity: levels } });
+    .toMatchObject({ settings: { sound: false, scenery: "day", weather: "clear", sensitivity: levels } });
 
   await openJumpFromStart(page, traits);
   await openJumpControls(page, traits);
   await expect(button(page, TEXT.sound)).toHaveText("Dźwięk: wył.");
   await expect(button(page, TEXT.sound)).toHaveAttribute("aria-pressed", "false");
   await expect(button(page, TEXT.scenery)).toHaveText(SCENERY_AFTER_ONE_STEP);
+  await expect(button(page, TEXT.weather)).toHaveText(WEATHER_AFTER_ONE_STEP);
   await expect(page.getByRole("group", { name: "Czułość sterowania" })).toContainText("Czułość: 6");
 });
