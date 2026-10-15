@@ -136,6 +136,7 @@ function TrainingButtons(
       >
         {REPLAY_TEXT.keepLast}
       </button>
+      {!p.replayAvailable && <p className="note">{REPLAY_TEXT.notYet}</p>}
       <button type="button" className="pixel-button" onClick={() => p.onPanel("help")}>
         {UI_TEXT.menu.howTo}
       </button>

@@ -340,6 +340,8 @@ export const UI_TEXT = {
       other: "Wróć do powtórek",
       jumpHere: "Skacz na tej skoczni",
       keepLast: "Zachowaj ostatni skok",
+      /** Under the two buttons, until the first jump of the visit is over. */
+      notYet: "Obejrzysz i zachowasz skok, gdy skoczek zatrzyma się na wybiegu.",
       position: "Moment powtórki",
       positionValue: (now: string, total: string) => `${now} s z ${total} s`,
       positionShort: (now: string, total: string) => `${now} / ${total}\u00a0s`,
@@ -365,6 +367,8 @@ export const UI_TEXT = {
       own: "Koniec powtórki. Kliknięcie lub dotknięcie obrazu: nowy skok.",
       original: "Koniec powtórki. Kliknięcie lub dotknięcie obrazu: menu.",
     },
+    /** Said once the jumper stands still: from then on the jump can be watched again and kept. */
+    replayReady: "Skok obejrzysz i zachowasz w menu.",
     nextJump: {
       mouse: "Lewy przycisk lub R: jeszcze raz.",
       touch: "Pole L: jeszcze raz.",
@@ -382,6 +386,8 @@ export const UI_TEXT = {
   /** Drawn in the picture of the jump with the pixel font. */
   hud: {
     playerName: "GRACZ 1",
+    /** Under the prompt for the next jump, once the jumper stands still and the jump can be watched and kept. */
+    replayReady: "W MENU: OBEJRZYJ LUB ZACHOWAJ SKOK",
     newRecord: "NOWY REKORD SKOCZNI!",
     disqualified: "DYSKWALIFIKACJA",
     distance: (distance: string) => `${distance} M`,

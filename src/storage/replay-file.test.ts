@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { fileNamePart, readReplayFile, replayArchiveName, replayFileName, replayFileText } from "./replay-file";
+import {
+  REPLAY_FILE_MAX_ENTRIES,
+  fileNamePart,
+  readReplayFile,
+  replayArchiveName,
+  replayFileName,
+  replayFileText,
+} from "./replay-file";
 import { encodeInputs } from "./input-codec";
 import { ENGINE_REVISION, type ShelfEntry } from "./replay-shelf";
 
@@ -27,6 +34,11 @@ describe("a file of replays", () => {
     const jumped = { ...entry("a"), dateIso: new Date(2026, 9, 14, 8, 5, 9).toISOString() };
     expect(replayFileName(jumped)).toBe("telemark-powtorka_2026-10-14_08-05-09_cwiczebna-k90.json");
     expect(fileNamePart("Zakopane 1 · Łódź!")).toBe("zakopane-1-lodz");
+  });
+
+  it("reads no more replays than the shelf holds, and counts the rest as unread", () => {
+    const many = Array.from({ length: REPLAY_FILE_MAX_ENTRIES + 5 }, (_, i) => entry(`e${i}`));
+    expect(readReplayFile(replayFileText(many, NOW))).toMatchObject({ unreadable: 5 });
   });
 
   it("reads a file of the first version as well", () => {
