@@ -32,6 +32,11 @@ export function treeWidthPx(kind: TreeKind, size: number): number {
   return TREE_SIZE_PX[kind][size - SMALLEST_TREE_SIZE]?.[1] ?? 6;
 }
 
+/** Height in rows of a tree of `kind` and `size`. */
+export function treeHeightPx(kind: TreeKind, size: number): number {
+  return TREE_SIZE_PX[kind][size - SMALLEST_TREE_SIZE]?.[0] ?? 10;
+}
+
 /** Palette indices: needles from the darkest green up (0x51..0x56), bark, snow in light and in shade. */
 const GREEN = [0x51, 0x52, 0x53, 0x54, 0x55, 0x56] as const;
 const GREEN_FIRST = 0x51;

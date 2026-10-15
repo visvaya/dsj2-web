@@ -8,8 +8,8 @@ import type { HillLook } from "./hill-look";
 import { backgroundLayerTable } from "./scene-backdrop";
 import { LAYER_SCALE, layerOffset, viewColumn, type SceneView } from "./scene-layers";
 import { hazedPalette } from "./scene-palette";
-import { putIndex, type SceneCanvas } from "./scene-span";
-import { TREE_VARIANTS, treeBitmap, treeWidthPx, type TreeBitmap, type TreeKind } from "./tree-bitmaps";
+import type { SceneCanvas } from "./scene-span";
+import { TREE_VARIANTS, treeBitmap, treeHeightPx, treeWidthPx, type TreeBitmap, type TreeKind } from "./tree-bitmaps";
 
 /**
  * Trees of the background as the original places them (0baf:602e, 0baf:0d0c): two kinds, scattered once per hill
@@ -177,12 +177,23 @@ function hazeShare(layer: number): number {
 /** Which of the shapes a tree gets: fixed by where it stands, so it never changes between frames. */
 const variantOf = (t: PlacedTree) => hash(t.j * 7 + t.layer * 131 + (t.kind === "pine" ? 1 : 0)) % TREE_VARIANTS;
 
-/** A tree's bitmap with its top left corner at (x0, y0); index 0 is left out. */
+/** A tree's bitmap with its top left corner at (x0, y0), cut to the scene; index 0 is left out. */
 function blit(c: SceneCanvas, pal: Uint32Array, b: TreeBitmap, x0: number, y0: number): void {
-  for (let y = 0; y < b.height; y++) {
-    for (let x = 0; x < b.width; x++) {
-      const index = b.pixels[y * b.width + x] ?? 0;
-      if (index !== 0) putIndex(c, pal, x0 + x, y0 + y, index);
+  const { fb, indices } = c;
+  const pixels = fb.pixels;
+  const width = fb.width;
+  const fromY = Math.max(0, -y0);
+  const toY = Math.min(b.height, c.lastRow - y0 + 1);
+  const fromX = Math.max(0, -x0);
+  const toX = Math.min(b.width, width - x0);
+  for (let y = fromY; y < toY; y++) {
+    const source = y * b.width;
+    const target = (y0 + y) * width + x0;
+    for (let x = fromX; x < toX; x++) {
+      const index = b.pixels[source + x] ?? 0;
+      if (index === 0) continue;
+      indices[target + x] = index;
+      pixels[target + x] = pal[index] ?? 0;
     }
   }
 }
@@ -203,11 +214,20 @@ export function drawTrees(
     const layerPal = hazedPalette(pal, HAZE_INDEX, hazeShare(layer));
     for (const t of trees) {
       if (t.layer !== layer) continue;
+      // Whether the tree shows at all, before its bitmap is made: most of a hill's trees are out of the view.
+      const halfWidth = Math.ceil(treeWidthPx(t.kind, t.size) / view.pixelWidth / 2) + 1;
+      const column = viewColumn(view, t.j - off.x);
+      const foot = t.rows + off.y;
+      if (
+        column - halfWidth >= c.fb.width ||
+        column + halfWidth < 0 ||
+        foot - treeHeightPx(t.kind, t.size) > c.lastRow ||
+        foot < 0
+      ) {
+        continue;
+      }
       const b = treeBitmap(t.kind, t.size, view.pixelWidth, variantOf(t));
-      const x0 = viewColumn(view, t.j - off.x) - Math.floor(b.width / 2);
-      const y0 = t.rows + off.y - b.height + 1;
-      if (x0 >= c.fb.width || x0 + b.width < 0 || y0 > c.lastRow || y0 + b.height < 0) continue;
-      blit(c, layerPal, b, x0, y0);
+      blit(c, layerPal, b, column - Math.floor(b.width / 2), foot - b.height + 1);
     }
   }
 }
