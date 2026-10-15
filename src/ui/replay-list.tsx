@@ -1,7 +1,7 @@
 import { entryBytes, sameReplay, type Shelf, type ShelfEntry, type ShelfKind } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { formatDecimal, formatSize } from "./number-text";
-import { rplExportable } from "./rpl-export";
+import { RPL_EXPORT_OFFERED, rplExportable } from "./rpl-export";
 
 const T = UI_TEXT.replays;
 const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent", "loaded"];
@@ -81,7 +81,7 @@ function ReplayRow({ entry, p, keepable }: { entry: ShelfEntry; p: ListProps; ke
             {entry.kind === "record" ? T.keepForGood : T.keep}
           </button>
         )}
-        {rplExportable(entry) && (
+        {RPL_EXPORT_OFFERED && rplExportable(entry) && (
           <button
             type="button"
             className="pixel-button small-button"
