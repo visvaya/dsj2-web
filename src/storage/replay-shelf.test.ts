@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { FrameInput } from "../sim/jump-logic";
+import { decodeInputs, encodeInputs } from "./input-codec";
 import {
   ENGINE_REVISION,
   REPLAY_LIMITS,
   cleanedShelf,
-  decodeInputs,
-  encodeInputs,
   entryBytes,
   oldestRemovable,
   parseShelf,

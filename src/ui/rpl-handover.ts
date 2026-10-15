@@ -24,9 +24,7 @@ export async function handOverRpl(
   preferShare: boolean,
   say: Say,
 ): Promise<void> {
-  // Checking plays the jump many times, a second or more on a slow phone: the message shows first.
-  say(T.rplChecking);
-  await nextPaint();
+  // No message while the check runs: it takes a moment, and a note shown for it would flicker before the answer.
   const made = rplExport(entry, hills);
   if (!made.ok) return say(made.message, true);
   const file = new File([made.file], rplFileName(entry), { type: "application/octet-stream" });
@@ -52,7 +50,8 @@ async function checkedFiles(entries: readonly ShelfEntry[], hills: readonly Hill
   let unfit = 0;
   let approximate = 0;
   for (const [i, entry] of entries.entries()) {
-    say(T.rplCheckingMany(i + 1, entries.length));
+    // A single replay is checked in a moment; a count for it would only flicker before the answer.
+    if (entries.length > 1) say(T.rplCheckingMany(i + 1, entries.length));
     // One replay at a time, each after a paint: the page keeps telling how far the check is.
     // oxlint-disable-next-line no-await-in-loop
     await nextPaint();
@@ -82,7 +81,7 @@ export async function handOverManyRpl(
   const file =
     files.length === 1
       ? new File([single.bytes], single.name, { type: "application/octet-stream" })
-      : new File([zipFile(files)], `telemark-rpl-${fileStamp(new Date())}.zip`, { type: "application/zip" });
+      : new File([zipFile(files)], `telemark-rpl_${fileStamp(new Date())}.zip`, { type: "application/zip" });
   const outcome = await handOverFile(file, T.rplTitle, preferShare);
   if (outcome === "cancelled") return say("");
   return say(T.rplExportedMany(files.length, outcome, { approximate, unfit, ownHills }), unfit + ownHills > 0);

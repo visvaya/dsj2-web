@@ -178,6 +178,7 @@ export function App({ diagnostics }: AppProps) {
         diagnostics={diagnostics}
         openingReplay={screen.replay ?? null}
         recordGhost={ghost}
+        offline={offline}
       />
     );
   }

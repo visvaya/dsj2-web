@@ -13,7 +13,7 @@ import { detectReplayStore, type ReplayStore } from "../storage/replay-store";
 import type { ReplaySettings } from "../storage/save-data";
 import type { ReplaySource } from "./jump-replay";
 import type { FinishedJump } from "./jump-runs";
-import { ownEntry, recordReplayOf } from "./shelf-replays";
+import { ownEntry, recordReplayOf, slimRecording } from "./shelf-replays";
 
 const BYTES_PER_KB = 1000;
 
@@ -62,22 +62,28 @@ export function useReplayShelf(settings: ReplaySettings) {
   const change = (next: (current: Shelf) => Shelf) =>
     setShelf((current) => cleanedShelf(next(current), cleanup.current, new Date()));
 
-  /** A training jump is over: the replay of a new record replaces the hill's last, and the last jumps follow. */
-  const onJumpFinished = (hill: HillChoice, jump: FinishedJump, newRecord: boolean) => {
+  /**
+   * A training jump is over: the replay of a new record replaces the hill's last, and the last jumps follow. The
+   * recording is slimmed first, which plays the jump twice: after the frame that ended it, not within it.
+   */
+  const onJumpFinished = (hill: HillChoice, finished: FinishedJump, newRecord: boolean) => {
     const now = new Date();
-    change((current) => {
-      const recorded = newRecord ? withRecord(current, ownEntry("record", hill, jump, now)) : current;
-      return settings.recentCount > 0
-        ? withRecent(recorded, ownEntry("recent", hill, jump, now), settings.recentCount).shelf
-        : recorded;
-    });
+    setTimeout(() => {
+      const jump = { ...finished, recording: slimRecording(hill, finished.recording) };
+      change((current) => {
+        const recorded = newRecord ? withRecord(current, ownEntry("record", hill, jump, now)) : current;
+        return settings.recentCount > 0
+          ? withRecent(recorded, ownEntry("recent", hill, jump, now), settings.recentCount).shelf
+          : recorded;
+      });
+    }, 0);
   };
 
   /** Keeps a jump by hand; says whether it was kept, was kept before, or found no room. */
   const keepJump = (hill: HillChoice, jump: FinishedJump): KeepOutcome => {
     // Until the stored replays are in, what is already kept and what room is left are not known.
     if (!loaded) return "notReady";
-    const entry = ownEntry("kept", hill, jump, new Date());
+    const entry = ownEntry("kept", hill, { ...jump, recording: slimRecording(hill, jump.recording) }, new Date());
     const outcome = withKept(shelf, entry);
     if (outcome.refused !== null) return outcome.refused;
     change((current) => withKept(current, entry).shelf);

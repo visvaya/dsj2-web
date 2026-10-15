@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { ENGINE_REVISION, encodeInputs, type Shelf } from "./replay-shelf";
+import { encodeInputs } from "./input-codec";
+import { ENGINE_REVISION, type Shelf } from "./replay-shelf";
 import type { IdbRecord } from "./idb-record";
 import {
   detectReplayStore,

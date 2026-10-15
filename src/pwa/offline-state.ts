@@ -10,16 +10,31 @@ export interface OfflineState {
   readiness: OfflineReadiness;
   /** A newer release is stored and takes over once every window of the game has been closed. */
   updateWaiting: boolean;
+  /** The version of the game in that release, once its worker has told it; null before, or from an older worker. */
+  updateVersion: string | null;
 }
 
-/** "update-active": the release that was waiting has taken over, so there is nothing left to wait for. */
-export type OfflineEvent = "ready" | "unavailable" | "update-waiting" | "update-active";
+/**
+ * "update-active": the release that was waiting has taken over, so there is nothing left to wait for. An
+ * "update-version" names the version of the waiting release.
+ */
+export type OfflineEvent =
+  | "ready"
+  | "unavailable"
+  | "update-waiting"
+  | "update-active"
+  | { type: "update-version"; version: string };
 
-export const INITIAL_OFFLINE_STATE: OfflineState = { readiness: "preparing", updateWaiting: false };
+export const INITIAL_OFFLINE_STATE: OfflineState = {
+  readiness: "preparing",
+  updateWaiting: false,
+  updateVersion: null,
+};
 
 export function reduceOffline(state: OfflineState, event: OfflineEvent): OfflineState {
+  if (typeof event === "object") return { ...state, updateVersion: event.version };
   if (event === "update-waiting") return { ...state, updateWaiting: true };
-  if (event === "update-active") return { ...state, updateWaiting: false };
+  if (event === "update-active") return { ...state, updateWaiting: false, updateVersion: null };
   return { ...state, readiness: event };
 }
 

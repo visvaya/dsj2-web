@@ -5,11 +5,12 @@ import type { TestRelease } from "../releases/paths";
 import { TEXT } from "./app";
 import { expect, test } from "./fixtures";
 
-/** What the menu says about playing without a network (src/pwa/offline-text.ts). */
+/** What the menu says about playing without a network and about a waiting release (src/text/ui-text.ts). */
 export const OFFLINE_NOTE = {
   ready: "Gotowe do gry bez internetu.",
   unavailable: "Gra bez internetu nie jest jeszcze gotowa.",
-  updateWaiting: "Nowa wersja jest gotowa. Zamknij wszystkie okna gry i uruchom ją ponownie.",
+  /** With the version the waiting worker names: both test releases are built with one. */
+  updateWaiting: /^Jest nowa wersja gry: \d+\.\d+\.\d+\. Zamknij grę całkowicie/,
 } as const;
 
 const SAVE_KEY = "telemark.save";

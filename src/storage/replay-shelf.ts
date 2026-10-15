@@ -1,5 +1,5 @@
 import type { Scenery } from "../render/jump-view";
-import type { FrameInput } from "../sim/jump-logic";
+import { decodeInputs } from "./input-codec";
 import { field } from "./save-data";
 
 /**
@@ -54,38 +54,6 @@ export type ShelfRefusal = "alreadyKept" | "keptFull" | "loadedFull" | "budgetFu
 
 export type ShelfOutcome = { shelf: Shelf; refused: null } | { shelf: Shelf; refused: ShelfRefusal };
 
-/** Bytes of a frame of input: the buttons, then the vertical motion as a signed byte. */
-const FRAME_BYTES = 2;
-
-/** The inputs of a jump as text: two bytes a frame, in base64. */
-export function encodeInputs(inputs: readonly FrameInput[]): string {
-  const bytes = new Uint8Array(inputs.length * FRAME_BYTES);
-  inputs.forEach((input, i) => {
-    bytes[i * FRAME_BYTES] = (input.left ? 1 : 0) | (input.right ? 2 : 0);
-    bytes[i * FRAME_BYTES + 1] = input.dy & 0xff;
-  });
-  return btoa(String.fromCharCode(...bytes));
-}
-
-/** The inputs back from their text; null for text that is not what `encodeInputs` writes. */
-export function decodeInputs(text: string): FrameInput[] | null {
-  let raw: string;
-  try {
-    raw = atob(text);
-  } catch {
-    return null;
-  }
-  if (raw.length % FRAME_BYTES !== 0) return null;
-  const inputs: FrameInput[] = [];
-  for (let i = 0; i < raw.length; i += FRAME_BYTES) {
-    const buttons = raw.charCodeAt(i);
-    const motion = raw.charCodeAt(i + 1);
-    if (buttons > 3) return null;
-    inputs.push({ left: (buttons & 1) !== 0, right: (buttons & 2) !== 0, dy: motion > 127 ? motion - 256 : motion });
-  }
-  return inputs;
-}
-
 /** The size of one replay as it is stored, for the list to show. */
 export function entryBytes(entry: ShelfEntry): number {
   return JSON.stringify(entry).length;
@@ -108,7 +76,12 @@ export function withRecord(shelf: Shelf, entry: ShelfEntry): Shelf {
 /** The same jump on the shelf, whatever kind it is kept as: the same seed and inputs, or the same file. */
 export function sameReplay(a: ShelfEntry, b: ShelfEntry): boolean {
   if (a.replay.kind === "own" && b.replay.kind === "own") {
-    return a.replay.seed === b.replay.seed && a.replay.inputs === b.replay.inputs;
+    if (a.replay.seed !== b.replay.seed) return false;
+    // The same input may be written in either form of the codec.
+    return (
+      a.replay.inputs === b.replay.inputs ||
+      JSON.stringify(decodeInputs(a.replay.inputs)) === JSON.stringify(decodeInputs(b.replay.inputs))
+    );
   }
   return a.replay.kind === "original" && b.replay.kind === "original" && a.replay.rpl === b.replay.rpl;
 }

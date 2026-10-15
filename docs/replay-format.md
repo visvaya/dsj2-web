@@ -82,6 +82,19 @@ i odtworzona na skoczni K250. Skok trwał 1477 klatek i miał 249,69 m, tyle sam
 przeszły na jej śladzie. Znacznika `//DSJ_v2.1P//` dla skoczni 1..32 ani `//DSJ_v2.00//` dla 33..37 nie
 sprawdzano w grze (wynika tylko z kodu odczytu).
 
+## Powtórki tej gry (własny format)
+
+Lista powtórek i pliki eksportu (`telemark-replays`, wersja 2, `src/storage/replay-file.ts`) trzymają skok jako
+ziarno generatora i wejście każdej klatki (`src/storage/input-codec.ts`): liczba klatek, serie naciśnięć (odstęp,
+długość, przyciski) i ruch w pionie od pierwszej do ostatniej klatki z ruchem, bajt na klatkę; liczby w LEB128,
+całość w base64 z przedrostkiem `2:`. Gra czyta też pierwszą postać (dwa bajty na klatkę, wersja 1 pliku).
+Przy zapisie gra usuwa ruch myszy na belce, na rozbiegu, na wybiegu i po upadku, jeśli przeliczony bez niego skok
+kończy się w tym samym stanie (inaczej zostaje ruch upadku albo całe wejście). Skok bez ruchu zajmuje kilkadziesiąt
+bajtów wejścia, skok z myszą w ruchu przez cały czas około dwóch do trzech razy mniej niż w pierwszej postaci.
+Jedna powtórka wychodzi jako `telemark-powtorka_<dzień>_<godzina>_<skocznia>.json` (czas skoku), kilka jako
+archiwum ZIP `telemark-powtorki_<dzień>_<godzina>.zip` z osobnym plikiem na skok. Wczytać można plik, archiwum
+(bez kompresji albo z kompresją deflate, z limitami liczby i rozmiaru plików) i plik `.rpl`.
+
 ## Plik zapisany przez tę grę
 
 Ekran „Powtórki” zapisuje skok oddany na skoczni z oryginału jako plik `.rpl` (`src/ui/rpl-export.ts`, koder:

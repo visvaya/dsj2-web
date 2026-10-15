@@ -4,19 +4,27 @@ import { PWA_CONFIG } from "./pwa-config";
 
 describe("reduceOffline", () => {
   it("starts without a promise of playing offline", () => {
-    expect(INITIAL_OFFLINE_STATE).toEqual({ readiness: "preparing", updateWaiting: false });
+    expect(INITIAL_OFFLINE_STATE).toEqual({ readiness: "preparing", updateWaiting: false, updateVersion: null });
   });
 
   it("becomes ready, or unavailable, and keeps a waiting update through both", () => {
     const waiting = reduceOffline(INITIAL_OFFLINE_STATE, "update-waiting");
-    expect(waiting).toEqual({ readiness: "preparing", updateWaiting: true });
-    expect(reduceOffline(waiting, "ready")).toEqual({ readiness: "ready", updateWaiting: true });
-    expect(reduceOffline(waiting, "unavailable")).toEqual({ readiness: "unavailable", updateWaiting: true });
+    expect(waiting).toEqual({ readiness: "preparing", updateWaiting: true, updateVersion: null });
+    expect(reduceOffline(waiting, "ready")).toEqual({ readiness: "ready", updateWaiting: true, updateVersion: null });
+    expect(reduceOffline(waiting, "unavailable")).toMatchObject({ readiness: "unavailable", updateWaiting: true });
   });
 
-  it("forgets a waiting update once that release has taken over", () => {
-    const waiting = reduceOffline({ readiness: "ready", updateWaiting: true }, "update-active");
-    expect(waiting).toEqual({ readiness: "ready", updateWaiting: false });
+  it("names the version of the waiting update, and forgets both once that release has taken over", () => {
+    const named = reduceOffline(
+      { readiness: "ready", updateWaiting: true, updateVersion: null },
+      { type: "update-version", version: "0.10.0" },
+    );
+    expect(named).toEqual({ readiness: "ready", updateWaiting: true, updateVersion: "0.10.0" });
+    expect(reduceOffline(named, "update-active")).toEqual({
+      readiness: "ready",
+      updateWaiting: false,
+      updateVersion: null,
+    });
   });
 
   it("returns a new state and leaves the one it was given", () => {

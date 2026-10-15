@@ -12,7 +12,8 @@ import {
   replayHeader,
   type ReplayLabels,
 } from "../storage/original-replay-file";
-import { decodeInputs, type ShelfEntry } from "../storage/replay-shelf";
+import { decodeInputs } from "../storage/input-codec";
+import { type ShelfEntry } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { originalReplaySource, type ReplaySource } from "./jump-replay";
 import { bytesOfBase64, entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
@@ -134,6 +135,17 @@ function partsOf(press: Press, turns: readonly number[]): [number, number][] {
 const withLeftBeside = (inputs: readonly FrameInput[], press: Press): FrameInput[] =>
   inputs.map((input, frame) => (frame >= press.from && frame < press.to ? { ...input, left: true } : input));
 
+/**
+ * The input with the left button instead of the right one wherever the right one is down alone within `press`. At
+ * the takeoff the jump counts the buttons down, not which ones, so one button there is one button either way.
+ */
+const asLeftAlone = (inputs: readonly FrameInput[], press: Press): FrameInput[] =>
+  inputs.map((input, frame) =>
+    frame >= press.from && frame < press.to && input.right && !input.left
+      ? { ...input, left: true, right: false }
+      : input,
+  );
+
 /** The input without motion in the frames `still` names. */
 const withoutMotion = (inputs: readonly FrameInput[], still: (frame: number) => boolean): FrameInput[] =>
   inputs.map((input, frame) => (input.dy !== 0 && still(frame) ? { ...input, dy: 0 } : input));
@@ -164,13 +176,16 @@ function essentialInputs(
       }
       return kept;
     }, inputs);
-  // The takeoff window keeps the right button only with the left one: a tap of the right one alone in it (two
-  // thumbs a few frames apart on a phone) may take the left one beside it, when the jump stays the same.
+  // The takeoff window keeps the right button only with the left one. A right button alone in it (pressed before
+  // the left one, or held after it) becomes the left one, or a tap of the right one alone (two thumbs a few frames
+  // apart on a phone) takes the left one beside it, when the jump stays the same.
   const paired = pressesInOrder(fewerPresses)
-    .filter((press) => press.button === "right" && fewerPresses[press.from]?.left === false)
+    .filter((press) => press.button === "right")
     .reduce<readonly FrameInput[]>((kept, press) => {
-      const both = withLeftBeside(kept, press);
-      return samePlay(both) ? both : kept;
+      const tries = [asLeftAlone(kept, press), withLeftBeside(kept, press)];
+      return (
+        tries.find((changed) => changed.some((input, frame) => input !== kept[frame]) && samePlay(changed)) ?? kept
+      );
     }, fewerPresses);
   // Motion on the gate, in the inrun and in the outrun (a mouse moved all along): the air keeps its own.
   const firstAir = phases.findIndex(inAir);

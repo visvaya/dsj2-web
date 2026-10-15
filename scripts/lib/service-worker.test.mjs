@@ -267,6 +267,8 @@ test("a failed install of the next release leaves the active one whole and worki
   assert.equal(await page.text(), RELEASE_A["/"]);
   assert.deepEqual(await active.message({ type: "telemark:release" }), {
     type: "telemark:release",
+    // A worker rendered without a version says so; a release always renders it (write-release.mjs).
+    version: null,
     sourceSha: "a".repeat(40),
     contentId: "c".repeat(64),
     complete: true,
