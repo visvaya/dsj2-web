@@ -8,7 +8,8 @@
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce; sprawdza też, że krok symulacji nie zmienia stanu, który dostał | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
-| `src/sim/test-support/replay-plan.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
+| `src/original/test-support/scripted-jump.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
+| `src/storage/original-replay-file.test.ts` | zapis pliku `.rpl`: pola planu pod opisanymi przesunięciami, nagłówek, szyfr i suma kontrolna odczytane z powrotem przez dekoder | wszędzie, także w CI |
 | `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
 | `src/sim/test-support/dsj-trace.test.ts` | odczyt i wyszukiwanie śladów (zwykłych i gzip) na małych, sztucznych śladach | wszędzie, także w CI |
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
@@ -264,6 +265,7 @@ komputerze. Przy każdym punkcie: test, który pokrywa to automatycznie, albo �
 | 28 | Na iPhonie w „Powtórkach” zaznacz powtórki i „Eksportuj zaznaczone”; zapisz plik w Plikach albo wyślij; na drugim urządzeniu (albo po usunięciu) „Wczytaj powtórki” i wybierz ten plik; wczytaj też plik `.rpl` | na telefonie otwiera się arkusz udostępniania, na komputerze plik się pobiera; po wczytaniu powtórki są w „Zachowanych” i grają do tej samej odległości; drugie wczytanie mówi, że są już zachowane; wczytany `.rpl` gra i zostaje w „Zachowanych” | format, import i limity: `replay-file.test.ts`, `replay-import.test.ts`; udostępnienie i pobranie: `hand-over-file.test.ts`; ścieżka w przeglądarce z pobraniem: `saved-replays.spec.ts`; arkusz iOS i Pliki: tylko urządzenie |
 | 29 | Na telefonie w pionie obejrzyj powtórkę, raz ze sterowaniem palcem, raz z przechyłem; przesuń suwak „Moment powtórki” pod obrazem; w menu powtórki wyłącz suwak; na liście skoczni dotknij „Powtórka” przy skoczni z rekordem | w powtórce obraz jest na środku ekranu, tej samej wielkości co przy skoku, przy obu sposobach sterowania; suwak idzie za powtórką, pod palcem stoi i przenosi powtórkę do wskazanej chwili bez lawiny dźwięków not; wyłączony znika; przycisk na liście odtwarza rekord tej skoczni | przewijanie: `src/ui/jump-runs.test.ts`; powtórka rekordu: `src/ui/shelf-replays.test.ts`; suwak, układ i przycisk: `replay.spec.ts`, `saved-replays.spec.ts`; odczucie suwaka palcem: tylko urządzenie |
 | 30 | Na skoczni z rekordem oddaj skok, potem w „Ustawieniach” wyłącz „Duch rekordu” i skocz jeszcze raz | z bramki razem ze skoczkiem rusza półprzezroczysty, niebieskawo-biały duch rekordu i ląduje tam, gdzie rekord; skoczek gracza jest zawsze nad nim; po wyłączeniu ducha nie ma; płynność skoku na telefonie bez zmian | synchronizacja i lądowanie ducha: `src/ui/jump-runs.test.ts`, `src/ui/record-ghost.test.ts`; rysowanie: `src/render/jump-view-ghost.test.ts`; przełącznik: `saved-replays.spec.ts`; widoczność na ekranie telefonu i płynność: tylko urządzenie |
+| 31 | Na skoczni z oryginału oddaj skok, w „Powtórkach” przy nim naciśnij „Eksportuj .rpl”, skopiuj plik do katalogu DSJ2 i obejrzyj go w studiu powtórek oryginału | plik pobiera się albo trafia do udostępniania; oryginał pokazuje go na liście z odległością, nazwą „GRACZ 1” i datą i odtwarza ten sam skok, z tą samą odległością; przy skoku na skoczni własnej przycisku nie ma | zapis i sprawdzenie przez odtworzenie: `src/storage/original-replay-file.test.ts`, `src/ui/rpl-export.test.ts`; brak przycisku przy skoczni własnej: `saved-replays.spec.ts`; odtworzenie w oryginale: pomiar w emulatorze z 2026-10-15 (`docs/replay-format.md`), poza tym ręcznie (testy przeglądarkowe nie mają skoczni z oryginału) |
 
 Gra uruchomiona z ikony nie ma paska adresu, więc pomiar z punktu 23 robi się w karcie przeglądarki.
 
@@ -351,7 +353,7 @@ python3 -I tools/re/craft_replays.py set-distance <ślady>/HILL32.trace.gz <kopi
 DSJ2_TRACE_DIR=<ślady> DSJ2_GAME_DIR=<kopia-gry> pnpm test
 ```
 
-Plan (`src/sim/test-support/replay-plan.ts`) to wejście skoku w postaci, w jakiej trzyma je powtórka
+Plan (`src/storage/original-replay-file.ts`, skryptowany gracz w `src/original/test-support/scripted-jump.ts`) to wejście skoku w postaci, w jakiej trzyma je powtórka
 (`docs/replay-format.md`): klatka startu, początek okna wybicia i jego 20 bajtów, ruch myszy z pierwszą i ostatnią
 klatką, klatki przycisków lądowania, ziarno generatora i wiatr. Powstaje z przebiegu portu ze skryptowanym
 graczem; wejście, którego powtórka nie pomieści, jest odrzucane. Plik planu zawiera też wynik portu (`expected`:

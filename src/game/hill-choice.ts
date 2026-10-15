@@ -74,6 +74,12 @@ export function fallbackHillName(number: number): string {
 /** The id under which a hill of the original, by its number (1 to 37), is offered. */
 export const originalHillId = (hillNumber: number): string => `original-${hillNumber}`;
 
+/** The number of a hill of the original from its id; null for any other hill. */
+export function originalHillNumber(id: string): number | null {
+  const match = /^original-([1-9]\d?)$/.exec(id);
+  return match ? Number(match[1]) : null;
+}
+
 export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[] {
   return hills.map((h) => ({
     id: originalHillId(h.number),

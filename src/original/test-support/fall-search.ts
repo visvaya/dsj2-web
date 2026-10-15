@@ -1,4 +1,4 @@
-import { planJump, type JumpScript, type PlannedJump } from "../../sim/test-support/replay-plan";
+import { planJump, type JumpScript, type PlannedJump } from "./scripted-jump";
 import { readOriginalHills } from "../original-hills";
 import { HILL_PLAN, ORDINARY_JUMP, hillSetup, type PlanFile, type PlannedHill } from "./hill-plans";
 

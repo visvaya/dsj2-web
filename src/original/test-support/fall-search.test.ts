@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createJump, jumpRunning, stepFrame } from "../../sim/jump-sim";
-import { planInputSource } from "../../sim/test-support/replay-plan";
+import { planInputSource } from "../../storage/original-replay-file";
 import { syntheticHill } from "../../sim/test-support/synthetic";
 import { FALL_TYPES, formatFallSearch, inputPatterns, searchFalls } from "./fall-search";
 import { HILL_PLAN, hillSetup, type PlannedHill } from "./hill-plans";

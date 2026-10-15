@@ -1,6 +1,7 @@
 import { entryBytes, sameReplay, type Shelf, type ShelfEntry, type ShelfKind } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { formatDecimal, formatSize } from "./number-text";
+import { rplExportable } from "./rpl-export";
 
 const T = UI_TEXT.replays;
 const GROUPS: readonly ShelfKind[] = ["record", "kept", "recent"];
@@ -12,14 +13,19 @@ const replayName = (entry: ShelfEntry): string => {
   return jumper === undefined ? name : `${name} · ${jumper}`;
 };
 
-/** The line under a replay's name: its result, its date and what it weighs. */
+/** The day and the time of a replay, to the second, so that jumps of one session are told apart. */
+function whenText(dateIso: string): string {
+  const when = new Date(dateIso);
+  return T.when(when.toLocaleDateString("pl-PL"), when.toLocaleTimeString("pl-PL"));
+}
+
+/** The line under a replay's name: its result, when it was jumped and what it weighs. */
 function rowText(entry: ShelfEntry): string {
   const { distanceM, points, fell } = entry.result;
-  const date = new Date(entry.dateIso).toLocaleDateString("pl-PL");
   return T.row(
     T.distance(formatDecimal(distanceM, 2), fell),
     formatDecimal(points, 1),
-    date,
+    whenText(entry.dateIso),
     formatSize(entryBytes(entry)),
   );
 }
@@ -33,6 +39,8 @@ interface ListProps {
   onWatch: (entry: ShelfEntry) => void;
   onKeep: (entry: ShelfEntry) => void;
   onRemove: (entry: ShelfEntry) => void;
+  /** Gives the replay as a file of the original game. */
+  onExportRpl: (entry: ShelfEntry) => void;
 }
 
 function ReplayRow({ entry, p, keepable }: { entry: ShelfEntry; p: ListProps; keepable: boolean }) {
@@ -56,6 +64,16 @@ function ReplayRow({ entry, p, keepable }: { entry: ShelfEntry; p: ListProps; ke
         {keepable && (
           <button type="button" className="pixel-button small-button" onClick={() => p.onKeep(entry)}>
             {T.keep}
+          </button>
+        )}
+        {rplExportable(entry) && (
+          <button
+            type="button"
+            className="pixel-button small-button"
+            aria-label={T.rplExportLabel(name)}
+            onClick={() => p.onExportRpl(entry)}
+          >
+            {T.rplExport}
           </button>
         )}
         <button type="button" className="pixel-button small-button" onClick={() => p.onRemove(entry)}>

@@ -17,6 +17,7 @@ import { originalReplayOutcome } from "./original-replay-choice";
 import { formatSize } from "./number-text";
 import { ReplayList } from "./replay-list";
 import { checkAgainst, importedShelf, originalEntry } from "./replay-import";
+import { rplExport, rplFileName } from "./rpl-export";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -96,6 +97,8 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const confirm = useConfirm();
   const preferShare = useMediaQuery(TOUCH_QUERY);
+  /** A check of a .rpl file is running; another press waits for it. */
+  const checking = useRef(false);
   const fail = (text: string) => setMessage({ text, error: true });
   const remove = (ids: ReadonlySet<string>) => {
     onChangeShelf((current) => withoutEntries(current, ids));
@@ -155,6 +158,24 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       const outcome = await handOverFile(file, T.exportTitle, preferShare);
       setMessage(outcome === "cancelled" ? null : { text: T.exported[outcome], error: false });
     },
+    exportRpl: async (entry: ShelfEntry) => {
+      if (checking.current) return undefined;
+      checking.current = true;
+      try {
+        // Checking plays the jump many times, a second or more on a slow phone: the message shows first.
+        setMessage({ text: T.rplChecking, error: false });
+        await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
+        const made = rplExport(entry, hills);
+        if (!made.ok) return fail(made.message);
+        const file = new File([made.file], rplFileName(entry), { type: "application/octet-stream" });
+        const outcome = await handOverFile(file, T.rplTitle, preferShare);
+        return setMessage(outcome === "cancelled" ? null : { text: T.rplExported[outcome], error: false });
+      } catch {
+        return fail(T.notTrue);
+      } finally {
+        checking.current = false;
+      }
+    },
     readFile: async (file: File) => {
       // Nothing larger than a full shelf is read at all: it is not a file of this game.
       if (file.size > REPLAY_FILE_MAX_BYTES) return fail(T.notReplayFile);
@@ -211,6 +232,7 @@ export function ReplaysScreen(props: Props) {
         onWatch={a.watch}
         onKeep={a.keep}
         onRemove={a.removeOne}
+        onExportRpl={(entry) => void a.exportRpl(entry)}
       />
       {shelf.length > 0 && (
         <div className="replay-row-actions">
