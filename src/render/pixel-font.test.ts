@@ -33,4 +33,26 @@ describe("pixel font", () => {
   it("draws lower-case Polish letters as capitals", () => {
     expect(render("ż")).toEqual(render("Ż"));
   });
+
+  it("has a letter of its own for every Latin Extended capital and its lower-case form", () => {
+    const unknown = render("?");
+    for (const ch of "ÀÁÂÃÄÅĄĂĆČÇĎĐÈÉÊËĚĘĖĞÌÍÎÏĮĹĽŁŃŇÑÒÓÔÕÖŐØŔŘŚŠŞȘŤŢȚÙÚÛÜŮŰŲÝŸŹŽŻÆ") {
+      expect(render(ch), ch).not.toEqual(unknown);
+      expect(render(ch.toLowerCase()), ch.toLowerCase()).toEqual(render(ch));
+    }
+  });
+
+  it("writes the metres after a distance with a small m of its own, and a name's m as a capital", () => {
+    expect(render("ｍ")).not.toEqual(render("M"));
+    expect(render("m")).toEqual(render("M"));
+  });
+
+  it("draws the lower and right edges of its strokes in a darker shade", () => {
+    const fb = new FrameBuffer(16, 12);
+    const ink = 0xff00c8f0;
+    drawText(fb, 1, 1, "H", ink);
+    const colours = new Set(fb.pixels.filter((p) => p !== 0));
+    expect(colours.has(ink)).toBe(true);
+    expect(colours.size).toBe(2);
+  });
 });

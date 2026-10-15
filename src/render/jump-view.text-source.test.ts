@@ -152,6 +152,6 @@ describe("texts in the picture of the jump", { timeout: TIMEOUT_MS }, () => {
     for (const text of [...reached, playerName, ...Object.values(prompts).flatMap((scheme) => Object.values(scheme))]) {
       expect(drawn).toContain(text);
     }
-    expect([...drawn].some((text) => text.endsWith(" M]"))).toBe(true);
+    expect([...drawn].some((text) => text.endsWith("ｍ]"))).toBe(true);
   });
 });

@@ -48,6 +48,9 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 
 /** Rows of the sky bands at the top of the scene; stars and the moon are drawn there only. */
 const SKY_ROWS = 48;
+/** The hill's name in the colour the original gives a replay's file name there (0xCB), a new record in 0xCD. */
+const TITLE_INK = 0xcb;
+const RECORD_INK = 0xcd;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
 /** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
@@ -158,7 +161,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     Math.max(4, m.titleInsetPx ?? 0),
     4,
     UI_TEXT.hillLabel(m.hillName, m.kPointM),
-    color("yellow"),
+    { ramp: TITLE_INK },
     color("black"),
   );
   drawWindBox(fb, s);
@@ -180,7 +183,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   // A new record blinks from the frame the distance appears in the bar.
   if (m.newRecord === true && finished && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
     const text = UI_TEXT.hud.newRecord;
-    drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, color("yellow"), color("black"));
+    drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, { ramp: RECORD_INK }, color("black"));
   }
   drawBar(fb, m, groundBottom, notesShown);
 }

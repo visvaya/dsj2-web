@@ -19,7 +19,7 @@ import {
 import { inrunYM, terrainYM } from "../sim/hill-profile";
 import { prompt } from "./jump-view-hud";
 import type { ControlScheme } from "./jump-view-model";
-import { color } from "./palette";
+import { hudColour } from "./scene-palette";
 import { textWidth } from "./pixel-font";
 import { fnv } from "./test-support/frame-hash";
 
@@ -183,12 +183,12 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
       state: jump.state,
     };
     drawJumpView(fb, { ...model, controls: "mouse", frame: presentationFrame(jump), over: true });
-    // The column of notes under the wind box (its frame shares the notes' dark fill).
+    // The column of notes under the wind box: no note box (the boxes' dark fill) in it.
     const column: number[] = [];
-    for (let y = 32; y < 32 + 5 * 12; y++) {
+    for (let y = 57; y < 57 + 5 * 12; y++) {
       for (let x = fb.width - 31; x < fb.width - 4; x++) column.push(fb.pixels[y * fb.width + x] ?? 0);
     }
-    expect(column.includes(color("noteBox"))).toBe(false);
+    expect(column.includes(hudColour(0x08))).toBe(false);
   });
 
   it("darkens the scenery at night but keeps the interface colours", () => {

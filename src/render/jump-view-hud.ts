@@ -3,7 +3,6 @@ import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import type { ControlScheme, JumpViewModel } from "./jump-view-model";
 import { roundHalfEven } from "../sim/pascal-numeric";
-import { color } from "./palette";
 import { hudColour } from "./scene-palette";
 import { rowRunLine } from "./scene-lines";
 import { drawText, textWidth } from "./pixel-font";
@@ -12,12 +11,34 @@ import { UI_TEXT } from "../text/ui-text";
 const PHASE_LABEL = UI_TEXT.hud.phase;
 
 /**
- * The bar at the foot of the picture: its top line, two rows for an accent over a Polish capital (the acute of
- * S or O), the capitals, and two rows for an ogonek (A, E) or the tail of a letter.
+ * The bar at the foot of the picture, 13 rows as in the original: its top line, two rows for a mark over a capital,
+ * the capitals, and three rows for an ogonek or the tail of a letter and the bottom line.
  */
-export const BAR_HEIGHT_PX = 12;
-/** Where the capitals of the bar start, from its top line. */
+export const BAR_HEIGHT_PX = 13;
+/** Where the capitals of the bar start, from its top line, and the margin of its texts from the sides. */
 const BAR_TEXT_TOP_PX = 3;
+const BAR_TEXT_SIDE_PX = 5;
+/** The bar's frame: palette indices of its fill, top line, left column and bottom line. */
+const BAR = { fill: 0x05, top: 0x11, left: 0x0a, bottom: 0x08 } as const;
+/** Notes under the wind box: the first box's row, the step between boxes, a box's size and its text's inset. */
+const NOTES_TOP_PX = 57;
+const NOTES_STEP_PX = 12;
+const NOTE_BOX = { width: 27, height: 11, inset: 2 } as const;
+/** Where the points stand on the bar after the jump, as a share of its width (column 248 of the original's 320). */
+const BAR_POINTS_AT = 248 / 320;
+/**
+ * Colours of the texts: ramps of the original's palette (its bar texts 0x79, its wind speed and counted notes 0xCC,
+ * dropped notes 0xC7); the phase, the speed and warnings are this project's, in ramps of the same palette.
+ */
+export const INK = {
+  bar: 0x79,
+  wind: 0xcc,
+  note: 0xcc,
+  noteDim: 0xc7,
+  warning: 0x4c,
+  phase: 0x58,
+  speed: 0x3c,
+} as const;
 const MS_TO_KMH = 3.6;
 
 /** The wind box and the start light, as the original's bitmaps lie on its 320 columns (resources 11 and 13). */
@@ -82,7 +103,7 @@ export function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
     for (const barb of barbs) brushedLine(fb, down(tip), down(barb), hudColour(colour));
   }
   const label = s.wind.speedMPerS.toFixed(1);
-  drawText(fb, x + WIND_SPEED_AT.x, y + WIND_SPEED_AT.y, label, color("yellow"));
+  drawText(fb, x + WIND_SPEED_AT.x, y + WIND_SPEED_AT.y, label, { ramp: INK.wind });
 }
 
 /** The lamps of the start light: rows of a disc from the top, its unlit and lit (dark to light) colours. */
@@ -140,23 +161,18 @@ const NOTES_SETTLE_FRAMES = 45;
  * passed, the three that count light up and the two discarded ones stay dim.
  */
 export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void {
-  const x = fb.width - 31;
-  let y = 32;
+  const x = fb.width - WIND_BOX.right - NOTE_BOX.width;
+  let y = NOTES_TOP_PX;
   const lastShown = Math.max(...s.logic.judges.map((j) => j.showFrame));
   const settled = frame >= lastShown + NOTES_SETTLE_FRAMES;
   for (const judge of s.logic.judges) {
     if (frame < judge.showFrame) continue;
-    fb.rect(x, y, 27, 11, color("noteBorder"));
-    fb.rect(x + 1, y + 1, 25, 9, color("noteBox"));
+    hudBox(fb, x, y, NOTE_BOX.width, NOTE_BOX.height);
     const label = judge.note.toFixed(1);
-    drawText(
-      fb,
-      x + 14 - Math.ceil(textWidth(label) / 2),
-      y + 2,
-      label,
-      color(settled && judge.counted ? "yellow" : "noteDropped"),
-    );
-    y += 12;
+    drawText(fb, x + NOTE_BOX.inset, y + NOTE_BOX.inset, label, {
+      ramp: settled && judge.counted ? INK.note : INK.noteDim,
+    });
+    y += NOTES_STEP_PX;
   }
 }
 
@@ -224,31 +240,29 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
 export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesShown: boolean): void {
   const s = m.state;
   const L = s.logic;
-  fb.rect(0, top, fb.width, BAR_HEIGHT_PX, color("bar"));
-  fb.rect(0, top, fb.width, 1, color("grey"));
-  const nameEnd = drawText(fb, 4, top + BAR_TEXT_TOP_PX, m.playerName, color("yellow"));
+  fb.rect(0, top, fb.width, BAR_HEIGHT_PX, hudColour(BAR.fill));
+  fb.rect(0, top, fb.width, 1, hudColour(BAR.top));
+  fb.rect(0, top + 1, 1, BAR_HEIGHT_PX - 2, hudColour(BAR.left));
+  fb.rect(0, top + BAR_HEIGHT_PX - 1, fb.width, 1, hudColour(BAR.bottom));
+  const nameEnd = drawText(fb, BAR_TEXT_SIDE_PX, top + BAR_TEXT_TOP_PX, m.playerName, { ramp: INK.bar });
   const middle = Math.round(fb.width * 0.47);
   if (L.finished && L.distanceM === 0) {
-    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.disqualified, color("red"));
+    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.disqualified, { ramp: INK.warning });
     return;
   }
   if (L.finished) {
-    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), color("yellow"));
+    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), { ramp: INK.bar });
     if (notesShown) {
       const points = L.points.toFixed(1);
-      drawText(fb, fb.width - 4 - textWidth(points), top + BAR_TEXT_TOP_PX, points, color("yellow"));
+      drawText(fb, Math.round(fb.width * BAR_POINTS_AT), top + BAR_TEXT_TOP_PX, points, { ramp: INK.bar });
     }
     return;
   }
-  drawText(
-    fb,
-    nameEnd + 10,
-    top + BAR_TEXT_TOP_PX,
-    phaseLabel(s),
-    L.phase === PHASE.crash ? color("red") : color("green"),
-  );
+  drawText(fb, nameEnd + 10, top + BAR_TEXT_TOP_PX, phaseLabel(s), {
+    ramp: L.phase === PHASE.crash ? INK.warning : INK.phase,
+  });
   // The simulation keeps `speedMPerS` for the ground; in the air the velocity vector is shown.
   const v = s.jumper.airborne ? Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS) : s.jumper.speedMPerS;
   const speed = UI_TEXT.hud.speed((v * MS_TO_KMH).toFixed(1));
-  drawText(fb, fb.width - 4 - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, color("white"));
+  drawText(fb, fb.width - BAR_TEXT_SIDE_PX - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, { ramp: INK.speed });
 }

@@ -99,10 +99,21 @@ rysowane przez port (`jump-view-hud.ts`):
   w głąb sceny, ściśnięta o połowę. Rękawy wiatru i śnieg idą za tym samym wektorem (`game/wind-display.ts`).
 - Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
   zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
-- Noty: do 45 klatek po ostatniej wszystkie przygaszone, potem liczone jasne, odrzucone przygaszone.
+- Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki; do 45 klatek po ostatniej
+  wszystkie przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
+- Pasek: 13 wierszy (górna linia 0x11, lewa kolumna 0x0A, wypełnienie 0x05, dolna linia 0x08), teksty 5 pikseli od
+  brzegu i 3 wiersze pod górną linią, kolorem 0x79; po skoku odległość z małym „m” od 47% szerokości (kolumna 150
+  z 320) i punkty od 77,5% (kolumna 248).
 
-Różnice: cyfry i napisy własną czcionką portu (czcionka oryginału jest w `Dsj.exe`); nazwa skoczni w lewym górnym
-rogu oraz etykieta fazy i prędkość na pasku to dodatki portu.
+Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału: wersaliki 5x7 z pionowymi kreskami szerokości 2 px,
+dolne i prawe krawędzie kresek w ciemniejszym odcieniu, a kolor z rampy palety jak w oryginale (indeks rampy dla
+środka litery, o pięć niższy dla krawędzi, oba jaśniejsze ku prawemu dolnemu rogowi litery o `(2 wiersz + kolumna)
+div 6`). Litery Latin Extended to litera bazowa ze znakiem nad nią (dwa wiersze) albo pod nią; Ł, Đ, Ø i Æ mają
+własne kształty. Czcionka oryginału (z `Dsj.exe`) ma tylko wersaliki, cyfry i kilkanaście znaków, a polskie
+litery składa z akcentów.
+
+Dodatki portu: nazwa skoczni w lewym górnym rogu (0xCB, kolor, którym oryginał pisze tam nazwę pliku powtórki),
+etykieta fazy i prędkość na pasku (rampy 0x58 i 0x3C).
 
 ## Różnice portu (świadome)
 

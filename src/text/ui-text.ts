@@ -395,7 +395,8 @@ export const UI_TEXT = {
     replayReady: "W MENU: OBEJRZYJ LUB ZACHOWAJ SKOK",
     newRecord: "NOWY REKORD SKOCZNI!",
     disqualified: "DYSKWALIFIKACJA",
-    distance: (distance: string) => `${distance} M`,
+    /** The small "m" of the original after a distance is a sign of its own in the picture's font (U+FF4D). */
+    distance: (distance: string) => `${distance}ｍ`,
     speed: (speed: string) => `${speed} KM/H`,
     /** A replay, with its tempo (1, 1/2, 1/4); the second while it is paused. */
     replay: (speed: string) => `POWTÓRKA ${speed}`,
