@@ -9,7 +9,7 @@ import { HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
 import { UpdateNotice } from "./offline-notice";
 import { REPLAY_SPEED_LABEL, type ReplayView } from "./jump-replay";
-import { ReplaySliderToggle } from "./replay-settings";
+import { RecordGhostToggle, ReplaySliderToggle } from "./replay-settings";
 import { SettingsControls } from "./settings-controls";
 import type { MenuPanel } from "./use-pause-menu";
 
@@ -186,6 +186,8 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
         tiltOn={p.tiltOn}
         onToggleTilt={p.onToggleTilt}
       />
+      {/* The ghost runs beside training jumps only, so a replay's menu leaves it out. */}
+      {p.replay === null && <RecordGhostToggle recordGhost={p.settings.recordGhost} onSettings={p.onSettings} />}
       <button type="button" className="pixel-button" onClick={p.onExit}>
         {JUMP_TEXT.exit}
       </button>
@@ -199,8 +201,11 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
           {p.tiltNote}
         </p>
       )}
-      <UpdateNotice state={p.offline} />
-      <p className="note version-note">{versionLabel()}</p>
+      {/* One block in the column of buttons: the empty region of the note adds no gap. */}
+      <div className="version-block">
+        <UpdateNotice state={p.offline} />
+        <p className="note version-note">{versionLabel()}</p>
+      </div>
     </>
   );
 }

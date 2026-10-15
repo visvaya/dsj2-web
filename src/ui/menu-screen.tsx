@@ -100,8 +100,8 @@ export function MenuScreen({
           {UI_TEXT.appName}
         </h1>
         <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
+        <UpdateNotice state={offline} />
       </header>
-      <UpdateNotice state={offline} />
       <hr className="rule" />
       <nav className="menu" aria-label={UI_TEXT.menu.navigation}>
         <h2>{UI_TEXT.menu.navigation}</h2>

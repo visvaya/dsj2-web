@@ -63,7 +63,9 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   wydanie przejmuje stronę przy kolejnym uruchomieniu po zamknięciu wszystkich okien gry. Menu główne (u góry)
   i menu skoku pokazują wtedy w ramce „Jest nowa wersja gry: <numer>. Zamknij grę całkowicie [...] i uruchom ją
   ponownie”; numer podaje czekający worker (`version` w danych wydania i w odpowiedzi na pytanie strony
-  o wydanie), worker sprzed 0.10 go nie zna i wtedy komunikat jest bez numeru.
+  o wydanie), worker sprzed 0.10 go nie zna i wtedy komunikat jest bez numeru. Komunikat pojawia się dopiero po
+  1,5 s oczekiwania: przy pierwszym uruchomieniu po aktualizacji przeglądarka potrafi przez chwilę zgłaszać nowe
+  wydanie jako czekające, zanim przejmie ono stronę, a komunikat na tę chwilę migałby.
 - **Poprzednie wydanie zostaje zapisane, dopóki nie wystartuje strona nowego.** Przejęcie przez nowego workera
   niczego nie usuwa. Cache innych wydań (tylko z prefiksem gry) znika, gdy worker poda własną stronę startową
   z własnego cache, o ile żadne nowsze wydanie właśnie się nie zapisuje ani nie czeka: jego cache musi zostać.
