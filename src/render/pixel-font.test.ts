@@ -37,8 +37,8 @@ describe("pixel font", () => {
   it("has a letter of its own for every Latin Extended capital and its lower-case form", () => {
     const unknown = render("?");
     for (const ch of "ÀÁÂÃÄÅĄĂĆČÇĎĐÈÉÊËĚĘĖĞÌÍÎÏĮĹĽŁŃŇÑÒÓÔÕÖŐØŔŘŚŠŞȘŤŢȚÙÚÛÜŮŰŲÝŸŹŽŻÆ") {
-      expect(render(ch), ch).not.toEqual(unknown);
-      expect(render(ch.toLowerCase()), ch.toLowerCase()).toEqual(render(ch));
+      expect(render(ch)).not.toEqual(unknown);
+      expect(render(ch.toLowerCase())).toEqual(render(ch));
     }
   });
 
