@@ -17,7 +17,6 @@ const RGB = {
   snow1: vga(236, 236, 244),
   post: vga(28, 24, 16),
   black: vga(0, 0, 0),
-  white: vga(244, 244, 244),
   lampLight: vga(252, 248, 224),
   lampGlow: vga(252, 236, 180),
   moon: vga(236, 232, 208),
@@ -45,7 +44,6 @@ const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>(["sky1", "sky2", "bi
 /** Interface colours keep their look at any time of day and in any weather. */
 const INTERFACE: ReadonlySet<ColorName> = new Set<ColorName>([
   "black",
-  "white",
   "lampLight",
   "lampGlow",
   "moon",
