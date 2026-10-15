@@ -21,7 +21,7 @@ import { exportedReplaysFile, readChosenFile } from "./replay-files";
 import { FramedNote, ReplayList } from "./replay-list";
 import { ReplaySettingsControls } from "./replay-settings";
 import { checkAgainst, importedShelf } from "./replay-import";
-import { rplExportable } from "./rpl-export";
+import { RPL_EXPORT_OFFERED, rplExportable } from "./rpl-export";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -241,14 +241,16 @@ function SelectionActions({ a, message }: { a: ReturnType<typeof useReplayAction
         >
           {T.exportSelected(a.chosen.length)}
         </button>
-        <button
-          type="button"
-          className="pixel-button small-button"
-          aria-disabled={rplCount === 0}
-          onClick={rplCount === 0 ? undefined : () => void a.exportSelectedRpl()}
-        >
-          {T.rplExportSelected(rplCount)}
-        </button>
+        {RPL_EXPORT_OFFERED && (
+          <button
+            type="button"
+            className="pixel-button small-button"
+            aria-disabled={rplCount === 0}
+            onClick={rplCount === 0 ? undefined : () => void a.exportSelectedRpl()}
+          >
+            {T.rplExportSelected(rplCount)}
+          </button>
+        )}
         <button
           type="button"
           className="pixel-button small-button"

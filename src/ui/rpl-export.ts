@@ -33,6 +33,12 @@ export type RplExport =
     }
   | { ok: false; message: string };
 
+/**
+ * Whether the replay screen offers the export to files of the original. Off for now: some jumps of players are
+ * still refused although the format could hold them, so the export waits until it works for every jump.
+ */
+export const RPL_EXPORT_OFFERED: boolean = false;
+
 /** Whether a replay can become a file of the original: it is one, or it was jumped on one of the original's hills. */
 export const rplExportable = (entry: ShelfEntry): boolean =>
   entry.replay.kind === "original" || originalHillNumber(entry.hill.id) !== null;

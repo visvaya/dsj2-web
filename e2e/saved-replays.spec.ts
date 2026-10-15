@@ -104,7 +104,8 @@ test("replays go out to a file and come back from it, each once", async ({ page,
   await expect(replayRows(page, "Ostatnie skoki")).toHaveCount(1);
   // A jump on this game's own hill has no file of the original: the original does not know the hill.
   await expect(page.getByRole("button", { name: /^Eksportuj do pliku DSJ2/ })).toHaveCount(0);
-  await expect(button(page, "Eksportuj zaznaczone do .rpl (0)")).toBeVisible();
+  // The export to files of the original is not offered for now.
+  await expect(button(page, /do \.rpl/)).toHaveCount(0);
 
   // All selected, the button lets go of them all; then all again.
   await press(button(page, "Zaznacz wszystkie"), traits);

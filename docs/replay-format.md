@@ -97,6 +97,10 @@ archiwum ZIP `telemark-powtorki_<dzień>_<godzina>.zip` z osobnym plikiem na sko
 
 ## Plik zapisany przez tę grę
 
+Od 2026-10-15 (wersja 0.11.1) ekran „Powtórki” nie oferuje tego eksportu (`RPL_EXPORT_OFFERED` w `src/ui/rpl-export.ts`):
+część skoków graczy była odrzucana, choć format mógłby je pomieścić. Kod i testy zostają; poniższy opis dotyczy
+eksportu po jego ponownym włączeniu.
+
 Ekran „Powtórki” zapisuje skok oddany na skoczni z oryginału jako plik `.rpl` (`src/ui/rpl-export.ts`, koder:
 `src/storage/original-replay-file.ts`). Pola jak przy `from-plan`: znacznik nagłówka, który zapisałaby gra, zera
 w polach 21 i 449, pusty licencjobiorca; do tego odległość z dwoma miejscami po kropce, nazwa `GRACZ 1` i data
