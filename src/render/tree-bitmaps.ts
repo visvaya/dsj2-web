@@ -284,7 +284,7 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
     const m = mid(y);
     // Widest in the upper half of the crown, thinning out towards its bottom.
     // Pointed at the top, widening downwards, a little narrower again at the bottom of the crown.
-    const shape = Math.min(1, 0.12 + 1.15 * t) * (1 - 0.35 * Math.max(0, t - 0.75) / 0.25);
+    const shape = Math.min(1, 0.12 + 1.15 * t) * (1 - (0.35 * Math.max(0, t - 0.75)) / 0.25);
     for (const side of [-1, 1] as const) {
       const r = unit(seed, k * 2 + (side > 0 ? 1 : 0) + 200);
       // Branches on both sides, a few missing low in the crown.
@@ -300,7 +300,10 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
         put(b, m + (tipX - m) * u, y + (tipY - y) * u + 1, PINE_BARK.shade);
       }
       // Small clumps near the top, the full size lower down.
-      const rx = Math.min(clumpRx * (0.35 + 0.65 * shape) * (0.75 + 0.5 * unit(seed, k * 2 + side + 400)), room + clumpRx * 1.1 - len);
+      const rx = Math.min(
+        clumpRx * (0.35 + 0.65 * shape) * (0.75 + 0.5 * unit(seed, k * 2 + side + 400)),
+        room + clumpRx * 1.1 - len,
+      );
       clump(tipX, tipY, rx, k * 2 + (side > 0 ? 1 : 0));
       if (len > rx * 1.2) clump(m + (tipX - m) * 0.45, y + (tipY - y) * 0.45 - 1, rx * 0.85, k * 2 + 50);
     }
