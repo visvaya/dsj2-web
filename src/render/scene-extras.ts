@@ -98,13 +98,16 @@ const MAST_HEIGHT_PX = 78;
 /** The floodlight's head: lamps in one row inside a dark frame, and the short rays of light either side of it. */
 const FLOODLIGHT_LAMPS = 4;
 const FLOODLIGHT_RAY_PX = 2;
+/** A light glow around the lamps of a floodlight and of an inrun lamp: radius and strength at the centre. */
+const FLOODLIGHT_GLOW = { radius: 9, strength: 0.35 } as const;
+const INRUN_LAMP_GLOW = { radius: 4, strength: 0.3 } as const;
 const INRUN_LAMP_SPACING_M = 8;
 /** Inrun lamps stand on short posts on the far rail. */
 const INRUN_LAMP_POST_PX = 3;
 
 /**
  * Floodlight masts on the far fence, every 30 m from the takeoff, drawn plainly like the rest of the scene: a thin
- * mast, a row of lamps in a dark frame on top, and short rays of light either side and above.
+ * mast, a row of lamps in a dark frame on top, short rays of light either side and above, and a light glow.
  */
 export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView) {
   const pole = color("post");
@@ -118,6 +121,7 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
     const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
+    drawSoftGlow(fb, sx, top - 3, FLOODLIGHT_GLOW, glow);
     const left = sx - (headW >> 1);
     // The frame, the lamps in its upper row.
     fb.rect(left, top - 3, headW, 3, pole);
@@ -128,7 +132,36 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   }
 }
 
-/** Lamps on short posts along the inrun's far rail, every 8 m from the start. */
+/**
+ * A light glow around (cx, cy): pixels within the radius move towards `colour`, by the strength at the centre and
+ * fading with the square of the distance; what is drawn shows through.
+ */
+function drawSoftGlow(
+  fb: FrameBuffer,
+  cx: number,
+  cy: number,
+  glow: { radius: number; strength: number },
+  colour: number,
+): void {
+  const px = fb.pixels;
+  const { radius, strength } = glow;
+  for (let y = Math.max(0, cy - radius); y <= Math.min(fb.height - 1, cy + radius); y++) {
+    for (let x = Math.max(0, cx - radius); x <= Math.min(fb.width - 1, cx + radius); x++) {
+      const d = Math.hypot(x - cx, y - cy) / radius;
+      if (d >= 1) continue;
+      const k = strength * (1 - d) * (1 - d);
+      const i = y * fb.width + x;
+      const c = px[i] ?? 0;
+      const mix = (shift: number) => {
+        const a = (c >>> shift) & 0xff;
+        return Math.round(a + (((colour >>> shift) & 0xff) - a) * k) << shift;
+      };
+      px[i] = (0xff000000 | mix(0) | mix(8) | mix(16)) >>> 0;
+    }
+  }
+}
+
+/** Lamps on short posts along the inrun's far rail, every 8 m from the start, each with a small glow. */
 export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView, railPx: number) {
   const lamp = color("lampLight");
   const glow = color("lampGlow");
@@ -138,6 +171,7 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
     if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
+    drawSoftGlow(fb, sx, top - 1, INRUN_LAMP_GLOW, glow);
     fb.rect(sx - 1, top - 1, 2, 1, lamp);
     fb.put(sx - 1, top - 2, glow);
   }
