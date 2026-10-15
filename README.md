@@ -32,7 +32,8 @@ As of 2026-10-14: in active development.
 - A replay of the last jump, with pause, slow motion and a slider under the picture to any moment; the original's `.rpl` replays play the same way, on
   the hills of your `Dsj.exe`. The replay of each hill record is kept on its own, other jumps by hand or as the
   last few, with an optional clean-up by age and by size; replays go to a file and come back from one, to move them
-  to another device; replays read from files have a group of their own. A replay shows the time of day and the
+  to another device (one file, or a ZIP archive with a file for each), and are stored compactly (presses as runs,
+  mouse motion only where the jump reacts to it); replays read from files have a group of their own. A replay shows the time of day and the
   weather its jump had. A jump on one of the original hills can also be exported as a `.rpl` file for the original
   game, one or several at once (in a ZIP archive), checked by playing the file before it is offered.
 - A ghost of the hill record: the record's jump runs beside each training jump, leaving the gate with you.

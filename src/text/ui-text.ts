@@ -66,8 +66,8 @@ export const UI_TEXT = {
   replays: {
     title: "Powtórki",
     intro:
-      "Tu są powtórki rekordów skoczni, zachowane i ostatnie skoki oraz wczytane powtórki: pliki .rpl z DSJ2 i pliki powtórek tej gry. Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku albo powtórki: „Zachowaj ostatni skok”.",
-    load: "Wczytaj powtórki (.rpl albo plik powtórek)",
+      "Tu znajdują się powtórki rekordów skoczni, zachowane i ostatnie skoki oraz wczytane powtórki: pliki .rpl z DSJ2 i pliki powtórek tej gry. Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku albo powtórki: „Zachowaj ostatni skok”.",
+    load: "Wczytaj powtórki (*.rpl, plik powtórek *.json albo archiwum *.zip)",
     needsGame: "Powtórki z DSJ2 grają na skoczniach oryginału: najpierw wczytaj pliki gry w menu głównym.",
     notReplay: "To nie jest plik powtórki DSJ2 (.rpl).",
     damaged: "Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.",
@@ -107,6 +107,7 @@ export const UI_TEXT = {
     imported: (added: number, already: number) =>
       already === 0 ? `Wczytano powtórek: ${added}.` : `Wczytano powtórek: ${added}; już zachowanych: ${already}.`,
     importUnreadable: (count: number) => `Nie dało się odczytać powtórek: ${count}.`,
+    importSkipped: (count: number) => `Pominięte pliki, które nie są powtórkami: ${count}.`,
     importUntrue: (count: number) => `Pominięte, bo nie grają do wyniku z pliku: ${count}.`,
     notReplayFile: "To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.",
     onlyForVisit: "Ta przeglądarka nie pozwala zapisać powtórek na stałe: znikną po zamknięciu strony.",
@@ -147,7 +148,6 @@ export const UI_TEXT = {
         .filter((part) => part !== "")
         .join(" "),
     keepForGood: "Zachowaj na stałe",
-    rplChecking: "Sprawdzam, czy plik DSJ2 odtworzy ten skok…",
     rplExported: {
       shared: "Udostępniono plik .rpl. W DSJ2 otworzysz go, gdy będzie w katalogu gry.",
       downloaded: "Zapisano plik .rpl. Skopiuj go do katalogu gry DSJ2, żeby go tam obejrzeć.",
@@ -204,7 +204,8 @@ export const UI_TEXT = {
       recent: (count: number) => (count === 0 ? "Zapisuj ostatnie skoki: wył." : `Zapisuj ostatnie skoki: ${count}`),
       maxAge: "Usuwaj powtórki starsze niż (dni)",
       maxSize: "Usuwaj najstarsze, gdy powtórki ważą więcej niż (MB)",
-      recordsStay: "Rekordy skoczni nie są usuwane same.",
+      recordsStay:
+        "Obie zasady usuwają zachowane i wczytane powtórki oraz ostatnie skoki; wiek liczy się od dnia skoku. Rekordów skoczni nie usuwają.",
       sliderOn: "Suwak powtórki: wł.",
       sliderOff: "Suwak powtórki: wył.",
       ghostOn: "Duch rekordu: wł.",
@@ -313,7 +314,9 @@ export const UI_TEXT = {
       ready: "Gotowe do gry bez internetu.",
       unavailable: "Gra bez internetu nie jest jeszcze gotowa.",
     },
-    updateWaiting: "Nowa wersja jest gotowa. Zamknij wszystkie okna gry i uruchom ją ponownie.",
+    /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
+    updateWaiting: (version: string | null) =>
+      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a na telefonie także aplikację w przełączniku aplikacji) i uruchom ją ponownie, żeby się zainstalowała.`,
   },
 
   jumpScreen: {

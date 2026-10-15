@@ -122,6 +122,7 @@ async function fromOtherRelease(path) {
 async function describeRelease() {
   return {
     type: RELEASE_MESSAGE,
+    version: RELEASE.version ?? null,
     sourceSha: RELEASE.sourceSha,
     contentId: RELEASE.contentId,
     complete: await isComplete(),

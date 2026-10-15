@@ -114,10 +114,8 @@ test("replays go out to a file and come back from it, each once", async ({ page,
   const exported = page.waitForEvent("download");
   await press(button(page, "Eksportuj zaznaczone (2)"), traits);
   const download = await exported;
-  // Named after the moment to the second, and after the hill: both replays are of the built-in hill.
-  expect(download.suggestedFilename()).toMatch(
-    /^telemark-powtorki-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-cwiczebna-k90\.json$/,
-  );
+  // Two replays go out as an archive with a file for each, named after the moment of the export to the second.
+  expect(download.suggestedFilename()).toMatch(/^telemark-powtorki_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.zip$/);
   const path = await download.path();
 
   // Read back, the jump goes among the read ones, once; a second time it is there already.

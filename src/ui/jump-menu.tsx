@@ -1,11 +1,13 @@
 import type { RefObject } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import { versionLabel } from "../game/version";
+import type { OfflineState } from "../pwa/offline-state";
 import type { ControlScheme } from "../render/jump-view";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { HillLists } from "./hill-screen";
 import { HowToJump } from "./how-to-jump";
+import { UpdateNotice } from "./offline-notice";
 import { REPLAY_SPEED_LABEL, type ReplayView } from "./jump-replay";
 import { ReplaySliderToggle } from "./replay-settings";
 import { SettingsControls } from "./settings-controls";
@@ -49,6 +51,8 @@ interface Props {
   onKeepLast: () => void;
   /** What became of the last request to keep a jump, or nothing. */
   keepNote: string;
+  /** Whether a newer release waits. */
+  offline: OfflineState | null;
 }
 
 const REPLAY_TEXT = JUMP_TEXT.replay;
@@ -195,6 +199,7 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
           {p.tiltNote}
         </p>
       )}
+      <UpdateNotice state={p.offline} />
       <p className="note version-note">{versionLabel()}</p>
     </>
   );

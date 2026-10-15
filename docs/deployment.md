@@ -60,8 +60,10 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   instalację błędem i nie zostawia żadnej części wydania; działające wcześniej wydanie zostaje nietknięte.
 - **Nowe wydanie czeka.** Worker nie woła `skipWaiting()` ani `clients.claim()`, a strona nigdy sama się nie
   przeładowuje. Strona dostaje dokument i skrypty zawsze z jednego wydania, a skok nie jest przerywany. Nowe
-  wydanie przejmuje stronę przy kolejnym uruchomieniu po zamknięciu wszystkich okien gry; menu pokazuje wtedy
-  „Nowa wersja jest gotowa. Zamknij wszystkie okna gry i uruchom ją ponownie.”
+  wydanie przejmuje stronę przy kolejnym uruchomieniu po zamknięciu wszystkich okien gry. Menu główne (u góry)
+  i menu skoku pokazują wtedy w ramce „Jest nowa wersja gry: <numer>. Zamknij grę całkowicie [...] i uruchom ją
+  ponownie”; numer podaje czekający worker (`version` w danych wydania i w odpowiedzi na pytanie strony
+  o wydanie), worker sprzed 0.10 go nie zna i wtedy komunikat jest bez numeru.
 - **Poprzednie wydanie zostaje zapisane, dopóki nie wystartuje strona nowego.** Przejęcie przez nowego workera
   niczego nie usuwa. Cache innych wydań (tylko z prefiksem gry) znika, gdy worker poda własną stronę startową
   z własnego cache, o ile żadne nowsze wydanie właśnie się nie zapisuje ani nie czeka: jego cache musi zostać.

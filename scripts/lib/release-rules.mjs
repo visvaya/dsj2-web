@@ -84,12 +84,21 @@ export function cacheIdOf(precache) {
 }
 
 // The worker for one release: its source with the release written into the placeholder.
-export function renderServiceWorker(template, { sourceSha, contentId, precache }) {
+// The worker of a release, with what it keeps and, when given, the version of the game it holds (the page asks a
+// waiting worker for it, to name the release that is about to come).
+export function renderServiceWorker(template, { version, sourceSha, contentId, precache }) {
   const parts = template.split(RELEASE_PLACEHOLDER);
   if (parts.length !== 2) {
     throw new Error(`the worker's source must name ${RELEASE_PLACEHOLDER} exactly once, found ${parts.length - 1}`);
   }
-  const release = { cachePrefix: CACHE_PREFIX, cacheId: cacheIdOf(precache), sourceSha, contentId, precache };
+  const release = {
+    cachePrefix: CACHE_PREFIX,
+    cacheId: cacheIdOf(precache),
+    ...(version === undefined ? {} : { version }),
+    sourceSha,
+    contentId,
+    precache,
+  };
   return parts.join(JSON.stringify(release, null, 2));
 }
 

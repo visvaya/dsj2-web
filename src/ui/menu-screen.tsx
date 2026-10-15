@@ -6,7 +6,7 @@ import type { OfflineState } from "../pwa/offline-state";
 import type { GameFiles } from "../storage/game-files-store";
 import { UI_TEXT } from "../text/ui-text";
 import { gameFilesOutcome } from "./game-files-choice";
-import { OfflineNotice } from "./offline-notice";
+import { OfflineNotice, UpdateNotice } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 
@@ -101,6 +101,7 @@ export function MenuScreen({
         </h1>
         <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
       </header>
+      <UpdateNotice state={offline} />
       <hr className="rule" />
       <nav className="menu" aria-label={UI_TEXT.menu.navigation}>
         <h2>{UI_TEXT.menu.navigation}</h2>

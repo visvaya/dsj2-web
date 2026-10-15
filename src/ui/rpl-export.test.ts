@@ -6,7 +6,8 @@ import { decodeReplayFile, parseReplayRecord } from "../sim/replay";
 import { ORDINARY_JUMP } from "../original/test-support/hill-plans";
 import { runScriptedJump, type JumpScript } from "../original/test-support/scripted-jump";
 import { MOTION_CAPACITY_FRAMES } from "../storage/original-replay-file";
-import { decodeInputs, type ShelfEntry } from "../storage/replay-shelf";
+import { decodeInputs } from "../storage/input-codec";
+import { type ShelfEntry } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { jumpResult, stepJump } from "./jump-round";
 import { originalReplayOutcome } from "./original-replay-choice";
@@ -51,10 +52,11 @@ function keptJump(
   return { hill, jump, entry: ownEntry("kept", hill, { recording, result: jumpResult(jump) }, JUMPED_AT) };
 }
 
-/**
- * The takeoff with the right button alone: the takeoff window of a file of the original keeps the right button only
- * together with the left one, and the jump reacts to every frame of it.
- */
+/** The takeoff with the right button down first and up last, the left one only in between (as a mouse may). */
+const rightAroundLeft = (frame: number, input: FrameInput): FrameInput =>
+  frame >= 311 && frame < 325 ? { ...input, left: frame >= 314 && frame < 321, right: true } : input;
+
+/** The takeoff with the right button alone. */
 const rightOnlyTakeoff = (frame: number, input: FrameInput): FrameInput =>
   frame >= 311 && frame < 325 ? { ...input, left: false } : input;
 
@@ -146,9 +148,16 @@ describe("a jump of this game as a file of the original", () => {
     expect(playedFile(fileOf(entry, hill), hill).state).toEqual(jump.state);
   });
 
-  it("is refused when the jump reacted to more presses than the format holds", () => {
-    const { hill, entry } = keptJump(rightOnlyTakeoff);
-    expect(rplExport(entry, [hill])).toEqual({ ok: false, message: T.rplUnfit });
+  it.each([
+    ["the right button down before the left and up after it", rightAroundLeft],
+    ["the right button alone", rightOnlyTakeoff],
+  ])("takes a takeoff with %s, which the window keeps as the left one", (_, takeoff) => {
+    // The jump counts the buttons down at the takeoff, not which ones.
+    const { hill, jump, entry } = keptJump(takeoff);
+    const made = rplExport(entry, [hill]);
+    if (!made.ok) throw new Error(made.message);
+    expect(made.approximate).toBe(false);
+    expect(playedFile(made.file, hill).state).toEqual(jump.state);
   });
 
   it("needs the hill of the jump among the hills of the player's Dsj.exe", () => {

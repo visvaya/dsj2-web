@@ -136,6 +136,9 @@ test("the same input gives the same worker, byte for byte", () => {
   const precache = precacheOf([...INPUT, file("release.json", SHA_A)]);
   const release = { sourceSha: SHA_A, contentId: "c".repeat(64), precache };
   assert.equal(renderServiceWorker(TEMPLATE, release), renderServiceWorker(TEMPLATE, release));
+  // The version of the game goes in when it is given, for a waiting worker to tell the page.
+  assert.match(renderServiceWorker(TEMPLATE, { ...release, version: "0.10.0" }), /"version": "0\.10\.0"/);
+  assert.doesNotMatch(renderServiceWorker(TEMPLATE, release), /"version"/);
 });
 
 test("a source without the placeholder, or with two, is refused", () => {

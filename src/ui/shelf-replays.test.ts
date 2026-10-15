@@ -3,7 +3,9 @@ import { OWN_HILLS } from "../game/hill-choice";
 import { isJumpOver, startTrainingJump } from "../game/training-session";
 import type { FrameInput } from "../sim/jump-logic";
 import { jumpResult, stepJump } from "./jump-round";
-import { entryPlaysTrue, ownEntry, playedResult, recordReplayOf, sourceOfEntry } from "./shelf-replays";
+import { entryBytes } from "../storage/replay-shelf";
+import { recordingSource, type JumpRecording } from "./jump-replay";
+import { entryPlaysTrue, ownEntry, playedResult, recordReplayOf, slimRecording, sourceOfEntry } from "./shelf-replays";
 
 const hill = OWN_HILLS[0];
 const NOW = new Date("2026-10-14T12:00:00.000Z");
@@ -72,5 +74,34 @@ describe("a replay on the shelf", () => {
     const entry = ownEntry("kept", on, { recording, result }, NOW);
     expect(sourceOfEntry({ ...entry, replay: { kind: "own", seed: 1, inputs: "!!" } })).toBeNull();
     expect(sourceOfEntry({ ...entry, replay: { kind: "original", rpl: "AAAA" } })).toBeNull();
+  });
+});
+
+describe("a slimmed recording", () => {
+  it("drops the motion the jump did not react to, plays the same jump and is stored much smaller", () => {
+    const jump = trainingJump();
+    // A mouse never still: on the gate, in the inrun and in the outrun as well.
+    const restless = jump.recording.inputs.map((input, i) => ({ ...input, dy: input.dy || (i % 5) - 2 }));
+    const recording = { ...jump.recording, inputs: restless };
+    const slim = slimRecording(jump.hill, recording);
+    expect(slim.inputs.filter((input) => input.dy !== 0).length).toBeLessThan(restless.length / 2);
+    const play = (r: JumpRecording) => {
+      const source = recordingSource(r);
+      let played = source.start(jump.hill);
+      for (let f = 0; f < 4000 && !isJumpOver(played); f++) {
+        played = stepJump(played, { steps: 1, leftHeld: false, record: undefined }, source.input).jump;
+      }
+      return played.state;
+    };
+    expect(play(slim)).toEqual(play(recording));
+    const stored = (r: JumpRecording) =>
+      entryBytes(ownEntry("kept", jump.hill, { recording: r, result: jump.result }, NOW));
+    expect(stored(slim)).toBeLessThan(stored(recording) / 2);
+  });
+
+  it("is the recording itself when nothing could go", () => {
+    const jump = trainingJump();
+    const still = { ...jump.recording, inputs: jump.recording.inputs.map((input) => ({ ...input, dy: 0 })) };
+    expect(slimRecording(jump.hill, still)).toBe(still);
   });
 });

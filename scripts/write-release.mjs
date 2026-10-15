@@ -86,7 +86,7 @@ function main() {
   const precache = precacheOf(describeFiles(distDir));
   writeFileSync(
     join(distDir, RELEASE_FILES.SERVICE_WORKER),
-    renderServiceWorker(template, { sourceSha, contentId, precache }),
+    renderServiceWorker(template, { version, sourceSha, contentId, precache }),
   );
 
   const files = describeFiles(distDir);

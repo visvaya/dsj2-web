@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { fileNamePart, readReplayFile, replayFileName, replayFileText } from "./replay-file";
-import { ENGINE_REVISION, encodeInputs, type ShelfEntry } from "./replay-shelf";
+import { fileNamePart, readReplayFile, replayArchiveName, replayFileName, replayFileText } from "./replay-file";
+import { encodeInputs } from "./input-codec";
+import { ENGINE_REVISION, type ShelfEntry } from "./replay-shelf";
 
 const NOW = new Date("2026-10-14T12:00:00.000Z");
 
@@ -19,18 +20,19 @@ describe("a file of replays", () => {
   it("reads back the replays it was written with", () => {
     const entries = [entry("a"), entry("b")];
     expect(readReplayFile(replayFileText(entries, NOW))).toEqual({ entries, unreadable: 0 });
-    const at = new Date(2026, 9, 14, 8, 5, 9);
-    expect(replayFileName([], at)).toBe("telemark-powtorki-2026-10-14_08-05-09.json");
+    expect(replayArchiveName(new Date(2026, 9, 14, 8, 5, 9))).toBe("telemark-powtorki_2026-10-14_08-05-09.zip");
   });
 
-  it("is named after the moment of the export and the hill, when all the replays are of one", () => {
-    const at = new Date(2026, 9, 14, 8, 5, 9);
-    expect(replayFileName([entry("a"), entry("b")], at)).toBe(
-      "telemark-powtorki-2026-10-14_08-05-09-cwiczebna-k90.json",
-    );
-    const other = { ...entry("c"), hill: { id: "original-36", name: "Wisła", kPointM: 105 } };
-    expect(replayFileName([entry("a"), other], at)).toBe("telemark-powtorki-2026-10-14_08-05-09.json");
+  it("is named in sections: the game, the moment of the jump to the second and the hill", () => {
+    const jumped = { ...entry("a"), dateIso: new Date(2026, 9, 14, 8, 5, 9).toISOString() };
+    expect(replayFileName(jumped)).toBe("telemark-powtorka_2026-10-14_08-05-09_cwiczebna-k90.json");
     expect(fileNamePart("Zakopane 1 · Łódź!")).toBe("zakopane-1-lodz");
+  });
+
+  it("reads a file of the first version as well", () => {
+    const text = replayFileText([entry("a")], NOW).replace('"formatVersion":2', '"formatVersion":1');
+    expect(readReplayFile(text)?.entries).toHaveLength(1);
+    expect(readReplayFile(text.replace('"formatVersion":1', '"formatVersion":3'))).toBeNull();
   });
 
   it("counts the replays it cannot read and keeps the rest", () => {
@@ -45,7 +47,7 @@ describe("a file of replays", () => {
   it("is not one when it is another file, another version or too large", () => {
     expect(readReplayFile("not json")).toBeNull();
     expect(readReplayFile(JSON.stringify({ format: "other", formatVersion: 1, replays: [] }))).toBeNull();
-    expect(readReplayFile(JSON.stringify({ format: "telemark-replays", formatVersion: 2, replays: [] }))).toBeNull();
+    expect(readReplayFile(JSON.stringify({ format: "telemark-replays", formatVersion: 3, replays: [] }))).toBeNull();
     expect(readReplayFile(JSON.stringify({ format: "telemark-replays", formatVersion: 1, replays: {} }))).toBeNull();
     expect(readReplayFile(" ".repeat(6_000_001))).toBeNull();
   });

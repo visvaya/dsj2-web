@@ -19,6 +19,8 @@ export interface OfflineEnvironment<W extends WorkerLike> {
   register(): Promise<RegistrationLike<W>>;
   /** Asks a worker whether it holds every file of its release. */
   holdsWholeRelease(worker: W): Promise<boolean>;
+  /** Asks a worker which version of the game its release is; null when it does not say. */
+  versionOf(worker: W): Promise<string | null>;
   /** Calls the listener when the player comes back: the network returns or the page is shown again. */
   onReturn(listener: () => void): () => void;
   nowMs(): number;
@@ -40,6 +42,16 @@ export function startOfflineSupport<W extends WorkerLike>(
   const emit = (event: OfflineEvent) => {
     if (!stopped) report(event);
   };
+  /** Asks a waiting worker which version of the game it holds; an older one does not say. */
+  const tellVersion = (worker: W | null) => {
+    if (worker === null) return;
+    void env.versionOf(worker).then(
+      (version) => {
+        if (version !== null) emit({ type: "update-version", version });
+      },
+      () => undefined,
+    );
+  };
   const confirm = (worker: W) => {
     void env.holdsWholeRelease(worker).then(
       (whole) => emit(whole ? "ready" : "unavailable"),
@@ -51,7 +63,10 @@ export function startOfflineSupport<W extends WorkerLike>(
   const follow = (registration: RegistrationLike<W>, worker: W) => {
     worker.addEventListener("statechange", () => {
       const active = registration.active;
-      if (worker.state === "installed" && active !== null && active !== worker) emit("update-waiting");
+      if (worker.state === "installed" && active !== null && active !== worker) {
+        emit("update-waiting");
+        tellVersion(worker);
+      }
       if (worker.state === "activated") {
         // On a page no worker answers for (a first visit), a new release takes over at once.
         emit("update-active");
@@ -65,7 +80,10 @@ export function startOfflineSupport<W extends WorkerLike>(
   const watch = (registration: RegistrationLike<W>) => {
     if (registration.active !== null) {
       confirm(registration.active);
-      if (registration.waiting !== null) emit("update-waiting");
+      if (registration.waiting !== null) {
+        emit("update-waiting");
+        tellVersion(registration.waiting);
+      }
     }
     // A page opened while the first worker is stored but not yet active finds it waiting, not installing.
     const pending = registration.installing ?? registration.waiting;
@@ -101,17 +119,24 @@ function saysComplete(data: unknown): boolean {
   return typeof data === "object" && data !== null && Reflect.get(data, "complete") === true;
 }
 
-function askWorker(worker: ServiceWorker): Promise<boolean> {
+/** The version a worker's answer names: a short text such as "0.10.0", or null. */
+export function versionIn(data: unknown): string | null {
+  const version: unknown = typeof data === "object" && data !== null ? Reflect.get(data, "version") : null;
+  return typeof version === "string" && /^\d+\.\d+\.\d+$/.test(version) ? version : null;
+}
+
+/** What a worker tells about its release; null when it does not answer in time. */
+function askWorker(worker: ServiceWorker): Promise<unknown> {
   return new Promise((resolve) => {
     const channel = new MessageChannel();
     const timer = setTimeout(() => {
       channel.port1.close();
-      resolve(false);
+      resolve(null);
     }, PWA_CONFIG.RELEASE_ANSWER_TIMEOUT_S * 1000);
     channel.port1.addEventListener("message", (event) => {
       clearTimeout(timer);
       channel.port1.close();
-      resolve(saysComplete(event.data));
+      resolve(event.data);
     });
     channel.port1.start();
     worker.postMessage({ type: PWA_CONFIG.RELEASE_MESSAGE_TYPE }, [channel.port2]);
@@ -127,7 +152,8 @@ export function browserOfflineEnvironment(container: ServiceWorkerContainer): Of
         // The browser's own cache never answers for the worker's script.
         updateViaCache: "none",
       }),
-    holdsWholeRelease: askWorker,
+    holdsWholeRelease: (worker) => askWorker(worker).then(saysComplete),
+    versionOf: (worker) => askWorker(worker).then(versionIn),
     onReturn(listener) {
       const onVisibility = () => {
         if (!document.hidden) listener();

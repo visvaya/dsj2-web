@@ -1,21 +1,29 @@
 import { describe, expect, it } from "vitest";
 import type { OfflineEvent } from "./offline-state";
 import { PWA_CONFIG } from "./pwa-config";
-import { startOfflineSupport, type OfflineEnvironment, type RegistrationLike } from "./service-worker-client";
+import {
+  startOfflineSupport,
+  versionIn,
+  type OfflineEnvironment,
+  type RegistrationLike,
+} from "./service-worker-client";
 
 interface FakeWorker {
   state: ServiceWorkerState;
   /** What the worker answers when asked whether it holds its whole release. */
   whole: boolean;
+  /** The version of the game it names, when it is of a release that names one. */
+  version: string | null;
   addEventListener(type: "statechange", listener: () => void): void;
   become(state: ServiceWorkerState): void;
 }
 
-function fakeWorker(state: ServiceWorkerState, whole = true): FakeWorker {
+function fakeWorker(state: ServiceWorkerState, whole = true, version: string | null = null): FakeWorker {
   const listeners: (() => void)[] = [];
   const worker: FakeWorker = {
     state,
     whole,
+    version,
     addEventListener: (_type, listener) => listeners.push(listener),
     become(next) {
       worker.state = next;
@@ -83,6 +91,7 @@ function start(register: () => Promise<FakeRegistration>): Setup {
   const env: OfflineEnvironment<FakeWorker> = {
     register,
     holdsWholeRelease: (worker) => Promise.resolve(worker.whole),
+    versionOf: (worker) => Promise.resolve(worker.version),
     onReturn(listener) {
       returnListener = listener;
       return () => {
@@ -176,7 +185,18 @@ describe("startOfflineSupport", () => {
     const registration = fakeRegistration({ active: fakeWorker("activated"), waiting: fakeWorker("installed") });
     const { events } = start(() => Promise.resolve(registration));
     await settle();
-    expect(events.toSorted()).toEqual(["ready", "update-waiting"]);
+    expect(events.toSorted((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))).toEqual([
+      "ready",
+      "update-waiting",
+    ]);
+  });
+
+  it("names the version of a waiting release that tells it", async () => {
+    const waiting = fakeWorker("installed", true, "0.10.0");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { events } = start(() => Promise.resolve(registration));
+    await settle();
+    expect(events).toContainEqual({ type: "update-version", version: "0.10.0" });
   });
 
   it("reports an update found while the page is open, once it is stored and waiting", async () => {
@@ -242,5 +262,15 @@ describe("startOfflineSupport", () => {
     await settle();
     expect(events).toEqual([]);
     expect(listening()).toBe(false);
+  });
+});
+
+describe("versionIn", () => {
+  it("reads a version from a worker's answer, and nothing else", () => {
+    expect(versionIn({ type: "telemark:release", version: "0.10.0" })).toBe("0.10.0");
+    expect(versionIn({ version: "1.0" })).toBeNull();
+    expect(versionIn({ version: "<b>0.1.0</b>" })).toBeNull();
+    expect(versionIn({})).toBeNull();
+    expect(versionIn(null)).toBeNull();
   });
 });

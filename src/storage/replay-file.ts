@@ -6,7 +6,9 @@ import { asShelfEntry, type ShelfEntry } from "./replay-shelf";
  * under a name and a version of its own, so a file of anything else is told apart.
  */
 const REPLAY_FILE_FORMAT = "telemark-replays";
-const REPLAY_FILE_VERSION = 1;
+/** Version 2 writes the input in the compact form of input-codec.ts; version 1 files are read as well. */
+const REPLAY_FILE_VERSION = 2;
+const READ_VERSIONS: readonly number[] = [1, 2];
 /** Larger than any file of replays the shelf could fill (its budget is 5 MB); anything larger is not one. */
 export const REPLAY_FILE_MAX_BYTES = 6_000_000;
 
@@ -40,15 +42,16 @@ export function fileNamePart(text: string): string {
 }
 
 /**
- * The name a file of replays is offered under: the local day and time of the export to the second, so two exports
- * never share a name, and the hill when all the replays are of one.
+ * The name the file of one replay is offered under, in sections joined by "_": the game, the local day and time of
+ * the jump to the second, and the hill. The jumper's name is to join them once players can name themselves.
  */
-export function replayFileName(entries: readonly ShelfEntry[], now: Date): string {
-  const hills = new Set(entries.map((e) => e.hill.id));
-  const [first] = entries;
-  const hill = hills.size === 1 && first ? `-${fileNamePart(`${first.hill.name} K${first.hill.kPointM}`)}` : "";
-  return `telemark-powtorki-${fileStamp(now)}${hill}.json`;
+export function replayFileName(entry: ShelfEntry): string {
+  const hill = fileNamePart(`${entry.hill.name} K${entry.hill.kPointM}`);
+  return `telemark-powtorka_${fileStamp(new Date(entry.dateIso))}_${hill}.json`;
 }
+
+/** The name an archive of several replays is offered under: the local day and time of the export. */
+export const replayArchiveName = (now: Date): string => `telemark-powtorki_${fileStamp(now)}.zip`;
 
 /** What a file of replays holds: the replays that could be read, and how many could not. */
 export interface ReadReplayFile {
@@ -69,7 +72,8 @@ export function readReplayFile(text: string): ReadReplayFile | null {
     return null;
   }
   const replays = field(parsed, "replays");
-  if (field(parsed, "format") !== REPLAY_FILE_FORMAT || field(parsed, "formatVersion") !== REPLAY_FILE_VERSION) {
+  const version = field(parsed, "formatVersion");
+  if (field(parsed, "format") !== REPLAY_FILE_FORMAT || !READ_VERSIONS.some((known) => known === version)) {
     return null;
   }
   if (!Array.isArray(replays)) return null;

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { ENGINE_REVISION, REPLAY_LIMITS, encodeInputs, type Shelf, type ShelfEntry } from "../storage/replay-shelf";
+import { encodeInputs } from "../storage/input-codec";
+import { ENGINE_REVISION, REPLAY_LIMITS, type Shelf, type ShelfEntry } from "../storage/replay-shelf";
 import { recordingSource } from "./jump-replay";
 import { base64Of, checkAgainst, importedShelf, originalEntry } from "./replay-import";
 import { playedResult } from "./shelf-replays";

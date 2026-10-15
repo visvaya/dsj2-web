@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import type { HillChoice } from "../game/hill-choice";
-import { REPLAY_FILE_MAX_BYTES, readReplayFile, replayFileName, replayFileText } from "../storage/replay-file";
+import { REPLAY_FILE_MAX_BYTES } from "../storage/replay-file";
 import {
   REPLAY_LIMITS,
   oldestRemovable,
@@ -16,11 +16,11 @@ import { UI_TEXT } from "../text/ui-text";
 import { handOverFile } from "./hand-over-file";
 import { handOverManyRpl, handOverRpl, type Say } from "./rpl-handover";
 import type { ReplaySource } from "./jump-replay";
-import { originalReplayOutcome } from "./original-replay-choice";
 import { formatSize } from "./number-text";
+import { exportedReplaysFile, readChosenFile } from "./replay-files";
 import { FramedNote, ReplayList } from "./replay-list";
 import { ReplaySettingsControls } from "./replay-settings";
-import { checkAgainst, importedShelf, originalEntry } from "./replay-import";
+import { checkAgainst, importedShelf } from "./replay-import";
 import { rplExportable } from "./rpl-export";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
@@ -183,7 +183,7 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
     },
     exportSelected: async () => {
       const now = new Date();
-      const file = new File([replayFileText(chosen, now)], replayFileName(chosen, now), { type: "application/json" });
+      const file = exportedReplaysFile(chosen, now);
       const outcome = await handOverFile(file, T.exportTitle, preferShare);
       sayAt(AT_SELECTION)(outcome === "cancelled" ? "" : T.exported[outcome]);
     },
@@ -193,25 +193,24 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       const say = sayAt(AT_FILE);
       // Nothing larger than a full shelf is read at all: it is not a file of this game.
       if (file.size > REPLAY_FILE_MAX_BYTES) return say(T.notReplayFile, true);
-      const bytes = new Uint8Array(await file.arrayBuffer());
-      const replays = readReplayFile(new TextDecoder().decode(bytes));
-      if (replays) {
-        const now = new Date();
-        const check = checkAgainst(hills);
-        const outcome = importedShelf(shelf, replays.entries, now, check);
-        onChangeShelf((current) => importedShelf(current, replays.entries, now, check).shelf);
-        const lines = [T.imported(outcome.added, outcome.alreadyKept)];
-        if (replays.unreadable > 0) lines.push(T.importUnreadable(replays.unreadable));
-        if (outcome.untrue > 0) lines.push(T.importUntrue(outcome.untrue));
-        if (outcome.refused !== null) lines.push(T[outcome.refused]);
-        const error = outcome.refused !== null || replays.unreadable > 0 || outcome.untrue > 0;
-        return say(lines.join(" "), error);
+      const now = new Date();
+      const read = await readChosenFile(new Uint8Array(await file.arrayBuffer()), originalHills, now);
+      if (read.kind === "refused") return say(read.message, true);
+      if (read.kind === "original") {
+        const { entry } = read;
+        if (entry) onChangeShelf((current) => withLoaded(current, entry).shelf);
+        return onPlay(read.hill, read.source);
       }
-      const original = originalReplayOutcome(bytes, originalHills);
-      if (!original.ok) return say(original.message === T.notReplay ? T.notReplayFile : original.message, true);
-      const entry = originalEntry(original.hill, bytes, original.source, new Date());
-      if (entry) onChangeShelf((current) => withLoaded(current, entry).shelf);
-      return onPlay(original.hill, original.source);
+      const check = checkAgainst(hills);
+      const outcome = importedShelf(shelf, read.entries, now, check);
+      onChangeShelf((current) => importedShelf(current, read.entries, now, check).shelf);
+      const lines = [T.imported(outcome.added, outcome.alreadyKept)];
+      if (read.unreadable > 0) lines.push(T.importUnreadable(read.unreadable));
+      if (read.skipped > 0) lines.push(T.importSkipped(read.skipped));
+      if (outcome.untrue > 0) lines.push(T.importUntrue(outcome.untrue));
+      if (outcome.refused !== null) lines.push(T[outcome.refused]);
+      const error = outcome.refused !== null || read.unreadable + read.skipped + outcome.untrue > 0;
+      return say(lines.join(" "), error);
     },
   };
 }

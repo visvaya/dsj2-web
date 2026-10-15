@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import type { HillChoice } from "../game/hill-choice";
 import { pickScenery } from "../game/scenery";
 import { newSeed } from "../game/training-session";
+import type { OfflineState } from "../pwa/offline-state";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { JumpMenu } from "./jump-menu";
@@ -43,6 +44,8 @@ interface Props {
   onKeepJump: (jump: FinishedJump) => KeepOutcome;
   /** The replay of the hill's record, run beside each training jump as a ghost; null for none. */
   recordGhost: ReplaySource | null;
+  /** Whether a newer release waits, told in the menu next to the version. */
+  offline: OfflineState | null;
 }
 
 /** What the player is told after asking to keep the last jump. */
@@ -239,6 +242,7 @@ export function JumpScreen(props: Props) {
           onToggleTilt={steering.toggleTilt}
           tiltNote={steering.tiltNote}
           onExit={props.onExit}
+          offline={props.offline}
           onOtherReplay={props.onOpenReplays}
         />
       </div>
