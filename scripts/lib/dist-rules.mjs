@@ -13,7 +13,7 @@
 // JavaScript measured again on 2026-10-15: 131172 bytes on master, 140086 bytes with the jump scene drawn as the
 // original draws it (its layers in perspective, palette, background, inrun, fences, marks and trees), while the
 // outfit preview and the icon still use the earlier drawing; the budget keeps the margin it had (4.4%). Measured
-// again the same day at 140273 bytes, with the preview and the icon on the new scene and the earlier drawing gone.
+// again the same day at 140468 bytes, with the preview and the icon on the new scene and the earlier drawing gone.
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 146_000,
   CSS_GZIP_BUDGET_BYTES: 17_500,
