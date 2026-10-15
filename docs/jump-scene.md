@@ -126,8 +126,7 @@ wiersze, na które pasek ma miejsce.
 
 Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
 którym ją pisze (0xCB), i jak ona bez cienia (czytelna nad niebem i rozbiegiem); etykieta fazy i prędkość na pasku
-(rampy 0x58 i 0x3C); podpowiedzi nad paskiem w żółci paska (0x79) z czarnym cieniem, bo biały tekst z reliefem
-nie czyta się na jasnym śniegu. Wiersz o nowym rekordzie jest bez cienia, jak w oryginale.
+(rampy 0x58 i 0x3C). Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale.
 
 ## Różnice portu (świadome)
 

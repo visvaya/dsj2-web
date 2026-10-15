@@ -53,11 +53,6 @@ const TITLE_INK = 0xcb;
 /** Where the hill's name starts: where the original writes the replay's file name in the corner. */
 const TITLE_AT_PX = { x: 5, y: 3 } as const;
 const RECORD_INK = 0xcd;
-/**
- * Prompts (this project's, the original has none) in the bar's yellow with a black drop shadow: white text with the
- * font's relief does not read over bright snow.
- */
-const PROMPT_INK = 0x79;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
 /** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
@@ -177,7 +172,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     const firstLineY = groundBottom - PROMPT_BOTTOM_GAP_PX - lines.length * PROMPT_LINE_PX;
     lines.forEach((line, i) => {
       const x = Math.round((fb.width - textWidth(line)) / 2);
-      drawText(fb, x, firstLineY + i * PROMPT_LINE_PX, line, { ramp: PROMPT_INK }, color("black"));
+      drawText(fb, x, firstLineY + i * PROMPT_LINE_PX, line, color("white"), color("black"));
     });
   }
   // A disqualified jump (no takeoff) is never scored, so there are no notes to show.
