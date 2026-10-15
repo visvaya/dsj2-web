@@ -158,9 +158,15 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
   }
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
-  drawText(fb, Math.max(TITLE_AT_PX.x, m.titleInsetPx ?? 0), TITLE_AT_PX.y, UI_TEXT.hillLabel(m.hillName, m.kPointM), {
-    ramp: TITLE_INK,
-  });
+  drawText(
+    fb,
+    Math.max(TITLE_AT_PX.x, m.titleInsetPx ?? 0),
+    m.titleTopPx ?? TITLE_AT_PX.y,
+    UI_TEXT.hillLabel(m.hillName, m.kPointM),
+    {
+      ramp: TITLE_INK,
+    },
+  );
   drawWindBox(fb, s);
   drawStartLight(fb, s);
   const finished = s.logic.finished;
@@ -177,8 +183,9 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   }
   // A disqualified jump (no takeoff) is never scored, so there are no notes to show.
   if (finished && s.logic.distanceM > 0) drawNotes(fb, s, m.frame);
-  // A new record blinks from the frame the distance appears in the bar.
-  if (m.newRecord === true && finished && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
+  // A new record blinks from the frame the distance appears in the bar, so its first showing is always whole.
+  const sinceLanding = m.frame - s.logic.landedFrame;
+  if (m.newRecord === true && finished && sinceLanding >= 0 && Math.floor(sinceLanding / BLINK_FRAMES) % 2 === 0) {
     const text = UI_TEXT.hud.newRecord;
     drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, { ramp: RECORD_INK });
   }

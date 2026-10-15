@@ -26,6 +26,8 @@ export interface JumpViewModel {
   hints?: boolean;
   /** Game pixels the name of the hill starts from the left, when a control of the page lies over that corner. */
   titleInsetPx?: number;
+  /** Row the name of the hill's capitals start at, when a control of the page beside it sets it. */
+  titleTopPx?: number;
   playerName: string;
   state: JumpSimState;
   controls: ControlScheme;

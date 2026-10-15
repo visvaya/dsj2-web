@@ -297,4 +297,26 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
       }
     }
   });
+
+  it("shows a new record from the frame of the landing, whatever the clock says", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    const start = startTrainingJump(hill, 7).state;
+    // Landed in the second half of a blink period of the clock: counted from the clock, the line would first be off.
+    const landedFrame = 35 * 7 + 20;
+    const state = {
+      ...start,
+      logic: { ...start.logic, finished: true, distanceM: 90, distanceHalfM: 90, landedFrame },
+    };
+    const draw = (frame: number, newRecord: boolean) => {
+      const fb = new FrameBuffer(356, VIEW_HEIGHT_PX);
+      const model = { profile: hill.profile, kPointM: hill.kPointM, hillName: hill.name, playerName: "GRACZ 1" };
+      drawJumpView(fb, { ...model, state, controls: "mouse", frame, over: false, newRecord });
+      return fnv(fb.bytes);
+    };
+    expect(draw(landedFrame, true)).not.toBe(draw(landedFrame, false));
+    expect(draw(landedFrame + 34, true)).not.toBe(draw(landedFrame + 34, false));
+    expect(draw(landedFrame + 35, true)).toBe(draw(landedFrame + 35, false));
+    expect(draw(landedFrame + 70, true)).not.toBe(draw(landedFrame + 70, false));
+  });
 });

@@ -10,7 +10,7 @@ import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type Scenery } from "../ren
 import { UI_TEXT } from "../text/ui-text";
 import { createJumpDiagnostics } from "./jump-diagnostics";
 import { listenToPlayerInput, watchPointerLock } from "./jump-input-listeners";
-import { makePicture, pictureSize, titleInsetFor, type JumpPicture } from "./jump-picture";
+import { makePicture, pictureSize, titlePlaceFor, type TitlePlace, type JumpPicture } from "./jump-picture";
 import { REPLAY_SPEED_LABEL, type ReplaySource, type ReplayView } from "./jump-replay";
 import {
   NO_CONTROLS,
@@ -39,7 +39,7 @@ interface FrameView {
   ghost: JumpSimState | null;
   over: boolean;
   clock: number;
-  titleInsetPx: number;
+  title: TitlePlace;
   replay: ReplayView | null;
   playerName: string;
   scenery: Scenery;
@@ -62,7 +62,8 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
     playerName: v.playerName,
     state: v.jump.state,
     controls: live.controls,
-    titleInsetPx: v.titleInsetPx,
+    titleInsetPx: v.title.insetPx,
+    ...(v.title.topPx === null ? {} : { titleTopPx: v.title.topPx }),
     hints: live.settings.hillHints,
     frame: v.clock,
     over: v.over,
@@ -137,8 +138,8 @@ export function useJumpLoop(options: JumpLoopOptions) {
     if (opening) runs.play(opening);
 
     let picture = makePicture(viewWidthFor(stage.clientWidth, stage.clientHeight));
-    /** How far the name of the hill starts from the left, when the pause button lies over that corner. */
-    let titleInsetPx = 0;
+    /** Where the name of the hill starts, when the pause button lies over that corner. */
+    let title: TitlePlace = { insetPx: 0, topPx: null };
     const fit = () => {
       const size = pictureSize(stage.clientWidth, stage.clientHeight, window.devicePixelRatio || 1);
       if (size.widthPx !== picture.fb.width) picture = makePicture(size.widthPx);
@@ -146,7 +147,7 @@ export function useJumpLoop(options: JumpLoopOptions) {
       canvas.height = VIEW_HEIGHT_PX;
       canvas.style.width = `${size.cssWidthPx}px`;
       canvas.style.height = `${size.cssHeightPx}px`;
-      titleInsetPx = titleInsetFor(canvas, o().pauseButtonRef.current, size.widthPx);
+      title = titlePlaceFor(canvas, o().pauseButtonRef.current, size.widthPx);
     };
     fit();
     const resize = new ResizeObserver(fit);
@@ -186,7 +187,7 @@ export function useJumpLoop(options: JumpLoopOptions) {
       const { jump, newRecord, ghost } = current.now();
       sounds.play(jump.state, clock, newRecord, paused || document.hidden);
       meter?.drawBegin();
-      const v = { jump, newRecord, ghost, over, clock, titleInsetPx, replay: view, ...lookOf(runs) };
+      const v = { jump, newRecord, ghost, over, clock, title, replay: view, ...lookOf(runs) };
       drawFrame(picture, hill, live, v);
       ctx.putImageData(picture.image, 0, 0);
       meter?.frameEnd(now, plan, paused);

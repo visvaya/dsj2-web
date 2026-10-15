@@ -99,17 +99,19 @@ rysowane przez port (`jump-view-hud.ts`):
   w głąb sceny, ściśnięta o połowę. Rękawy wiatru i śnieg idą za tym samym wektorem (`game/wind-display.ts`).
 - Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
   zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
-- Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki; do 45 klatek po ostatniej
-  wszystkie przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
+- Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki, wyrównany do prawej
+  w polu 4 znaków jak `Str(note:4:1)` (8,0 stoi pod 0 i 5 z 10,0); do 45 klatek po ostatniej wszystkie przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
 - Pasek: 13 wierszy (górna linia 0x11, lewa kolumna 0x0A, wypełnienie 0x05, dolna linia 0x08), teksty 5 pikseli od
   brzegu i 3 wiersze pod górną linią, kolorem 0x79; po skoku odległość z małym „m” od 47% szerokości (kolumna 150
-  z 320) i punkty od 77,5% (kolumna 248). Obie liczby stoją w polach wyrównanych do prawej, jak `Str(x:w:1)`
-  oryginału: odległość w polu 5 znaków, punkty w polu 7 znaków (na zrzucie oryginału 89,5 m zaczyna się w kolumnie
-  156, a 128,5 pkt w kolumnie 260).
+  z 320) w polu 5 znaków wyrównanym do prawej, jak `Str(x:5:1)` oryginału (na jego zrzucie 89,5 m zaczyna się
+  w kolumnie 156). Punkty oryginał pisze od kolumny 248 w polu 7 znaków (128,5 zaczyna się w kolumnie 260); port
+  kończy je przy prawym brzegu paska, 5 pikseli od niego, tam gdzie przed lądowaniem stała prędkość, bo na
+  szerszym widoku kolumna 248 z 320 zostawiała je w połowie pustej części paska.
 
 Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (porównanie
 z czcionką oryginału przy każdym przesunięciu w komórce: zgodne są tylko spacja, kropka i dwukropek, a żaden inny
-znak nie różni się od niej o jeden piksel). Znak ma ciało 5x6 z pionowymi kreskami szerokości 2 px i cień: piksel
+znak nie różni się od niej o jeden piksel; wykrzyknik, później wyprostowany do pionowej kreski z kropką, bo
+skośny z daleka przypominał znak zapytania, nie był z nią porównany ponownie). Znak ma ciało 5x6 z pionowymi kreskami szerokości 2 px i cień: piksel
 pusty pod pikselem ciała jest cieniem, więc cień wypełnia wnętrza liter, wewnętrzne narożniki i siódmy wiersz pod
 literą. Każdy znak zajmuje 5 kolumn i 1 kolumnę odstępu, jak w oryginale. Kolor z rampy palety jak w oryginale:
 indeks = wartość - 7 + rampa + `(2 wiersz + kolumna) div 6` (wiersz 1..7, kolumna 1..5; ciało ma wartość 6, cień 1),
@@ -125,8 +127,11 @@ przy 1x. Oryginał kładzie akcent o jeden wiersz wyżej, nachodząc na literę;
 wiersze, na które pasek ma miejsce.
 
 Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
-którym ją pisze (0xCB), i jak ona bez cienia (czytelna nad niebem i rozbiegiem); etykieta fazy i prędkość na pasku
-(rampy 0x58 i 0x3C). Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale.
+którym ją pisze (0xCB), i jak ona bez cienia (czytelna nad niebem i rozbiegiem); gdy w tym rogu leży przycisk pauzy
+(sterowanie przechyłem w poziomie), nazwa stoi na prawo od niego, wyśrodkowana w pionie względem przycisku. Na
+pasku etykieta fazy (rampa 0x58) i prędkość, biała z ciemniejszym cieniem: w szarej rampie 0x3C cień pięć stopni
+niżej prawie nie odcinał się od liter. Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale; miga co pół
+sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół sekundy widoczności.
 
 ## Różnice portu (świadome)
 
