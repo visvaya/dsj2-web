@@ -205,9 +205,10 @@ function compactPine(b: TreeBitmap, seed: number): void {
   const lumps = 3 + Math.round(unit(seed, 2));
   for (let k = 0; k < lumps; k++) {
     const t = lumps === 1 ? 0 : k / (lumps - 1);
-    const cx = mid + (unit(seed, k + 10) - 0.5) * b.width * 0.3;
+    const cx = mid + (unit(seed, k + 10) - 0.5) * b.width * 0.2 * t;
     const cy = crown * (0.2 + 0.55 * t);
-    const rx = Math.max(1.2, (mid + 0.5) * (0.55 + 0.25 * unit(seed, k + 20)));
+    // Narrow at the top, widest low in the crown.
+    const rx = Math.max(1.2, (mid + 0.5) * (0.3 + 0.55 * t + 0.15 * unit(seed, k + 20)));
     const ry = Math.max(1, crown * (0.22 + 0.06 * unit(seed, k + 30)));
     for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
       for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
@@ -255,7 +256,7 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
     lean,
   );
   // Dead stubs on the bare trunk.
-  for (let k = 0; k < Math.round(height / 22); k++) {
+  for (let k = 0; k < Math.round(height / 11); k++) {
     const y = Math.round(crownBottom + (height - crownBottom) * (0.08 + 0.5 * unit(seed, k + 40)));
     const side = unit(seed, k + 50) < 0.5 ? -1 : 1;
     const len = 1 + Math.round(width * 0.05);
@@ -282,7 +283,8 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
     const y = crownTop + (crownBottom - crownTop) * t;
     const m = mid(y);
     // Widest in the upper half of the crown, thinning out towards its bottom.
-    const shape = 0.35 + 0.65 * Math.sin(Math.PI * (0.18 + 0.7 * t));
+    // Pointed at the top, widening downwards, a little narrower again at the bottom of the crown.
+    const shape = Math.min(1, 0.12 + 1.15 * t) * (1 - 0.35 * Math.max(0, t - 0.75) / 0.25);
     for (const side of [-1, 1] as const) {
       const r = unit(seed, k * 2 + (side > 0 ? 1 : 0) + 200);
       // Branches on both sides, a few missing low in the crown.
@@ -297,12 +299,15 @@ function pine(width: number, height: number, seed: number): TreeBitmap {
         const u = i / Math.max(1, steps);
         put(b, m + (tipX - m) * u, y + (tipY - y) * u + 1, PINE_BARK.shade);
       }
-      const rx = Math.min(clumpRx * (0.7 + 0.6 * unit(seed, k * 2 + side + 400)), room + clumpRx * 1.1 - len);
+      // Small clumps near the top, the full size lower down.
+      const rx = Math.min(clumpRx * (0.35 + 0.65 * shape) * (0.75 + 0.5 * unit(seed, k * 2 + side + 400)), room + clumpRx * 1.1 - len);
       clump(tipX, tipY, rx, k * 2 + (side > 0 ? 1 : 0));
       if (len > rx * 1.2) clump(m + (tipX - m) * 0.45, y + (tipY - y) * 0.45 - 1, rx * 0.85, k * 2 + 50);
     }
   }
-  clump(mid(crownTop) + favoured * clumpRx * 0.3, crownTop + clumpRx * 0.4, clumpRx, 99);
+  // The top: a narrow tuft around the leader, which sticks out above it.
+  clump(mid(crownTop + 2), crownTop + 2 + clumpRx * 0.3, Math.max(1.2, clumpRx * 0.45), 99);
+  for (let y = Math.round(crownTop); y < crownTop + 3; y++) put(b, mid(y), y, green(2));
   snowOnTops(b, seed, 0);
   return b;
 }

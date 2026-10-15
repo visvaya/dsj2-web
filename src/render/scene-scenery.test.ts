@@ -134,7 +134,8 @@ describe("this project's trees", () => {
             const needles = row.filter((i) => i >= 0x51 && i <= 0x56).length;
             widest = Math.max(widest, needles);
           }
-          expect(widest, `${kind} ${size} ${variant}`).toBeGreaterThanOrEqual(Math.ceil(b.width * 0.6));
+          // A pine's pointed crown is a little narrower than a spruce's.
+          expect(widest).toBeGreaterThanOrEqual(Math.ceil(b.width * (kind === "pine" ? 0.55 : 0.6)));
         }
       }
     }
