@@ -22,9 +22,10 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
   traits,
 }) => {
   await openJumpFromStart(page, traits);
-  // Nothing to watch before a jump has ended.
+  // Nothing to watch before a jump has ended; the ghost of the record can be switched here too.
   await openJumpControls(page, traits);
   await expect(button(page, TEXT.watchReplay)).toBeDisabled();
+  await expect(button(page, "Duch rekordu: wł.")).toBeVisible();
   await closeJumpControls(page, traits);
 
   const landed = (await playUntilLanded(page, traits)).at(-1);
@@ -71,7 +72,7 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
   // The menu of a replay holds what the replay needs; the steering and the jumping are left out of it.
   await press(button(page, TEXT.pause), traits);
   await expect(button(page, TEXT.replayResume)).toBeFocused();
-  for (const absent of [TEXT.jumpAgain, TEXT.howTo, TEXT.toHills, TEXT.watchReplay]) {
+  for (const absent of [TEXT.jumpAgain, TEXT.howTo, TEXT.toHills, TEXT.watchReplay, "Duch rekordu: wł."]) {
     await expect(button(page, absent)).toHaveCount(0);
   }
   await expect(page.getByRole("group", { name: /czułość/i })).toHaveCount(0);

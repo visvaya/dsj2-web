@@ -894,6 +894,15 @@ h2 {
   text-align: center;
 }
 
+/* The version and, above it, the note of a waiting release: one block of the menu's column, centred. */
+.game.menu-open .game-toolbar .version-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(100%, 420px);
+}
+
 /* The version of the game sits on a background of its own, like the buttons: the picture shows through the menu. */
 .game.menu-open .game-toolbar .version-note {
   width: auto;
