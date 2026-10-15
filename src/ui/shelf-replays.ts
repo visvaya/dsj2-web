@@ -35,7 +35,8 @@ export function ownEntry(
   };
 }
 
-function bytesOfBase64(text: string): Uint8Array | null {
+/** The bytes of a text in base64; null when it is not one. */
+export function bytesOfBase64(text: string): Uint8Array<ArrayBuffer> | null {
   try {
     return Uint8Array.from(atob(text), (char) => char.charCodeAt(0));
   } catch {

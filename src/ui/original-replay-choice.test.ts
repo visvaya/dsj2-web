@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS, originalHillId, type HillChoice } from "../game/hill-choice";
 import { isJumpOver, startTrainingJump, type TrainingJump } from "../game/training-session";
-import { BorlandRandom } from "../sim/borland-random";
 import type { FrameInput } from "../sim/jump-logic";
 import { createJump, jumpRunning, stepFrame } from "../sim/jump-sim";
 import { decodeReplayFile, parseReplayRecord, replayInputForFrame } from "../sim/replay";
-import { planFromInputs, planToRecord } from "../sim/test-support/replay-plan";
+import { encodeReplayFile, planFromInputs, planToRecord, replayHeader } from "../storage/original-replay-file";
 import { UI_TEXT } from "../text/ui-text";
 import { stepJump } from "./jump-round";
 import { originalReplayOutcome } from "./original-replay-choice";
@@ -13,9 +12,6 @@ import { originalReplayOutcome } from "./original-replay-choice";
 const own = OWN_HILLS[0];
 const MAX_FRAMES = 4000;
 const T = UI_TEXT.replays;
-/** The 13 characters the original writes before a record for hills 1 to 32. */
-const HEADER = new TextEncoder().encode("//DSJ_v2.00//");
-const REPLAY_KEY = 0x26b51b17;
 const ascii = (text: string): number[] => [...new TextEncoder().encode(text)];
 const NO_INPUT: FrameInput = { left: false, right: false, dy: 0 };
 
@@ -24,29 +20,6 @@ const hillOne = (): HillChoice => {
   if (!own) throw new Error("no hill");
   return { ...own, id: originalHillId(1), source: "original" };
 };
-
-function random31(rng: BorlandRandom): number {
-  const hi = rng.below(0x8000);
-  const lo = rng.below(0xffff);
-  return (hi * 0x10000 + lo) >>> 0;
-}
-
-/** The encryption decodeReplayFile undoes, as the original writes a replay (1b8f, docs/replay-format.md). */
-function encodeReplayFile(record: Uint8Array): Uint8Array {
-  const plain = new Uint8Array([...HEADER, ...record]);
-  const out = new Uint8Array(plain.length + 4);
-  const rng = new BorlandRandom(REPLAY_KEY);
-  let checksum = random31(rng);
-  for (let i = 0; i < plain.length; i++) {
-    const k = rng.below(0x100);
-    const c = ((plain[i] ?? 0) + k) & 0xff;
-    rng.seed = rng.seed + c;
-    checksum = (checksum + (c - 1) * Math.floor(random31(rng) / 256)) >>> 0;
-    out[i] = c;
-  }
-  new DataView(out.buffer).setUint32(plain.length, checksum, true);
-  return out;
-}
 
 const handsAt = (frame: number): FrameInput => ({
   left: frame === 70 || (frame > 500 && frame < 520),
@@ -71,7 +44,7 @@ function recordedJump(seed: number, change: (record: Uint8Array) => void = () =>
     planFromInputs(byFrame, { hillNumber: 1, randomSeed: first.setup.randomSeed, wind: first.setup.wind }),
   );
   change(record);
-  return { jump, file: encodeReplayFile(record) };
+  return { jump, file: encodeReplayFile(replayHeader(1), record) };
 }
 
 describe("a replay file of the original", () => {

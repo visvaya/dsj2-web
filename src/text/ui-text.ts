@@ -78,6 +78,8 @@ export const UI_TEXT = {
     /** One replay of the list: its result, its date and what it weighs. */
     row: (distance: string, points: string, date: string, size: string) =>
       `${distance} · ${points}\u00a0pkt · ${date} · ${size}`,
+    /** The day and the time of a replay, kept together on one line. */
+    when: (day: string, time: string) => `${day}\u00a0${time}`,
     distance: (metres: string, fell: boolean) => (fell ? `${metres}\u00a0m (upadek)` : `${metres}\u00a0m`),
     watch: "Obejrzyj",
     keep: "Zachowaj",
@@ -111,6 +113,17 @@ export const UI_TEXT = {
     budgetFull: "Powtórki zajmują już całe przewidziane miejsce. Usuń starsze, żeby zapisać nowe.",
     notTrue: "Ta powtórka nie pasuje do tej wersji gry albo jest uszkodzona, więc nie da się jej obejrzeć.",
     hillMissing: "Skoczni tej powtórki nie ma w grze: wczytaj pliki gry w menu głównym.",
+    rplExport: "Eksportuj .rpl",
+    rplExportLabel: (replay: string) => `Eksportuj do pliku DSJ2 (.rpl): ${replay}`,
+    rplTitle: "Powtórka do DSJ2",
+    rplChecking: "Sprawdzam, czy plik DSJ2 odtworzy ten skok…",
+    rplExported: {
+      shared: "Udostępniono plik .rpl. W DSJ2 otworzysz go, gdy będzie w katalogu gry.",
+      downloaded: "Zapisano plik .rpl. Skopiuj go do katalogu gry DSJ2, żeby go tam obejrzeć.",
+      cancelled: "",
+    },
+    rplUnfit:
+      "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 nie mieści wszystkich naciśnięć, na które skok zareagował.",
   },
 
   gameFiles: {

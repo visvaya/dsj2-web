@@ -81,3 +81,26 @@ Sprawdzenie **[pomiar, 2026-10-12]**: powtórka dla skoczni 32 (K250) zrobiona z
 i odtworzona na skoczni K250. Skok trwał 1477 klatek i miał 249,69 m, tyle samo co w porcie; testy porównawcze
 przeszły na jej śladzie. Znacznika `//DSJ_v2.1P//` dla skoczni 1..32 ani `//DSJ_v2.00//` dla 33..37 nie
 sprawdzano w grze (wynika tylko z kodu odczytu).
+
+## Plik zapisany przez tę grę
+
+Ekran „Powtórki” zapisuje skok oddany na skoczni z oryginału jako plik `.rpl` (`src/ui/rpl-export.ts`, koder:
+`src/storage/original-replay-file.ts`). Pola jak przy `from-plan`: znacznik nagłówka, który zapisałaby gra, zera
+w polach 21 i 449, pusty licencjobiorca; do tego odległość z dwoma miejscami po kropce, nazwa `GRACZ 1` i data
+skoku. Plik `.rpl` gracza zachowany na liście wychodzi bez zmian. Nazwa pliku to dzień, godzina, minuta i sekunda
+skoku (osiem znaków, jak w DOS-ie; miesiąc i rok są w pliku); tę samą nazwę dostałyby tylko skoki z tej samej
+sekundy różnych miesięcy.
+
+Format trzyma jedno naciśnięcie startu, jedno okno 20 klatek przy wybiciu (prawy przycisk tylko razem z lewym),
+po jednym naciśnięciu każdego przycisku poza nim, każde w jednej klatce, i najwyżej 1049 klatek ruchu w pionie.
+Gra najpierw próbuje zapisać wejście skoku w całości. Gdy się nie mieści, po kolei pomija każde naciśnięcie albo
+skraca je do pierwszej klatki lub do 20 klatek, jeśli przeliczony bez tego skok kończy się w tym samym stanie:
+naciśnięcie na belce przed startem, kliknięcie myszy trwające kilka klatek, drugie naciśnięcie tego samego przycisku
+po naciśnięciu do lądowania. Potem tak samo z ruchem przed wybiciem. Plik jest oddany graczowi tylko wtedy, gdy
+odczytany z powrotem i przeliczony w tej grze daje ten sam stan skoku w ostatniej klatce; inaczej gra mówi, że tego
+skoku nie da się zapisać. Przykład takiego skoku: wybicie samym prawym przyciskiem.
+
+Sprawdzenie **[pomiar, 2026-10-15]**: dwa skoki na Karpaczu oddane w przeglądarce (myszą na komputerze i dotykiem
+w emulowanym telefonie z Androidem), zapisane przyciskiem „Eksportuj .rpl” i odtworzone przez oryginał
+(`tools/re/trace_capture.py`, kopia z licencją): 21,89 m i 21,63 m, tyle samo co w tej grze. Oba skoki wymagały
+pominięcia albo skrócenia naciśnięć opisanego wyżej. Niesprawdzone: wygląd listy studia powtórek z tymi polami.

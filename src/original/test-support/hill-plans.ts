@@ -1,13 +1,14 @@
 import { BorlandRandom } from "../../sim/borland-random";
 import { ORIGINAL_POSES } from "../../sim/data/pose-table";
 import type { JumpSetup } from "../../sim/jump-sim";
-import { planJump, type JumpScript, type PlannedResult, type ReplayPlan } from "../../sim/test-support/replay-plan";
+import type { ReplayPlan } from "../../storage/original-replay-file";
 import { createStartWind } from "../../sim/training-wind";
 import { readOriginalHills, type OriginalHill } from "../original-hills";
+import { planJump, type JumpScript, type PlannedResult } from "./scripted-jump";
 
 /**
  * Replay plans for the hills of the player's own copy of the original game: this project's simulation plays a
- * scripted jump on a hill read from Dsj.exe and the input becomes a plan (see sim/test-support/replay-plan.ts).
+ * scripted jump on a hill read from Dsj.exe and the input becomes a plan (see scripted-jump.ts).
  * Used from the command line through scripts/plan-replays.mjs; nothing here is part of the game.
  */
 
