@@ -269,4 +269,32 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
     }
     expect(checked).toBeGreaterThan(20);
   });
+
+  it.each([
+    ["far too early", 100],
+    ["early", 170],
+    ["just before the edge", 210],
+    ["never", null],
+  ] as const)("keeps the figure on the track or the snow and within the width: takeoff %s", (_, takeoffAfter) => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    let jump = startTrainingJump(hill, 7);
+    let start = -1;
+    for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
+      if (start < 0 && jump.state.logic.phase === PHASE.inrun) start = f;
+      const t = start < 0 ? -1 : f - start;
+      const take = takeoffAfter !== null && t >= takeoffAfter && t < takeoffAfter + 4;
+      jump = stepTrainingJump(jump, { left: (start < 0 && f === 70) || take, right: take, dy: 0 });
+      const s = jump.state;
+      const limit = figureHalfWidthM(hill.profile, s.jumper.xM);
+      for (const p of figurePoints(hill.profile, s)) {
+        expect(Number.isFinite(p.x + p.y + p.z)).toBe(true);
+        expect(Math.abs(p.z)).toBeLessThanOrEqual(limit);
+        const x = s.jumper.xM + p.x;
+        const floor = x < hill.profile.takeoffXM ? inrunYM(hill.profile, x) : terrainYM(hill.profile, x);
+        // The figure keeps to the plane of the ground under the jumper, which bends away from the terrain a little.
+        expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(floor - 0.25);
+      }
+    }
+  });
 });

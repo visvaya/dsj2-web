@@ -116,7 +116,10 @@ export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   const maxHeight = inTrough ? TROUGH_FALLEN_MAX_HEIGHT_M : lying ? FALLEN_MAX_HEIGHT_M : Infinity;
   const zLimit = inTrough ? TROUGH_FALLEN_HALF_WIDTH_M : halfWidth;
   return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => {
-    const floor = ground(p.x) - j.yM;
+    // A fallen jumper sliding over the takeoff's edge: what is still over the track stays on it, not in the table.
+    const x = j.xM + p.x;
+    const overTrack = s.logic.fallType !== 0 && x < h.takeoffXM && x >= h.startXM - TOWER_BACK_M;
+    const floor = Math.max(ground(p.x), overTrack ? inrunYM(h, x) : -Infinity) - j.yM;
     const y = Math.max(p.y, floor);
     return {
       x: p.x,
