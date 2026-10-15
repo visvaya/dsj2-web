@@ -3,7 +3,7 @@ import { requestTiltPermission } from "../game/tilt-input";
 import type { Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import type { Steering } from "./how-to-jump-text";
-import { ReplaySettingsControls } from "./replay-settings";
+import { RecordGhostToggle } from "./replay-settings";
 import { SettingsControls } from "./settings-controls";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -49,7 +49,7 @@ export function SettingsScreen({ settings, onSettings, onBack, focusOnEntry }: P
           tiltOn={tiltOn}
           onToggleTilt={toggleTilt}
         />
-        <ReplaySettingsControls replays={settings.replays} recordGhost={settings.recordGhost} onSettings={onSettings} />
+        <RecordGhostToggle recordGhost={settings.recordGhost} onSettings={onSettings} />
         {tiltRefused && (
           <p className="note error" role="status">
             {UI_TEXT.settings.tiltRefused}

@@ -26,12 +26,17 @@ test.skip(({ traits }) => !traits.desktop, "the first visit is measured once per
  *   none answered 304. Its cache does not answer the worker, so the page, the manifest, the script and the
  *   stylesheet go out whole a second time: 126 565 bytes more.
  *
- * The byte limits are the Chromium values plus 15%, and so is the count until the game is stored.
+ * Measured again 2026-10-15 in Microsoft Edge on the laptop, after the replays (shelf, export to files of the
+ * original) had grown the script: Chromium 147 572 bytes until the first screen and 162 317 bytes until the game is
+ * stored (145 096 and 159 837 before the last change of that day).
+ *
+ * The byte limits are the Chromium values of 2026-10-15 plus 15%; the count until the game is stored is the
+ * Chromium value of 2026-10-13 plus 15%.
  */
 const FIRST_VISIT_BUDGET = {
-  FIRST_SCREEN_BYTES: 146_700,
+  FIRST_SCREEN_BYTES: 169_700,
   READY_REQUESTS: 17,
-  READY_BYTES: 163_600,
+  READY_BYTES: 186_700,
 } as const;
 
 /** Requests until the first screen, as measured in each engine; 15% of four requests is less than one request. */

@@ -6,18 +6,22 @@ import {
   oldestRemovable,
   shelfBytes,
   withKept,
+  withLoaded,
   withoutEntries,
   type Shelf,
   type ShelfEntry,
 } from "../storage/replay-shelf";
+import type { Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
 import { handOverFile } from "./hand-over-file";
+import { handOverManyRpl, handOverRpl, type Say } from "./rpl-handover";
 import type { ReplaySource } from "./jump-replay";
 import { originalReplayOutcome } from "./original-replay-choice";
 import { formatSize } from "./number-text";
-import { ReplayList } from "./replay-list";
+import { FramedNote, ReplayList } from "./replay-list";
+import { ReplaySettingsControls } from "./replay-settings";
 import { checkAgainst, importedShelf, originalEntry } from "./replay-import";
-import { rplExport, rplFileName } from "./rpl-export";
+import { rplExportable } from "./rpl-export";
 import { entryPlaysTrue, sourceOfEntry } from "./shelf-replays";
 import { useEntryFocus } from "./use-entry-focus";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
@@ -38,6 +42,9 @@ interface Props {
   originalHills: readonly HillChoice[];
   onPlay: (hill: HillChoice, source: ReplaySource) => void;
   onChangeShelf: (change: (current: Shelf) => Shelf) => void;
+  /** The player's settings: what is kept of the replays, what goes on its own, the slider of a replay. */
+  settings: Settings;
+  onSettings: (change: Partial<Settings>) => void;
   /** Where the replays are kept: "memory" means only until the page closes. */
   storeName: string;
   onBack: () => void;
@@ -45,7 +52,14 @@ interface Props {
   focusOnEntry: boolean;
 }
 
-type Message = { text: string; error: boolean } | null;
+/**
+ * What the screen tells the player, and next to what: a replay's id, the selected ones, the clean-up or the file
+ * that was read. It shows there, where the press was; a screen reader hears it from one place for all.
+ */
+type Message = { text: string; error: boolean; at: string } | null;
+const AT_SELECTION = "selection";
+const AT_CLEANUP = "cleanup";
+const AT_FILE = "file";
 
 /** Frees room in one go: the oldest replays that are not hill records. */
 function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
@@ -59,7 +73,7 @@ function RemoveOldest({ onRemove }: { onRemove: (count: number) => void }) {
         <input
           type="number"
           min={1}
-          max={REPLAY_LIMITS.KEPT_MAX_COUNT + REPLAY_LIMITS.RECENT_MAX_COUNT}
+          max={REPLAY_LIMITS.KEPT_MAX_COUNT + REPLAY_LIMITS.RECENT_MAX_COUNT + REPLAY_LIMITS.LOADED_MAX_COUNT}
           value={typed}
           onChange={(e) => setTyped(e.currentTarget.value)}
         />
@@ -99,7 +113,22 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
   const preferShare = useMediaQuery(TOUCH_QUERY);
   /** A check of a .rpl file is running; another press waits for it. */
   const checking = useRef(false);
-  const fail = (text: string) => setMessage({ text, error: true });
+  const sayAt =
+    (at: string): Say =>
+    (text, error = false) =>
+      setMessage(text === "" ? null : { text, error, at });
+  /** A long check of .rpl files, one at a time; a failure of the game's own is told, not left unsaid. */
+  const checkRpl = async (at: string, run: (say: Say) => Promise<void>) => {
+    if (checking.current) return;
+    checking.current = true;
+    try {
+      await run(sayAt(at));
+    } catch {
+      sayAt(at)(T.notTrue, true);
+    } finally {
+      checking.current = false;
+    }
+  };
   const remove = (ids: ReadonlySet<string>) => {
     onChangeShelf((current) => withoutEntries(current, ids));
     setSelected((current) => new Set([...current].filter((id) => !ids.has(id))));
@@ -122,9 +151,9 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
     selectNone: () => setSelected(new Set()),
     watch: (entry: ShelfEntry) => {
       const hill = hills.find((h) => h.id === entry.hill.id);
-      if (!hill) return fail(T.hillMissing);
+      if (!hill) return sayAt(entry.id)(T.hillMissing, true);
       const source = sourceOfEntry(entry);
-      if (!source || !entryPlaysTrue(entry, source, hill)) return fail(T.notTrue);
+      if (!source || !entryPlaysTrue(entry, source, hill)) return sayAt(entry.id)(T.notTrue, true);
       // Opened here, the replay leads back here.
       return onPlay(hill, { ...source, origin: "original" });
     },
@@ -132,53 +161,38 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
       confirm.disarm();
       const copy = { ...entry, id: `kept:${entry.id}` };
       const outcome = withKept(shelf, copy);
-      if (outcome.refused !== null) return fail(T[outcome.refused]);
+      if (outcome.refused !== null) return sayAt(entry.id)(T[outcome.refused], true);
       onChangeShelf((current) => withKept(current, copy).shelf);
-      return setMessage({ text: T.keptDone, error: false });
+      return sayAt(entry.id)(T.keptDone);
     },
     removeOne: (entry: ShelfEntry) => {
-      if (!confirm.confirmed(entry.id)) return setMessage({ text: T.removeArmed, error: false });
+      if (!confirm.confirmed(entry.id)) return sayAt(entry.id)(T.removeArmed);
       setMessage(null);
       return remove(new Set([entry.id]));
     },
     removeSelected: () => {
       // The second press confirms these replays only: another selection asks again.
-      if (!confirm.confirmed(selectedKey)) return setMessage({ text: T.removeArmed, error: false });
+      if (!confirm.confirmed(selectedKey)) return sayAt(AT_SELECTION)(T.removeArmed);
       setMessage(null);
       return remove(new Set(chosen.map((e) => e.id)));
     },
     removeOldest: (count: number) => {
       const ids = oldestRemovable(shelf, count);
       remove(ids);
-      setMessage({ text: T.removed(ids.size), error: false });
+      sayAt(AT_CLEANUP)(T.removed(ids.size));
     },
     exportSelected: async () => {
       const now = new Date();
-      const file = new File([replayFileText(chosen, now)], replayFileName(now), { type: "application/json" });
+      const file = new File([replayFileText(chosen, now)], replayFileName(chosen, now), { type: "application/json" });
       const outcome = await handOverFile(file, T.exportTitle, preferShare);
-      setMessage(outcome === "cancelled" ? null : { text: T.exported[outcome], error: false });
+      sayAt(AT_SELECTION)(outcome === "cancelled" ? "" : T.exported[outcome]);
     },
-    exportRpl: async (entry: ShelfEntry) => {
-      if (checking.current) return undefined;
-      checking.current = true;
-      try {
-        // Checking plays the jump many times, a second or more on a slow phone: the message shows first.
-        setMessage({ text: T.rplChecking, error: false });
-        await new Promise((resolve) => requestAnimationFrame(() => setTimeout(resolve, 0)));
-        const made = rplExport(entry, hills);
-        if (!made.ok) return fail(made.message);
-        const file = new File([made.file], rplFileName(entry), { type: "application/octet-stream" });
-        const outcome = await handOverFile(file, T.rplTitle, preferShare);
-        return setMessage(outcome === "cancelled" ? null : { text: T.rplExported[outcome], error: false });
-      } catch {
-        return fail(T.notTrue);
-      } finally {
-        checking.current = false;
-      }
-    },
+    exportSelectedRpl: () => checkRpl(AT_SELECTION, (say) => handOverManyRpl(chosen, hills, preferShare, say)),
+    exportRpl: (entry: ShelfEntry) => checkRpl(entry.id, (say) => handOverRpl(entry, hills, preferShare, say)),
     readFile: async (file: File) => {
+      const say = sayAt(AT_FILE);
       // Nothing larger than a full shelf is read at all: it is not a file of this game.
-      if (file.size > REPLAY_FILE_MAX_BYTES) return fail(T.notReplayFile);
+      if (file.size > REPLAY_FILE_MAX_BYTES) return say(T.notReplayFile, true);
       const bytes = new Uint8Array(await file.arrayBuffer());
       const replays = readReplayFile(new TextDecoder().decode(bytes));
       if (replays) {
@@ -191,18 +205,66 @@ function useReplayActions(p: Props, setMessage: (message: Message) => void) {
         if (outcome.untrue > 0) lines.push(T.importUntrue(outcome.untrue));
         if (outcome.refused !== null) lines.push(T[outcome.refused]);
         const error = outcome.refused !== null || replays.unreadable > 0 || outcome.untrue > 0;
-        return setMessage({ text: lines.join(" "), error });
+        return say(lines.join(" "), error);
       }
       const original = originalReplayOutcome(bytes, originalHills);
-      if (!original.ok) return fail(original.message === T.notReplay ? T.notReplayFile : original.message);
+      if (!original.ok) return say(original.message === T.notReplay ? T.notReplayFile : original.message, true);
       const entry = originalEntry(original.hill, bytes, original.source, new Date());
-      if (entry) onChangeShelf((current) => withKept(current, entry).shelf);
+      if (entry) onChangeShelf((current) => withLoaded(current, entry).shelf);
       return onPlay(original.hill, original.source);
     },
   };
 }
 
-/** The replays: hill records, kept and last jumps, to watch, keep, export or remove; and files to read. */
+/** The note of the screen at one place, when that is where the message belongs. */
+const noteAt = (message: Message, at: string) =>
+  message?.at === at ? <FramedNote text={message.text} error={message.error} /> : null;
+
+/** What is done with the selected replays at once. */
+function SelectionActions({ a, message }: { a: ReturnType<typeof useReplayActions>; message: Message }) {
+  const none = a.chosen.length === 0;
+  const rplCount = a.chosen.filter(rplExportable).length;
+  return (
+    <>
+      <div className="replay-row-actions">
+        <button
+          type="button"
+          className="pixel-button small-button"
+          onClick={a.allSelected ? a.selectNone : a.selectAll}
+        >
+          {a.allSelected ? T.selectNone : T.selectAll}
+        </button>
+        <button
+          type="button"
+          className="pixel-button small-button"
+          aria-disabled={none}
+          onClick={none ? undefined : () => void a.exportSelected()}
+        >
+          {T.exportSelected(a.chosen.length)}
+        </button>
+        <button
+          type="button"
+          className="pixel-button small-button"
+          aria-disabled={rplCount === 0}
+          onClick={rplCount === 0 ? undefined : () => void a.exportSelectedRpl()}
+        >
+          {T.rplExportSelected(rplCount)}
+        </button>
+        <button
+          type="button"
+          className="pixel-button small-button"
+          aria-disabled={none}
+          onClick={none ? undefined : a.removeSelected}
+        >
+          {a.selectedArmed ? T.confirmRemoveSelected(a.chosen.length) : T.removeSelected(a.chosen.length)}
+        </button>
+      </div>
+      {noteAt(message, AT_SELECTION)}
+    </>
+  );
+}
+
+/** The replays: hill records, kept, last and read jumps, to watch, keep, export or remove; and files to read. */
 export function ReplaysScreen(props: Props) {
   const { shelf, originalHills, storeName, onBack, focusOnEntry } = props;
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -228,45 +290,21 @@ export function ReplaysScreen(props: Props) {
         shelf={shelf}
         selected={a.selected}
         confirming={a.confirming}
+        note={message}
         onToggle={a.toggle}
         onWatch={a.watch}
         onKeep={a.keep}
         onRemove={a.removeOne}
         onExportRpl={(entry) => void a.exportRpl(entry)}
       />
-      {shelf.length > 0 && (
-        <div className="replay-row-actions">
-          <button
-            type="button"
-            className="pixel-button small-button"
-            onClick={a.allSelected ? a.selectNone : a.selectAll}
-          >
-            {a.allSelected ? T.selectNone : T.selectAll}
-          </button>
-          <button
-            type="button"
-            className="pixel-button small-button"
-            aria-disabled={a.chosen.length === 0}
-            onClick={a.chosen.length === 0 ? undefined : () => void a.exportSelected()}
-          >
-            {T.exportSelected(a.chosen.length)}
-          </button>
-          <button
-            type="button"
-            className="pixel-button small-button"
-            aria-disabled={a.chosen.length === 0}
-            onClick={a.chosen.length === 0 ? undefined : a.removeSelected}
-          >
-            {a.selectedArmed ? T.confirmRemoveSelected(a.chosen.length) : T.removeSelected(a.chosen.length)}
-          </button>
-        </div>
-      )}
+      {shelf.length > 0 && <SelectionActions a={a} message={message} />}
       {shelf.length > 0 && (
         <>
           <p className="note">
             {T.usage(shelf.length, formatSize(shelfBytes(shelf)), formatSize(REPLAY_LIMITS.BUDGET_BYTES))}
           </p>
           <RemoveOldest onRemove={a.removeOldest} />
+          {noteAt(message, AT_CLEANUP)}
         </>
       )}
       {originalHills.length === 0 && <p className="note">{T.needsGame}</p>}
@@ -276,13 +314,19 @@ export function ReplaysScreen(props: Props) {
           {/* No accept filter: a phone may not know .rpl and grey such files out. The file is checked instead. */}
           <input type="file" onChange={onFile} />
         </label>
+        {noteAt(message, AT_FILE)}
+      </div>
+      <div className="settings-list">
+        <ReplaySettingsControls replays={props.settings.replays} onSettings={props.onSettings} />
+      </div>
+      <div className="menu">
         <button type="button" className="pixel-button" onClick={onBack}>
           {UI_TEXT.back}
         </button>
       </div>
       {storeName === "memory" && <p className="note error">{T.onlyForVisit}</p>}
-      {/* Always there, so a screen reader hears each message as it changes. */}
-      <p className={message?.error === true ? "note error" : "note"} role="status">
+      {/* Always there, so a screen reader hears each message as it changes; the eye reads it where it shows. */}
+      <p className="sr-only" role="status">
         {message?.text ?? ""}
       </p>
     </main>

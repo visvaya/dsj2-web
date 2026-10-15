@@ -20,9 +20,34 @@ export function replayFileText(entries: readonly ShelfEntry[], now: Date): strin
   });
 }
 
-/** The name a file of replays is offered under. */
-export function replayFileName(now: Date): string {
-  return `telemark-powtorki-${now.toISOString().slice(0, 10)}.json`;
+const pad2 = (n: number): string => String(n).padStart(2, "0");
+
+/** The local day and time to the second, as a file name takes them: 2026-10-15_08-47-12. */
+export function fileStamp(now: Date): string {
+  const day = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  return `${day}_${[now.getHours(), now.getMinutes(), now.getSeconds()].map(pad2).join("-")}`;
+}
+
+/** A name as plain lower-case letters and digits joined by hyphens, for a file name on any system. */
+export function fileNamePart(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replaceAll(/\p{M}/gu, "")
+    .replaceAll("\u0142", "l")
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
+}
+
+/**
+ * The name a file of replays is offered under: the local day and time of the export to the second, so two exports
+ * never share a name, and the hill when all the replays are of one.
+ */
+export function replayFileName(entries: readonly ShelfEntry[], now: Date): string {
+  const hills = new Set(entries.map((e) => e.hill.id));
+  const [first] = entries;
+  const hill = hills.size === 1 && first ? `-${fileNamePart(`${first.hill.name} K${first.hill.kPointM}`)}` : "";
+  return `telemark-powtorki-${fileStamp(now)}${hill}.json`;
 }
 
 /** What a file of replays holds: the replays that could be read, and how many could not. */

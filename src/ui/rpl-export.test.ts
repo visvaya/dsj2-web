@@ -4,12 +4,13 @@ import { isJumpOver, startTrainingJump, type TrainingJump } from "../game/traini
 import type { FrameInput } from "../sim/jump-logic";
 import { decodeReplayFile, parseReplayRecord } from "../sim/replay";
 import { ORDINARY_JUMP } from "../original/test-support/hill-plans";
-import { runScriptedJump } from "../original/test-support/scripted-jump";
+import { runScriptedJump, type JumpScript } from "../original/test-support/scripted-jump";
+import { MOTION_CAPACITY_FRAMES } from "../storage/original-replay-file";
 import { decodeInputs, type ShelfEntry } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
 import { jumpResult, stepJump } from "./jump-round";
 import { originalReplayOutcome } from "./original-replay-choice";
-import { rplExport, rplExportable, rplFileName } from "./rpl-export";
+import { approximateInputs, rplExport, rplExportable, rplFileName } from "./rpl-export";
 import { ownEntry } from "./shelf-replays";
 
 const T = UI_TEXT.replays;
@@ -28,9 +29,12 @@ const hillOne = (): HillChoice => {
  * A training jump kept on the shelf: the ordinary jump of the hill plans with `change` applied to its input (by
  * the number of the frame being computed), played the way the game plays and records a jump.
  */
-function keptJump(change: (frame: number, input: FrameInput) => FrameInput = (_, input) => input) {
+function keptJump(
+  change: (frame: number, input: FrameInput) => FrameInput = (_, input) => input,
+  script: JumpScript = ORDINARY_JUMP,
+) {
   const hill = hillOne();
-  const planned = runScriptedJump(startTrainingJump(hill, SEED).setup, ORDINARY_JUMP).inputs;
+  const planned = runScriptedJump(startTrainingJump(hill, SEED).setup, script).inputs;
   const inputs = planned.map((input, frame) => change(frame, input));
   let jump: TrainingJump = startTrainingJump(hill, SEED);
   const taken: FrameInput[] = [];
@@ -60,6 +64,10 @@ function lastRightPress(stored: string): number {
   // The stored input of index i computes frame i + 2.
   return inputs.findLastIndex((input, i) => input.right && inputs[i - 1]?.right !== true) + 2;
 }
+
+// A long wait on the gate and a mouse never still: more frames of motion than a file holds, most of them on
+// the gate, in the inrun and in the outrun, where the jump does not react to it.
+const restless = (frame: number, input: FrameInput): FrameInput => ({ ...input, dy: input.dy || (frame % 5) - 2 });
 
 /** The jump a file of the original plays to, as the replay screen would play it. */
 function playedFile(file: Uint8Array, hill: HillChoice): TrainingJump {
@@ -132,6 +140,12 @@ describe("a jump of this game as a file of the original", () => {
     expect(playedFile(fileOf(entry, hill), hill).state).toEqual(jump.state);
   });
 
+  it("keeps only the motion of the air when a mouse moved all along", () => {
+    const { hill, jump, entry } = keptJump(restless, { ...ORDINARY_JUMP, startFrame: 400 });
+    expect(jump.state.logic.frame).toBeGreaterThan(MOTION_CAPACITY_FRAMES + 50);
+    expect(playedFile(fileOf(entry, hill), hill).state).toEqual(jump.state);
+  });
+
   it("is refused when the jump reacted to more presses than the format holds", () => {
     const { hill, entry } = keptJump(rightOnlyTakeoff);
     expect(rplExport(entry, [hill])).toEqual({ ok: false, message: T.rplUnfit });
@@ -167,6 +181,39 @@ describe("a file of the original kept on the shelf", () => {
     const file = fileOf(entry, hill);
     const original: ShelfEntry = { ...entry, replay: { kind: "original", rpl: btoa(String.fromCharCode(...file)) } };
     expect(rplExportable(original)).toBe(true);
-    expect(rplExport(original, [])).toEqual({ ok: true, file });
+    expect(rplExport(original, [])).toEqual({ ok: true, file, approximate: false });
+  });
+});
+
+/** Input by frame number with the given frames pressed or moved. */
+const press = (frames: Record<number, Partial<FrameInput>>, length: number): FrameInput[] =>
+  Array.from({ length }, (_, frame) => ({ ...NO_INPUT, ...frames[frame] }));
+
+describe("the input as near as the format comes", () => {
+  // Gate until 69, inrun from 70, the air from 300 to 399, the outrun after it.
+  const phases = Array.from({ length: 500 }, (_, frame) => (frame < 70 ? 1 : frame < 300 ? 2 : frame < 400 ? 7 : 11));
+
+  it("keeps motion only in the air, pairs a lone right press with the left one and keeps one frame of a press", () => {
+    const inputs = press(
+      {
+        10: { dy: 3 },
+        70: { left: true },
+        71: { left: true },
+        305: { left: true, dy: 2 },
+        320: { right: true },
+        410: { dy: -4 },
+        420: { left: true },
+        421: { left: true },
+      },
+      500,
+    );
+    const [still, paired, short] = approximateInputs(inputs, phases);
+    expect(still?.map((input) => input.dy).filter((dy) => dy !== 0)).toEqual([2]);
+    expect(paired?.[320]).toEqual({ left: true, right: true, dy: 0 });
+    // The start press keeps the frame the jump left the gate in; the takeoff press is left as it was.
+    expect(short?.[70]?.left).toBe(true);
+    expect(short?.[71]?.left).toBe(false);
+    expect(short?.[420]?.left).toBe(true);
+    expect(short?.[421]?.left).toBe(false);
   });
 });

@@ -55,8 +55,8 @@ const REPLAY_TEXT = JUMP_TEXT.replay;
 
 /**
  * In a replay the menu holds what the replay needs: its tempo, its start and whether its slider shows, then the
- * way on. After the player's own jump that is back to jumping; a replay of the original came from the replay
- * screen, so it leads back there for another file, or to training on its hill.
+ * way on. After the player's own jump that is keeping the jump or back to jumping; a replay opened on the replay
+ * screen (a file of the original or a kept jump) leads back there, or to training on its hill.
  */
 function ReplayButtons(p: ReplayButtonsProps) {
   const { replay, touch, onReplaySpeed, onReplayFromStart, onReplayEnd, onOtherReplay } = p;
@@ -71,9 +71,14 @@ function ReplayButtons(p: ReplayButtonsProps) {
       </button>
       <ReplaySliderToggle replays={p.settings.replays} onSettings={p.onSettings} />
       {replay.origin === "own" ? (
-        <button type="button" className="pixel-button" onClick={onReplayEnd}>
-          {REPLAY_TEXT.end}
-        </button>
+        <>
+          <button type="button" className="pixel-button" onClick={p.onKeepLast}>
+            {REPLAY_TEXT.keepLast}
+          </button>
+          <button type="button" className="pixel-button" onClick={onReplayEnd}>
+            {REPLAY_TEXT.end}
+          </button>
+        </>
       ) : (
         <>
           <button type="button" className="pixel-button" onClick={onOtherReplay}>
@@ -90,7 +95,14 @@ function ReplayButtons(p: ReplayButtonsProps) {
 
 type ReplayButtonsProps = Pick<
   Props,
-  "touch" | "onReplaySpeed" | "onReplayFromStart" | "onReplayEnd" | "onOtherReplay" | "settings" | "onSettings"
+  | "touch"
+  | "onReplaySpeed"
+  | "onReplayFromStart"
+  | "onReplayEnd"
+  | "onOtherReplay"
+  | "onKeepLast"
+  | "settings"
+  | "onSettings"
 > & { replay: ReplayView };
 
 /** While jumping: a new jump, the last one again, the instructions and another hill. */

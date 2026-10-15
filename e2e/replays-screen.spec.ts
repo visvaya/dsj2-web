@@ -24,7 +24,10 @@ test("the replay screen explains what it needs and refuses a file that is not a 
 
   await choose("notatki.txt", Buffer.from("To nie jest powtórka.", "utf8"));
   await expect(status).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
-  await expect(status).toHaveClass(/error/);
+  // Shown framed in red under the button that read the file.
+  const note = page.locator(".framed-note");
+  await expect(note).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
+  await expect(note).toHaveClass(/error-frame/);
 
   // The right size, but not what the original writes: the checksum gives it away.
   await choose("KARPACZ.RPL", Buffer.alloc(REPLAY_FILE_BYTES));

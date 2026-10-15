@@ -61,14 +61,18 @@ test("a record keeps its replay, a jump can be kept by hand, and both stay after
   const remove = replayRows(page, "Zachowane").getByRole("button", { name: /^(Usuń|Na pewno usunąć\?)$/ });
   await press(remove, traits);
   await expect(remove).toHaveText("Na pewno usunąć?");
+  // What a press of a replay's button tells is shown under that replay, framed.
+  await expect(replayRows(page, "Zachowane").locator(".framed-note")).toHaveText(/^Dotknij jeszcze raz/);
   await press(remove, traits);
   await expect(page.getByRole("region", { name: "Zachowane" })).toHaveCount(0);
   await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);
 });
 
-test("the settings keep the last jumps and switch the clean-up on", async ({ page, traits }) => {
-  await openMenu(page);
-  await press(button(page, TEXT.settings), traits);
+test("the replay screen keeps the last jumps and switches the clean-up on; the settings, the ghost", async ({
+  page,
+  traits,
+}) => {
+  await openReplays(page, traits);
   const recent = button(page, /^Zapisuj ostatnie skoki: /);
   await expect(recent).toHaveText("Zapisuj ostatnie skoki: 5");
   await press(recent, traits);
@@ -76,13 +80,17 @@ test("the settings keep the last jumps and switch the clean-up on", async ({ pag
   const age = page.getByRole("checkbox", { name: "Usuwaj powtórki starsze niż (dni)" });
   await age.check();
   await expect(page.getByRole("spinbutton", { name: "Usuwaj powtórki starsze niż (dni)" })).toHaveValue("30");
-  // The ghost of the record is on from the start and can be switched off.
-  await press(button(page, "Duch rekordu: wł."), traits);
-  await expect(button(page, "Duch rekordu: wył.")).toBeVisible();
+  // The ghost of the record is a setting of the jumps: on from the start, and it can be switched off.
   await openMenu(page);
   await press(button(page, TEXT.settings), traits);
+  await expect(recent).toHaveCount(0);
+  await press(button(page, "Duch rekordu: wł."), traits);
+  await expect(button(page, "Duch rekordu: wył.")).toBeVisible();
+  await openReplays(page, traits);
   await expect(recent).toHaveText("Zapisuj ostatnie skoki: 10");
   await expect(age).toBeChecked();
+  await openMenu(page);
+  await press(button(page, TEXT.settings), traits);
   await expect(button(page, "Duch rekordu: wył.")).toBeVisible();
 });
 
@@ -96,6 +104,7 @@ test("replays go out to a file and come back from it, each once", async ({ page,
   await expect(replayRows(page, "Ostatnie skoki")).toHaveCount(1);
   // A jump on this game's own hill has no file of the original: the original does not know the hill.
   await expect(page.getByRole("button", { name: /^Eksportuj do pliku DSJ2/ })).toHaveCount(0);
+  await expect(button(page, "Eksportuj zaznaczone do .rpl (0)")).toBeVisible();
 
   // All selected, the button lets go of them all; then all again.
   await press(button(page, "Zaznacz wszystkie"), traits);
@@ -105,14 +114,18 @@ test("replays go out to a file and come back from it, each once", async ({ page,
   const exported = page.waitForEvent("download");
   await press(button(page, "Eksportuj zaznaczone (2)"), traits);
   const download = await exported;
-  expect(download.suggestedFilename()).toMatch(/^telemark-powtorki-\d{4}-\d{2}-\d{2}\.json$/);
+  // Named after the moment to the second, and after the hill: both replays are of the built-in hill.
+  expect(download.suggestedFilename()).toMatch(
+    /^telemark-powtorki-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}-cwiczebna-k90\.json$/,
+  );
   const path = await download.path();
 
-  // Read back beside the record, the jump is kept; a second time it is there already.
+  // Read back, the jump goes among the read ones, once; a second time it is there already.
   const chooser = page.locator('input[type="file"]');
   await chooser.setInputFiles(path);
   await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 1; już zachowanych: 1.");
-  await expect(replayRows(page, "Zachowane")).toHaveCount(1);
+  await expect(replayRows(page, "Wczytane")).toHaveCount(1);
+  await expect(page.locator(".framed-note")).toHaveText("Wczytano powtórek: 1; już zachowanych: 1.");
   await chooser.setInputFiles(path);
   await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 0; już zachowanych: 2.");
 

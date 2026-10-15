@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SoundEngine } from "../audio/sound-engine";
 import { OWN_HILLS } from "../game/hill-choice";
 import type { PlayerInput } from "../game/player-input";
+import type { Scenery } from "../render/jump-view";
 import type { FrameInput } from "../sim/jump-logic";
 import { DEFAULT_SETTINGS } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
@@ -87,6 +88,7 @@ function setUp() {
       settings: { ...DEFAULT_SETTINGS, vibration: true },
       controls: "mouse",
       scenery: { lighting: "day", snowfall: false, fog: false },
+      sceneryChosen: false,
       replay: null,
       ghost: null,
     },
@@ -132,6 +134,10 @@ function setUp() {
     freeze: () => {
       stale = true;
     },
+    /** The look of the visit, and whether the player chose it in this visit. */
+    setScenery: (scenery: Scenery, sceneryChosen: boolean) => {
+      context.live = { ...context.live, scenery, sceneryChosen };
+    },
     /** The ghost the screen hands the loop: the replay of the hill's record, or none. */
     setGhost: (ghost: ReplaySource | null) => {
       context.live = { ...context.live, ghost };
@@ -164,6 +170,25 @@ describe("training and its replay", () => {
     expect(felt).toEqual([]);
     expect(t.played).toEqual(playedLive);
     expect(t.finished).toHaveLength(1);
+  });
+
+  it("shows a replay with the look its jump had, until the player chooses another in the visit", () => {
+    const t = setUp();
+    const night: Scenery = { lighting: "night", snowfall: true, fog: false };
+    t.setScenery(night, false);
+    t.playOut();
+    const recording = t.runs.controls.lastJump()?.recording;
+    expect(recording?.scenery).toEqual(night);
+    // Another visit with another look: the replay keeps the night of its jump.
+    const day: Scenery = { lighting: "day", snowfall: false, fog: true };
+    t.setScenery(day, false);
+    if (recording) t.runs.play(recordingSource(recording));
+    expect(t.runs.scenery()).toEqual(night);
+    t.setScenery(day, true);
+    expect(t.runs.scenery()).toEqual(day);
+    t.runs.controls.endReplay();
+    t.setScenery(day, false);
+    expect(t.runs.scenery()).toEqual(day);
   });
 
   it("runs the record beside the next jump as a ghost, level with the player from the gate", () => {

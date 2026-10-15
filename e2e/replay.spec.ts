@@ -75,6 +75,9 @@ test("the last jump plays again to the same landing, pauses on a press of the pi
     await expect(button(page, absent)).toHaveCount(0);
   }
   await expect(page.getByRole("group", { name: /czułość/i })).toHaveCount(0);
+  // The player's own jump can be kept from its replay.
+  await press(button(page, TEXT.keepLast), traits);
+  await expect(page.getByText("Ostatni skok jest zachowany")).toBeVisible();
   // The menu only shows or hides the slider.
   await press(button(page, "Suwak powtórki: wł."), traits);
   await expect(button(page, "Suwak powtórki: wył.")).toBeVisible();

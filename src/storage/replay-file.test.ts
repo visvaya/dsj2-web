@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readReplayFile, replayFileName, replayFileText } from "./replay-file";
+import { fileNamePart, readReplayFile, replayFileName, replayFileText } from "./replay-file";
 import { ENGINE_REVISION, encodeInputs, type ShelfEntry } from "./replay-shelf";
 
 const NOW = new Date("2026-10-14T12:00:00.000Z");
@@ -19,7 +19,18 @@ describe("a file of replays", () => {
   it("reads back the replays it was written with", () => {
     const entries = [entry("a"), entry("b")];
     expect(readReplayFile(replayFileText(entries, NOW))).toEqual({ entries, unreadable: 0 });
-    expect(replayFileName(NOW)).toBe("telemark-powtorki-2026-10-14.json");
+    const at = new Date(2026, 9, 14, 8, 5, 9);
+    expect(replayFileName([], at)).toBe("telemark-powtorki-2026-10-14_08-05-09.json");
+  });
+
+  it("is named after the moment of the export and the hill, when all the replays are of one", () => {
+    const at = new Date(2026, 9, 14, 8, 5, 9);
+    expect(replayFileName([entry("a"), entry("b")], at)).toBe(
+      "telemark-powtorki-2026-10-14_08-05-09-cwiczebna-k90.json",
+    );
+    const other = { ...entry("c"), hill: { id: "original-36", name: "Wisła", kPointM: 105 } };
+    expect(replayFileName([entry("a"), other], at)).toBe("telemark-powtorki-2026-10-14_08-05-09.json");
+    expect(fileNamePart("Zakopane 1 · Łódź!")).toBe("zakopane-1-lodz");
   });
 
   it("counts the replays it cannot read and keeps the rest", () => {

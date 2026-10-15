@@ -181,6 +181,7 @@ export function App({ diagnostics }: AppProps) {
       />
     );
   }
+  const side = { settings: save.settings, onSettings, onBack: () => show({ kind: "menu" }), focusOnEntry: navigated };
   if (screen.kind === "replays") {
     return (
       <ReplaysScreen
@@ -190,13 +191,11 @@ export function App({ diagnostics }: AppProps) {
         storeName={replays.storeName}
         originalHills={originalHills}
         onPlay={(hill, replay) => show({ kind: "jump", hill, replay })}
-        onBack={() => show({ kind: "menu" })}
-        focusOnEntry={navigated}
+        {...side}
       />
     );
   }
   if (screen.kind === "howto" || screen.kind === "install" || screen.kind === "settings") {
-    const side = { settings: save.settings, onSettings, onBack: () => show({ kind: "menu" }), focusOnEntry: navigated };
     return <SideScreen kind={screen.kind} {...side} />;
   }
   if (screen.kind === "outfit") {

@@ -1,4 +1,5 @@
 import type { HillChoice } from "../game/hill-choice";
+import type { Scenery } from "../render/jump-view";
 import { decodeCp852 } from "../original/dsj-dat";
 import { startRecordedJump, startTrainingJump, type TrainingJump } from "../game/training-session";
 import type { FrameInput, JumpLogicState } from "../sim/jump-logic";
@@ -10,6 +11,8 @@ export interface JumpRecording {
   inputs: readonly FrameInput[];
   /** Whether the jump set a new hill record, as it was told then. */
   newRecord: boolean;
+  /** The look of the hill during the jump; absent for a jump kept before it was recorded. */
+  scenery?: Scenery;
 }
 
 /** The tempos a replay plays at, as shares of real time; the first is the one it starts with. */
@@ -62,6 +65,8 @@ export interface ReplaySource {
   origin: ReplayOrigin;
   /** The jumper's name for the bar of the picture; the player's own when absent. */
   jumperName?: string;
+  /** The look of the hill the jump had; the look of the visit when absent (a file of the original keeps none). */
+  scenery?: Scenery;
 }
 
 /** A training jump of this game, from its seed and the inputs it was given. */
@@ -71,6 +76,7 @@ export function recordingSource(recording: JumpRecording): ReplaySource {
     input: (logic) => recordedInput(recording, logic),
     newRecord: recording.newRecord,
     origin: "own",
+    ...(recording.scenery === undefined ? {} : { scenery: recording.scenery }),
   };
 }
 

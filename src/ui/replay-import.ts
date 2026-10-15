@@ -1,5 +1,5 @@
 import type { HillChoice } from "../game/hill-choice";
-import { ENGINE_REVISION, withKept, type Shelf, type ShelfEntry, type ShelfRefusal } from "../storage/replay-shelf";
+import { ENGINE_REVISION, withLoaded, type Shelf, type ShelfEntry, type ShelfRefusal } from "../storage/replay-shelf";
 import type { ReplaySource } from "./jump-replay";
 import { entryPlaysTrue, playedResult, sourceOfEntry } from "./shelf-replays";
 
@@ -21,7 +21,7 @@ export interface ImportOutcome {
  */
 export type ImportCheck = (entry: ShelfEntry) => ShelfEntry | "untrue";
 
-/** Puts the replays of a file among the kept ones, each once and checked, until there is no room left. */
+/** Puts the replays of a file among the read ones, each once and checked, until there is no room left. */
 export function importedShelf(
   shelf: Shelf,
   entries: readonly ShelfEntry[],
@@ -39,7 +39,7 @@ export function importedShelf(
       untrue++;
       continue;
     }
-    const outcome = withKept(current, { ...checked, kind: "kept", id: `import:${stamp}:${i}` });
+    const outcome = withLoaded(current, { ...checked, kind: "loaded", id: `import:${stamp}:${i}` });
     if (outcome.refused === "alreadyKept") alreadyKept++;
     else if (outcome.refused !== null) return { shelf: current, added, alreadyKept, untrue, refused: outcome.refused };
     else {
@@ -87,7 +87,7 @@ export function originalEntry(hill: HillChoice, file: Uint8Array, source: Replay
   const rpl = base64Of(file);
   return {
     id: `original:${hill.id}:${now.toISOString()}`,
-    kind: "kept",
+    kind: "loaded",
     hill: { id: hill.id, name: hill.name, kPointM: hill.kPointM },
     dateIso: now.toISOString(),
     result,

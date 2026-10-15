@@ -66,14 +66,14 @@ export const UI_TEXT = {
   replays: {
     title: "Powtórki",
     intro:
-      "Tu są powtórki rekordów skoczni, zachowane skoki i powtórki z DSJ2 (pliki .rpl z katalogu gry). Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku: „Zachowaj ostatni skok”.",
+      "Tu są powtórki rekordów skoczni, zachowane i ostatnie skoki oraz wczytane powtórki: pliki .rpl z DSJ2 i pliki powtórek tej gry. Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku albo powtórki: „Zachowaj ostatni skok”.",
     load: "Wczytaj powtórki (.rpl albo plik powtórek)",
     needsGame: "Powtórki z DSJ2 grają na skoczniach oryginału: najpierw wczytaj pliki gry w menu głównym.",
     notReplay: "To nie jest plik powtórki DSJ2 (.rpl).",
     damaged: "Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.",
     badValues: "Powtórka ma niepoprawne dane i nie da się jej odtworzyć.",
     noHill: (hillNumber: number) => `Wczytany Dsj.exe nie ma skoczni nr ${hillNumber}, z której jest ta powtórka.`,
-    groups: { record: "Rekordy skoczni", kept: "Zachowane", recent: "Ostatnie skoki" },
+    groups: { record: "Rekordy skoczni", kept: "Zachowane", recent: "Ostatnie skoki", loaded: "Wczytane" },
     empty: "Nie ma jeszcze zapisanych powtórek.",
     /** One replay of the list: its result, its date and what it weighs. */
     row: (distance: string, points: string, date: string, size: string) =>
@@ -91,6 +91,7 @@ export const UI_TEXT = {
     removeOldestCount: "Ile najstarszych usunąć (rekordy zostają)",
     removed: (count: number) => `Usunięto powtórek: ${count}.`,
     keptFull: "Miejsce na zachowane powtórki się skończyło (100). Usuń starsze, żeby zachować nowe.",
+    loadedFull: "Miejsce na wczytane powtórki się skończyło (100). Usuń starsze, żeby wczytać nowe.",
     alreadyKept: "Ten skok jest już zachowany.",
     keptDone: "Zachowano.",
     notReady: "Powtórki jeszcze się wczytują; spróbuj za chwilę.",
@@ -108,7 +109,6 @@ export const UI_TEXT = {
     importUnreadable: (count: number) => `Nie dało się odczytać powtórek: ${count}.`,
     importUntrue: (count: number) => `Pominięte, bo nie grają do wyniku z pliku: ${count}.`,
     notReplayFile: "To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.",
-    keptOriginal: "Powtórka z pliku jest też w „Zachowanych”.",
     onlyForVisit: "Ta przeglądarka nie pozwala zapisać powtórek na stałe: znikną po zamknięciu strony.",
     budgetFull: "Powtórki zajmują już całe przewidziane miejsce. Usuń starsze, żeby zapisać nowe.",
     notTrue: "Ta powtórka nie pasuje do tej wersji gry albo jest uszkodzona, więc nie da się jej obejrzeć.",
@@ -116,6 +116,37 @@ export const UI_TEXT = {
     rplExport: "Eksportuj .rpl",
     rplExportLabel: (replay: string) => `Eksportuj do pliku DSJ2 (.rpl): ${replay}`,
     rplTitle: "Powtórka do DSJ2",
+    /** Added when a file plays to the same result, but not frame by frame the same jump. */
+    rplApproximate:
+      "W DSJ2 ten skok da ten sam wynik, ale ruchy skoczka (na przykład po upadku) mogą wyglądać trochę inaczej.",
+    rplExportSelected: (count: number) => `Eksportuj zaznaczone do .rpl (${count})`,
+    rplCheckingMany: (done: number, all: number) => `Sprawdzam skoki do plików DSJ2: ${done} z ${all}…`,
+    /** What came of exporting the selected replays to files of the original. */
+    rplExportedMany: (
+      files: number,
+      outcome: "shared" | "downloaded",
+      counts: { approximate: number; unfit: number; ownHills: number },
+    ) =>
+      [
+        `${outcome === "shared" ? "Udostępniono" : "Zapisano"} plików .rpl: ${files}${files > 1 ? " (w archiwum .zip)" : ""}.`,
+        counts.approximate > 0
+          ? `Z drobną różnicą w ruchach skoczka, przy tym samym wyniku: ${counts.approximate}.`
+          : "",
+        counts.unfit > 0 ? `Nie dało się zapisać: ${counts.unfit}.` : "",
+        counts.ownHills > 0 ? `Pominięte, bo ze skoczni własnych: ${counts.ownHills}.` : "",
+        "Skopiuj je do katalogu gry DSJ2.",
+      ]
+        .filter((part) => part !== "")
+        .join(" "),
+    rplNoneFit: (unfit: number, ownHills: number) =>
+      [
+        "Żadnego z zaznaczonych skoków nie da się zapisać jako .rpl.",
+        unfit > 0 ? `Nie mieszczą się w pliku DSJ2: ${unfit}.` : "",
+        ownHills > 0 ? `Ze skoczni własnych, których DSJ2 nie zna: ${ownHills}.` : "",
+      ]
+        .filter((part) => part !== "")
+        .join(" "),
+    keepForGood: "Zachowaj na stałe",
     rplChecking: "Sprawdzam, czy plik DSJ2 odtworzy ten skok…",
     rplExported: {
       shared: "Udostępniono plik .rpl. W DSJ2 otworzysz go, gdy będzie w katalogu gry.",
@@ -123,7 +154,10 @@ export const UI_TEXT = {
       cancelled: "",
     },
     rplUnfit:
-      "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 nie mieści wszystkich naciśnięć, na które skok zareagował.",
+      "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 nie mieści wszystkich naciśnięć, na które skok zareagował (na przykład wybicia samym prawym przyciskiem albo dwóch osobnych naciśnięć przy wybiciu).",
+    rplUnfitMotion:
+      "Tego skoku nie da się zapisać jako .rpl: pochylanie (mysz, palec albo przechył), na które skok zareagował, trwało dłużej, niż mieści plik DSJ2 (około 15 s), na przykład po upadku.",
+    rplUnfitDiffers: "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 odtworzyłby inny skok.",
   },
 
   gameFiles: {
@@ -166,7 +200,7 @@ export const UI_TEXT = {
     sensitivityUp: "Większa czułość",
     /** What is kept of the replays besides the hill records, and what goes on its own. */
     replays: {
-      group: "Powtórki",
+      group: "Ustawienia powtórek",
       recent: (count: number) => (count === 0 ? "Zapisuj ostatnie skoki: wył." : `Zapisuj ostatnie skoki: ${count}`),
       maxAge: "Usuwaj powtórki starsze niż (dni)",
       maxSize: "Usuwaj najstarsze, gdy powtórki ważą więcej niż (MB)",
