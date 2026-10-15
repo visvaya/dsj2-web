@@ -6,6 +6,8 @@ import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
 import {
   FALLEN_MAX_HEIGHT_M,
+  TROUGH_FALLEN_HALF_WIDTH_M,
+  TROUGH_FALLEN_MAX_HEIGHT_M,
   VIEW_HEIGHT_PX,
   drawJumpView,
   figureHalfWidthM,
@@ -14,7 +16,7 @@ import {
   viewWidthFor,
   type Scenery,
 } from "./jump-view";
-import { terrainYM } from "../sim/hill-profile";
+import { inrunYM, terrainYM } from "../sim/hill-profile";
 import { prompt } from "./jump-view-hud";
 import type { ControlScheme } from "./jump-view-model";
 import { color } from "./palette";
@@ -242,5 +244,29 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
     // Lying in the snow, no ski stands up past the fences.
     expect(highestWhileLying).toBeGreaterThan(-Infinity);
     expect(highestWhileLying).toBeLessThanOrEqual(FALLEN_MAX_HEIGHT_M + 0.2);
+  });
+
+  it("keeps a jumper fallen back onto the inrun inside its trough, bounces included", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    // Both buttons pressed far too early: the jumper leaves the track and comes down on it before the takeoff.
+    let jump = startTrainingJump(hill, 4);
+    let start = -1;
+    let checked = 0;
+    for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
+      if (start < 0 && jump.state.logic.phase === PHASE.inrun) start = f;
+      const early = start >= 0 && f - start >= 100 && f - start < 104;
+      jump = stepTrainingJump(jump, { left: (start < 0 && f === 70) || early, right: early, dy: 0 });
+      const s = jump.state;
+      if (s.logic.fallType === 0 || s.jumper.xM >= hill.profile.takeoffXM) continue;
+      for (const p of figurePoints(hill.profile, s)) {
+        expect(Math.abs(p.z)).toBeLessThanOrEqual(TROUGH_FALLEN_HALF_WIDTH_M);
+        const track = inrunYM(hill.profile, s.jumper.xM + p.x);
+        // The track is close to its tangent plane over a ski's length.
+        expect(s.jumper.yM + p.y - track).toBeLessThanOrEqual(TROUGH_FALLEN_MAX_HEIGHT_M + 0.2);
+      }
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(20);
   });
 });

@@ -77,6 +77,12 @@ const PART_COLOUR: Readonly<Record<BodyPart, OutfitPart>> = {
 };
 /** How high above the snow any part of a jumper lying after a fall may be drawn. */
 export const FALLEN_MAX_HEIGHT_M = 0.8;
+/**
+ * A jumper fallen in the inrun's trough (back on the track before the takeoff) stays inside it, bounces included:
+ * this high above the track and this far either side of its middle, below the walls in the side view.
+ */
+export const TROUGH_FALLEN_MAX_HEIGHT_M = 0.45;
+export const TROUGH_FALLEN_HALF_WIDTH_M = 1;
 /** How far inside the landing hill's edges the figure stays. */
 const FIGURE_EDGE_MARGIN_M = 0.4;
 /** Shade 0 (far side) to 5 (near side) within a part's ramp. */
@@ -96,8 +102,8 @@ export function figureHalfWidthM(h: HillProfile, xM: number): number {
 
 /**
  * Skeleton points as drawn, relative to the jumper. Display only: in a fall the original's pose can push a ski
- * into the snow or out past the fence, so points are kept on or above the terrain plane and within the width
- * of the trough or the landing hill.
+ * into the snow, out past the fence or through the inrun's wall, so points are kept on or above the terrain plane,
+ * within the width of the trough or the landing hill, and low inside the trough after a fall there.
  */
 export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   const j = s.jumper;
@@ -106,13 +112,16 @@ export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   // A fallen jumper lying on the snow (or in the inrun) keeps everything low, so a ski cannot stand up past
   // the inrun's walls or the fences in the side view.
   const lying = s.logic.fallType !== 0 && !j.airborne;
+  const inTrough = s.logic.fallType !== 0 && j.xM < h.takeoffXM;
+  const maxHeight = inTrough ? TROUGH_FALLEN_MAX_HEIGHT_M : lying ? FALLEN_MAX_HEIGHT_M : Infinity;
+  const zLimit = inTrough ? TROUGH_FALLEN_HALF_WIDTH_M : halfWidth;
   return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => {
     const floor = ground(p.x) - j.yM;
     const y = Math.max(p.y, floor);
     return {
       x: p.x,
-      z: Math.max(-halfWidth, Math.min(halfWidth, p.z)),
-      y: lying ? Math.min(y, floor + FALLEN_MAX_HEIGHT_M) : y,
+      z: Math.max(-zLimit, Math.min(zLimit, p.z)),
+      y: Math.min(y, floor + maxHeight),
     };
   });
 }

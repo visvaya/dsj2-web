@@ -16,7 +16,13 @@ import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 import { UI_TEXT } from "../text/ui-text";
 
-export { FALLEN_MAX_HEIGHT_M, figureHalfWidthM, figurePoints } from "./jump-view-jumper";
+export {
+  FALLEN_MAX_HEIGHT_M,
+  TROUGH_FALLEN_HALF_WIDTH_M,
+  TROUGH_FALLEN_MAX_HEIGHT_M,
+  figureHalfWidthM,
+  figurePoints,
+} from "./jump-view-jumper";
 export { windSockDirection } from "./scene-extras";
 export { type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
 
