@@ -185,3 +185,25 @@ export function hazedPalette(pal: Uint32Array, towardIndex: number, share: numbe
   }
   return out;
 }
+
+const HUD_SKY: Rgb6 = [0, 0, 0];
+const hudCache = new Map<number, number>();
+
+/** Packed colour of a palette index of the original's scene below the sky, unlit (for the interface). */
+export function hudColour(index: number): number {
+  let packedColour = hudCache.get(index);
+  if (packedColour === undefined) {
+    let dac = dacCache.get("hud");
+    if (dac === undefined) {
+      dac = sceneDac(HUD_SKY);
+      dacCache.set("hud", dac);
+    }
+    packedColour = FrameBuffer.pack([
+      (dac[index * 3] ?? 0) * DAC_LEVELS,
+      (dac[index * 3 + 1] ?? 0) * DAC_LEVELS,
+      (dac[index * 3 + 2] ?? 0) * DAC_LEVELS,
+    ]);
+    hudCache.set(index, packedColour);
+  }
+  return packedColour;
+}

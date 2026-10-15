@@ -5,7 +5,7 @@ import { notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import { FrameBuffer } from "./frame-buffer";
 import { drawSnowfall } from "./jump-view-snowfall";
-import { BAR_HEIGHT_PX, drawBar, drawNotes, drawWindBox, prompt } from "./jump-view-hud";
+import { BAR_HEIGHT_PX, drawBar, drawNotes, drawStartLight, drawWindBox, prompt } from "./jump-view-hud";
 import { drawGhost } from "./jump-view-ghost";
 import { drawHillScene, jumperInPicture } from "./jump-view-scene";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
@@ -156,6 +156,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     color("black"),
   );
   drawWindBox(fb, s);
+  drawStartLight(fb, s);
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);
   const lines = prompt(m, nextJumpAllowed(s.logic, m.frame));

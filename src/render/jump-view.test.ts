@@ -181,7 +181,12 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
       state: jump.state,
     };
     drawJumpView(fb, { ...model, controls: "mouse", frame: presentationFrame(jump), over: true });
-    expect(fb.pixels.includes(color("noteBox"))).toBe(false);
+    // The column of notes under the wind box (its frame shares the notes' dark fill).
+    const column: number[] = [];
+    for (let y = 32; y < 32 + 5 * 12; y++) {
+      for (let x = fb.width - 31; x < fb.width - 4; x++) column.push(fb.pixels[y * fb.width + x] ?? 0);
+    }
+    expect(column.includes(color("noteBox"))).toBe(false);
   });
 
   it("darkens the scenery at night but keeps the interface colours", () => {

@@ -90,7 +90,7 @@ const SCENARIOS: readonly Scenario[] = [
   {
     name: "jump with a telemark landing",
     seed: 7,
-    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2, leanPattern: () => 0 },
     recordM: 80,
     newRecord: true,
     moments: [

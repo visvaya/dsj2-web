@@ -151,6 +151,7 @@ describe("this project's trees", () => {
   });
 
   it("keep the original's trees in place and add groves only on the farther layers", () => {
+    if (!hill) throw new Error("no hill");
     const original = placeTrees(hill.profile, hill.look);
     const drawn = sceneTrees(hill.profile, hill.look);
     expect(drawn.filter((t) => original.includes(t))).toEqual(original);

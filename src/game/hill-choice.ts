@@ -21,7 +21,9 @@ export interface HillChoice {
 /** Hills made for this project (not taken from the original game). */
 export const OWN_HILLS: readonly HillChoice[] = [
   {
-    id: "own-1",
+    // "own-1" was the first profile of this hill, outside the original's ranges at its K point; records and
+    // replays made on it stay under that id, so they never meet the present profile.
+    id: "own-2",
     name: "Ćwiczebna",
     kPointM: 90,
     source: "own",
@@ -31,20 +33,20 @@ export const OWN_HILLS: readonly HillChoice[] = [
       {
         startXM: 11.4,
         flatEndXM: 10,
-        lineEndXM: 32,
-        takeoffXM: 44,
-        lineSlope: -0.9,
+        lineEndXM: 25.3,
+        takeoffXM: 46,
+        lineSlope: -1,
         lineInterceptM: 230,
-        curveA: 0.0296,
+        curveA: 0.02,
       },
       {
-        centerXM: 95,
-        centerYM: 166,
-        amplitudeM: 30,
-        widthM: 40,
-        outrunStartXM: 160,
-        outrunCurveA: 0.012,
-        knollBlend: 0,
+        centerXM: 115,
+        centerYM: 150.9,
+        amplitudeM: 45,
+        widthM: 50,
+        outrunStartXM: 170,
+        outrunCurveA: 0.01,
+        knollBlend: 0.3,
       },
     ),
   },

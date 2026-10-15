@@ -38,16 +38,16 @@ const SOCK_LENGTH_PX = 8;
 const SOCK_FULL_WIND_M_PER_S = 4.5;
 
 /**
- * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the same vector the
- * indicator box shows, blended with hanging straight down as the wind drops towards calm.
+ * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the way the indicator
+ * box's arrow lies on the screen, blended with hanging straight down as the wind drops towards calm.
  */
 export function windSockDirection(s: JumpSimState): [number, number] {
   const w = displayedWindMPerS(s.wind);
-  const speed = Math.hypot(w.x, w.y);
-  if (!(speed > 0)) return [0, 1];
-  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
-  const dirX = (w.x / speed) * k;
-  const dirY = (-w.y / speed) * k + (1 - k);
+  const length = Math.hypot(w.x, w.y);
+  if (!(length > 0)) return [0, 1];
+  const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
+  const dirX = (w.x / length) * k;
+  const dirY = (-w.y / length) * k + (1 - k);
   const len = Math.hypot(dirX, dirY) || 1;
   return [dirX / len, dirY / len];
 }

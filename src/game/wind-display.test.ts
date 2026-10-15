@@ -16,10 +16,11 @@ describe("wind on screen", () => {
   it.each([0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6])(
     "points a sock in a strong wind where the box's arrow points (%s rad)",
     (d) => {
-      // The box draws its arrow towards (cos d, -sin d) on screen.
+      // The box draws its arrow towards (cos d, sin d / 2) on screen, y down.
       const [ux, uy] = windSockDirection(withWind(d, 5));
-      expect(ux).toBeCloseTo(Math.cos(d), 6);
-      expect(uy).toBeCloseTo(-Math.sin(d), 6);
+      const length = Math.hypot(Math.cos(d), Math.sin(d) / 2);
+      expect(ux).toBeCloseTo(Math.cos(d) / length, 6);
+      expect(uy).toBeCloseTo(Math.sin(d) / 2 / length, 6);
     },
   );
 

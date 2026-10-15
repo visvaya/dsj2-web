@@ -33,7 +33,7 @@ export const TEXT = {
 
 /** Key of the save in localStorage and the id of the only hill available without the player's files. */
 const SAVE_KEY = "telemark.save";
-export const BUILT_IN_HILL_ID = "own-1";
+export const BUILT_IN_HILL_ID = "own-2";
 
 export const jumpCanvas = (page: Page): Locator => page.getByRole("img", { name: /^Skok na skoczni/ });
 export const announcement = (page: Page): Locator => page.locator("p[aria-live]");

@@ -191,7 +191,9 @@ i długość górnego odcinka pierwszej nogi („kolano”, siła wybicia). Pozo
 - Ścieżki upadków nie występują w powtórkach z dystrybucji. Pięć spreparowanych powtórek (`docs/testing.md`)
   pokrywa upadek przy lądowaniu (typy 2 i 4) z przejściem w pozę upadku, odbicia (do trzech), fazy 6 i 9
   oraz telemark z dwoma przyciskami; port odtwarza każdą ich klatkę i odległość zmierzoną przez oryginał.
-- Niesprawdzone śladem: upadki typu 1, 3 i 5 oraz dotknięcie zeskoku przed progiem.
+- Ślady FALL1..FALL5 (plany z wyszukiwania upadków, `docs/testing.md`, „Wyszukiwanie upadków”) pokrywają każdy
+  z pięciu typów upadku po jednym skoku; port odtwarza każdą ich klatkę i odległość zmierzoną przez oryginał.
+- Niesprawdzone śladem: dotknięcie zeskoku przed progiem.
 
 ## Do ustalenia
 

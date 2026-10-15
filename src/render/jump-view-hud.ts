@@ -2,7 +2,10 @@ import { PHASE } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import type { ControlScheme, JumpViewModel } from "./jump-view-model";
+import { roundHalfEven } from "../sim/pascal-numeric";
 import { color } from "./palette";
+import { hudColour } from "./scene-palette";
+import { rowRunLine } from "./scene-lines";
 import { drawText, textWidth } from "./pixel-font";
 import { UI_TEXT } from "../text/ui-text";
 
@@ -17,30 +20,130 @@ export const BAR_HEIGHT_PX = 12;
 const BAR_TEXT_TOP_PX = 3;
 const MS_TO_KMH = 3.6;
 
-export function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
-  const x = fb.width - 30;
-  const y = 4;
-  fb.rect(x, y, 26, 24, color("black"));
-  fb.rect(x, y, 26, 1, color("grey"));
-  fb.rect(x, y + 23, 26, 1, color("grey"));
-  fb.rect(x, y, 1, 24, color("grey"));
-  fb.rect(x + 25, y, 1, 24, color("grey"));
-  const d = s.wind.indicatorDirectionRad;
-  const cx = x + 13;
-  const cy = y + 9;
-  const ex = cx + Math.cos(d) * 6;
-  const ey = cy - Math.sin(d) * 6;
-  fb.line(cx - Math.cos(d) * 6, cy + Math.sin(d) * 6, ex, ey, color("red"));
-  fb.line(ex, ey, ex - Math.cos(d - 0.6) * 4, ey + Math.sin(d - 0.6) * 4, color("red"));
-  fb.line(ex, ey, ex - Math.cos(d + 0.6) * 4, ey + Math.sin(d + 0.6) * 4, color("red"));
-  const label = s.wind.speedMPerS.toFixed(1);
-  drawText(fb, x + 13 - Math.floor(textWidth(label) / 2), y + 15, label, color("yellow"));
+/** The wind box and the start light, as the original's bitmaps lie on its 320 columns (resources 11 and 13). */
+const WIND_BOX = { right: 4, top: 3, width: 29, height: 26 } as const;
+const START_LIGHT = { gap: 4, width: 16 } as const;
+/** Bevelled frame of both boxes: palette indices of the inside, the top, left, right and bottom edges. */
+const FRAME = { inside: 0x08, top: 0x18, topCorner: 0xe6, left: 0x14, right: 0x0c, bottom: 0xe4, bottomLeft: 0xe5 };
+
+/** A box with the original's bevelled frame. */
+function hudBox(fb: FrameBuffer, x: number, y: number, w: number, h: number): void {
+  fb.rect(x, y, w, h, hudColour(FRAME.inside));
+  fb.rect(x, y, w, 1, hudColour(FRAME.top));
+  fb.rect(x, y + 1, 1, h - 2, hudColour(FRAME.left));
+  fb.rect(x + w - 1, y + 1, 1, h - 1, hudColour(FRAME.right));
+  fb.rect(x, y + h - 1, w - 1, 1, hudColour(FRAME.bottom));
+  fb.put(x, y, hudColour(FRAME.topCorner));
+  fb.put(x + w - 1, y, hudColour(FRAME.topCorner));
+  fb.put(x, y + h - 1, hudColour(FRAME.bottomLeft));
 }
 
-/** Judges' notes in a column under the wind box, each from its own frame; the two discarded ones are dimmed. */
+function windBoxLeft(fb: FrameBuffer): number {
+  return fb.width - WIND_BOX.right - WIND_BOX.width;
+}
+
+/** 1cb6:1ee9: the arrow's half length along x and y (the cross component squashed to half), barbs' reach and angle. */
+const ARROW = { halfX: 11, halfY: 5.5, barbX: 8, barbY: 4, barbRad: 1.25 } as const;
+/** Arrow centre in the box, and its shadow (drawn a row lower first) and main colours. */
+const ARROW_CENTRE = { x: 13, y: 8 } as const;
+const ARROW_SHADOW = 0x44;
+const ARROW_COLOUR = 0x47;
+/** Where the speed is written in the box. */
+const WIND_SPEED_AT = { x: 6, y: 17 } as const;
+
+/** One line of the original's 1f8b:00dc with its 2x2 brush. */
+function brushedLine(fb: FrameBuffer, a: readonly [number, number], b: readonly [number, number], c: number): void {
+  rowRunLine(a[0], a[1], b[0], b[1], (x, y) => fb.rect(x, y, 2, 2, c));
+}
+
+/**
+ * The wind box (0baf:3389): the indicator's direction as the original's arrow, the cross component of the wind
+ * drawn squashed and pointing down when positive, and the wind's speed under it.
+ */
+export function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
+  const x = windBoxLeft(fb);
+  const y = WIND_BOX.top;
+  hudBox(fb, x, y, WIND_BOX.width, WIND_BOX.height);
+  const a = s.wind.indicatorDirectionRad;
+  const cx = x + ARROW_CENTRE.x;
+  const cy = y + ARROW_CENTRE.y;
+  const at = (dx: number, dy: number): [number, number] => [roundHalfEven(cx + dx), roundHalfEven(cy + dy)];
+  const tail = at(-ARROW.halfX * Math.cos(a), -ARROW.halfY * Math.sin(a));
+  const tip = at(ARROW.halfX * Math.cos(a), ARROW.halfY * Math.sin(a));
+  const barbs = [a + ARROW.barbRad, a - ARROW.barbRad].map((b) =>
+    at(ARROW.barbX * Math.cos(b), ARROW.barbY * Math.sin(b)),
+  );
+  for (const [colour, shift] of [
+    [ARROW_SHADOW, 1],
+    [ARROW_COLOUR, 0],
+  ] as const) {
+    const down = (p: readonly [number, number]): [number, number] => [p[0], p[1] + shift];
+    brushedLine(fb, down(tail), down(tip), hudColour(colour));
+    for (const barb of barbs) brushedLine(fb, down(tip), down(barb), hudColour(colour));
+  }
+  const label = s.wind.speedMPerS.toFixed(1);
+  drawText(fb, x + WIND_SPEED_AT.x, y + WIND_SPEED_AT.y, label, color("yellow"));
+}
+
+/** The lamps of the start light: rows of a disc from the top, its unlit and lit (dark to light) colours. */
+const LAMP_ROWS = [4, 8, 8, 10, 10, 10, 10, 8, 8, 4] as const;
+const LAMP_WIDTH_PX = 10;
+const LAMP_LEFT_PX = 3;
+const LAMPS = {
+  red: { top: 2, unlit: 0x44, lit: [0x47, 0x48, 0x49] },
+  green: { top: 14, unlit: 0x53, lit: [0x55, 0x56, 0x57] },
+} as const;
+/** The countdown on the gate: red before it starts, green from this second on, blinking from the next. */
+const GREEN_FROM_SECOND = 15;
+const BLINK_FROM_SECOND = 10;
+const FRAMES_PER_SECOND = 70;
+const BLINK_LIT_FRAMES = 25;
+
+/** A lamp of the start light, lit from the upper left. */
+function drawLamp(fb: FrameBuffer, x: number, y: number, lamp: (typeof LAMPS)[keyof typeof LAMPS], lit: boolean) {
+  LAMP_ROWS.forEach((width, row) => {
+    const from = (LAMP_WIDTH_PX - width) / 2;
+    for (let i = 0; i < width; i++) {
+      const dx = from + i;
+      const shade = Math.min(2, Math.max(0, Math.floor(2.6 - (dx + row) / 7)));
+      const index = lit ? (lamp.lit[shade] ?? lamp.unlit) : lamp.unlit;
+      fb.put(x + dx, y + row, hudColour(index));
+    }
+  });
+}
+
+/**
+ * The start light left of the wind box while the jumper waits on the gate (0baf:5581): red at first, green once
+ * the countdown runs, blinking in its last ten seconds, red again when the time is up.
+ */
+export function drawStartLight(fb: FrameBuffer, s: JumpSimState): void {
+  const L = s.logic;
+  if (L.frame <= 1 || L.phase >= PHASE.inrun) return;
+  const x = windBoxLeft(fb) - START_LIGHT.gap - START_LIGHT.width;
+  const y = WIND_BOX.top;
+  hudBox(fb, x, y, START_LIGHT.width, WIND_BOX.height);
+  const left = L.startCountdown;
+  const green =
+    left > 0 &&
+    left <= GREEN_FROM_SECOND &&
+    (left > BLINK_FROM_SECOND || L.frame % FRAMES_PER_SECOND < BLINK_LIT_FRAMES);
+  const red = left > GREEN_FROM_SECOND || left <= 0;
+  drawLamp(fb, x + LAMP_LEFT_PX, y + LAMPS.red.top, LAMPS.red, red);
+  drawLamp(fb, x + LAMP_LEFT_PX, y + LAMPS.green.top, LAMPS.green, green);
+}
+
+/** Frames after the last note during which all notes stay dim, before the counted ones light up (0baf:5988). */
+const NOTES_SETTLE_FRAMES = 45;
+
+/**
+ * Judges' notes in a column under the wind box, each from its own frame; once all are shown and a moment has
+ * passed, the three that count light up and the two discarded ones stay dim.
+ */
 export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void {
   const x = fb.width - 31;
   let y = 32;
+  const lastShown = Math.max(...s.logic.judges.map((j) => j.showFrame));
+  const settled = frame >= lastShown + NOTES_SETTLE_FRAMES;
   for (const judge of s.logic.judges) {
     if (frame < judge.showFrame) continue;
     fb.rect(x, y, 27, 11, color("noteBorder"));
@@ -51,7 +154,7 @@ export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void
       x + 14 - Math.ceil(textWidth(label) / 2),
       y + 2,
       label,
-      color(judge.counted ? "yellow" : "noteDropped"),
+      color(settled && judge.counted ? "yellow" : "noteDropped"),
     );
     y += 12;
   }
