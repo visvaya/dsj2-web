@@ -116,7 +116,7 @@ export function placeTrees(h: HillProfile, look: HillLook): PlacedTree[] {
 
 /**
  * Groves around the original's trees (this project's addition): the original scatters single trees evenly, so
- * on the farther layers a few neighbours, mostly spruces, join some of them, a little smaller or of the same size,
+ * on the farther layers a few spruces join some of them, a little smaller or of the same size,
  * each standing on its own ground. The original's trees keep their places.
  */
 const GROVE_LAST_LAYER = 10;
@@ -153,9 +153,8 @@ export function sceneTrees(h: HillProfile, look: HillLook): PlacedTree[] {
       const ground = groundOf(h, look, t.layer, xM);
       if (ground === null || ground.j <= 0) continue;
       const size = Math.max(SMALLEST_SIZE, t.size - ((ri >>> 8) % 2));
-      // Mostly spruces around a tree, so a grove never shows a row of bare pine trunks.
-      const kind: TreeKind = (ri >>> 12) % 4 === 0 ? t.kind : "spruce";
-      trees.push({ ...t, kind, size, xM, j: indexOn(t.layer, xM), rows: roundHalfEven(ground.rows) });
+      // Spruces around a tree, so a grove never shows a row of bare pine trunks.
+      trees.push({ ...t, kind: "spruce", size, xM, j: indexOn(t.layer, xM), rows: roundHalfEven(ground.rows) });
     }
   }
   byLook.set(look, trees);
