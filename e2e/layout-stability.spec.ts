@@ -100,13 +100,18 @@ test("the first screen is already drawn in the web fonts, which are not fetched 
       return {
         silkscreen: shown("Telemark 0123456789", "Silkscreen"),
         polishLetters: shown("ąćęłńśźż", "Telemark Polish"),
+        screenFont: shown("Telemark 0123456789", "Telemark Screen"),
       };
     });
 
   // Not the load event: the measurement is of the first screen, before anything else has had time to arrive.
   await page.goto("/", { waitUntil: "commit" });
   await expect(button(page, TEXT.training)).toBeVisible();
-  expect(await webFontsShown(), "fonts of the first screen").toEqual({ silkscreen: true, polishLetters: true });
+  expect(await webFontsShown(), "fonts of the first screen").toEqual({
+    silkscreen: true,
+    polishLetters: true,
+    screenFont: true,
+  });
   const before = await menuPositions(page);
 
   await page.evaluate(async () => {

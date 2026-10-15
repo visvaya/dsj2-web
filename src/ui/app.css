@@ -10,6 +10,22 @@
   --overlay-gap: 4px;
   --overlay-font-size: 11px;
 
+  /* The tones of the screens' font (fonts.css): the body here, the shadow in the font palette of the same name. */
+  --tone-yellow: #e6e63e;
+  --tone-white: #e8e8f0;
+  --tone-violet: #c8a8ff;
+  --tone-grey: #a0a8c0;
+  /* Sizes of the screens' font, whole multiples of its 8 pixels to the em: choices, screen titles, the game's title. */
+  --screen-item-px: 16px;
+  --screen-heading-px: 24px;
+  --screen-title-px: 32px;
+  /* One character of that font at the size of the choices (6 of its 8 pixels), the unit of the screens' indent. */
+  --screen-char: calc(0.75 * var(--screen-item-px));
+  /* The column the choices start in, two characters in; a framed button starts its frame so far before it. */
+  --item-column: calc(2 * var(--screen-char));
+  --item-pad: calc(var(--screen-char) / 2);
+  --item-indent: calc(var(--item-column) - 3px - var(--item-pad));
+
   /*
    * Parts of the screen the device covers: a camera cut-out, rounded corners, the bar of system gestures.
    * Zero on a plain screen. The page reaches under them (viewport-fit=cover), so the layout keeps clear itself.
@@ -586,6 +602,24 @@ h2 {
   position: relative;
 }
 
+/* What became of a jump kept with the S key, over the top of the picture area for a few seconds. */
+.keep-note {
+  position: absolute;
+  top: var(--overlay-gap);
+  left: 50%;
+  translate: -50% 0;
+  width: max-content;
+  max-width: calc(100% - 2 * var(--overlay-gap));
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--overlay-bg);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: center;
+  pointer-events: none;
+}
+
 /* Measurements of the jump loop, shown on request over the corner of the picture area; never in the way. */
 .jump-diagnostics {
   position: absolute;
@@ -1022,10 +1056,175 @@ h2 {
 }
 
 /*
+ * The screens in the jump picture's letters (fonts.css, "Telemark Screen"). Headings, section labels and everything
+ * one can choose are set in it, each role in its tone: the game's title and the screen titles yellow and larger,
+ * labels one does not click white, choices yellow, values (the K point, records, a setting's value) violet. Longer
+ * text (notes, paragraphs, messages) stays in Silkscreen.
+ *
+ * One grid in characters of that font: headings and section labels in column 0, choices two characters in, a blank
+ * row before a section label.
+ */
+@media (min-width: 768px) {
+  :root {
+    --screen-item-px: 24px;
+    --screen-heading-px: 32px;
+    --screen-title-px: 48px;
+  }
+}
+
+.screen :is(.title, .screen-title, h2, legend, dt, .pixel-button, .hill-item, .settings-check, .stepper-value) {
+  font-family: "Telemark Screen", "Silkscreen", "Telemark Polish", ui-monospace, monospace;
+  font-size: var(--screen-item-px);
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+.screen .title {
+  font-size: var(--screen-title-px);
+  line-height: 1.25;
+}
+
+.screen .screen-title {
+  font-size: var(--screen-heading-px);
+  line-height: 1.25;
+}
+
+/* The smallest step of the font: buttons beside a replay or a list, which stand back from the main choices. */
+.screen .small-button {
+  font-size: 16px;
+}
+
+.screen :is(.title, .screen-title, .pixel-button, .hill-item-name, .settings-check) {
+  color: var(--tone-yellow);
+  font-palette: --tone-yellow;
+}
+
+.screen :is(h2, legend, dt) {
+  color: var(--tone-white);
+  font-palette: --tone-white;
+}
+
+.screen :is(.hill-item-k, .hill-item-record, .stepper-value) {
+  color: var(--tone-violet);
+  font-palette: --tone-violet;
+}
+
+/* What is pointed at or has the focus turns white, as the yellow of every choice cannot get any brighter. */
+.screen .pixel-button:focus-visible,
+.screen .file-label:focus-within,
+.screen .hill-item:focus-visible .hill-item-name {
+  color: var(--tone-white);
+  font-palette: --tone-white;
+}
+
+@media (hover: hover) {
+  .screen .pixel-button:hover,
+  .screen .hill-item:hover .hill-item-name {
+    color: var(--tone-white);
+    font-palette: --tone-white;
+  }
+
+  .screen .hill-item:hover .hill-item-k {
+    color: var(--tone-violet);
+  }
+}
+
+.screen .pixel-button[aria-disabled="true"] {
+  color: var(--tone-grey);
+  font-palette: --tone-grey;
+}
+
+/* Section labels: column 0, a blank row before each. */
+.screen :is(h2, .hill-section-title) {
+  margin: 1em 0 0;
+}
+
+/* A choice's frame (shown with the focus) sits half a character around its text. */
+.screen :is(.pixel-button, .hill-item) {
+  padding-inline: var(--item-pad);
+}
+
+/* Choices, two characters in. */
+.screen :is(.menu, .settings-list, .settings-group) > .pixel-button,
+.screen > div > .pixel-button,
+.screen .settings-list > .stepper,
+.screen .hill-grid,
+.screen > .replay-row-actions,
+.screen .replay-remove-oldest {
+  margin-left: var(--item-indent);
+}
+
+.screen .settings-check,
+.screen .replay-list,
+.screen .swatches {
+  margin-left: var(--item-column);
+}
+
+/* A rule's field stays under the text of its box, which now starts two characters in. */
+.screen .settings-rule input[type="number"] {
+  margin-left: calc(var(--item-column) + 36px);
+}
+
+/* In a replay's row the buttons line up with its name, the box of the row standing in column 2. */
+.screen .replay-list .settings-check {
+  margin-left: 0;
+}
+
+.screen .replay-row-actions {
+  margin-left: calc(-3px - var(--item-pad));
+}
+
+/* The settings read as a list, as the main menu does: no frames until the focus comes, and room for a whole line. */
+.screen .settings-list {
+  width: min(100%, 640px);
+}
+
+.screen .settings-list .pixel-button {
+  justify-content: flex-start;
+  text-align: left;
+  background: none;
+}
+
+.screen .settings-list .pixel-button:not(:focus-visible) {
+  border-color: transparent;
+}
+
+/* A hill's name takes up to 14 characters, so the K points of all rows stand in one column. */
+.screen .hill-item {
+  grid-template-columns: auto minmax(0, 10.5em) auto;
+  justify-content: start;
+}
+
+.screen .hill-item-record {
+  font-family: "Telemark Screen", "Silkscreen", "Telemark Polish", ui-monospace, monospace;
+  font-size: 16px;
+}
+
+/*
  * Forced colours (Windows contrast themes) repaint every background with one system colour. The swatches are the
  * colours being chosen, so they keep their own.
  */
 @media (forced-colors: active) {
+  /* A contrast theme recolours the letters but not the shadow layer of a colour font: the screens go back to the
+     plain pixel font, which it shows in its own colours. */
+  .screen
+    :is(
+      .title,
+      .screen-title,
+      h2,
+      legend,
+      dt,
+      .pixel-button,
+      .hill-item,
+      .hill-item-record,
+      .settings-check,
+      .stepper-value
+    ) {
+    font-family: "Silkscreen", "Telemark Polish", ui-monospace, monospace;
+  }
+
   .swatch {
     forced-color-adjust: none;
   }

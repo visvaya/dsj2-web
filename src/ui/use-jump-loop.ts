@@ -9,7 +9,7 @@ import type { JumpSimState } from "../sim/jump-sim";
 import { VIEW_HEIGHT_PX, drawJumpView, viewWidthFor, type Scenery } from "../render/jump-view";
 import { UI_TEXT } from "../text/ui-text";
 import { createJumpDiagnostics } from "./jump-diagnostics";
-import { listenToPlayerInput, watchPointerLock } from "./jump-input-listeners";
+import { listenToPlayerInput, watchPointerLock, type PointerLockWatch } from "./jump-input-listeners";
 import { makePicture, pictureSize, titlePlaceFor, type TitlePlace, type JumpPicture } from "./jump-picture";
 import { REPLAY_SPEED_LABEL, type ReplaySource, type ReplayView } from "./jump-replay";
 import {
@@ -29,6 +29,8 @@ interface JumpLoopOptions extends RunContext {
   pausedRef: RefObject<boolean>;
   pauseButtonRef: RefObject<HTMLElement | null>;
   toggleMenu: () => void;
+  /** Keeps the last jump, as the menu's button does (the S key). */
+  keepLast: () => void;
   /** A replay to play as the screen opens (one of the original's); training follows it. */
   initialReplay: ReplaySource | null;
 }
@@ -83,6 +85,24 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
           },
         }),
   });
+}
+
+/** What the mouse and the keys do on the jump screen, acting on the runs and the options of the time. */
+function inputHandlers(o: () => JumpLoopOptions, runs: RunSwitch, lock: PointerLockWatch) {
+  return {
+    paused: () => o().pausedRef.current,
+    mouseGain: () => mouseGain(o().live.settings.sensitivity.mouse),
+    restart: runs.controls.restart,
+    replaying: runs.replaying,
+    replayPress: runs.press,
+    escape: () => {
+      lock.release();
+      o().toggleMenu();
+    },
+    hasLastJump: () => runs.controls.lastJump() !== null,
+    watchLast: runs.controls.watchReplay,
+    keepLast: () => o().keepLast(),
+  };
 }
 
 /**
@@ -199,17 +219,7 @@ export function useJumpLoop(options: JumpLoopOptions) {
     };
     raf = requestAnimationFrame(frame);
 
-    const stopInput = listenToPlayerInput(canvas, input, {
-      paused: () => o().pausedRef.current,
-      mouseGain: () => mouseGain(o().live.settings.sensitivity.mouse),
-      restart: runs.controls.restart,
-      replaying: runs.replaying,
-      replayPress: runs.press,
-      escape: () => {
-        lock.release();
-        o().toggleMenu();
-      },
-    });
+    const stopInput = listenToPlayerInput(canvas, input, inputHandlers(o, runs, lock));
     return () => {
       document.removeEventListener("visibilitychange", onVisibility);
       cancelAnimationFrame(raf);

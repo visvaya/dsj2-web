@@ -209,6 +209,8 @@ node scripts/serve-dist.mjs             # dist/ pod http://127.0.0.1:4317, z nag
 node scripts/check-deployment.mjs http://127.0.0.1:4317   # ta sama kontrola co po wdrożeniu
 node scripts/monitor-deployment.mjs <adres gry>           # to, co robi workflow Monitor; same odczyty
 node scripts/make-icons.mjs             # ikony od nowa, po zmianie obrazka (src/pwa/icon-picture.ts)
+node scripts/export-screen-glyphs.mjs glyphs.json   # czcionka ekranów od nowa, po zmianie src/render/pixel-font.ts,
+python tools/font/make_screen_font.py glyphs.json src/ui/fonts/telemark-screen.woff2   # potem ten krok
 ```
 
 ## Czego nie sprawdza automat

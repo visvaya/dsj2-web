@@ -78,7 +78,7 @@ skipped. See `docs/testing.md`.
 | `src/pwa` | service worker registration, offline state, the picture the icons are made of |
 | `public` | web manifest, icons, the host's headers file |
 | `tools/re` | reverse-engineering tools (disassembler, headless DOS emulator, trace capture) |
-| `tools/font` | generator of the Polish letters for the Silkscreen font |
+| `tools/font` | generators of the screens' font (from the jump picture's own glyphs) and of the Polish letters for the Silkscreen font |
 | `scripts` | the release step and service worker, checks of the build and of a deployment, the test server, the single-file build |
 | `deploy` | the pinned deployment tool and its configuration |
 | `docs` | specifications and guides, see below |
@@ -116,7 +116,9 @@ Deluxe Ski Jump is a name of its respective owner and is used here only to descr
 contains no files from the original game; the game reads them from the player's own copy, locally.
 
 The pixel font is Silkscreen with added Polish letters, under the SIL Open Font License 1.1 (`src/ui/fonts/OFL.txt`;
-the built game carries the same text as `licenses/silkscreen-ofl.txt`).
+the built game carries the same text as `licenses/silkscreen-ofl.txt`). The screens' headings and choices use the
+jump picture's own font, generated from `src/render/pixel-font.ts` by `tools/font/make_screen_font.py` and licensed
+with the rest of the game.
 
 ## License
 

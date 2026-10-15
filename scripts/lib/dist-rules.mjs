@@ -14,9 +14,12 @@
 // original draws it (its layers in perspective, palette, background, inrun, fences, marks and trees), while the
 // outfit preview and the icon still use the earlier drawing; the budget keeps the margin it had (4.4%). Measured
 // again the same day at 140468 bytes, with the preview and the icon on the new scene and the earlier drawing gone.
+// CSS measured again on 2026-10-16: 22425 bytes, with the screens' font (the jump picture's letters, 4788 bytes
+// of woff2, 4763 bytes of the stylesheet's gzip as base64) and the rules that set the screens in it; the same
+// stylesheet without that font is 17271 bytes. The budget keeps a margin of about 15%.
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 146_000,
-  CSS_GZIP_BUDGET_BYTES: 17_500,
+  CSS_GZIP_BUDGET_BYTES: 25_800,
   // Measured on 2026-10-13: the service worker 3890 bytes gzip (3160 before it kept the release before for the
   // pages that still need it), the four icons 9682 bytes.
   SERVICE_WORKER_GZIP_BUDGET_BYTES: 4_500,

@@ -55,6 +55,12 @@ interface InputHandlers {
   replayPress: () => void;
   /** The Escape key: frees the mouse and opens the menu, or closes it. */
   escape: () => void;
+  /** Whether a jump has ended that can be watched again and kept (what the menu offers then). */
+  hasLastJump: () => boolean;
+  /** The P key, as the replay key of the original: watches the last jump again. */
+  watchLast: () => void;
+  /** The S key: keeps the last jump on the shelf of replays. */
+  keepLast: () => void;
 }
 
 /** What a key does to the input; false when the key is not one of the game's. */
@@ -74,6 +80,12 @@ function applyKey(input: PlayerInput, code: string, down: boolean, handlers: Inp
       return true;
     case "KeyR":
       if (down) handlers.restart();
+      return true;
+    case "KeyP":
+    case "KeyS":
+      // Only once there is a jump to watch or keep; before that the keys are not the game's.
+      if (!handlers.hasLastJump()) return false;
+      if (down) (code === "KeyP" ? handlers.watchLast : handlers.keepLast)();
       return true;
     default:
       return false;

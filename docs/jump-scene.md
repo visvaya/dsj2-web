@@ -126,6 +126,19 @@ wiersz cienia. Ł, Đ, Ø, Æ i ß mają własne kształty, małe litery rysuje 
 przy 1x. Oryginał kładzie akcent o jeden wiersz wyżej, nachodząc na literę; port trzyma dla znaków dwa osobne
 wiersze, na które pasek ma miejsce.
 
+Ekrany menu piszą nagłówki, etykiety i wszystko, co się wybiera, tą samą czcionką: rodzina „Telemark Screen”
+(`src/ui/fonts/telemark-screen.woff2`) to czcionka kolorowa COLRv0/CPAL wygenerowana z tych samych znaków.
+`scripts/export-screen-glyphs.mjs` zapisuje piksele każdego znaku (`glyphPixels`, `fontCharacters` z `pixel-font.ts`)
+jako JSON, a `tools/font/make_screen_font.py` buduje z niego czcionkę: każdy znak ma warstwę cienia (wpis 0 palety,
+który arkusz stylów nadpisuje dla każdego odcienia przez `@font-palette-values`) i warstwę ciała w kolorze tekstu;
+sam kontur znaku to ciało, dla przeglądarki bez czcionek kolorowych. Siatka: 8 pikseli na em od dwóch wierszy
+znaków nad wersalikami do linii bazowej, na której stoi ostatni wiersz ciała; cień i znaki pod literą schodzą
+pod nią. Każdy znak ma 6 pikseli szerokości, małe litery wskazują znaki wersalików. Obok czcionki leży skrót
+SHA-256 eksportu (`telemark-screen.glyphs.sha256`); `scripts/lib/screen-font-glyphs.test.mjs` porównuje go
+ze świeżym eksportem, więc zmiana znaków bez przebudowania czcionki zatrzymuje `pnpm test:scripts`. Polecenia
+są w nagłówku `make_screen_font.py` (potrzebne pakiety: `tools/font/requirements.txt`). Rozmiary na ekranach są
+wielokrotnościami 8 px, żeby piksele zostały ostre.
+
 Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
 którym ją pisze (0xCB), i jak ona bez cienia (czytelna nad niebem i rozbiegiem); gdy w tym rogu leży przycisk pauzy
 (sterowanie przechyłem w poziomie), nazwa stoi na prawo od niego, wyśrodkowana w pionie względem przycisku. Na

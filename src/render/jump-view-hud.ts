@@ -202,6 +202,8 @@ function phaseLabel(s: JumpSimState): string {
  */
 interface Prompts {
   nextJump: string;
+  /** Under the next jump's prompt once the jumper stands still: how to watch and keep the jump. */
+  replayReady: string;
   /** What pauses a replay, and how to reach the menu. */
   replay: string;
   /** Once a replay of the original is over: what opens the menu. */
@@ -231,8 +233,8 @@ export function prompt(m: JumpViewModel, nextJumpAllowed: boolean): readonly str
   if (m.hints === false) return [];
   const phase = m.state.logic.phase;
   // The next jump can start as soon as the notes are up; the jumper may still be sliding out. Once the jumper
-  // stands still the jump can be watched again and kept, from the menu.
-  if (nextJumpAllowed) return m.over ? [text.nextJump, UI_TEXT.hud.replayReady] : [text.nextJump];
+  // stands still the jump can be watched again and kept (keys P and S, or the menu).
+  if (nextJumpAllowed) return m.over ? [text.nextJump, text.replayReady] : [text.nextJump];
   if (phase === PHASE.gate) return [text.start];
   if (phase === PHASE.inrun || phase === PHASE.crouch) return [text.takeoff];
   // The original starts the landing (telemark) on a press of either button; about 0.4 s before touchdown scores

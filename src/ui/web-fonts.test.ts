@@ -24,7 +24,12 @@ describe("webFontsReady", () => {
       },
     };
     await webFontsReady(fonts, FONT_WAIT_LIMIT_MS, neverWait);
-    expect(asked).toEqual(['1em "Silkscreen" for Telemark', '1em "Silkscreen" for Ā', '1em "Telemark Polish" for ą']);
+    expect(asked).toEqual([
+      '1em "Silkscreen" for Telemark',
+      '1em "Silkscreen" for Ā',
+      '1em "Telemark Polish" for ą',
+      '1em "Telemark Screen" for Telemark',
+    ]);
   });
 
   it("waits until the fonts have loaded", async () => {
