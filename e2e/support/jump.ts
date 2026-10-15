@@ -11,8 +11,8 @@ const RESULT = /jeszcze raz\.$/;
  *
  * The game runs in real time at 70 simulation steps a second, so the test plays like a player: by time. The
  * values sit in the middle of windows measured by running the built-in hill in the simulation with many seeds:
- * a short press of one or both buttons between 3.4 s and 4.1 s after the start takes off (the edge of the inrun
- * comes at 3.6 s; a press just after it still counts), a press of the right button 0.43 s later prepares the
+ * a short press of one or both buttons between 3.3 s and 4.0 s after the start takes off (the edge of the inrun
+ * comes at 3.7 s; a press just after it still counts), a press of the right button 0.43 s later prepares the
  * landing, and the left button after it puts the telemark down at once, which makes the landing clean wherever
  * in the flight it happens. Outside the takeoff window the jump ends in a fall or without a distance.
  */

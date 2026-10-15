@@ -26,7 +26,7 @@ describe("the ghost of the record", () => {
     const fb = new FrameBuffer(320, 200);
     const snow = color("snow1");
     fb.rect(0, 0, fb.width, fb.height, snow);
-    drawGhost(fb, hill.profile, ghost, { x: ghost.jumper.xM, y: ghost.jumper.yM, cx: 160, cy: 100 });
+    drawGhost(fb, hill.profile, ghost, { x: 160, y: 100, pxPerMX: 35 / 3, pxPerMY: 35 / 3 });
     const tinted = fb.pixels.filter((p) => p !== snow);
     expect(tinted.length).toBeGreaterThan(30);
     // Every pixel it covers is bluer than it is red.

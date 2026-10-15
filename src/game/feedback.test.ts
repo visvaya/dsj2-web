@@ -25,7 +25,7 @@ function run(landingHeightM: number | null): string[] {
 
 describe("haptic feedback", () => {
   it("reports start, takeoff and landing of a clean jump once each", () => {
-    expect(run(2.5)).toEqual(["start", "takeoff", "landing"]);
+    expect(run(2)).toEqual(["start", "takeoff", "landing"]);
   });
 
   it("reports a crash instead of a landing", () => {

@@ -90,7 +90,7 @@ const SCENARIOS: readonly Scenario[] = [
   {
     name: "jump with a telemark landing",
     seed: 7,
-    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2.5, leanPattern: () => 0 },
+    bot: { startFrame: 70, takeoffLeadM: 3, landingHeightM: 2, leanPattern: () => 0 },
     recordM: 80,
     newRecord: true,
     moments: [
@@ -246,7 +246,7 @@ describe("jump view pixels", () => {
         [356, VIEW_HEIGHT_PX],
       ] as const) {
         const fb = new FrameBuffer(w, h);
-        drawJumperPreview(fb, { profile: hill.profile, state, outfit });
+        drawJumperPreview(fb, { hill, state, outfit });
         hashes[`${name}, ${w}x${h}`] = fnv(fb.bytes);
       }
     }

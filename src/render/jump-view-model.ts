@@ -1,6 +1,7 @@
 import type { Outfit } from "../game/outfit";
 import type { HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
+import type { HillLook } from "./hill-look";
 import type { Lighting } from "./palette";
 
 /** Look of the scene; purely visual, the simulation never sees it. */
@@ -18,6 +19,8 @@ export type ControlScheme = "mouse" | "touch" | "tilt";
 export interface JumpViewModel {
   profile: HillProfile;
   kPointM: number;
+  /** How the hill looks besides its profile; this project's own look when absent. */
+  look?: HillLook;
   hillName: string;
   /** Whether the picture tells what to press and when; it does unless this is false. */
   hints?: boolean;

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, beatsRecord, emptySave, parseSave, withJump, withSettings } from "./save-data";
+import {
+  DEFAULT_SETTINGS,
+  beatsRecord,
+  emptySave,
+  parseSave,
+  withJump,
+  withSettings,
+  type Settings,
+} from "./save-data";
 import { SAVE_KEY, detectBackend, loadSave, memoryBackend, saveSave } from "./save-store";
 
 const NOW = new Date("2026-10-11T10:00:00Z");
@@ -41,32 +49,25 @@ describe("save data", () => {
 
   it("stores settings and repairs unknown values", () => {
     const outfit = { pants: 1, sleeves: 2, gloves: 3, helmet: 4, skis: 11 };
-    const save = withSettings(emptySave(), {
+    const chosen: Settings = {
       leanControl: "tilt",
       vibration: false,
       scenery: "night",
+      weather: "snowFog",
       outfit,
       sound: false,
       sensitivity: { mouse: 3, drag: 7, tilt: 9 },
       hillHints: false,
       replays: { recentCount: 10, maxAgeDays: 30, maxSizeKb: 2000, slider: false },
       recordGhost: false,
-    });
-    expect(parseSave(JSON.stringify(save)).settings).toEqual({
-      leanControl: "tilt",
-      vibration: false,
-      scenery: "night",
-      outfit,
-      sound: false,
-      sensitivity: { mouse: 3, drag: 7, tilt: 9 },
-      hillHints: false,
-      replays: { recentCount: 10, maxAgeDays: 30, maxSizeKb: 2000, slider: false },
-      recordGhost: false,
-    });
+    };
+    const save = withSettings(emptySave(), chosen);
+    expect(parseSave(JSON.stringify(save)).settings).toEqual(chosen);
     // A save from before the sensitivity was added reads it as the default.
     const older = { ...save, settings: { leanControl: "tilt", vibration: false } };
     expect(parseSave(JSON.stringify(older)).settings.sensitivity).toEqual({ mouse: 5, drag: 5, tilt: 5 });
     expect(parseSave(JSON.stringify(older)).settings.hillHints).toBe(true);
+    expect(parseSave(JSON.stringify(older)).settings.weather).toBe("varied");
     // The choice stored under the setting's first name is kept.
     const renamed = { ...save, settings: { flightHints: false } };
     expect(parseSave(JSON.stringify(renamed)).settings.hillHints).toBe(false);
@@ -76,6 +77,7 @@ describe("save data", () => {
         leanControl: "joystick",
         vibration: "yes",
         scenery: "dawn",
+        weather: "hail",
         outfit: { pants: 12, skis: 1.5, helmet: "red" },
         sound: "loud",
         replays: { recentCount: 7, maxAgeDays: 0, maxSizeKb: 1e9, slider: "yes" },

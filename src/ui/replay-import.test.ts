@@ -11,7 +11,7 @@ const NOW = new Date("2026-10-14T12:00:00.000Z");
 const entry = (seed: number, kind: ShelfEntry["kind"] = "record"): ShelfEntry => ({
   id: `e${seed}`,
   kind,
-  hill: { id: "own-1", name: "Ćwiczebna", kPointM: 90 },
+  hill: { id: "own-2", name: "Ćwiczebna", kPointM: 90 },
   dateIso: "2026-10-14T11:00:00.000Z",
   result: { distanceM: 88.5, points: 101.5, fell: false },
   newRecord: true,

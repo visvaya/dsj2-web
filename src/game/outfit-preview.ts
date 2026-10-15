@@ -6,8 +6,11 @@ import { startTrainingJump, stepTrainingJump, isJumpOver } from "./training-sess
 
 const START_FRAME = 70;
 const TAKEOFF_LEAD_M = 3;
-/** Frames of flight before the picture is taken: the jumper has settled into the V. */
-const FLIGHT_FRAMES = 45;
+/**
+ * Frames of flight before the picture is taken: the jumper is in the air with his head against the snow, no tree
+ * of the background behind him.
+ */
+const FLIGHT_FRAMES = 16;
 const PREVIEW_SEED = 2001;
 
 /** A jumper in flight on the given hill, from a fixed seed and fixed inputs, for the outfit preview. */

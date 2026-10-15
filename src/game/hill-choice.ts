@@ -2,6 +2,7 @@ import type { HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { OriginalHill } from "../original/original-hills";
 import type { CountryCode } from "../render/flags";
+import { DEFAULT_HILL_LOOK, type HillLook } from "../render/hill-look";
 import { UI_TEXT } from "../text/ui-text";
 
 /** A hill the player can pick, from this project or from the player's original files. */
@@ -10,37 +11,48 @@ export interface HillChoice {
   name: string;
   kPointM: number;
   profile: HillProfile;
+  /** How the hill looks besides its profile. */
+  look: HillLook;
   source: "own" | "original";
   /** Country the hill stands in, for its flag; none for this project's own hills. */
   country: CountryCode | null;
 }
 
+/**
+ * Ids of this project's hills whose profile was replaced under a new id: replays and records made on them belong to
+ * a hill the game no longer has.
+ */
+export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set(["own-1"]);
+
 /** Hills made for this project (not taken from the original game). */
 export const OWN_HILLS: readonly HillChoice[] = [
   {
-    id: "own-1",
+    // "own-1" was the first profile of this hill, outside the original's ranges at its K point; records and
+    // replays made on it stay under that id, so they never meet the present profile.
+    id: "own-2",
     name: "Ćwiczebna",
     kPointM: 90,
     source: "own",
     country: null,
+    look: DEFAULT_HILL_LOOK,
     profile: buildHillProfile(
       {
         startXM: 11.4,
         flatEndXM: 10,
-        lineEndXM: 32,
-        takeoffXM: 44,
-        lineSlope: -0.9,
+        lineEndXM: 25.3,
+        takeoffXM: 46,
+        lineSlope: -1,
         lineInterceptM: 230,
-        curveA: 0.0296,
+        curveA: 0.02,
       },
       {
-        centerXM: 95,
-        centerYM: 166,
-        amplitudeM: 30,
-        widthM: 40,
-        outrunStartXM: 160,
-        outrunCurveA: 0.012,
-        knollBlend: 0,
+        centerXM: 115,
+        centerYM: 150.9,
+        amplitudeM: 45,
+        widthM: 50,
+        outrunStartXM: 170,
+        outrunCurveA: 0.01,
+        knollBlend: 0.3,
       },
     ),
   },
@@ -86,6 +98,7 @@ export function originalHillChoices(hills: readonly OriginalHill[]): HillChoice[
     name: h.name ?? fallbackHillName(h.number),
     kPointM: h.kPointM,
     profile: h.profile,
+    look: h.look ?? DEFAULT_HILL_LOOK,
     source: "original",
     country: ORIGINAL_HILL_COUNTRY[h.number - 1] ?? null,
   }));

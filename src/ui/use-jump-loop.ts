@@ -57,6 +57,7 @@ function drawFrame(picture: JumpPicture, hill: HillChoice, live: LiveProps, v: F
   drawJumpView(picture.fb, {
     profile: hill.profile,
     kPointM: hill.kPointM,
+    look: hill.look,
     hillName: hill.name,
     playerName: v.playerName,
     state: v.jump.state,

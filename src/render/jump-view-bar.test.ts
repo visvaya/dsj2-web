@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { startTrainingJump } from "../game/training-session";
 import { FrameBuffer } from "./frame-buffer";
-import { BAR_HEIGHT_PX, drawBar } from "./jump-view-hud";
-import { color } from "./palette";
+import { BAR_HEIGHT_PX, INK, drawBar } from "./jump-view-hud";
+import { hudColour } from "./scene-palette";
 
 const hill = OWN_HILLS[0];
 const WIDTH_PX = 356;
@@ -35,10 +35,12 @@ describe("the bar of the picture", () => {
     const { fb, top } = barWith("ŚĆŃÓŹŻ ĄĘŁ");
     // Nothing above the bar, and its top line unbroken: an accent would show over the picture.
     for (let y = 0; y < top; y++) expect(row(fb, y).every((p) => p === 0)).toBe(true);
-    expect(row(fb, top).every((p) => p === color("grey"))).toBe(true);
+    expect(row(fb, top).every((p) => p === hudColour(0x11))).toBe(true);
     // The name is drawn, down to its lowest row (the ogonki) inside the picture.
+    // The name's colours: the bar's ramp, from its edges to its body.
+    const ink = new Set(Array.from({ length: 8 }, (_, i) => hudColour(INK.bar - 6 + i)));
     const yellowRows = Array.from({ length: BAR_HEIGHT_PX }, (_, i) => top + i).filter((y) =>
-      row(fb, y).includes(color("yellow")),
+      row(fb, y).some((p) => ink.has(p)),
     );
     expect(yellowRows.length).toBeGreaterThan(0);
     expect(Math.max(...yellowRows)).toBeLessThan(HEIGHT_PX);

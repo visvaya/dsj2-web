@@ -31,6 +31,14 @@ export interface HillDefinition {
   landing: LandingSpec;
   /** All calls of the branch, for the presentation data used later (scenery, colours). */
   calls: PushedCall[];
+  /** Trees the branch moves out of sight after placing them: records `first`..`last` (from 1) of a layer. */
+  hiddenTrees: HiddenTrees[];
+}
+
+interface HiddenTrees {
+  layer: number;
+  first: number;
+  last: number;
 }
 
 const OP_CMP_AL = 0x3c;
@@ -92,13 +100,13 @@ export function decodePushedCalls(img: Uint8Array, start: number): PushedCall[] 
 const floatView = new DataView(new ArrayBuffer(4));
 
 /** A Single pushed as high word then low word. */
-function single(words: readonly number[], i: number): number {
+export function single(words: readonly number[], i: number): number {
   floatView.setUint16(0, words[i + 1] ?? 0, true);
   floatView.setUint16(2, words[i] ?? 0, true);
   return floatView.getFloat32(0, true);
 }
 
-function int16(words: readonly number[], i: number): number {
+export function int16(words: readonly number[], i: number): number {
   const w = words[i] ?? 0;
   return w >= 0x8000 ? w - 0x10000 : w;
 }
@@ -129,6 +137,52 @@ function landingFromWords(w: readonly number[]): LandingSpec {
   };
 }
 
+/** `mov word [0x3d86], imm16` (loop counter start), `mov word [di + disp16], 0xff38` (x := -200) and `cmp word [0x3d86], imm8`. */
+const COUNTER_START = [0xc7, 0x06, 0x86, 0x3d] as const;
+const HIDE_STORE = [0xc7, 0x85] as const;
+const HIDDEN_X = [0x38, 0xff] as const;
+const COUNTER_END = [0x83, 0x3e, 0x86, 0x3d] as const;
+/** The x field of the tree records of layer 0 (DS:2B7A + 4) and the size of a layer's list and of a record. */
+const TREE_X_BASE = 0x2b7e;
+const TREE_LAYER_BYTES = 0xa4;
+const TREE_RECORD_BYTES = 8;
+/** How far before and after the store the loop's start and end are looked for. */
+const LOOP_REACH_BYTES = 40;
+
+const matches = (img: Uint8Array, at: number, bytes: readonly number[]) => bytes.every((b, i) => img[at + i] === b);
+
+/**
+ * The loops some branches run after placing the trees (hills 4 and 9 of v2.10P): `for i := a to b do
+ * x[layer][i] := -200`, which takes those trees out of the picture.
+ */
+function readHiddenTrees(img: Uint8Array, from: number, to: number): HiddenTrees[] {
+  const hidden: HiddenTrees[] = [];
+  for (let at = from; at + 6 <= to; at++) {
+    if (!matches(img, at, HIDE_STORE) || !matches(img, at + 4, HIDDEN_X)) continue;
+    const offset = u16(img, at + 2) - TREE_X_BASE;
+    if (offset < 0 || (offset % TREE_LAYER_BYTES) % TREE_RECORD_BYTES !== 0) continue;
+    let start: number | undefined;
+    for (let b = at - 1; b >= at - LOOP_REACH_BYTES; b--) {
+      if (matches(img, b, COUNTER_START)) {
+        start = u16(img, b + 4);
+        break;
+      }
+    }
+    let end: number | undefined;
+    for (let b = at + 6; b <= at + LOOP_REACH_BYTES; b++) {
+      if (matches(img, b, COUNTER_END)) {
+        end = img[b + 4];
+        break;
+      }
+    }
+    if (start === undefined || end === undefined) continue;
+    const layer = Math.floor(offset / TREE_LAYER_BYTES);
+    const shift = (offset % TREE_LAYER_BYTES) / TREE_RECORD_BYTES;
+    hidden.push({ layer, first: start + shift, last: end + shift });
+  }
+  return hidden;
+}
+
 function readChain(img: Uint8Array, first: number): HillDefinition[] {
   const hills: HillDefinition[] = [];
   let at = first;
@@ -146,6 +200,7 @@ function readChain(img: Uint8Array, first: number): HillDefinition[] {
       inrun: inrunFromWords(inrun.words),
       landing: landingFromWords(landing.words),
       calls,
+      hiddenTrees: readHiddenTrees(img, at + BRANCH_HEADER_BYTES, next > at ? next : at + MAX_BRANCH_BYTES),
     });
     at = next;
   }

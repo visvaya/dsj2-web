@@ -3,20 +3,27 @@ import { nextJumpAllowed } from "../game/training-session";
 import type { HillProfile } from "../sim/hill-profile";
 import { notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
-import type { FrameBuffer } from "./frame-buffer";
-import { backdropFor, drawBackdrop, drawBirds, drawSnowfall } from "./jump-view-backdrop";
-import { CAMERA_AHEAD_M, CAMERA_BELOW_JUMPER_M, type Camera } from "./jump-view-camera";
-import { BAR_HEIGHT_PX, drawBar, drawNotes, drawWindBox, prompt } from "./jump-view-hud";
+import { FrameBuffer } from "./frame-buffer";
+import { drawSnowfall } from "./jump-view-snowfall";
+import { BAR_HEIGHT_PX, drawBar, drawNotes, drawStartLight, drawWindBox, prompt } from "./jump-view-hud";
 import { drawGhost } from "./jump-view-ghost";
-import { drawJumper } from "./jump-view-jumper";
-import { drawDistanceLine, drawHill, drawNearFence, drawSlope, drawWindSocks } from "./jump-view-landing";
+import { drawHillScene, jumperInPicture } from "./jump-view-scene";
+import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
+import { drawBirds, drawFloodlights, drawInrunLamps, drawNightSky, drawWindSocks } from "./scene-extras";
+import { SQUARE_PIXEL_WIDTH } from "./scene-layers";
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
 import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 import { UI_TEXT } from "../text/ui-text";
 
-export { FALLEN_MAX_HEIGHT_M, figureHalfWidthM, figurePoints } from "./jump-view-jumper";
-export { windSockDirection } from "./jump-view-landing";
+export {
+  FALLEN_MAX_HEIGHT_M,
+  TROUGH_FALLEN_HALF_WIDTH_M,
+  TROUGH_FALLEN_MAX_HEIGHT_M,
+  figureHalfWidthM,
+  figurePoints,
+} from "./jump-view-jumper";
+export { windSockDirection } from "./scene-extras";
 export { type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
@@ -39,6 +46,13 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
   return Math.min(VIEW_MAX_WIDTH_PX, Math.max(VIEW_MIN_WIDTH_PX, w));
 }
 
+/** Rows of the sky bands at the top of the scene; stars and the moon are drawn there only. */
+const SKY_ROWS = 48;
+/** The hill's name in the colour the original gives a replay's file name there (0xCB), a new record in 0xCD. */
+const TITLE_INK = 0xcb;
+/** Where the hill's name starts: where the original writes the replay's file name in the corner. */
+const TITLE_AT_PX = { x: 5, y: 3 } as const;
+const RECORD_INK = 0xcd;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
 /** Prompts: the height of a line of text with its spacing, and the gap between the last line and the bar. */
@@ -53,27 +67,47 @@ export interface PreviewAnchor {
 
 const PREVIEW_ANCHOR: PreviewAnchor = { xShare: 0.5, yShare: 0.55 };
 
-/** The jumper on the hill without the interface, the camera on the jumper (outfit preview, icons). */
+/** The hill a preview is drawn on. */
+export interface PreviewHill {
+  profile: HillProfile;
+  kPointM: number;
+  look: HillLook;
+}
+
+/**
+ * The jumper on the hill without the interface (outfit preview, icons): the scene of the jump view, cut out
+ * around the jumper so that he stands at `anchor` of the picture wherever the scene allows.
+ */
 export function drawJumperPreview(
   fb: FrameBuffer,
-  m: { profile: HillProfile; state: JumpSimState; outfit: Outfit },
+  m: { hill: PreviewHill; state: JumpSimState; outfit: Outfit },
   anchor: PreviewAnchor = PREVIEW_ANCHOR,
 ): void {
-  withLook({ lighting: "day", fog: false }, () => {
-    const s = m.state;
-    const cam: Camera = {
-      x: s.jumper.xM,
-      y: s.jumper.yM,
-      cx: Math.round(fb.width * anchor.xShare),
-      cy: Math.round(fb.height * anchor.yShare),
-    };
-    const backdrop = backdropFor(m.profile, cam);
-    drawBackdrop(fb, backdrop, cam, fb.height, false, 0);
-    const ground = drawSlope(fb, m.profile, cam, fb.height);
-    drawHill(fb, m.profile, cam, ground, false);
-    drawJumper(fb, m.profile, s, cam, m.outfit);
-    drawNearFence(fb, m.profile, cam, fb.height);
-  });
+  const width = Math.max(VIEW_MIN_WIDTH_PX, fb.width);
+  const height = Math.max(VIEW_HEIGHT_PX, fb.height);
+  const scene = new FrameBuffer(width, height);
+  withLook({ lighting: "day", fog: false }, () =>
+    drawHillScene(
+      scene,
+      {
+        profile: m.hill.profile,
+        kPointM: m.hill.kPointM,
+        look: m.hill.look,
+        state: m.state,
+        outfit: m.outfit,
+        recordM: 0,
+        pixelWidth: SQUARE_PIXEL_WIDTH,
+      },
+      height - 1,
+    ),
+  );
+  const jumper = jumperInPicture(width, SQUARE_PIXEL_WIDTH);
+  const left = Math.min(width - fb.width, Math.max(0, Math.round(jumper.x - anchor.xShare * fb.width)));
+  const top = Math.min(height - fb.height, Math.max(0, Math.round(jumper.y - anchor.yShare * fb.height)));
+  for (let y = 0; y < fb.height; y++) {
+    const from = (top + y) * width + left;
+    fb.pixels.set(scene.pixels.subarray(from, from + fb.width), y * fb.width);
+  }
 }
 
 /** Draws one frame of the jump at the logical resolution. */
@@ -89,36 +123,46 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   const s = m.state;
   const h = m.profile;
   const groundBottom = fb.height - BAR_HEIGHT_PX;
-  const cam: Camera = {
-    x: s.jumper.xM + CAMERA_AHEAD_M,
-    y: s.jumper.yM - CAMERA_BELOW_JUMPER_M,
-    cx: Math.round(fb.width * 0.45),
-    cy: Math.round(groundBottom * 0.45),
-  };
-  const backdrop = backdropFor(h, cam);
-  drawBackdrop(fb, backdrop, cam, groundBottom, clearNight, m.frame);
-  if (!night) drawBirds(fb, backdrop, m.frame);
-  const ground = drawSlope(fb, h, cam, groundBottom);
-  // Lamps are on from dusk.
-  drawHill(fb, h, cam, ground, scenery.lighting !== "day");
-  drawWindSocks(fb, h, cam, s, m.frame);
-  drawDistanceLine(fb, h, cam, m.kPointM, color("kLine"), 0);
-  if (m.recordM !== undefined && m.recordM > 0) drawDistanceLine(fb, h, cam, m.recordM, color("recordLine"), 0);
-  // Under the player's jumper, so the player's own figure is never covered.
-  if (m.ghost !== undefined) drawGhost(fb, h, m.ghost, cam);
-  drawJumper(fb, h, s, cam, m.outfit ?? DEFAULT_OUTFIT);
-  drawNearFence(fb, h, cam, groundBottom);
-  if (scenery.snowfall) drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
-  // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
-  drawText(
+  const lightsOn = scenery.lighting !== "day";
+  drawHillScene(
     fb,
-    Math.max(4, m.titleInsetPx ?? 0),
-    4,
-    UI_TEXT.hillLabel(m.hillName, m.kPointM),
-    color("yellow"),
-    color("black"),
+    {
+      profile: h,
+      kPointM: m.kPointM,
+      look: m.look ?? DEFAULT_HILL_LOOK,
+      state: s,
+      outfit: m.outfit ?? DEFAULT_OUTFIT,
+      recordM: m.recordM ?? 0,
+      pixelWidth: SQUARE_PIXEL_WIDTH,
+      ...(m.ghost === undefined ? {} : { ghost: m.ghost, drawGhost: (f, g, a) => drawGhost(f, h, g, a) }),
+    },
+    groundBottom - 1,
+    {
+      afterSky: (view, c) => {
+        if (clearNight) drawNightSky(c, view, m.frame, SKY_ROWS);
+      },
+      afterBackground: (view) => {
+        if (!night) drawBirds(fb, view, m.frame);
+      },
+      afterFarFence: (view) => {
+        if (lightsOn) drawFloodlights(fb, h, view);
+        drawWindSocks(fb, h, view, s, m.frame);
+      },
+      afterInrun: (view, railPx) => {
+        if (lightsOn) drawInrunLamps(fb, h, view, railPx);
+      },
+    },
   );
+  if (scenery.snowfall) {
+    const cam = { x: s.jumper.xM, y: s.jumper.yM, cx: fb.width / 2, cy: groundBottom / 2 };
+    drawSnowfall(fb, m.windDriftM ?? { x: 0, y: 0 }, cam, m.frame, groundBottom);
+  }
+  // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
+  drawText(fb, Math.max(TITLE_AT_PX.x, m.titleInsetPx ?? 0), TITLE_AT_PX.y, UI_TEXT.hillLabel(m.hillName, m.kPointM), {
+    ramp: TITLE_INK,
+  });
   drawWindBox(fb, s);
+  drawStartLight(fb, s);
   const finished = s.logic.finished;
   const notesShown = notesShownBy(s.logic, m.frame);
   const lines = prompt(m, nextJumpAllowed(s.logic, m.frame));
@@ -136,7 +180,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   // A new record blinks from the frame the distance appears in the bar.
   if (m.newRecord === true && finished && Math.floor(m.frame / BLINK_FRAMES) % 2 === 0) {
     const text = UI_TEXT.hud.newRecord;
-    drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, color("yellow"), color("black"));
+    drawText(fb, Math.round((fb.width - textWidth(text)) / 2), 22, text, { ramp: RECORD_INK });
   }
   drawBar(fb, m, groundBottom, notesShown);
 }

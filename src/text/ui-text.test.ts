@@ -100,7 +100,7 @@ describe("interface texts", () => {
 
   it("writes texts with a value the way the screens showed them", () => {
     expect(UI_TEXT.hillLabel("Ćwiczebna", 90)).toBe("Ćwiczebna K90");
-    expect(UI_TEXT.hud.distance("98.5")).toBe("98.5 M");
+    expect(UI_TEXT.hud.distance("98.5")).toBe("98.5ｍ");
     expect(UI_TEXT.menu.filesRemembered(true)).toBe("Pliki (Dsj.exe, Dsj.dat) zapamiętane w tej przeglądarce.");
   });
 });

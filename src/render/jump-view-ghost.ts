@@ -1,8 +1,7 @@
 import type { HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import { FrameBuffer, type Rgb } from "./frame-buffer";
-import { PIXELS_PER_M, type Camera } from "./jump-view-camera";
-import { BONE_SHADES, brushLine, figurePoints } from "./jump-view-jumper";
+import { BONE_SHADES, brushLine, figurePoints, type FigureAnchor } from "./jump-view-jumper";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, type Point3 } from "./jumper-skeleton";
 
 /**
@@ -39,25 +38,24 @@ function mixed(scene: number, shade: number): number {
 
 /**
  * Draws the ghost of the record's jump into the picture of the player's: the same figure as the player's jumper,
- * placed by the ghost's own position under the player's camera. Each pixel is blended once, however many bones
+ * standing at `a`, where the ghost's position falls in the player's view. Each pixel is blended once, however many bones
  * cover it.
  */
-export function drawGhost(fb: FrameBuffer, h: HillProfile, ghost: JumpSimState, cam: Camera): void {
+export function drawGhost(fb: FrameBuffer, h: HillProfile, ghost: JumpSimState, a: FigureAnchor): void {
   const size = fb.width * fb.height;
   if (mask.length !== size) mask = new Uint8Array(size);
-  const j = ghost.jumper;
   const pts = figurePoints(h, ghost);
   const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
-  const sx = (p: Point3) => cam.cx + (j.xM + p.x - cam.x - DEPTH_TO_X * p.z) * PIXELS_PER_M;
-  const sy = (p: Point3) => cam.cy - (j.yM + p.y - cam.y - DEPTH_TO_Y * p.z) * PIXELS_PER_M;
+  const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
+  const sy = (p: Point3) => a.y - (p.y - DEPTH_TO_Y * p.z) * a.pxPerMY;
   let left = fb.width;
   let right = -1;
   let top = fb.height;
   let bottom = -1;
   for (const b of BONES) {
     const shade = 1 + Math.round((b.shade / BONE_SHADES) * (GHOST_SHADES - 1));
-    const a = at(b.from);
-    const e = at(b.to);
+    const from = at(b.from);
+    const to = at(b.to);
     brushLine(
       (x, y) => {
         if (x < 0 || y < 0 || x >= fb.width || y >= fb.height) return;
@@ -68,10 +66,10 @@ export function drawGhost(fb: FrameBuffer, h: HillProfile, ghost: JumpSimState, 
         top = Math.min(top, y);
         bottom = Math.max(bottom, y);
       },
-      sx(a),
-      sy(a),
-      sx(e),
-      sy(e),
+      sx(from),
+      sy(from),
+      sx(to),
+      sy(to),
       b.thick,
     );
   }

@@ -6,6 +6,8 @@ import { makeBot } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
 import {
   FALLEN_MAX_HEIGHT_M,
+  TROUGH_FALLEN_HALF_WIDTH_M,
+  TROUGH_FALLEN_MAX_HEIGHT_M,
   VIEW_HEIGHT_PX,
   drawJumpView,
   figureHalfWidthM,
@@ -14,10 +16,10 @@ import {
   viewWidthFor,
   type Scenery,
 } from "./jump-view";
-import { terrainYM } from "../sim/hill-profile";
+import { inrunYM, terrainYM } from "../sim/hill-profile";
 import { prompt } from "./jump-view-hud";
 import type { ControlScheme } from "./jump-view-model";
-import { color } from "./palette";
+import { hudColour } from "./scene-palette";
 import { textWidth } from "./pixel-font";
 import { fnv } from "./test-support/frame-hash";
 
@@ -181,7 +183,12 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
       state: jump.state,
     };
     drawJumpView(fb, { ...model, controls: "mouse", frame: presentationFrame(jump), over: true });
-    expect(fb.pixels.includes(color("noteBox"))).toBe(false);
+    // The column of notes under the wind box: no note box (the boxes' dark fill) in it.
+    const column: number[] = [];
+    for (let y = 57; y < 57 + 5 * 12; y++) {
+      for (let x = fb.width - 31; x < fb.width - 4; x++) column.push(fb.pixels[y * fb.width + x] ?? 0);
+    }
+    expect(column.includes(hudColour(0x08))).toBe(false);
   });
 
   it("darkens the scenery at night but keeps the interface colours", () => {
@@ -237,5 +244,57 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
     // Lying in the snow, no ski stands up past the fences.
     expect(highestWhileLying).toBeGreaterThan(-Infinity);
     expect(highestWhileLying).toBeLessThanOrEqual(FALLEN_MAX_HEIGHT_M + 0.2);
+  });
+
+  it("keeps a jumper fallen back onto the inrun inside its trough, bounces included", () => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    // Both buttons pressed far too early: the jumper leaves the track and comes down on it before the takeoff.
+    let jump = startTrainingJump(hill, 4);
+    let start = -1;
+    let checked = 0;
+    for (let f = 0; f < 3000 && !isJumpOver(jump); f++) {
+      if (start < 0 && jump.state.logic.phase === PHASE.inrun) start = f;
+      const early = start >= 0 && f - start >= 100 && f - start < 104;
+      jump = stepTrainingJump(jump, { left: (start < 0 && f === 70) || early, right: early, dy: 0 });
+      const s = jump.state;
+      if (s.logic.fallType === 0 || s.jumper.xM >= hill.profile.takeoffXM) continue;
+      for (const p of figurePoints(hill.profile, s)) {
+        expect(Math.abs(p.z)).toBeLessThanOrEqual(TROUGH_FALLEN_HALF_WIDTH_M);
+        const track = inrunYM(hill.profile, s.jumper.xM + p.x);
+        // The track is close to its tangent plane over a ski's length.
+        expect(s.jumper.yM + p.y - track).toBeLessThanOrEqual(TROUGH_FALLEN_MAX_HEIGHT_M + 0.2);
+      }
+      checked++;
+    }
+    expect(checked).toBeGreaterThan(20);
+  });
+
+  it.each([
+    ["far too early", 100],
+    ["early", 170],
+    ["just before the edge", 210],
+    ["never", null],
+  ] as const)("keeps the figure on the track or the snow and within the width: takeoff %s", (_, takeoffAfter) => {
+    const hill = OWN_HILLS[0];
+    if (!hill) throw new Error("no hill");
+    let jump = startTrainingJump(hill, 7);
+    let start = -1;
+    for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
+      if (start < 0 && jump.state.logic.phase === PHASE.inrun) start = f;
+      const t = start < 0 ? -1 : f - start;
+      const take = takeoffAfter !== null && t >= takeoffAfter && t < takeoffAfter + 4;
+      jump = stepTrainingJump(jump, { left: (start < 0 && f === 70) || take, right: take, dy: 0 });
+      const s = jump.state;
+      const limit = figureHalfWidthM(hill.profile, s.jumper.xM);
+      for (const p of figurePoints(hill.profile, s)) {
+        expect(Number.isFinite(p.x + p.y + p.z)).toBe(true);
+        expect(Math.abs(p.z)).toBeLessThanOrEqual(limit);
+        const x = s.jumper.xM + p.x;
+        const floor = x < hill.profile.takeoffXM ? inrunYM(hill.profile, x) : terrainYM(hill.profile, x);
+        // The figure keeps to the plane of the ground under the jumper, which bends away from the terrain a little.
+        expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(floor - 0.25);
+      }
+    }
   });
 });

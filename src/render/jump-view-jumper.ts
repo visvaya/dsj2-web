@@ -2,10 +2,12 @@ import type { Outfit, OutfitPart } from "../game/outfit";
 import { inrunSlope, inrunYM, landingSlope, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
-import { PIXELS_PER_M, SLOPE_HALF_WIDTH_M, surfaceY, type Camera } from "./jump-view-camera";
-import { TOWER_BACK_M } from "./jump-view-inrun";
+import { SLOPE_HALF_WIDTH_M, surfaceY } from "./jump-view-camera";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
-import { band, color, swatchRampTable } from "./palette";
+import { band, swatchRampTable } from "./palette";
+
+/** The start platform reaches this far behind the start; the jumper stands on the inrun's track up to there. */
+const TOWER_BACK_M = 6;
 
 /** Where a shadow falls: the inrun track up to the takeoff, the landing hill after it. */
 function groundUnder(h: HillProfile, x: number): number {
@@ -75,6 +77,12 @@ const PART_COLOUR: Readonly<Record<BodyPart, OutfitPart>> = {
 };
 /** How high above the snow any part of a jumper lying after a fall may be drawn. */
 export const FALLEN_MAX_HEIGHT_M = 0.8;
+/**
+ * A jumper fallen in the inrun's trough (back on the track before the takeoff) stays inside it, bounces included:
+ * this high above the track and this far either side of its middle, below the walls in the side view.
+ */
+export const TROUGH_FALLEN_MAX_HEIGHT_M = 0.45;
+export const TROUGH_FALLEN_HALF_WIDTH_M = 1;
 /** How far inside the landing hill's edges the figure stays. */
 const FIGURE_EDGE_MARGIN_M = 0.4;
 /** Shade 0 (far side) to 5 (near side) within a part's ramp. */
@@ -94,8 +102,8 @@ export function figureHalfWidthM(h: HillProfile, xM: number): number {
 
 /**
  * Skeleton points as drawn, relative to the jumper. Display only: in a fall the original's pose can push a ski
- * into the snow or out past the fence, so points are kept on or above the terrain plane and within the width
- * of the trough or the landing hill.
+ * into the snow, out past the fence or through the inrun's wall, so points are kept on or above the terrain plane,
+ * within the width of the trough or the landing hill, and low inside the trough after a fall there.
  */
 export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   const j = s.jumper;
@@ -104,37 +112,60 @@ export function figurePoints(h: HillProfile, s: JumpSimState): Point3[] {
   // A fallen jumper lying on the snow (or in the inrun) keeps everything low, so a ski cannot stand up past
   // the inrun's walls or the fences in the side view.
   const lying = s.logic.fallType !== 0 && !j.airborne;
+  const inTrough = s.logic.fallType !== 0 && j.xM < h.takeoffXM;
+  const maxHeight = inTrough ? TROUGH_FALLEN_MAX_HEIGHT_M : lying ? FALLEN_MAX_HEIGHT_M : Infinity;
+  const zLimit = inTrough ? TROUGH_FALLEN_HALF_WIDTH_M : halfWidth;
   return skeletonPoints(s.pose, s.logic.frontLeg).map((p) => {
-    const floor = ground(p.x) - j.yM;
+    // A fallen jumper sliding over the takeoff's edge: what is still over the track stays on it, not in the table.
+    const x = j.xM + p.x;
+    const overTrack = s.logic.fallType !== 0 && x < h.takeoffXM && x >= h.startXM - TOWER_BACK_M;
+    const floor = Math.max(ground(p.x), overTrack ? inrunYM(h, x) : -Infinity) - j.yM;
     const y = Math.max(p.y, floor);
     return {
       x: p.x,
-      z: Math.max(-halfWidth, Math.min(halfWidth, p.z)),
-      y: lying ? Math.min(y, floor + FALLEN_MAX_HEIGHT_M) : y,
+      z: Math.max(-zLimit, Math.min(zLimit, p.z)),
+      y: Math.min(y, floor + maxHeight),
     };
   });
 }
 
-export function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {
-  const j = s.jumper;
-  const S = PIXELS_PER_M;
-  const onGround = (p: Point3) => terrainPlane(h, j.xM)(p.x);
+/** Where a figure stands on the screen: the foot of its front leg, and pixels per metre across and down. */
+export interface FigureAnchor {
+  x: number;
+  y: number;
+  pxPerMX: number;
+  pxPerMY: number;
+}
+
+/** The jumper's figure (1cb6:20e1): every bone in its outfit colour, far side darker. */
+export function drawFigure(fb: FrameBuffer, h: HillProfile, s: JumpSimState, a: FigureAnchor, outfit: Outfit): void {
   const pts = figurePoints(h, s);
-  const sx = (p: Point3) => cam.cx + (j.xM + p.x - cam.x - DEPTH_TO_X * p.z) * S;
-  const sy = (p: Point3, y: number) => cam.cy - (y - cam.y - DEPTH_TO_Y * p.z) * S;
   const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
-  // Shadow (1cb6:1d2a): the figure dropped onto the plane of the terrain under the jumper.
-  const shadow = color("shadow");
-  const putShadow: Plot = (x, y) => fb.put(x, y, shadow);
+  const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
+  const sy = (p: Point3) => a.y - (p.y - DEPTH_TO_Y * p.z) * a.pxPerMY;
   for (const b of BONES) {
-    const a = at(b.from);
-    const e = at(b.to);
-    brushLine(putShadow, sx(a), sy(a, onGround(a)), sx(e), sy(e, onGround(e)), b.thick);
-  }
-  for (const b of BONES) {
-    const a = at(b.from);
-    const e = at(b.to);
+    const from = at(b.from);
+    const to = at(b.to);
     const c = band(swatchRampTable(outfit[PART_COLOUR[b.part]], BONE_SHADES), b.shade / BONE_SHADES);
-    brushLine((x, y) => fb.put(x, y, c), sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), b.thick);
+    brushLine((x, y) => fb.put(x, y, c), sx(from), sy(from), sx(to), sy(to), b.thick);
   }
+}
+
+/**
+ * The jumper's shadow (1cb6:1d2a): the figure flattened onto the plane of the terrain under the jumper, which
+ * slopes by `slope` along the hill, `dropPx` rows below the foot; only columns `fromX`..`toX` are drawn.
+ */
+export function drawShadow(
+  h: HillProfile,
+  s: JumpSimState,
+  a: FigureAnchor,
+  dropPx: number,
+  slope: number,
+  put: Plot,
+): void {
+  const pts = figurePoints(h, s);
+  const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
+  const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
+  const sy = (p: Point3) => a.y + dropPx - (slope * p.x - DEPTH_TO_Y * p.z) * a.pxPerMY;
+  for (const b of BONES) brushLine(put, sx(at(b.from)), sy(at(b.from)), sx(at(b.to)), sy(at(b.to)), b.thick);
 }

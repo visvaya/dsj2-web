@@ -10,6 +10,15 @@ describe("scenery", () => {
     }
   });
 
+  it("follows a fixed choice of the weather, whatever the time of day", () => {
+    for (let seed = 0; seed < 200; seed++) {
+      expect(pickScenery("varied", seed, "clear")).toMatchObject({ snowfall: false, fog: false });
+      expect(pickScenery("day", seed, "snow")).toMatchObject({ lighting: "day", snowfall: true, fog: false });
+      expect(pickScenery("night", seed, "fog")).toMatchObject({ lighting: "night", snowfall: false, fog: true });
+      expect(pickScenery("dusk", seed, "snowFog")).toMatchObject({ lighting: "dusk", snowfall: true, fog: true });
+    }
+  });
+
   it("varies the time of day and the weather at about the intended rates, the same for the same seed", () => {
     const counts = { night: 0, dusk: 0, snowfall: 0, fog: 0 };
     const visits = 4000;
