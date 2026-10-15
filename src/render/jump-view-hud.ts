@@ -27,6 +27,15 @@ const NOTE_BOX = { width: 27, height: 11, inset: 2 } as const;
 /** Where the points stand on the bar after the jump, as a share of its width (column 248 of the original's 320). */
 const BAR_POINTS_AT = 248 / 320;
 /**
+ * Characters of the fields the distance and the points are written in, right-aligned as the original's `Str(x:w:1)`
+ * writes them (a distance under 100 m starts one character further right, points under 1000 two).
+ */
+const BAR_DISTANCE_CHARS = 5;
+const BAR_POINTS_CHARS = 7;
+
+/** How far right a number starts in a field `chars` characters wide, right-aligned in it. */
+const fieldInsetPx = (text: string, chars: number) => Math.max(0, textWidth("0".repeat(chars)) - textWidth(text));
+/**
  * Colours of the texts: ramps of the original's palette (its bar texts 0x79, its wind speed and counted notes 0xCC,
  * dropped notes 0xC7); the phase, the speed and warnings are this project's, in ramps of the same palette.
  */
@@ -251,10 +260,13 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
     return;
   }
   if (L.finished) {
-    drawText(fb, middle, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(L.distanceHalfM.toFixed(1)), { ramp: INK.bar });
+    const distance = L.distanceHalfM.toFixed(1);
+    const distanceAt = middle + fieldInsetPx(distance, BAR_DISTANCE_CHARS);
+    drawText(fb, distanceAt, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(distance), { ramp: INK.bar });
     if (notesShown) {
       const points = L.points.toFixed(1);
-      drawText(fb, Math.round(fb.width * BAR_POINTS_AT), top + BAR_TEXT_TOP_PX, points, { ramp: INK.bar });
+      const pointsAt = Math.round(fb.width * BAR_POINTS_AT) + fieldInsetPx(points, BAR_POINTS_CHARS);
+      drawText(fb, pointsAt, top + BAR_TEXT_TOP_PX, points, { ramp: INK.bar });
     }
     return;
   }

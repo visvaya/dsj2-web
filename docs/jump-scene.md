@@ -103,17 +103,24 @@ rysowane przez port (`jump-view-hud.ts`):
   wszystkie przygaszone (0xC7), potem liczone jasne (0xCC), odrzucone przygaszone.
 - Pasek: 13 wierszy (górna linia 0x11, lewa kolumna 0x0A, wypełnienie 0x05, dolna linia 0x08), teksty 5 pikseli od
   brzegu i 3 wiersze pod górną linią, kolorem 0x79; po skoku odległość z małym „m” od 47% szerokości (kolumna 150
-  z 320) i punkty od 77,5% (kolumna 248).
+  z 320) i punkty od 77,5% (kolumna 248). Obie liczby stoją w polach wyrównanych do prawej, jak `Str(x:w:1)`
+  oryginału: odległość w polu 5 znaków, punkty w polu 7 znaków (na zrzucie oryginału 89,5 m zaczyna się w kolumnie
+  156, a 128,5 pkt w kolumnie 260).
 
-Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału: wersaliki 5x7 z pionowymi kreskami szerokości 2 px,
-dolne i prawe krawędzie kresek w ciemniejszym odcieniu, a kolor z rampy palety jak w oryginale (indeks rampy dla
-środka litery, o pięć niższy dla krawędzi, oba jaśniejsze ku prawemu dolnemu rogowi litery o `(2 wiersz + kolumna)
-div 6`). Litery Latin Extended to litera bazowa ze znakiem nad nią (dwa wiersze) albo pod nią; Ł, Đ, Ø i Æ mają
-własne kształty. Czcionka oryginału (z `Dsj.exe`) ma tylko wersaliki, cyfry i kilkanaście znaków, a polskie
-litery składa z akcentów.
+Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (w porównaniu
+z czcionką oryginału zgodne są tylko spacja, kropka i dwukropek). Znak ma ciało 5x6 z pionowymi
+kreskami szerokości 2 px i cień: piksel pusty pod pikselem ciała jest cieniem, więc cień wypełnia wnętrza liter,
+wewnętrzne narożniki i siódmy wiersz pod literą. Każdy znak zajmuje 5 kolumn i 1 kolumnę odstępu, jak w oryginale.
+Kolor z rampy palety jak w oryginale: indeks = wartość - 7 + rampa + `(2 wiersz + kolumna) div 6` (wiersz 1..7,
+kolumna 1..5; ciało ma wartość 6, cień 1), więc ciało to rampa - 1, cień rampa - 6, oba jaśniejsze ku prawemu
+dolnemu rogowi. Przy jednolitym kolorze cień ma połowę jego jasności. Zestaw: A..Z, 0..9, `. , : ; / + - = ! ? ( ) '
+" % ·`, spacja, małe „m” po odległości i wersaliki Latin Extended z ß. Litery ze znakami diakrytycznymi to litera
+bazowa ze znakiem w dwóch wierszach nad nią (ogonek, cedylla i przecinek pod nią); Ł, Đ, Ø, Æ i ß mają własne
+kształty, małe litery rysuje się jak wersaliki. Oryginał kładzie akcent o jeden wiersz wyżej, nachodząc na literę;
+port trzyma dla znaków dwa osobne wiersze, na które pasek ma miejsce.
 
-Dodatki portu: nazwa skoczni w lewym górnym rogu (0xCB, kolor, którym oryginał pisze tam nazwę pliku powtórki),
-etykieta fazy i prędkość na pasku (rampy 0x58 i 0x3C).
+Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, i w kolorze,
+którym ją pisze (0xCB), etykieta fazy i prędkość na pasku (rampy 0x58 i 0x3C).
 
 ## Różnice portu (świadome)
 

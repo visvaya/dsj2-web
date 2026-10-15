@@ -50,6 +50,8 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 const SKY_ROWS = 48;
 /** The hill's name in the colour the original gives a replay's file name there (0xCB), a new record in 0xCD. */
 const TITLE_INK = 0xcb;
+/** Where the hill's name starts: where the original writes the replay's file name in the corner. */
+const TITLE_AT_PX = { x: 5, y: 3 } as const;
 const RECORD_INK = 0xcd;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;
@@ -158,8 +160,8 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
   // HUD: the hill, the wind box (the only wind reading, as in the original), prompts, notes.
   drawText(
     fb,
-    Math.max(4, m.titleInsetPx ?? 0),
-    4,
+    Math.max(TITLE_AT_PX.x, m.titleInsetPx ?? 0),
+    TITLE_AT_PX.y,
     UI_TEXT.hillLabel(m.hillName, m.kPointM),
     { ramp: TITLE_INK },
     color("black"),
