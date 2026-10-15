@@ -7,12 +7,12 @@
     "type": "git",
     "url": "git+https://github.com/visvaya/telemark.git"
   },
-  "version": "0.12.0",
+  "version": "0.12.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build && node scripts/write-release.mjs",
-    "build:single": "pnpm build && node scripts/build-single-file.mjs",
+    "build:single": "tsc --noEmit && vite build && node scripts/write-release.mjs && node scripts/build-single-file.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "format": "oxfmt",
