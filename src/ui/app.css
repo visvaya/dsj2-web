@@ -199,6 +199,7 @@ h2 {
   padding: 0;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  align-items: start;
   column-gap: 18px;
 }
 
@@ -223,11 +224,25 @@ h2 {
   cursor: pointer;
 }
 
-/* A hill and, when its record can be watched again, the button for that beside it. */
+/*
+ * A hill and, when its record can be watched again, the button for that under the record, in the column of the
+ * name (frame and padding of the row, the flag and its gap), so the name keeps its width.
+ */
 .hill-row {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.hill-row .hill-replay {
+  align-self: flex-start;
+  margin: -6px 0 6px 44px;
+  padding: 8px 6px;
+}
+
+/* A choice like the hills themselves: its frame shows only with the focus. */
+.hill-row .hill-replay:not(:focus-visible) {
+  border-color: transparent;
 }
 
 .hill-row .hill-item {
@@ -1193,7 +1208,7 @@ h2 {
 
 /* A hill's name takes up to 14 characters, so the K points of all rows stand in one column. */
 .screen .hill-item {
-  grid-template-columns: auto minmax(0, 10.5em) auto;
+  grid-template-columns: auto min(10.5em, 100% - 7em) auto;
   justify-content: start;
 }
 

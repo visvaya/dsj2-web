@@ -16,8 +16,15 @@ afterEach(() => {
 });
 
 /** A key pressed or let go, as the browser reports it to the window. */
-function key(type: "keydown" | "keyup", code: string): Event {
-  const event = Object.assign(new Event(type, { cancelable: true }), { code });
+function key(type: "keydown" | "keyup", code: string, extra: Partial<KeyboardEvent> = {}): Event {
+  const event = Object.assign(new Event(type, { cancelable: true }), {
+    code,
+    ctrlKey: false,
+    metaKey: false,
+    altKey: false,
+    repeat: false,
+    ...extra,
+  });
   page.window.dispatchEvent(event);
   return event;
 }
@@ -68,6 +75,19 @@ describe("player input on the jump screen", () => {
     expect(key("keydown", "KeyS").defaultPrevented).toBe(true);
     expect(t.calls.keepLast).toBe(1);
     key("keyup", "KeyS");
+    expect(t.calls.keepLast).toBe(1);
+    t.stop();
+  });
+
+  it("leaves Ctrl+S, Ctrl+P and their Cmd forms to the browser, and acts once for a held key", () => {
+    const t = setUp(false, true);
+    for (const code of ["KeyP", "KeyS"]) {
+      expect(key("keydown", code, { ctrlKey: true }).defaultPrevented).toBe(false);
+      expect(key("keydown", code, { metaKey: true }).defaultPrevented).toBe(false);
+    }
+    expect(t.calls).toMatchObject({ watchLast: 0, keepLast: 0 });
+    key("keydown", "KeyS");
+    expect(key("keydown", "KeyS", { repeat: true }).defaultPrevented).toBe(true);
     expect(t.calls.keepLast).toBe(1);
     t.stop();
   });

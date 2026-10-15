@@ -42,7 +42,7 @@ function HillList({ title, hills, records, onPick, recordReplays }: ListProps & 
               {recordReplays?.hillIds.has(h.id) === true && (
                 <button
                   type="button"
-                  className="pixel-button small-button"
+                  className="pixel-button small-button hill-replay"
                   aria-label={UI_TEXT.hills.watchRecordLabel(UI_TEXT.hillLabel(h.name, h.kPointM))}
                   onClick={() => recordReplays.onWatch(h)}
                 >

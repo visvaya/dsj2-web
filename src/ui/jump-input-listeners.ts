@@ -133,6 +133,14 @@ export function listenToPlayerInput(canvas: PictureTarget, input: PlayerInput, h
       if (down) handlers.escape();
       return;
     }
+    if (e.code === "KeyP" || e.code === "KeyS") {
+      // Ctrl+S, Ctrl+P and their Cmd and Alt forms stay the browser's; a key held down acts once.
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (down && e.repeat) {
+        if (handlers.hasLastJump()) e.preventDefault();
+        return;
+      }
+    }
     // A replay takes no hands: only R (the replay from its start) and a key let go still count.
     if (handlers.replaying() && down && e.code !== "KeyR") return;
     if (applyKey(input, e.code, down, handlers)) e.preventDefault();
