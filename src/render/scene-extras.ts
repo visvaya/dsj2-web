@@ -14,10 +14,12 @@ import {
   type SceneView,
 } from "./scene-layers";
 import { color } from "./palette";
+import { SKY_FIRST_INDEX } from "./scene-palette";
+import type { SceneCanvas } from "./scene-span";
 
 /**
  * This project's additions to the original's scene (wind socks, floodlights at dusk and night, stars, the moon,
- * birds), placed on the original's layers so they move with the hill.
+ * birds; the mountains are in `scene-mountains.ts`), placed on the original's layers so they move with the hill.
  */
 
 /** Where world x stands on a layer's ground: screen column and row. */
@@ -93,40 +95,75 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
 const MAST_SPACING_M = 30;
 const MAST_FIRST_AFTER_TAKEOFF_M = 12;
 const MAST_HEIGHT_PX = 78;
-const LAMP_GLOW_PX = 7;
+/** The floodlight's head: a bar this wide with a bulb every other pixel, and the radius of its glow. */
+const FLOODLIGHT_WIDTH_PX = 9;
+const FLOODLIGHT_GLOW_PX = 12;
+const FLOODLIGHT_GLOW_STRENGTH = 0.55;
 const INRUN_LAMP_SPACING_M = 8;
-/** Inrun lamps sit on the far rail, this far above its top. */
-const INRUN_LAMP_ABOVE_RAIL_PX = 2;
+/** Inrun lamps stand on posts on the far rail; their glow is small. */
+const INRUN_LAMP_POST_PX = 3;
+const INRUN_LAMP_GLOW_PX = 4;
+const INRUN_LAMP_GLOW_STRENGTH = 0.45;
 
-/** Floodlight masts on the far fence, every 30 m from the takeoff; their lamps glow in a dithered halo. */
+/**
+ * A soft glow around (cx, cy): every pixel within `radius` moves towards `colour` by `strength` at the centre,
+ * fading with the square of the distance; what is already drawn shows through.
+ */
+function drawGlow(fb: FrameBuffer, cx: number, cy: number, radius: number, colour: number, strength: number) {
+  const px = fb.pixels;
+  const r0 = colour & 0xff;
+  const g0 = (colour >>> 8) & 0xff;
+  const b0 = (colour >>> 16) & 0xff;
+  for (let y = Math.max(0, Math.round(cy - radius)); y <= Math.min(fb.height - 1, Math.round(cy + radius)); y++) {
+    for (let x = Math.max(0, Math.round(cx - radius)); x <= Math.min(fb.width - 1, Math.round(cx + radius)); x++) {
+      const d = Math.hypot(x - cx, y - cy) / radius;
+      if (d >= 1) continue;
+      const k = strength * (1 - d) * (1 - d);
+      const i = y * fb.width + x;
+      const c = px[i] ?? 0;
+      const r = (c & 0xff) + (r0 - (c & 0xff)) * k;
+      const g = ((c >>> 8) & 0xff) + (g0 - ((c >>> 8) & 0xff)) * k;
+      const b = ((c >>> 16) & 0xff) + (b0 - ((c >>> 16) & 0xff)) * k;
+      px[i] = ((0xff << 24) | (Math.round(b) << 16) | (Math.round(g) << 8) | Math.round(r)) >>> 0;
+    }
+  }
+}
+
+/**
+ * Floodlight masts on the far fence, every 30 m from the takeoff: a pole with a bar of bulbs on top, glowing
+ * softly into the night.
+ */
 export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView) {
   const pole = color("post");
   const lamp = color("lampLight");
   const glow = color("lampGlow");
   const first = h.takeoffXM + MAST_FIRST_AFTER_TAKEOFF_M;
-  const [from, to] = farRange(view, LAMP_GLOW_PX + 4);
+  const [from, to] = farRange(view, FLOODLIGHT_GLOW_PX + 4);
   const start = first + Math.max(0, Math.ceil((from - first) / MAST_SPACING_M)) * MAST_SPACING_M;
   for (let x = start; x <= to; x += MAST_SPACING_M) {
     const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 2, MAST_HEIGHT_PX, pole);
-    for (let dy = -LAMP_GLOW_PX; dy <= LAMP_GLOW_PX; dy++) {
-      for (let dx = -LAMP_GLOW_PX - 2; dx <= LAMP_GLOW_PX + 3; dx++) {
-        if ((dx + dy) % 2 !== 0 || dx * dx + dy * dy > (LAMP_GLOW_PX + 1) * (LAMP_GLOW_PX + 1)) continue;
-        fb.put(sx + dx, top + dy, glow);
-      }
-    }
-    fb.rect(sx - 3, top - 2, 8, 3, lamp);
+    const left = sx + 1 - (FLOODLIGHT_WIDTH_PX >> 1);
+    drawGlow(fb, sx + 1, top - 1, FLOODLIGHT_GLOW_PX, glow, FLOODLIGHT_GLOW_STRENGTH);
+    // The bar holding the bulbs, the bulbs along its top.
+    fb.rect(left, top - 1, FLOODLIGHT_WIDTH_PX, 2, pole);
+    for (let i = 0; i < FLOODLIGHT_WIDTH_PX; i += 2) fb.put(left + i, top - 2, lamp);
   }
 }
 
-/** Lamps on the inrun's far rail, every 8 m from the start. */
+/** Lamps on posts along the inrun's far rail, every 8 m from the start, each with a small glow. */
 export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView, railPx: number) {
   const lamp = color("lampLight");
+  const glow = color("lampGlow");
+  const pole = color("post");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
     const [sx, track] = onLayer(view, LAYER.inrunFar, x, inrunYM(h, x));
-    if (sx < -2 || sx >= fb.width) continue;
-    fb.rect(sx, track - railPx - INRUN_LAMP_ABOVE_RAIL_PX, 2, 2, lamp);
+    if (sx < -INRUN_LAMP_GLOW_PX || sx >= fb.width + INRUN_LAMP_GLOW_PX) continue;
+    const top = track - railPx - INRUN_LAMP_POST_PX;
+    fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
+    drawGlow(fb, sx, top - 1, INRUN_LAMP_GLOW_PX, glow, INRUN_LAMP_GLOW_STRENGTH);
+    fb.rect(sx - 1, top - 1, 2, 1, lamp);
   }
 }
 
@@ -134,31 +171,67 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
 const MOON_RADIUS_PX = 4;
 const MOON_ACROSS = 0.74;
 const MOON_ROW = 7;
+/** Rows of sky kept between the moon and the mountains under it. */
+const MOON_CLEARANCE_PX = 2;
+/** The moon's top never sits lower than this row, even with the mountains in front of it. */
+const MOON_LOWEST_TOP_PX = 1;
+/** Where else across the view the moon may stand, and the rows of sky it needs to show whole. */
+const MOON_FROM = 0.3;
+const MOON_TO = 0.92;
+const MOON_ROOM_PX = MOON_ROW + MOON_RADIUS_PX + MOON_CLEARANCE_PX;
 /** Stars move with the farthest layer. */
 const STAR_DRIFT = 0.01;
 
 /**
- * Stars and the moon, drawn over the sky's rows (0..`skyRows` - 1) before the background, so its hills stay in
- * front of them.
+ * Stars and the moon, drawn over the sky's rows (0..`skyRows` - 1) after the mountains and before the background,
+ * only where the sky still shows; the moon stands above the mountains in its column.
  */
-export function drawNightSky(fb: FrameBuffer, view: SceneView, frame: number, skyRows: number) {
+export function drawNightSky(c: SceneCanvas, view: SceneView, frame: number, skyRows: number) {
+  const { fb, indices } = c;
   const star = color("star");
   const drift = Math.round(view.camX * STAR_DRIFT);
   const px = fb.pixels;
-  for (let y = 0; y < Math.min(skyRows, fb.height); y++) {
+  const rows = Math.min(skyRows, fb.height);
+  const isSky = (x: number, y: number) => (indices[y * fb.width + x] ?? 0) >= SKY_FIRST_INDEX;
+  for (let y = 0; y < rows; y++) {
     for (let x = 0; x < fb.width; x++) {
-      const i = y * fb.width + x;
       const r = hash((x + drift) * 977 + y * 131);
-      if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0) px[i] = star;
+      if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0 && isSky(x, y)) px[y * fb.width + x] = star;
     }
   }
-  const cx = Math.round(fb.width * MOON_ACROSS);
+  // The moon goes where the most sky shows above the mountains, near its usual place.
+  const clearAt = (x: number) => {
+    let y = 0;
+    while (y < rows && isSky(x, y)) y++;
+    return y;
+  };
+  const clearUnder = (cx: number) => {
+    let clear = rows;
+    for (let x = Math.max(0, cx - MOON_RADIUS_PX); x <= Math.min(fb.width - 1, cx + MOON_RADIUS_PX); x++) {
+      clear = Math.min(clear, clearAt(x));
+    }
+    return clear;
+  };
+  let cx = Math.round(fb.width * MOON_ACROSS);
+  let clear = clearUnder(cx);
+  for (let x = Math.round(fb.width * MOON_FROM); x <= Math.round(fb.width * MOON_TO) && clear < MOON_ROOM_PX; x++) {
+    const here = clearUnder(x);
+    if (here > clear) {
+      cx = x;
+      clear = here;
+    }
+  }
+  // With little sky it rises from behind the mountains, its top showing.
+  const cy = Math.max(
+    MOON_LOWEST_TOP_PX + MOON_RADIUS_PX,
+    Math.min(MOON_ROW, clear - MOON_RADIUS_PX - MOON_CLEARANCE_PX),
+  );
   for (let dy = -MOON_RADIUS_PX; dy <= MOON_RADIUS_PX; dy++) {
     for (let dx = -MOON_RADIUS_PX; dx <= MOON_RADIUS_PX; dx++) {
       if (dx * dx + dy * dy > MOON_RADIUS_PX * MOON_RADIUS_PX) continue;
       const x = cx + dx;
-      const y = MOON_ROW + dy;
-      if (x < 0 || x >= fb.width || y < 0 || y >= skyRows) continue;
+      const y = cy + dy;
+      if (x < 0 || x >= fb.width || y < 0 || y >= rows || !isSky(x, y)) continue;
       const crater = (dx === -1 && dy === -1) || (dx === 1 && dy === 1) || dx + dy > 4;
       fb.put(x, y, color(crater ? "moonShade" : "moon"));
     }
@@ -166,23 +239,30 @@ export function drawNightSky(fb: FrameBuffer, view: SceneView, frame: number, sk
 }
 
 /**
- * Wing beats of a bird seen from the side, as rows of pixels around its body ("#" body, "+" wing): wings up, level,
- * down and level again; a far bird is drawn with the narrow set.
+ * A bird seen from the side, as rows of pixels around its body ("#" body, "+" wing): the wing beat (up, half up,
+ * down, half down) and the glide with the wings bent like a gull's, so a bird is never a flat line; a far bird is
+ * drawn with the narrow set.
  */
 // oxfmt-ignore
-const BIRD_FRAMES: Readonly<Record<"near" | "far", readonly (readonly string[])[]>> = {
-  near: [
-    ["+.....+", ".+...+.", "..+#+.."],
-    [".......", "+++#+++", "......."],
-    ["..+#+..", ".+...+.", "+.....+"],
-    [".......", ".++#++.", "+.....+"],
-  ],
-  far: [
-    ["+...+", ".+#+."],
-    ["++#++", "....."],
-    [".+#+.", "+...+"],
-    ["++#++", "....."],
-  ],
+export const BIRD_FRAMES: Readonly<Record<"near" | "far", { beat: readonly (readonly string[])[]; glide: readonly string[] }>> = {
+  near: {
+    beat: [
+      ["+.....+", ".+...+.", "..+#+.."],
+      [".......", "++...++", "..+#+.."],
+      ["..+#+..", ".+...+.", "+.....+"],
+      [".......", "..+#+..", "++...++"],
+    ],
+    glide: [".......", ".++.++.", "+..#..+"],
+  },
+  far: {
+    beat: [
+      ["+...+", ".+#+."],
+      [".+.+.", "+.#.+"],
+      [".+#+.", "+...+"],
+      ["+.#.+", ".+.+."],
+    ],
+    glide: ["+...+", ".+#+."],
+  },
 };
 /** Frames each wing position is held, and how long a bird glides with level wings between bursts of beats. */
 const BIRD_BEAT_FRAMES = 6;
@@ -203,8 +283,8 @@ export function drawBirds(fb: FrameBuffer, view: SceneView, frame: number) {
     const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2));
     const beat = Math.floor(frame / BIRD_BEAT_FRAMES) + i * 5;
     const gliding = beat % (BIRD_BEATS + BIRD_GLIDE_BEATS) >= BIRD_BEATS;
-    const frames = BIRD_FRAMES[far ? "far" : "near"];
-    const rows = (gliding ? frames[1] : frames[beat % frames.length]) ?? [];
+    const shapes = BIRD_FRAMES[far ? "far" : "near"];
+    const rows = gliding ? shapes.glide : (shapes.beat[beat % shapes.beat.length] ?? shapes.glide);
     rows.forEach((row, dy) => {
       for (let dx = 0; dx < row.length; dx++) {
         const ch = row[dx];

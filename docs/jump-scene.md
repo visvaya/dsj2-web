@@ -79,8 +79,14 @@ oryginał liczy też średnie fazy i częstotliwości, po czym od razu je nadpis
 0baf:602e rozstawia raz na skocznię, z jej ziarna, świerki i sosny na warstwach 2..15 (rozmiar `t` od 2 do 12,
 na warstwach 12..15 największy), najwyżej 20 na warstwę; od 30 m przed progiem do 20 m za nim tylko na
 warstwach poniżej 11. Wysokość podstawy: tablica warstwy albo mieszanka dwóch sąsiednich tablic kluczowych
-według `p`. Oryginał rysuje bitmapy z `Dsj.dat` (zasoby 100..121); port rysuje własne drzewa (`scene-trees.ts`)
-w tych samych miejscach i rozmiarach.
+według `p`. Oryginał rysuje bitmapy z `Dsj.dat` (zasoby 100..121), jedną na rozmiar.
+
+Port rysuje własne drzewa (`tree-bitmaps.ts`) w tych samych miejscach i rozmiarach: świerki z opadającymi
+piętrami gałęzi i sosny z gołym pniem (pomarańczowym w koronie) pod koroną z płaskich kęp; śnieg na wierzchu
+gałęzi; cztery kształty każdego rozmiaru, wybierane według miejsca drzewa; dalekie sosny ze zwartą koroną.
+Na warstwach 2..10 część drzew oryginału dostaje kępę sąsiadów tego samego gatunku (`scene-trees.ts`,
+`sceneTrees`), a drzewa dalszych warstw lekko bledną ku kolorowi śniegu (do 20 % na najdalszej warstwie,
+bez zmiany od `p` = 0,35).
 
 ## Różnice portu (świadome)
 
@@ -90,9 +96,14 @@ w tych samych miejscach i rozmiarach.
   tablicy; port stawia je na ziemi.
 - Linia wychodząca poza ekran: oryginał przycina tylko jej wiersze (zmienia nachylenie), port rysuje ją całą
   i obcina piksele.
-- Dodatki portu: pora dnia i pogoda, rękawy wiatru i maszty na dalszym płocie, lampki na najeździe, gwiazdy,
-  księżyc, ptaki, duch rekordu (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na
-  warstwach, natężenie losowane przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
+- Dodatki portu: pora dnia i pogoda, góry w tle (`scene-mountains.ts`: pasmo szczytów na najdalszej warstwie tła,
+  przesuwane o połowę wolniej od niej, z mgiełką ku kolorowi nieba), linia bliższej krawędzi zeskoku od buli do
+  początku bliższego płotu (oryginał nie rysuje tam krawędzi), rękawy wiatru i maszty z reflektorami na dalszym
+  płocie, lampki na słupkach wzdłuż najazdu, gwiazdy i księżyc (rysowane po górach, tylko na niebie; księżyc staje
+  tam, gdzie widać najwięcej nieba), ptaki (w żadnej fazie lotu nie są płaską kreską), duch rekordu
+  (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
+  przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
+- Podgląd stroju i ikona to ta sama scena bez interfejsu, wycięta wokół skoczka (`drawJumperPreview`).
 
 ## Weryfikacja
 

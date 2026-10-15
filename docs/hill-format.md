@@ -94,7 +94,8 @@ skocznie).
 
 Zasoby 100..121 to bitmapy drzew sceny (dwa gatunki po 11 rozmiarów, kodowanie ciągami: `u16` długość, pole
 `x0, y0, x1, y1, kotwica x, kotwica y`, potem odcinki `u16` przesunięcie, `u16` liczba, bajty indeksów palety,
-aż do przesunięcia `FFFF`). Port ich nie czyta: rysuje własne drzewa w tych samych miejscach i rozmiarach.
+aż do przesunięcia `FFFF`). Port ich nie czyta: rysuje własne drzewa w tych samych miejscach i rozmiarach
+(`jump-scene.md`, „Drzewa”).
 
 ## Weryfikacja
 

@@ -246,7 +246,7 @@ describe("jump view pixels", () => {
         [356, VIEW_HEIGHT_PX],
       ] as const) {
         const fb = new FrameBuffer(w, h);
-        drawJumperPreview(fb, { profile: hill.profile, state, outfit });
+        drawJumperPreview(fb, { hill, state, outfit });
         hashes[`${name}, ${w}x${h}`] = fnv(fb.bytes);
       }
     }

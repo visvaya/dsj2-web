@@ -13,6 +13,7 @@ import {
   drawLandingHill,
   drawNearFence,
   drawNearGround,
+  drawNearLip,
   type HillMarks,
 } from "./scene-hill";
 import {
@@ -34,6 +35,7 @@ import {
   sceneView,
   type SceneView,
 } from "./scene-layers";
+import { drawMountains } from "./scene-mountains";
 import { scenePalette } from "./scene-palette";
 import { putIndex, sceneCanvas, type SceneCanvas } from "./scene-span";
 import { drawTrees } from "./scene-trees";
@@ -59,6 +61,11 @@ export interface HillSceneModel {
   /** Drawn under the player's jumper, in the jumper's plane. */
   ghost?: JumpSimState;
   drawGhost?: (fb: FrameBuffer, ghost: JumpSimState, anchor: FigureAnchor) => void;
+}
+
+/** Where the player's jumper stands in a picture `widthPx` columns wide: its foot's column and row. */
+export function jumperInPicture(widthPx: number, pixelWidth: number): { x: number; y: number } {
+  return { x: (FIGURE_COLUMN - 160) / pixelWidth + widthPx / 2, y: FIGURE_ROW };
 }
 
 /** Where the figure of a jumper at (x, y) stands, under a view centred on the player's jumper at (jx, jy). */
@@ -100,8 +107,8 @@ function shadow(c: SceneCanvas, m: HillSceneModel, view: SceneView, anchor: Figu
 
 /** Places in the original's drawing order where this project's additions go. */
 export interface SceneHooks {
-  /** After the sky, before the background's hills (stars, moon). */
-  afterSky?: (view: SceneView) => void;
+  /** After the sky and the mountains, before the background's hills (stars, moon). */
+  afterSky?: (view: SceneView, c: SceneCanvas) => void;
   /** After the background, before the landing hill (birds). */
   afterBackground?: (view: SceneView) => void;
   /** After the far fence (wind socks, floodlights). */
@@ -120,7 +127,8 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   const near = scenePalette(m.look.skyRgb6, false);
   const walls = inrunLook(m.look);
   drawSky(c, far);
-  hooks.afterSky?.(view);
+  drawMountains(c, h, m.look, view, far);
+  hooks.afterSky?.(view, c);
   // Bands of the background with the trees of the layers between them, in the original's order.
   drawBackgroundBands(c, h, m.look, view, far, 0, 0);
   drawTrees(c, h, m.look, view, far, 1, 2);
@@ -150,4 +158,5 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   drawInrunNearWall(c, h, walls, view, near);
   drawNearFence(c, h, view, marksOf(m), near);
   drawNearGround(c, h, view, near);
+  drawNearLip(c, h, view, marksOf(m), near);
 }

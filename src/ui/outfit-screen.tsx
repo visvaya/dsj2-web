@@ -35,7 +35,7 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
     const ctx = canvasRef.current?.getContext("2d");
     if (!ctx || !hill || !flight) return;
     const fb = new FrameBuffer(PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX);
-    drawJumperPreview(fb, { profile: hill.profile, state: flight, outfit });
+    drawJumperPreview(fb, { hill, state: flight, outfit });
     ctx.putImageData(new ImageData(fb.bytes, PREVIEW_WIDTH_PX, PREVIEW_HEIGHT_PX), 0, 0);
   }, [hill, flight, outfit]);
 

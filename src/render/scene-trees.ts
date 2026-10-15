@@ -7,16 +7,17 @@ import { hillLayerTables, type LayerTable } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { backgroundLayerTable } from "./scene-backdrop";
 import { LAYER_SCALE, layerOffset, viewColumn, type SceneView } from "./scene-layers";
+import { hazedPalette } from "./scene-palette";
 import { putIndex, type SceneCanvas } from "./scene-span";
+import { TREE_VARIANTS, treeBitmap, treeWidthPx, type TreeBitmap, type TreeKind } from "./tree-bitmaps";
 
 /**
  * Trees of the background as the original places them (0baf:602e, 0baf:0d0c): two kinds, scattered once per hill
  * from its own seed over layers 2..15, each standing on the ground of its layer; the size of a tree is that of a
- * tree about 10 m tall at its layer, the largest size reused on the nearest layers. The original draws bitmaps
- * from its Dsj.dat; the trees here are drawn by this project in the same places and sizes.
+ * tree about 10 m tall at its layer, the largest size reused on the nearest layers. The original draws one bitmap
+ * per size from its Dsj.dat; the trees here are this project's own (`tree-bitmaps.ts`), in the same places and
+ * sizes, in a few shapes each, and the farther ones fade a little into the haze.
  */
-
-export type TreeKind = "spruce" | "pine";
 
 export interface PlacedTree {
   layer: number;
@@ -113,117 +114,68 @@ export function placeTrees(h: HillProfile, look: HillLook): PlacedTree[] {
   return shown;
 }
 
-/** Height and width in the original's pixels of each size of the two kinds (sizes 2..12). */
-// oxfmt-ignore
-const TREE_SIZE_PX: Readonly<Record<TreeKind, readonly (readonly [number, number])[]>> = {
-  spruce: [[5, 3], [9, 5], [13, 8], [18, 11], [22, 13], [28, 17], [37, 22], [49, 29], [62, 37], [91, 54], [120, 71]],
-  pine: [[6, 3], [10, 5], [13, 7], [17, 9], [23, 12], [29, 16], [39, 21], [50, 27], [65, 35], [93, 50], [125, 67]],
-};
+/**
+ * Groves around the original's trees (this project's addition): the original scatters single trees evenly, so
+ * on the farther layers a few neighbours of the same kind join some of them, a little smaller or of the same size,
+ * each standing on its own ground. The original's trees keep their places.
+ */
+const GROVE_LAST_LAYER = 10;
+/** Companions per tree: 0..GROVE_MAX - 1, chosen from the tree's place. */
+const GROVE_MAX = 4;
+/** Distance of a companion from its tree, in tree widths. */
+const GROVE_NEAR_WIDTHS = 0.55;
+const GROVE_SPREAD_WIDTHS = 1.1;
 
-/** Palette indices: greens from dark to light (0x51..0x55), bark (0xA2..0xA5). */
-const GREEN = [0x51, 0x52, 0x53, 0x54, 0x55] as const;
-const BARK = [0xa2, 0xa3, 0xa4, 0xa5] as const;
+const sceneTreeCache = new WeakMap<HillProfile, Map<HillLook, PlacedTree[]>>();
 
-/** A tree as a bitmap of palette indices (0 = nothing), anchored at the middle of its bottom row. */
-export interface TreeBitmap {
-  width: number;
-  height: number;
-  pixels: Uint8Array;
-}
-
-/** A needle colour: mostly the darkest greens, lighter where lit (`light` 0..1) and at random speckles. */
-function needle(light: number, r: number): number {
-  const speckle = (r % 100) / 100;
-  const level = Math.floor(light * 2.2 + speckle * 1.1);
-  return GREEN[Math.max(0, Math.min(3, level))] ?? 0x51;
-}
-
-function put(b: TreeBitmap, x: number, y: number, index: number): void {
-  const xi = Math.round(x);
-  const yi = Math.round(y);
-  const pixels = b.pixels;
-  if (xi >= 0 && xi < b.width && yi >= 0 && yi < b.height) pixels[yi * b.width + xi] = index;
-}
-
-/** The trunk up the middle from `fromRow` to the bottom, wider for larger trees, lit on its left. */
-function trunk(b: TreeBitmap, fromRow: number, dark: number, lit: number): void {
-  const mid = Math.round((b.width - 1) / 2);
-  const half = b.width >= 30 ? 1 : 0;
-  for (let y = fromRow; y < b.height; y++) {
-    for (let x = mid - half; x <= mid + half; x++) put(b, x, y, x < mid || half === 0 ? lit : dark);
+/** The trees drawn for a hill: the original's, each followed by its grove. */
+export function sceneTrees(h: HillProfile, look: HillLook): PlacedTree[] {
+  let byLook = sceneTreeCache.get(h);
+  if (byLook === undefined) {
+    byLook = new Map();
+    sceneTreeCache.set(h, byLook);
   }
-}
-
-/** A spruce: a cone of drooping tiers with ragged ends, the trunk showing through gaps and at the foot. */
-function spruce(width: number, height: number, seed: number): TreeBitmap {
-  const b: TreeBitmap = { width, height, pixels: new Uint8Array(width * height) };
-  const mid = (width - 1) / 2;
-  const foot = Math.max(1, Math.round(height * 0.07));
-  const crown = height - foot;
-  trunk(b, Math.round(crown * 0.35), BARK[0], BARK[2]);
-  const tiers = Math.max(2, Math.round(height / 8));
-  for (let y = 0; y < crown; y++) {
-    const t = (y + 1) / crown;
-    const u = (t * tiers) % 1;
-    const rowJitter = (hash(seed + y * 7919) % 3) - 1;
-    const half = Math.max(0.5, (mid + 0.5) * Math.pow(t, 0.85) * (0.66 + 0.34 * u) + (width > 12 ? rowJitter : 0));
-    for (let x = 0; x < width; x++) {
-      const dx = x - mid;
-      const r = hash(seed + x * 131 + y * 7919);
-      const edge = Math.abs(dx) / half;
-      if (edge > 1 || (edge > 0.7 && r % 100 < 55) || (width > 12 && r % 100 < 6)) continue;
-      const light = 0.55 * (1 - (dx + half) / (2 * half)) + 0.45 * (1 - u);
-      put(b, x, y, needle(light, r >>> 8));
+  const cached = byLook.get(look);
+  if (cached !== undefined) return cached;
+  const trees: PlacedTree[] = [];
+  for (const t of placeTrees(h, look)) {
+    trees.push(t);
+    if (t.layer > GROVE_LAST_LAYER) continue;
+    const r = hash(t.j * 31 + t.layer * 977 + (t.kind === "pine" ? 7 : 0));
+    const count = r % GROVE_MAX;
+    const pxPerM = 14 * (LAYER_SCALE[t.layer] ?? 1);
+    const width = treeWidthPx(t.kind, t.size);
+    for (let i = 0; i < count; i++) {
+      const ri = hash(r + i * 7919);
+      const side = (ri & 1) === 0 ? -1 : 1;
+      const distance = width * (GROVE_NEAR_WIDTHS + (((ri >>> 1) % 100) / 100) * GROVE_SPREAD_WIDTHS) * (1 + i * 0.6);
+      const xM = t.xM + (side * distance) / pxPerM;
+      const ground = groundOf(h, look, t.layer, xM);
+      if (ground === null || ground.j <= 0) continue;
+      const size = Math.max(SMALLEST_SIZE, t.size - ((ri >>> 8) % 2));
+      trees.push({ ...t, size, xM, j: indexOn(t.layer, xM), rows: roundHalfEven(ground.rows) });
     }
   }
-  return b;
+  byLook.set(look, trees);
+  return trees;
 }
 
-/** A pine: a tall trunk with branches holding flat, uneven pads of needles in its upper part. */
-function pine(width: number, height: number, seed: number): TreeBitmap {
-  const b: TreeBitmap = { width, height, pixels: new Uint8Array(width * height) };
-  const mid = (width - 1) / 2;
-  trunk(b, Math.round(height * 0.04), BARK[1], BARK[3]);
-  const pads = Math.max(3, Math.round(height / 7));
-  for (let k = 0; k < pads; k++) {
-    const r = hash(seed * 31 + k * 977);
-    const t = k / Math.max(1, pads - 1);
-    const cy = height * (0.06 + 0.6 * t) + ((r >>> 4) % 3) - 1;
-    const reach = (mid + 0.5) * (0.25 + 0.75 * Math.sin(Math.PI * (0.1 + 0.8 * t)));
-    const side = k % 2 === 0 ? -1 : 1;
-    const cx = mid + side * reach * (0.3 + (r % 30) / 100);
-    const rx = Math.max(1, reach * (0.6 + ((r >>> 8) % 25) / 100));
-    const ry = Math.max(1, height * 0.055 + ((r >>> 16) % 2));
-    if (width > 12) {
-      for (let i = 0; i <= 8; i++) put(b, mid + (cx - mid) * (i / 8), cy + 2 + (ry * i) / 8, BARK[1]);
-    }
-    for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
-      for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-        const d = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2;
-        const n = hash(seed + x * 131 + y * 7919);
-        if (d > 1 || (d > 0.55 && n % 100 < 50)) continue;
-        const light = 0.5 * (1 - (x - cx + rx) / (2 * rx)) + 0.5 * (1 - (y - cy + ry) / (2 * ry));
-        put(b, x, y, needle(light, n >>> 8));
-      }
-    }
-  }
-  return b;
+/** Haze over the farthest trees: this share of the snow's colour at scale 0, none from `HAZE_CLEAR_SCALE` on. */
+const HAZE_FAR_SHARE = 0.2;
+const HAZE_CLEAR_SCALE = 0.35;
+const HAZE_STEPS = 16;
+/** Palette index of the snow the haze takes its colour from. */
+const HAZE_INDEX = 0x3c;
+
+/** Share of haze on the trees of a layer, in steps of 1/16. */
+function hazeShare(layer: number): number {
+  const p = LAYER_SCALE[layer] ?? 1;
+  const share = Math.max(0, HAZE_FAR_SHARE * (1 - p / HAZE_CLEAR_SCALE));
+  return Math.round(share * HAZE_STEPS) / HAZE_STEPS;
 }
 
-const bitmapCache = new Map<string, TreeBitmap>();
-
-export function treeBitmap(kind: TreeKind, size: number, pixelWidth: number): TreeBitmap {
-  const key = `${kind}:${size}:${pixelWidth}`;
-  let bitmap = bitmapCache.get(key);
-  if (bitmap === undefined) {
-    const [heightPx, widthPx] = TREE_SIZE_PX[kind][size - SMALLEST_SIZE] ?? [10, 6];
-    const width = Math.max(1, Math.round(widthPx / pixelWidth));
-    const seed = (kind === "spruce" ? 1 : 2) * 1000 + size;
-    bitmap = kind === "spruce" ? spruce(width, heightPx, seed) : pine(width, heightPx, seed);
-    bitmapCache.set(key, bitmap);
-  }
-  return bitmap;
-}
+/** Which of the shapes a tree gets: fixed by where it stands, so it never changes between frames. */
+const variantOf = (t: PlacedTree) => hash(t.j * 7 + t.layer * 131 + (t.kind === "pine" ? 1 : 0)) % TREE_VARIANTS;
 
 /** A tree's bitmap with its top left corner at (x0, y0); index 0 is left out. */
 function blit(c: SceneCanvas, pal: Uint32Array, b: TreeBitmap, x0: number, y0: number): void {
@@ -245,16 +197,17 @@ export function drawTrees(
   fromLayer: number,
   toLayer: number,
 ): void {
-  const trees = placeTrees(h, look);
+  const trees = sceneTrees(h, look);
   for (let layer = fromLayer; layer <= toLayer; layer++) {
     const off = layerOffset(view, layer);
+    const layerPal = hazedPalette(pal, HAZE_INDEX, hazeShare(layer));
     for (const t of trees) {
       if (t.layer !== layer) continue;
-      const b = treeBitmap(t.kind, t.size, view.pixelWidth);
+      const b = treeBitmap(t.kind, t.size, view.pixelWidth, variantOf(t));
       const x0 = viewColumn(view, t.j - off.x) - Math.floor(b.width / 2);
       const y0 = t.rows + off.y - b.height + 1;
       if (x0 >= c.fb.width || x0 + b.width < 0 || y0 > c.lastRow || y0 + b.height < 0) continue;
-      blit(c, pal, b, x0, y0);
+      blit(c, layerPal, b, x0, y0);
     }
   }
 }

@@ -3,15 +3,12 @@ import { nextJumpAllowed } from "../game/training-session";
 import type { HillProfile } from "../sim/hill-profile";
 import { notesShownBy } from "../sim/jump-logic";
 import type { JumpSimState } from "../sim/jump-sim";
-import type { FrameBuffer } from "./frame-buffer";
-import { backdropFor, drawBackdrop, drawSnowfall } from "./jump-view-backdrop";
-import { type Camera } from "./jump-view-camera";
+import { FrameBuffer } from "./frame-buffer";
+import { drawSnowfall } from "./jump-view-snowfall";
 import { BAR_HEIGHT_PX, drawBar, drawNotes, drawWindBox, prompt } from "./jump-view-hud";
 import { drawGhost } from "./jump-view-ghost";
-import { drawJumper } from "./jump-view-jumper";
-import { drawHill, drawNearFence, drawSlope } from "./jump-view-landing";
-import { drawHillScene } from "./jump-view-scene";
-import { DEFAULT_HILL_LOOK } from "./hill-look";
+import { drawHillScene, jumperInPicture } from "./jump-view-scene";
+import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
 import { drawBirds, drawFloodlights, drawInrunLamps, drawNightSky, drawWindSocks } from "./scene-extras";
 import { SQUARE_PIXEL_WIDTH } from "./scene-layers";
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
@@ -59,27 +56,47 @@ export interface PreviewAnchor {
 
 const PREVIEW_ANCHOR: PreviewAnchor = { xShare: 0.5, yShare: 0.55 };
 
-/** The jumper on the hill without the interface, the camera on the jumper (outfit preview, icons). */
+/** The hill a preview is drawn on. */
+export interface PreviewHill {
+  profile: HillProfile;
+  kPointM: number;
+  look: HillLook;
+}
+
+/**
+ * The jumper on the hill without the interface (outfit preview, icons): the scene of the jump view, cut out
+ * around the jumper so that he stands at `anchor` of the picture wherever the scene allows.
+ */
 export function drawJumperPreview(
   fb: FrameBuffer,
-  m: { profile: HillProfile; state: JumpSimState; outfit: Outfit },
+  m: { hill: PreviewHill; state: JumpSimState; outfit: Outfit },
   anchor: PreviewAnchor = PREVIEW_ANCHOR,
 ): void {
-  withLook({ lighting: "day", fog: false }, () => {
-    const s = m.state;
-    const cam: Camera = {
-      x: s.jumper.xM,
-      y: s.jumper.yM,
-      cx: Math.round(fb.width * anchor.xShare),
-      cy: Math.round(fb.height * anchor.yShare),
-    };
-    const backdrop = backdropFor(m.profile, cam);
-    drawBackdrop(fb, backdrop, cam, fb.height, false, 0);
-    const ground = drawSlope(fb, m.profile, cam, fb.height);
-    drawHill(fb, m.profile, cam, ground, false);
-    drawJumper(fb, m.profile, s, cam, m.outfit);
-    drawNearFence(fb, m.profile, cam, fb.height);
-  });
+  const width = Math.max(VIEW_MIN_WIDTH_PX, fb.width);
+  const height = Math.max(VIEW_HEIGHT_PX, fb.height);
+  const scene = new FrameBuffer(width, height);
+  withLook({ lighting: "day", fog: false }, () =>
+    drawHillScene(
+      scene,
+      {
+        profile: m.hill.profile,
+        kPointM: m.hill.kPointM,
+        look: m.hill.look,
+        state: m.state,
+        outfit: m.outfit,
+        recordM: 0,
+        pixelWidth: SQUARE_PIXEL_WIDTH,
+      },
+      height - 1,
+    ),
+  );
+  const jumper = jumperInPicture(width, SQUARE_PIXEL_WIDTH);
+  const left = Math.min(width - fb.width, Math.max(0, Math.round(jumper.x - anchor.xShare * fb.width)));
+  const top = Math.min(height - fb.height, Math.max(0, Math.round(jumper.y - anchor.yShare * fb.height)));
+  for (let y = 0; y < fb.height; y++) {
+    const from = (top + y) * width + left;
+    fb.pixels.set(scene.pixels.subarray(from, from + fb.width), y * fb.width);
+  }
 }
 
 /** Draws one frame of the jump at the logical resolution. */
@@ -110,8 +127,8 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
     },
     groundBottom - 1,
     {
-      afterSky: (view) => {
-        if (clearNight) drawNightSky(fb, view, m.frame, SKY_ROWS);
+      afterSky: (view, c) => {
+        if (clearNight) drawNightSky(c, view, m.frame, SKY_ROWS);
       },
       afterBackground: (view) => {
         if (!night) drawBirds(fb, view, m.frame);

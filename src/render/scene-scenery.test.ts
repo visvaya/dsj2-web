@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
 import { backgroundWaves } from "./scene-backdrop";
+import { BIRD_FRAMES } from "./scene-extras";
 import { LINE_COLOUR, distanceLines } from "./scene-hill";
 import { SKY_FIRST_INDEX, greyedMiddle, sceneDac } from "./scene-palette";
-import { placeTrees, treeBitmap } from "./scene-trees";
+import { placeTrees, sceneTrees } from "./scene-trees";
+import { TREE_VARIANTS, treeBitmap, type TreeKind } from "./tree-bitmaps";
 
 const hill = OWN_HILLS[0];
 const rgbAt = (dac: Uint8Array, i: number) => Array.from(dac.subarray(i * 3, i * 3 + 3));
@@ -103,5 +105,57 @@ describe("the trees", () => {
     expect([largest.width, largest.height]).toEqual([71, 120]);
     expect(treeBitmap("pine", 2, 6 / 5).height).toBe(6);
     expect(treeBitmap("pine", 12, 6 / 5).width).toBe(56);
+  });
+});
+
+describe("the birds", () => {
+  it("never show as a flat line: in every shape the wings span at least two rows", () => {
+    for (const shapes of Object.values(BIRD_FRAMES)) {
+      for (const rows of [...shapes.beat, shapes.glide]) {
+        const wingRows = rows.filter((row) => row.includes("+")).length;
+        expect(wingRows).toBeGreaterThanOrEqual(2);
+        expect(rows.join("")).toContain("#");
+      }
+    }
+  });
+});
+
+describe("this project's trees", () => {
+  const kinds: readonly TreeKind[] = ["spruce", "pine"];
+
+  it("are never a bare stick: some row of needles spans most of the tree's width", () => {
+    for (const kind of kinds) {
+      for (let size = 2; size <= 12; size++) {
+        for (let variant = 0; variant < TREE_VARIANTS; variant++) {
+          const b = treeBitmap(kind, size, 6 / 5, variant);
+          let widest = 0;
+          for (let y = 0; y < b.height; y++) {
+            const row = b.pixels.subarray(y * b.width, (y + 1) * b.width);
+            const needles = row.filter((i) => i >= 0x51 && i <= 0x56).length;
+            widest = Math.max(widest, needles);
+          }
+          expect(widest, `${kind} ${size} ${variant}`).toBeGreaterThanOrEqual(Math.ceil(b.width * 0.6));
+        }
+      }
+    }
+  });
+
+  it("come in shapes that differ from each other", () => {
+    for (const kind of kinds) {
+      const shapes = new Set<string>();
+      for (let variant = 0; variant < TREE_VARIANTS; variant++) {
+        shapes.add(treeBitmap(kind, 10, 1, variant).pixels.join(","));
+      }
+      expect(shapes.size).toBe(TREE_VARIANTS);
+    }
+  });
+
+  it("keep the original's trees in place and add groves only on the farther layers", () => {
+    const original = placeTrees(hill.profile, hill.look);
+    const drawn = sceneTrees(hill.profile, hill.look);
+    expect(drawn.filter((t) => original.includes(t))).toEqual(original);
+    const added = drawn.filter((t) => !original.includes(t));
+    expect(added.length).toBeGreaterThan(0);
+    expect(added.every((t) => t.layer <= 10)).toBe(true);
   });
 });

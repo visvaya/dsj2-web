@@ -15,6 +15,7 @@ import {
 } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { LAYER, layerOffset, layerRows, layerX, originalColumn, type SceneView } from "./scene-layers";
+import { SKY_FIRST_INDEX } from "./scene-palette";
 import { colourSpan, type SceneCanvas } from "./scene-span";
 
 /**
@@ -103,7 +104,6 @@ const LAYERS: readonly BackgroundLayer[] = [
 
 const SKY_BANDS = 16;
 const SKY_BAND_ROWS = 3;
-const SKY_FIRST_INDEX = 0xf0;
 
 /** DS:464E: the background's base height, the bottom of the outrun's parabola plus the hill's offset. */
 export function backgroundBaseM(h: HillProfile, overOutrunM: number): number {

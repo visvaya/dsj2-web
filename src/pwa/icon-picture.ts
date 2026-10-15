@@ -28,11 +28,7 @@ export function iconPicture(sizePx: number): IconPicture {
   const hill = OWN_HILLS[0];
   if (!hill) throw new Error("The game has no hill of its own to draw the icon on");
   const fb = new FrameBuffer(sizePx, sizePx);
-  drawJumperPreview(
-    fb,
-    { profile: hill.profile, state: previewFlightState(hill), outfit: DEFAULT_OUTFIT },
-    ICON_ANCHOR,
-  );
+  drawJumperPreview(fb, { hill, state: previewFlightState(hill), outfit: DEFAULT_OUTFIT }, ICON_ANCHOR);
   const rgb = new Uint8Array(sizePx * sizePx * RGB_CHANNELS);
   for (let i = 0; i < sizePx * sizePx; i++) {
     rgb.set(fb.bytes.subarray(i * RGBA_CHANNELS, i * RGBA_CHANNELS + RGB_CHANNELS), i * RGB_CHANNELS);

@@ -2,10 +2,12 @@ import type { Outfit, OutfitPart } from "../game/outfit";
 import { inrunSlope, inrunYM, landingSlope, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
-import { PIXELS_PER_M, SLOPE_HALF_WIDTH_M, surfaceY, type Camera } from "./jump-view-camera";
-import { TOWER_BACK_M } from "./jump-view-inrun";
+import { SLOPE_HALF_WIDTH_M, surfaceY } from "./jump-view-camera";
 import { BONES, DEPTH_TO_X, DEPTH_TO_Y, skeletonPoints, type BodyPart, type Point3 } from "./jumper-skeleton";
-import { band, color, swatchRampTable } from "./palette";
+import { band, swatchRampTable } from "./palette";
+
+/** The start platform reaches this far behind the start; the jumper stands on the inrun's track up to there. */
+const TOWER_BACK_M = 6;
 
 /** Where a shadow falls: the inrun track up to the takeoff, the landing hill after it. */
 function groundUnder(h: HillProfile, x: number): number {
@@ -154,28 +156,4 @@ export function drawShadow(
   const sx = (p: Point3) => a.x + (p.x - DEPTH_TO_X * p.z) * a.pxPerMX;
   const sy = (p: Point3) => a.y + dropPx - (slope * p.x - DEPTH_TO_Y * p.z) * a.pxPerMY;
   for (const b of BONES) brushLine(put, sx(at(b.from)), sy(at(b.from)), sx(at(b.to)), sy(at(b.to)), b.thick);
-}
-
-export function drawJumper(fb: FrameBuffer, h: HillProfile, s: JumpSimState, cam: Camera, outfit: Outfit): void {
-  const j = s.jumper;
-  const S = PIXELS_PER_M;
-  const onGround = (p: Point3) => terrainPlane(h, j.xM)(p.x);
-  const pts = figurePoints(h, s);
-  const sx = (p: Point3) => cam.cx + (j.xM + p.x - cam.x - DEPTH_TO_X * p.z) * S;
-  const sy = (p: Point3, y: number) => cam.cy - (y - cam.y - DEPTH_TO_Y * p.z) * S;
-  const at = (i: number): Point3 => pts[i] ?? { z: 0, x: 0, y: 0 };
-  // Shadow (1cb6:1d2a): the figure dropped onto the plane of the terrain under the jumper.
-  const shadow = color("shadow");
-  const putShadow: Plot = (x, y) => fb.put(x, y, shadow);
-  for (const b of BONES) {
-    const a = at(b.from);
-    const e = at(b.to);
-    brushLine(putShadow, sx(a), sy(a, onGround(a)), sx(e), sy(e, onGround(e)), b.thick);
-  }
-  for (const b of BONES) {
-    const a = at(b.from);
-    const e = at(b.to);
-    const c = band(swatchRampTable(outfit[PART_COLOUR[b.part]], BONE_SHADES), b.shade / BONE_SHADES);
-    brushLine((x, y) => fb.put(x, y, c), sx(a), sy(a, j.yM + a.y), sx(e), sy(e, j.yM + e.y), b.thick);
-  }
 }

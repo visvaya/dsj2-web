@@ -7,50 +7,19 @@ function vga(r: number, g: number, b: number): Rgb {
   return [sixBit(r), sixBit(g), sixBit(b)];
 }
 
-// Scene colours sampled from screenshots of the original (sky, backdrop slope, inrun, fences, distance lines, notes).
+// Colours outside the scene palette: the interface, the sky at dusk and night, and this project's additions (birds, lamps,
+// wind socks, the moon, stars, snowfall).
 const RGB = {
   sky1: vga(100, 100, 242),
   sky2: vga(112, 136, 242),
-  farSnow: vga(218, 218, 246),
-  farSnowShade: vga(184, 186, 222),
-  farRock: vga(168, 172, 200),
-  farRockShade: vga(136, 140, 172),
-  backdropLight: vga(206, 206, 234),
-  backdropDark: vga(146, 150, 162),
   bird: vga(92, 60, 28),
   birdBody: vga(60, 40, 20),
-  nearFence: vga(190, 137, 16),
-  nearFenceDark: vga(117, 85, 12),
-  kLine: vga(20, 93, 24),
-  recordLine: vga(234, 80, 89),
-  bestLine: vga(85, 85, 238),
   noteBox: vga(28, 28, 36),
   noteBorder: vga(72, 72, 76),
   noteDropped: vga(190, 137, 16),
   bar: vga(16, 16, 24),
   snow1: vga(236, 236, 244),
-  snow3: vga(196, 196, 212),
-  snow4: vga(172, 172, 192),
-  shadow: vga(124, 124, 148),
-  inrunRim: vga(86, 86, 92),
-  inrunInner: vga(64, 64, 70),
-  trackFar: vga(122, 122, 134),
-  trackNear: vga(146, 146, 160),
-  inrunHighlight: vga(170, 170, 184),
-  wallLight: vga(110, 110, 116),
-  wallDark: vga(58, 58, 64),
-  towerLight: vga(106, 110, 114),
-  towerDark: vga(56, 60, 64),
-  towerSide: vga(48, 48, 56),
-  endLight: vga(124, 124, 132),
-  endDark: vga(72, 72, 80),
-  fence: vga(168, 112, 44),
-  fenceDark: vga(112, 72, 24),
   post: vga(28, 24, 16),
-  tree1: vga(12, 44, 24),
-  tree2: vga(24, 76, 36),
-  tree3: vga(44, 104, 52),
-  trunk: vga(84, 52, 24),
   black: vga(0, 0, 0),
   yellow: vga(248, 208, 56),
   white: vga(244, 244, 244),
@@ -58,12 +27,10 @@ const RGB = {
   grey: vga(120, 120, 132),
   green: vga(60, 180, 76),
   lampLight: vga(252, 248, 224),
-  lampGlow: vga(150, 150, 120),
+  lampGlow: vga(252, 236, 180),
   moon: vga(236, 232, 208),
   moonShade: vga(196, 192, 172),
   star: vga(220, 224, 252),
-  gateLight: vga(176, 176, 190),
-  gateDark: vga(64, 64, 74),
   sockRed: vga(224, 64, 36),
   sockWhite: vga(236, 236, 240),
   flake: vga(244, 246, 252),
@@ -82,22 +49,7 @@ export interface Look {
 }
 
 /** Far scenery (sky, hillside, forest): at night only moonlight reaches it, fog hides most of it. */
-const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>([
-  "sky1",
-  "sky2",
-  "farSnow",
-  "farSnowShade",
-  "farRock",
-  "farRockShade",
-  "backdropLight",
-  "backdropDark",
-  "bird",
-  "birdBody",
-  "tree1",
-  "tree2",
-  "tree3",
-  "trunk",
-]);
+const BACKDROP: ReadonlySet<ColorName> = new Set<ColorName>(["sky1", "sky2", "bird", "birdBody"]);
 /** Interface colours keep their look at any time of day and in any weather. */
 const INTERFACE: ReadonlySet<ColorName> = new Set<ColorName>([
   "black",
@@ -121,18 +73,10 @@ const SKY_OVERRIDE: Readonly<Record<Exclude<Lighting, "day">, Partial<Record<Col
   dusk: {
     sky1: vga(72, 60, 132),
     sky2: vga(236, 140, 92),
-    farSnow: vga(232, 176, 164),
-    farSnowShade: vga(172, 124, 144),
-    farRock: vga(176, 128, 140),
-    farRockShade: vga(132, 96, 124),
   },
   night: {
     sky1: vga(4, 6, 24),
     sky2: vga(14, 20, 56),
-    farSnow: vga(58, 64, 100),
-    farSnowShade: vga(40, 44, 76),
-    farRock: vga(42, 46, 80),
-    farRockShade: vga(30, 34, 62),
   },
 };
 const FOG: Readonly<Record<Lighting, Rgb>> = {
@@ -223,27 +167,6 @@ export function color(name: ColorName): number {
   return v;
 }
 
-const ramps = new Map<string, Uint32Array>();
-
-/** The bands of a ramp, index 0 = `a`, index `steps` = `b`; fetch once outside per-pixel loops. */
-export function rampTable(a: ColorName, b: ColorName, steps: number): Uint32Array {
-  const key = `${lookKey}:${a}>${b}>${steps}`;
-  let table = ramps.get(key);
-  if (table === undefined) {
-    const ca = lit(a, look);
-    const cb = lit(b, look);
-    table = new Uint32Array(steps + 1);
-    for (let i = 0; i <= steps; i++) {
-      const tt = i / steps;
-      table[i] = FrameBuffer.pack(
-        vga(ca[0] + (cb[0] - ca[0]) * tt, ca[1] + (cb[1] - ca[1]) * tt, ca[2] + (cb[2] - ca[2]) * tt),
-      );
-    }
-    ramps.set(key, table);
-  }
-  return table;
-}
-
 /** The 12 colours of the original's outfit editor (sampled from its screen), lightest shade of each. */
 export const OUTFIT_SWATCHES: readonly Rgb[] = [
   vga(48, 48, 52),
@@ -259,6 +182,8 @@ export const OUTFIT_SWATCHES: readonly Rgb[] = [
   vga(28, 121, 125),
   vga(28, 137, 32),
 ];
+
+const ramps = new Map<string, Uint32Array>();
 
 /** Shades of an outfit colour for the jumper, far side dark to near side light, under the current look. */
 export function swatchRampTable(index: number, steps: number): Uint32Array {

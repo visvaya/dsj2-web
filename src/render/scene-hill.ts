@@ -1,6 +1,6 @@
 import { landingYM, type HillProfile } from "../sim/hill-profile";
 import { colourAt, hillLayerTables, rowsAt } from "./hill-layer-tables";
-import { colourSpan, putIndex, type SceneCanvas } from "./scene-span";
+import { colourSpan, darkenSnow, putIndex, type SceneCanvas } from "./scene-span";
 import { LAYER, layerIndex, layerOffset, layerRows, originalColumn, viewColumn, type SceneView } from "./scene-layers";
 import { landingXAtArcLength, rowRunLine } from "./scene-lines";
 
@@ -146,6 +146,30 @@ function drawFence(c: SceneCanvas, h: HillProfile, view: SceneView, marks: HillM
 
 export function drawFarFence(c: SceneCanvas, h: HillProfile, view: SceneView, marks: HillMarks, pal: Uint32Array) {
   drawFence(c, h, view, marks, pal, false);
+}
+
+/**
+ * The near edge's lip: how many indices it moves the snow by on the row above the edge (lighter), on the edge's
+ * row and on the row under it (darker); the snow's indices end at `SNOW_LIMIT_INDEX`.
+ */
+const NEAR_LIP_SHADE = [-2, 5, 2] as const;
+const SNOW_LIMIT_INDEX = 0x3f;
+
+/**
+ * The near edge of the landing hill up to where the near fence starts, under the takeoff and along the knoll
+ * (this project's addition): the original draws nothing there, so the snow of the hill runs into the snow in front
+ * of it without an edge. Drawn after the snow in front of the edge, whose first rows it darkens.
+ */
+export function drawNearLip(c: SceneCanvas, h: HillProfile, view: SceneView, marks: HillMarks, pal: Uint32Array) {
+  const t = hillLayerTables(h);
+  const off = layerOffset(view, LAYER.nearEdge);
+  const to = layerIndex(LAYER.nearEdge, FENCE_AFTER_TAKEOFF_M + h.takeoffXM + marks.fenceStartM);
+  for (let sx = 0; sx < c.fb.width; sx++) {
+    const j = off.x + originalColumn(view, sx);
+    if (j >= to) continue;
+    const y = rowsAt(t.nearEdge, j) + off.y;
+    NEAR_LIP_SHADE.forEach((by, i) => darkenSnow(c, pal, sx, y + i - 1, by, SNOW_LIMIT_INDEX));
+  }
 }
 
 export function drawNearFence(c: SceneCanvas, h: HillProfile, view: SceneView, marks: HillMarks, pal: Uint32Array) {
