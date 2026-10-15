@@ -1206,6 +1206,18 @@ h2 {
   border-color: transparent;
 }
 
+/*
+ * The stepper stands two characters in, so on a narrow phone with covered edges its parts give up their spare
+ * width: the buttons keep a finger's 44 px and the value may wrap.
+ */
+.screen .settings-list .stepper .pixel-button {
+  min-width: 44px;
+}
+
+.screen .settings-list .stepper .stepper-value {
+  min-width: 0;
+}
+
 /* A hill's name takes up to 14 characters, so the K points of all rows stand in one column. */
 .screen .hill-item {
   grid-template-columns: auto min(10.5em, 100% - 7em) auto;
