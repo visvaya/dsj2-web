@@ -12,15 +12,18 @@
 // the original, the shelf of kept replays with its screen and settings).
 // JavaScript measured again on 2026-10-15: 131172 bytes on master, 140086 bytes with the jump scene drawn as the
 // original draws it (its layers in perspective, palette, background, inrun, fences, marks and trees), while the
-// outfit preview and the icon still use the earlier drawing; the budget keeps the margin it had (4.4%).
+// outfit preview and the icon still use the earlier drawing; the budget keeps the margin it had (4.4%). Measured
+// again the same day at 140373 bytes, with the preview and the icon on the new scene and the earlier drawing gone.
 export const DIST_BUDGETS = {
   JS_GZIP_BUDGET_BYTES: 146_000,
   CSS_GZIP_BUDGET_BYTES: 17_500,
   // Measured on 2026-10-13: the service worker 3890 bytes gzip (3160 before it kept the release before for the
   // pages that still need it), the four icons 9682 bytes.
   SERVICE_WORKER_GZIP_BUDGET_BYTES: 4_500,
-  // The icons are PNG, which gzip does not shrink, so their budget is in stored bytes.
-  ICONS_BUDGET_BYTES: 11_200,
+  // The icons are PNG, which gzip does not shrink, so their budget is in stored bytes. Measured again on
+  // 2026-10-15: 11363 bytes, drawn from the jump scene as the original draws it (a fence and a snowy tree in the
+  // picture compress less than the earlier plain backdrop); the budget keeps a margin of about 13%.
+  ICONS_BUDGET_BYTES: 12_800,
 };
 
 // What the build produces, by exact name: the page, what makes it installable and usable without a network,
