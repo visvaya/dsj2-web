@@ -331,7 +331,7 @@ to błąd (jedna z nich jest nieaktualna): testy przerywają się z nazwą ślad
 python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hills.hilltrace.gz
 ```
 
-Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 30 s na skocznię); test
+Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 100 s na skocznię, zmierzone 2026-10-12); test
 `original-hills.golden.test.ts` porównuje z nim odczyt z `Dsj.exe`. Potrzebuje też `Dsj.exe` i `Dsj.dat`
 w `DSJ2_GAME_DIR`.
 

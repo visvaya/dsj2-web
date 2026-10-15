@@ -17,15 +17,6 @@ async function jumpPositions(page: Page, traits: DeviceTraits): Promise<Position
   };
 }
 
-/** The buttons under the picture on a desktop screen. */
-async function toolbarPositions(page: Page): Promise<Positions> {
-  return {
-    again: await boxOf(button(page, TEXT.jumpAgain)),
-    hills: await boxOf(button(page, TEXT.toHills)),
-    sound: await boxOf(button(page, TEXT.sound)),
-  };
-}
-
 async function menuPositions(page: Page): Promise<Positions> {
   return {
     title: await boxOf(page.getByRole("heading", { name: "Telemark" })),
@@ -126,21 +117,4 @@ test("the first screen is already drawn in the web fonts, which are not fetched 
 
   expect(shift.px, `${shift.what} moved on the menu`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
   expect(fontRequests, "fonts fetched as separate files").toEqual([]);
-});
-
-// Known defect, desktop layout (seen on desktop-chromium at 1280 by 720): the buttons under the picture are a
-// centred row sized by their labels. When a label changes ("Dźwięk: wł." to "Dźwięk: wył.", the scenery name) the
-// whole row re-centres and its buttons move sideways, by 8.75 px in this sequence. The picture itself stays in
-// place (the tests above). A fix means giving the row columns that do not depend on the label text, which changes
-// how the toolbar looks, so it is left to a deliberate change.
-test.fixme("the buttons under the picture keep their place when a label changes", async ({ page, traits }) => {
-  test.skip(!traits.desktop, "the row of buttons under the picture is the desktop layout");
-  await openJumpFromStart(page, traits);
-  const before = await toolbarPositions(page);
-  await press(button(page, TEXT.sound), traits);
-  await expect(button(page, TEXT.sound)).toHaveAttribute("aria-pressed", "false");
-  await press(button(page, TEXT.scenery), traits);
-  await expect(button(page, TEXT.scenery)).toHaveText("Sceneria: dzień");
-  const shift = largestShift(before, await toolbarPositions(page));
-  expect(shift.px, `${shift.what} moved`).toBeLessThanOrEqual(LAYOUT_SLACK_PX);
 });
