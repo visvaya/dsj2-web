@@ -62,10 +62,7 @@ describe("pixel font", () => {
       expect(g).not.toBe(unknown);
       expect(seen.has(g)).toBe(false);
       seen.add(g);
-      // The lower case of the dotted I is two characters (i and a combining dot); the others are one.
-      // The dotted I is compared with itself.
-      const lower = ch === "İ" ? ch : ch.toLowerCase();
-      expect(render(lower)).toEqual(render(ch));
+      expect(render(ch.toLowerCase())).toEqual(render(ch));
     }
     expect(render("Ł")).not.toEqual(render("L"));
   });
@@ -77,6 +74,20 @@ describe("pixel font", () => {
     }
     for (const ch of "abcdefghijklmnopqrstuvwxyz") expect(render(ch)).toEqual(render(ch.toUpperCase()));
     expect(render(" ").join("")).not.toMatch(/[#o]/);
+  });
+
+  it("draws a lower-case dotted I as İ and other combining marks as nothing", () => {
+    expect(render("i̇")).toEqual(render("İ"));
+    expect(render("Ó")).toEqual(render("O"));
+    expect(textWidth("i̇x")).toBe(textWidth("IX"));
+  });
+
+  it("tells O from 0", () => {
+    expect(render("O")).not.toEqual(render("0"));
+  });
+
+  it("keeps a row between the dots, the acute or the dot above and the letter", () => {
+    for (const ch of "ÄÖÜŚĆŻ") expect(render(ch)[2]).not.toContain("#");
   });
 
   it("writes the metres after a distance with a small m of its own, and a name's m as a capital", () => {

@@ -107,20 +107,25 @@ rysowane przez port (`jump-view-hud.ts`):
   oryginału: odległość w polu 5 znaków, punkty w polu 7 znaków (na zrzucie oryginału 89,5 m zaczyna się w kolumnie
   156, a 128,5 pkt w kolumnie 260).
 
-Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (w porównaniu
-z czcionką oryginału zgodne są tylko spacja, kropka i dwukropek). Znak ma ciało 5x6 z pionowymi
+Czcionka (`pixel-font.ts`) jest własna, w stylu oryginału, a każdy kształt jest zaprojektowany na nowo (porównanie
+z czcionką oryginału przy każdym przesunięciu w komórce: zgodne są tylko spacja, kropka i dwukropek, a żaden inny
+znak nie różni się od niej o jeden piksel). Znak ma ciało 5x6 z pionowymi
 kreskami szerokości 2 px i cień: piksel pusty pod pikselem ciała jest cieniem, więc cień wypełnia wnętrza liter,
 wewnętrzne narożniki i siódmy wiersz pod literą. Każdy znak zajmuje 5 kolumn i 1 kolumnę odstępu, jak w oryginale.
 Kolor z rampy palety jak w oryginale: indeks = wartość - 7 + rampa + `(2 wiersz + kolumna) div 6` (wiersz 1..7,
 kolumna 1..5; ciało ma wartość 6, cień 1), więc ciało to rampa - 1, cień rampa - 6, oba jaśniejsze ku prawemu
 dolnemu rogowi. Przy jednolitym kolorze cień ma połowę jego jasności. Zestaw: A..Z, 0..9, `. , : ; / + - = ! ? ( ) '
 " % ·`, spacja, małe „m” po odległości i wersaliki Latin Extended z ß. Litery ze znakami diakrytycznymi to litera
-bazowa ze znakiem w dwóch wierszach nad nią (ogonek, cedylla i przecinek pod nią); Ł, Đ, Ø, Æ i ß mają własne
-kształty, małe litery rysuje się jak wersaliki. Oryginał kładzie akcent o jeden wiersz wyżej, nachodząc na literę;
+bazowa ze znakiem w dwóch wierszach nad nią (ogonek, cedylla i przecinek pod nią); kropki, kreska i kropka nad
+literą zajmują górny z tych wierszy, więc od litery dzieli je wiersz cienia; Ł, Đ, Ø, Æ i ß mają własne
+kształty, małe litery rysuje się jak wersaliki, znaki łączące pomija się (małe „i” z łączącą kropką to İ).
+O jest kanciaste, a 0 ma przekątną w środku, żeby „K120” i „SŁOWENIA” czytały się przy 1x. Oryginał kładzie akcent o jeden wiersz wyżej, nachodząc na literę;
 port trzyma dla znaków dwa osobne wiersze, na które pasek ma miejsce.
 
-Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, i w kolorze,
-którym ją pisze (0xCB), etykieta fazy i prędkość na pasku (rampy 0x58 i 0x3C).
+Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
+którym ją pisze (0xCB), i jak ona bez czarnego
+cienia (bez niego też jest czytelna nad niebem i rozbiegiem); etykieta fazy i prędkość na pasku (rampy 0x58
+i 0x3C). Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale.
 
 ## Różnice portu (świadome)
 

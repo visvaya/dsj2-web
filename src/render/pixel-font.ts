@@ -6,15 +6,15 @@ import { hudColour } from "./scene-palette";
  * columns wide and six rows tall (stems two pixels wide), digits and signs. Every glyph casts a shadow one row down
  * onto the empty pixels under it (inside counters, in inner corners and in a row under the letter), which gives the
  * letters their relief. Letters with diacritics (Latin Extended capitals) are a base letter with a mark in two rows
- * above it, or below it for ogonek, cedilla and comma; lower-case letters are drawn as capitals. Every glyph takes the same
- * advance, as in the original.
+ * above it, or below it for ogonek, cedilla and comma; lower-case letters are drawn as capitals. Every glyph takes
+ * the same advance, as in the original.
  */
 // oxfmt-ignore
 const GLYPHS: Readonly<Record<string, readonly string[]>> = {
-  A: [".###.", "##.##", "##.##", "#####", "##.##", "##.##"],
+  A: [".###.", "##.##", "#####", "##.##", "##.##", "##.##"],
   B: ["####.", "##.##", "##.##", "####.", "##.##", "####."],
   C: [".####", "##...", "##...", "##...", "##...", ".####"],
-  D: ["####.", "##.##", "##.##", "##.##", "##.##", "####."],
+  D: ["###..", "##.#.", "##.##", "##.##", "##.#.", "###.."],
   E: ["#####", "##...", "##...", "####.", "##...", "#####"],
   F: ["#####", "##...", "##...", "####.", "##...", "##..."],
   G: [".####", "##...", "##.##", "##.##", "##.##", ".####"],
@@ -23,21 +23,21 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
   J: ["...##", "...##", "...##", "...##", "##.##", ".###."],
   K: ["##.##", "##.##", "####.", "####.", "##.##", "##.##"],
   L: ["##...", "##...", "##...", "##...", "##...", "#####"],
-  M: ["##.##", "#####", "#####", "##.##", "##.##", "##.##"],
+  M: ["##.##", "#####", "#####", "#.#.#", "##.##", "##.##"],
   N: ["##.##", "###.#", "#####", "#.###", "##.##", "##.##"],
-  O: [".###.", "##.##", "##.##", "##.##", "##.##", ".###."],
+  O: ["#####", "##.##", "##.##", "##.##", "##.##", "#####"],
   P: ["####.", "##.##", "####.", "##...", "##...", "##..."],
   Q: [".###.", "##.##", "##.##", "##.##", "##.#.", ".##.#"],
   R: ["####.", "##.##", "####.", "###..", "##.##", "##.##"],
   S: [".####", "##...", ".###.", "...##", "...##", "####."],
   T: ["#####", "..##.", "..##.", "..##.", "..##.", "..##."],
-  U: ["##.##", "##.##", "##.##", "##.##", "##.##", ".###."],
+  U: ["##.##", "##.##", "##.##", "##.##", "##.##", "#####"],
   V: ["##.##", "##.##", "##.##", ".###.", ".###.", "..#.."],
   W: ["##.##", "##.##", "##.##", "#####", "#####", "##.##"],
   X: ["##.##", "##.##", ".###.", ".###.", "##.##", "##.##"],
   Y: ["##.##", "##.##", ".####", "..##.", "..##.", "..##."],
   Z: ["#####", "...##", "..##.", ".##..", "##...", "#####"],
-  "0": [".###.", "##.##", "##.##", "##.##", "##.##", ".###."],
+  "0": [".###.", "##..#", "##.##", "##.##", "#..##", ".###."],
   "1": ["..##.", ".###.", "..##.", "..##.", "..##.", ".####"],
   "2": [".###.", "##.##", "...##", "..##.", ".##..", "#####"],
   "3": ["####.", "...##", ".###.", "...##", "...##", "####."],
@@ -45,24 +45,24 @@ const GLYPHS: Readonly<Record<string, readonly string[]>> = {
   "5": ["#####", "##...", "####.", "...##", "...##", "####."],
   "6": [".###.", "##...", "####.", "##.##", "##.##", ".###."],
   "7": ["#####", "...##", "..##.", "..##.", ".##..", ".##.."],
-  "8": [".###.", "##.##", ".###.", "##.##", "##.##", ".###."],
+  "8": [".###.", "##.##", "##.##", ".###.", "##.##", ".###."],
   "9": [".###.", "##.##", "##.##", ".####", "...##", ".###."],
   ".": [".....", ".....", ".....", ".....", "..##.", "..##."],
   ",": [".....", ".....", ".....", "..##.", "..##.", ".##.."],
   ":": [".....", "..##.", "..##.", ".....", "..##.", "..##."],
   ";": [".....", "..##.", "..##.", ".....", "..##.", ".##.."],
   "/": ["...##", "...##", "..##.", ".##..", "##...", "##..."],
-  "+": [".....", "..#..", "..#..", "#####", "..#..", "..#.."],
-  "-": [".....", ".....", ".###.", ".###.", ".....", "....."],
+  "+": [".....", "..##.", "..##.", "#####", "..##.", "..##."],
+  "-": [".....", ".....", "####.", "####.", ".....", "....."],
   "=": [".....", "#####", ".....", "#####", ".....", "....."],
-  "!": ["..##.", "..##.", "..##.", "..##.", ".....", "..##."],
+  "!": [".###.", ".###.", "..##.", "..#..", ".....", "..##."],
   "?": [".###.", "##.##", "..##.", "..##.", ".....", "..##."],
-  "(": ["..##.", ".##..", ".##..", ".##..", ".##..", "..##."],
-  ")": [".##..", "..##.", "..##.", "..##.", "..##.", ".##.."],
-  "'": ["..##.", "..##.", "..#..", ".....", ".....", "....."],
+  "(": ["..##.", ".##..", "##...", "##...", ".##..", "..##."],
+  ")": [".##..", "..##.", "...##", "...##", "..##.", ".##.."],
+  "'": ["...#.", "..##.", "..#..", ".....", ".....", "....."],
   '"': ["##.##", "##.##", ".#..#", ".....", ".....", "....."],
   "%": ["##..#", "##.##", "..##.", ".##..", "##.##", "#..##"],
-  "·": [".....", ".....", "..##.", "..##.", ".....", "....."],
+  "·": [".....", ".....", ".###.", ".....", ".....", "....."],
   " ": [".....", ".....", ".....", ".....", ".....", "....."],
 };
 
@@ -73,7 +73,7 @@ const METRE_GLYPH = [".....", ".....", "####.", "#.#.#", "#.#.#", "#.#.#"];
 /** Marks above a capital (two rows) and below it (two rows), five columns wide. */
 // oxfmt-ignore
 const MARKS: Readonly<Record<string, readonly string[]>> = {
-  acute: ["...##", "..##."],
+  acute: ["...##", "....."],
   grave: ["##...", ".##.."],
   circumflex: ["..#..", ".#.#."],
   caron: [".#.#.", "..#.."],
@@ -118,7 +118,7 @@ const BELOW = new Set(["ogonek", "cedilla", "commaBelow"]);
 // oxfmt-ignore
 const OWN: Readonly<Record<string, readonly string[]>> = {
   Ł: ["##...", "##.#.", "###..", "##...", "##...", "#####"],
-  Đ: ["####.", "##.##", "#####", "##.##", "##.##", "####."],
+  Đ: ["###..", "##.#.", "####.", "##.##", "##.#.", "###.."],
   Ø: [".####", "##.##", "#.#.#", "#.#.#", "##.##", "####."],
   Æ: [".####", "#.#..", "#####", "#.#..", "#.#..", "#.###"],
   ß: ["###..", "##.#.", "####.", "##..#", "##.##", "##.#."],
@@ -145,13 +145,19 @@ interface Glyph {
 /** A glyph's body rows with its shadow cast one row down onto the empty pixels under it (and one row below). */
 function withShadow(rows: readonly string[]): number[][] {
   const body = (x: number, y: number) => rows[y]?.[x] === "#";
-  return Array.from({ length: rows.length + 1 }, (_row, y) =>
+  return Array.from({ length: rows.length === 0 ? 0 : rows.length + 1 }, (_row, y) =>
     Array.from({ length: GLYPH_WIDTH_PX }, (_cell, x) => (body(x, y) ? BODY : body(x, y - 1) ? SHADE : 0)),
   );
 }
 
+/** Combining marks draw nothing and take no room; the lower-case dotted I (i and a combining dot) is drawn as İ. */
+const COMBINING = /^\p{M}$/u;
+const DOTTED_I = /i̇/gu;
+const letters = (text: string) => Array.from(text.replace(DOTTED_I, "İ"));
+
 function bodyOf(ch: string): { rows: readonly string[]; top: number } {
   if (ch === METRE_SIGN) return { rows: METRE_GLYPH, top: 0 };
+  if (COMBINING.test(ch)) return { rows: [], top: 0 };
   // The sharp s keeps a glyph of its own: its capital is two letters.
   const up = ch === "ß" ? ch : ch.toUpperCase();
   const own = OWN[up];
@@ -178,7 +184,8 @@ function glyphOf(ch: string): Glyph {
 }
 
 export function textWidth(text: string): number {
-  return Math.max(0, Array.from(text).length * ADVANCE_PX - LETTER_SPACING_PX);
+  const chars = letters(text).filter((ch) => !COMBINING.test(ch)).length;
+  return Math.max(0, chars * ADVANCE_PX - LETTER_SPACING_PX);
 }
 
 /** Share of a flat colour kept in the shadow of its letters. */
@@ -211,7 +218,7 @@ const lighterAt = (gx: number, gy: number) => Math.max(0, Math.floor((2 * (gy + 
 export function drawText(fb: FrameBuffer, x: number, y: number, text: string, ink: Ink, shadow?: number): number {
   const flatShade = typeof ink === "number" ? darker(ink, SHADE_SHARE) : 0;
   let cx = x;
-  for (const ch of text) {
+  for (const ch of letters(text)) {
     const g = glyphOf(ch);
     g.cells.forEach((row, cy) => {
       const gy = g.top + cy;
@@ -228,7 +235,7 @@ export function drawText(fb: FrameBuffer, x: number, y: number, text: string, in
         }
       });
     });
-    cx += ADVANCE_PX;
+    if (g.cells.length > 0) cx += ADVANCE_PX;
   }
   return cx;
 }
