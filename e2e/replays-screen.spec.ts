@@ -16,22 +16,28 @@ test("the replay screen explains what it needs and refuses a file that is not a 
   await expect(page.getByRole("heading", { name: TEXT.replays })).toBeFocused();
   await expect(page).toHaveTitle("Powtórki · Telemark");
   // Without the player's Dsj.exe there are no hills of the original to play a replay on.
-  await expect(page.getByText(/najpierw wczytaj pliki gry/)).toBeVisible();
+  await expect(page.getByText(/naj\u00adpierw wczy\u00adtaj pli\u00adki gry/)).toBeVisible();
 
   const choose = (name: string, buffer: Buffer) =>
     page.locator('input[type="file"]').setInputFiles({ name, mimeType: "application/octet-stream", buffer });
   const status = page.getByRole("status");
 
   await choose("notatki.txt", Buffer.from("To nie jest powtórka.", "utf8"));
-  await expect(status).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
+  await expect(status).toHaveText(
+    "To nie jest plik pow\u00adtór\u00adki DSJ2 (.rpl) ani plik pow\u00adtó\u00adrek tej gry.",
+  );
   // Shown framed in red under the button that read the file.
   const note = page.locator(".framed-note");
-  await expect(note).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
+  await expect(note).toHaveText(
+    "To nie jest plik pow\u00adtór\u00adki DSJ2 (.rpl) ani plik pow\u00adtó\u00adrek tej gry.",
+  );
   await expect(note).toHaveClass(/error-frame/);
 
   // The right size, but not what the original writes: the checksum gives it away.
   await choose("KARPACZ.RPL", Buffer.alloc(REPLAY_FILE_BYTES));
-  await expect(status).toHaveText("Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.");
+  await expect(status).toHaveText(
+    "Plik pow\u00adtór\u00adki jest usz\u00adko\u00addzo\u00adny: suma kon\u00adtrol\u00adna się nie zga\u00addza.",
+  );
 
   await press(button(page, TEXT.back), traits);
   await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();

@@ -56,7 +56,7 @@ test("a record keeps its replay, a jump can be kept by hand, and both stay after
   await press(remove, traits);
   await expect(remove).toHaveText("Na pewno usunąć?");
   // What a press of a replay's button tells is shown under that replay, framed.
-  await expect(replayRows(page, "Zachowane").locator(".framed-note")).toHaveText(/^Dotknij jeszcze raz/);
+  await expect(replayRows(page, "Zachowane").locator(".framed-note")).toHaveText(/^Dot\u00adknij jesz\u00adcze raz/);
   await press(remove, traits);
   await expect(page.getByRole("region", { name: "Zachowane" })).toHaveCount(0);
   await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);
@@ -136,11 +136,17 @@ test("replays go out to a file and come back from it, each once", async ({ page,
   // Read back, the jump goes among the read ones, once; a second time it is there already.
   const chooser = page.locator('input[type="file"]');
   await chooser.setInputFiles(path);
-  await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 1; już zachowanych: 1.");
+  await expect(page.getByRole("status")).toHaveText(
+    "Wczy\u00adta\u00adno pow\u00adtó\u00adrek: 1; już za\u00adcho\u00adwa\u00adnych: 1.",
+  );
   await expect(replayRows(page, "Wczytane")).toHaveCount(1);
-  await expect(page.locator(".framed-note")).toHaveText("Wczytano powtórek: 1; już zachowanych: 1.");
+  await expect(page.locator(".framed-note")).toHaveText(
+    "Wczy\u00adta\u00adno pow\u00adtó\u00adrek: 1; już za\u00adcho\u00adwa\u00adnych: 1.",
+  );
   await chooser.setInputFiles(path);
-  await expect(page.getByRole("status")).toHaveText("Wczytano powtórek: 0; już zachowanych: 2.");
+  await expect(page.getByRole("status")).toHaveText(
+    "Wczy\u00adta\u00adno pow\u00adtó\u00adrek: 0; już za\u00adcho\u00adwa\u00adnych: 2.",
+  );
 
   // The selected ones go after a second press.
   await press(button(page, "Zaznacz wszystkie"), traits);

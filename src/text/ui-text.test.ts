@@ -109,10 +109,75 @@ describe("interface texts", () => {
 /** A one-letter word followed by an ordinary space: Polish typesetting keeps such a word with the next one. */
 const LONE_LETTER_AT_LINE_END = /(?:^|\s)[aiouwzAIOUWZ] /u;
 
-describe("texts of the release notices", () => {
+/** A word of this many letters or more is long enough to leave a wide gap on a justified line when it moves down. */
+const LONG_WORD_LETTERS = 10;
+
+/** The words of a text, each with its places of division ("|") still in it. */
+const markedWords = (text: string): string[] => text.match(/[\p{L}|]+/gu) ?? [];
+
+/**
+ * Every text that reaches a framed note (src/ui/typeset.ts), with sample values for those that take them: the note
+ * under the button that quits the game, the notes of a new release and the notes of the replays screen.
+ */
+const FRAMED_TEXTS: readonly string[] = (() => {
+  const o = UI_TEXT.offline;
+  const r = UI_TEXT.replays;
+  return [
+    UI_TEXT.menu.quitRefused,
+    o.updateWaiting("1.2.3"),
+    o.updateWaiting(null),
+    o.updateFound("1.2.3"),
+    o.updateFound(null),
+    o.slowWay,
+    o.updatedElsewhere,
+    o.installing,
+    o.installFailed,
+    r.notReplay,
+    r.damaged,
+    r.badValues,
+    r.noHill(7),
+    r.needsGame,
+    r.removed(3),
+    r.keptFull,
+    r.loadedFull,
+    r.budgetFull,
+    r.keptDone,
+    r.removeArmed,
+    r.exported.shared,
+    r.exported.downloaded,
+    r.imported(2, 0),
+    r.imported(2, 1),
+    r.importUnreadable(1),
+    r.importSkipped(1),
+    r.importUntrue(1),
+    r.notReplayFile,
+    r.notTrue,
+    r.hillMissing,
+    r.hillRetired,
+    r.rplApproximate,
+    r.rplCheckingMany(1, 2),
+    r.rplExportedMany(2, "shared", { approximate: 1, unfit: 1, ownHills: 1 }),
+    r.rplExportedMany(1, "downloaded", { approximate: 0, unfit: 0, ownHills: 0 }),
+    r.rplNoneFit(1, 1),
+    r.rplExported.shared,
+    r.rplExported.downloaded,
+    r.rplUnfit,
+    r.rplUnfitMotion,
+    r.rplUnfitDiffers,
+  ];
+})();
+
+describe("texts of the framed notes", () => {
   it("keep a one-letter word on the line of the word after it", () => {
-    const offline = UI_TEXT.offline;
-    const texts = [offline.slowWay, offline.updateWaiting("1.2.3"), offline.updateWaiting(null)];
-    expect(texts.filter((t) => LONE_LETTER_AT_LINE_END.test(t))).toEqual([]);
+    expect(FRAMED_TEXTS.filter((t) => LONE_LETTER_AT_LINE_END.test(t))).toEqual([]);
+  });
+
+  it("mark where each long word may be divided", () => {
+    const unmarked = FRAMED_TEXTS.flatMap(markedWords).filter((w) => !w.includes("|") && w.length >= LONG_WORD_LETTERS);
+    expect([...new Set(unmarked)]).toEqual([]);
+  });
+
+  it("bind with the mark, not with a no-break space typed in", () => {
+    expect(FRAMED_TEXTS.filter((t) => t.includes("\u00a0"))).toEqual([]);
   });
 });

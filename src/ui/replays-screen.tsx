@@ -13,6 +13,7 @@ import {
 } from "../storage/replay-shelf";
 import type { Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
+import { typeset } from "./typeset";
 import { handOverFile } from "./hand-over-file";
 import { handOverManyRpl, handOverRpl, type Say } from "./rpl-handover";
 import type { ReplaySource } from "./jump-replay";
@@ -309,7 +310,7 @@ export function ReplaysScreen(props: Props) {
           {noteAt(message, AT_CLEANUP)}
         </>
       )}
-      {originalHills.length === 0 && <p className="note">{T.needsGame}</p>}
+      {originalHills.length === 0 && <p className="note">{typeset(T.needsGame)}</p>}
       <div className="menu">
         <label className="pixel-button file-label">
           {T.load}
@@ -329,7 +330,7 @@ export function ReplaysScreen(props: Props) {
       {storeName === "memory" && <p className="note error">{T.onlyForVisit}</p>}
       {/* Always there, so a screen reader hears each message as it changes; the eye reads it where it shows. */}
       <p className="sr-only" role="status">
-        {message?.text ?? ""}
+        {typeset(message?.text ?? "")}
       </p>
     </main>
   );
