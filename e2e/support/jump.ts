@@ -1,25 +1,13 @@
 import { errors, type Locator, type Page } from "@playwright/test";
 import { announcement, button, jumpCanvas, openJumpControls, press, TEXT } from "./app";
 import { expect, type DeviceTraits } from "./fixtures";
+import { JUMP_TIMING } from "./jump-timing";
 
 const STARTED = "Skok rozpoczęty.";
 /** The last sentence of the announcement made once the jumper has stopped. */
 const RESULT = /jeszcze raz\.$/;
 
-/**
- * When the buttons go down, on the page's own clock, counted from the moment the jumper leaves the gate.
- *
- * The game runs in real time at 70 simulation steps a second, so the test plays like a player: by time. The
- * values sit in the middle of windows measured by running the built-in hill in the simulation with many seeds:
- * a short press of one or both buttons between 3.3 s and 4.0 s after the start takes off (the edge of the inrun
- * comes at 3.7 s; a press just after it still counts), a press of the right button 0.43 s later prepares the
- * landing, and the left button after it puts the telemark down at once, which makes the landing clean wherever
- * in the flight it happens. Outside the takeoff window the jump ends in a fall or without a distance.
- */
-const TAKEOFF_AFTER_START_MS = 3740;
-const LANDING_AFTER_TAKEOFF_MS = 430;
-const TELEMARK_AFTER_LANDING_MS = 115;
-const PRESS_HOLD_MS = 60;
+const { TAKEOFF_AFTER_START_MS, LANDING_AFTER_TAKEOFF_MS, TELEMARK_AFTER_LANDING_MS, PRESS_HOLD_MS } = JUMP_TIMING;
 /** A tap on the left zone starts the jump only once the gate opens, about a second in; until then it is repeated. */
 const START_TAP_WAIT_MS = 200;
 const START_TAP_LIMIT = 60;

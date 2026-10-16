@@ -45,7 +45,7 @@ const REOPEN_WAIT_MS = 200;
  */
 const PLANTED_SAVE = JSON.stringify({
   schemaVersion: 2,
-  records: { "own-2": { distanceM: 87.5, points: 101.5, dateIso: "2026-01-01T12:00:00.000Z" } },
+  records: { "own-3": { distanceM: 87.5, points: 101.5, dateIso: "2026-01-01T12:00:00.000Z" } },
   settings: { leanControl: "drag", vibration: false, scenery: "night", sound: false },
 });
 

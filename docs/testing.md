@@ -185,8 +185,9 @@ Co sprawdzają pliki w `e2e/`:
 
 Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,
 liczonego od komunikatu „Skok rozpoczęty.” w regionie `aria-live` obok obrazu. Chwile naciśnięć leżą w środku okien
-zmierzonych w symulacji na wielu ziarnach (opis w `e2e/support/jump.ts`). Skok zakończony upadkiem test powtarza,
-najwyżej trzy razy, tak jak zrobiłby to gracz.
+zmierzonych w symulacji na wielu ziarnach (opis w `e2e/support/jump-timing.ts`; test
+`src/game/scripted-jump-timing.test.ts` sprawdza, że dają czyste lądowanie z zapasem 0,1 s). Skok zakończony
+upadkiem test powtarza, najwyżej trzy razy, tak jak zrobiłby to gracz.
 
 Scenariusze regresyjne symulacji są w `src/sim/test-support/regression-scenarios.ts`; korzysta z nich test Vitest
 i strona testowa. Stronę buduje Vite projektu przed testami (`e2e/sim-harness.setup.ts`) do ignorowanego katalogu

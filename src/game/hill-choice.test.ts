@@ -5,15 +5,15 @@ import { OWN_HILLS, RETIRED_OWN_HILL_IDS } from "./hill-choice";
 describe("own hills", () => {
   it("builds the training hill with the profile it always had", () => {
     expect(OWN_HILLS[0]).toEqual({
-      id: "own-2",
+      id: "own-3",
       name: "Ćwiczebna",
       kPointM: 90,
       source: "own",
       country: null,
       look: DEFAULT_HILL_LOOK,
       profile: {
-        startXM: 11.399999618530273,
-        inrunFlatEndXM: 10,
+        startXM: 10.600000381469727,
+        inrunFlatEndXM: 9.199999809265137,
         inrunLineEndXM: 25.299999237060547,
         takeoffXM: 46,
         inrunLineSlope: -1,

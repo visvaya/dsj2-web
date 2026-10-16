@@ -191,7 +191,7 @@ describe("jump view", { timeout: WHOLE_JUMP_TIMEOUT_MS }, () => {
 
 /**
  * When a scripted press takes off, as a share of the frames from the start of the inrun to the edge of the takeoff
- * on the hill at hand (255 frames on own-2, where these shares give 102, 171 and 209 frames).
+ * on the hill at hand (259 frames on own-3, where these shares give 104, 174 and 212 frames).
  */
 const TAKEOFF_SHARE = { farTooEarly: 0.4, early: 0.67, justBeforeEdge: 0.82 } as const;
 
