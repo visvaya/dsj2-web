@@ -52,6 +52,7 @@ w `physics-spec.md`), `look` to wygląd poza profilem (`HillLook` w `src/render/
 `parseHillSpec` (`src/hills/parse-hill-spec.ts`) czyta dane z niezaufanego źródła. Każdy obiekt jest sprawdzany
 z listą znanych kluczy: klucz nieznany (także `__proto__`, `constructor`, `prototype`) i brakujący to błąd.
 Dozwolone są tylko zwykłe obiekty, tablice i skończone liczby. Wynik jest budowany od nowa z dozwolonych pól.
+Za długa lista i za długi tekst są zgłaszane bez czytania nadmiaru, więc rozmiar danych nie zwiększa kosztu kontroli.
 Kontrola zbiera wszystkie problemy naraz; każdy ma stały identyfikator reguły (`format.…`), ścieżkę pola
 i krótki opis po angielsku do logów. Teksty dla gracza dojdą w `src/text/ui-text.ts`.
 
@@ -84,9 +85,10 @@ z `HILL_RULES` (identyfikatory `geometry.…`). Pomiary są skończone dla każd
   w torze to uderzenie w nartę;
 - `join-slope`: na złączach prosta/łuk i zeskok/wybieg różnica nachylenia najwyżej 0,5°; płaska część leży za
   belką startową i styka się z prostą pod jej pełnym kątem, więc tam sprawdzana jest tylko wysokość;
-- `takeoff-angle`: kąt progu 6..12° w dół, bo poza tym lot jest za stromy albo za płaski dla fizyki skoku;
-- `table-height`: próg 1..3 m nad zeskokiem, bo niżej skoczek ląduje od razu, wyżej spada z wysoka;
-- `landing-angle-at-k`: nachylenie zeskoku w punkcie K 34..48°, bo tam ląduje większość skoków;
+- `takeoff-angle`: kąt progu 6..12° w dół;
+- `table-height`: próg 1..3 m nad zeskokiem;
+- `landing-angle-at-k`: nachylenie zeskoku w punkcie K 34..48°, bo w okolicy K ląduje większość skoków i tam
+  zeskok ma przejmować lądowanie;
 - `k-near-steepest`: punkt K najwyżej 15 m (w poziomie) od najbardziej stromego miejsca zeskoku;
 - `landing-area-length`: koniec strefy lądowania (pierwsze miejsce za najbardziej stromym, gdzie zeskok jest
   łagodniejszy niż 32°, mierzony łukiem od progu) leży 0,1..0,4 K za punktem K, bo dalsze skoki potrzebują miejsca;
@@ -95,9 +97,12 @@ z `HILL_RULES` (identyfikatory `geometry.…`). Pomiary są skończone dla każd
 - `outrun-within-scene`: najniższy punkt wybiegu najdalej 380 m, bo tyle obejmują tablice warstw sceny
   (`LAYER_TABLE_LENGTH_M` w `src/render/hill-layer-tables.ts`);
 - `inrun-descends`, `landing-descends`: rozbieg opada od startu do progu, a zeskok od progu do najniższego punktu
-  wybiegu (próbki co 0,1 m).
+  wybiegu (próbki co 0,1 m; próbka może leżeć najwyżej 1 mm wyżej od poprzedniej, bo przy dnie łagodnego wybiegu
+  sąsiednie wysokości różnią się mniej, niż rozróżnia pojedyncza precyzja).
 
-Kontrole oparte na symulacji skoków dochodzą w kolejnym kroku.
+Zakresy kąta progu, wysokości progu i nachylenia w K, położenie K oraz długość strefy lądowania to założenia
+projektu, a nie granice sprawdzone symulacją; potwierdzają je albo zmieniają kontrole oparte na symulacji skoków,
+które dochodzą w kolejnym kroku.
 
 ## Odcisk geometrii i identyfikator
 

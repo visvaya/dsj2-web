@@ -61,17 +61,16 @@ describe("hill geometry", () => {
     ["geometry.k-near-steepest", variant({ kPointM: 103 })],
     ["geometry.landing-area-length", variant({ kPointM: 80 })],
     ["geometry.outrun-length", variant({ landing: { outrunCurveA: 0.03 } })],
+    ["geometry.outrun-within-scene", variant({ landing: { outrunCurveA: 0.0007 } })],
   ])("reports %s alone for a hill that breaks only that rule", (rule, spec) => {
     expect(rulesOf(spec)).toEqual([rule]);
   });
 
-  // The profile is built with smooth joins, an inrun that rises also takes off upwards, the outrun cannot rise
-  // before its lowest point, and a landing hill long enough to end past the scenery flattens out so much that its
-  // samples stop descending in single precision: these rules are shown on measures changed by hand.
+  // The profile is built with smooth joins, an inrun that rises also takes off upwards, and the outrun cannot rise
+  // before its lowest point: these rules are shown on measures changed by hand.
   it.each([
     ["geometry.join-height", { joins: { ...trainingGeometry().joins, flatToLine: { heightM: 0.02, slopeDeg: 45 } } }],
     ["geometry.join-slope", { joins: { ...trainingGeometry().joins, lineToCurve: { heightM: 0, slopeDeg: 0.6 } } }],
-    ["geometry.outrun-within-scene", { outrunLowestXM: 381 }],
     ["geometry.inrun-descends", { inrunDescends: false }],
     ["geometry.landing-descends", { landingDescends: false }],
   ] as const)("reports %s alone for measures that break only that rule", (rule, change) => {

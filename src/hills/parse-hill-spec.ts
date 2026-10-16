@@ -102,7 +102,9 @@ function reader() {
       return [];
     }
     if (value.length > maxCount) report("count", join(path, key), `expected at most ${maxCount} entries`);
-    return value as readonly unknown[];
+    // Read no further than the allowed count, so a huge list costs nothing; a hole reads as undefined and is
+    // reported where an entry belongs.
+    return Array.from({ length: Math.min(value.length, maxCount) }, (_, i): unknown => value[i]);
   };
 
   const order = (holds: boolean, path: string, message: string) => {
@@ -268,11 +270,14 @@ function readId(r: Reader, root: Fields): string {
 function readName(r: Reader, root: Fields): string | null {
   if (!root.has("name")) return null;
   const raw = root.get("name");
-  const name = typeof raw === "string" ? raw.normalize("NFC") : "";
-  const characters = Array.from(name);
   const L = HILL_SPEC_LIMITS.name;
+  // A text longer than four code units per allowed character (room for a letter written with combining marks) is
+  // rejected before it is normalised, which takes time in proportion to its length.
+  const readable = typeof raw === "string" && raw.length <= L.maxLength * 4;
+  const name = readable ? raw.normalize("NFC") : "";
+  const characters = Array.from(name);
   const drawable = characters.every((ch) => !HIDDEN_CHARACTER.test(ch) && fontDraws(ch));
-  if (typeof raw !== "string" || characters.length < L.minLength || characters.length > L.maxLength || !drawable) {
+  if (!readable || characters.length < L.minLength || characters.length > L.maxLength || !drawable) {
     r.report("name", "name", "expected 1 to 24 characters the game's font can draw");
     return null;
   }

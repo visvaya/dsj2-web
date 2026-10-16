@@ -126,6 +126,31 @@ describe("hill spec parser", () => {
     expect(rulesOf(input)).toEqual(["format.count look.trees.hidden", "format.order look.trees.toXM"]);
   });
 
+  it("reads no further than the allowed count of a long list, and reports the holes of a sparse one", () => {
+    const input = json();
+    let reads = 0;
+    const support = { fromXM: 7, toXM: 9.5, colour: 13, frontColour: 25 };
+    const counted = () =>
+      new Proxy(support, {
+        ownKeys: (target) => {
+          reads += 1;
+          return Reflect.ownKeys(target);
+        },
+      });
+    set(input, "look.supports", Array.from({ length: 10_000 }, counted));
+    expect(rulesOf(input)).toEqual(["format.count look.supports"]);
+    expect(reads).toBeLessThanOrEqual(8);
+    const entry = { layer: 1, first: 1, last: 2 };
+    const sparse = json();
+    // oxlint-disable-next-line no-sparse-arrays -- the hole is the case under test
+    set(sparse, "look.trees.hidden", [, entry]);
+    expect(rulesOf(sparse)).toEqual(["format.object look.trees.hidden.0"]);
+  });
+
+  it("reports a very long name without reading it through", () => {
+    expect(rulesOf({ ...json(), name: "a".repeat(1_000_000) })).toEqual(["format.name name"]);
+  });
+
   it("reports an array where an object belongs and an object where an array belongs", () => {
     const input = json();
     set(input, "look.terrain", []);

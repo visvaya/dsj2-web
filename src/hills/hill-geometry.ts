@@ -126,8 +126,14 @@ function outrunLowestXM(h: HillProfile): number {
   return Math.max(h.outrunStartXM, vertex);
 }
 
+/**
+ * How much a sample may lie above the one before and still count as descending: near the bottom of a gentle outrun
+ * two samples differ by less than single precision resolves at the hill's heights, so they can tie or swap.
+ */
+const RISE_TOLERANCE_M = 1e-3;
+
 const descends = (xs: readonly number[], y: (x: number) => number) =>
-  xs.every((x, i) => i === 0 || y(x) < y(xs[i - 1] ?? x));
+  xs.every((x, i) => i === 0 || y(x) <= y(xs[i - 1] ?? x) + RISE_TOLERANCE_M);
 
 function steepest(xs: readonly number[], angleAt: (x: number) => number): { xM: number; deg: number } {
   return xs.reduce<{ xM: number; deg: number }>(
