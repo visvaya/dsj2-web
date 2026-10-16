@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { reduceUpdateCheck, type OfflineState } from "../pwa/offline-state";
 import { UI_TEXT } from "../text/ui-text";
 import type { UpdateControls } from "./use-offline-state";
@@ -104,15 +104,50 @@ export function UpdateNotice({
 }
 
 /**
+ * What the game is and its version, with whatever follows the version (the sign of the check). The version keeps
+ * to one line; when it goes to a line of its own, the dot between the two is left out.
+ */
+export function Subtitle({ version, children }: { version: string; children?: ReactNode }) {
+  return (
+    <p className="note subtitle">
+      <span>{UI_TEXT.menu.tagline}</span>
+      <span className="subtitle-version">
+        {version}
+        {children}
+      </span>
+    </p>
+  );
+}
+
+/** The sign of looking for a new release: a circle of the game's pixels turning clockwise, its head at the top. */
+const REFRESH_PIXELS = ["..###.#", ".#...##", "#...###", "#......", "#.....#", ".#...#.", "..###.."] as const;
+
+/** The sign's pixels as one path of unit squares. */
+const REFRESH_PATH = REFRESH_PIXELS.flatMap((row, y) =>
+  Array.from(row).flatMap((cell, x) => (cell === "#" ? [`M${x} ${y}h1v1h-1z`] : [])),
+).join("");
+
+function RefreshSign() {
+  return (
+    <svg viewBox="0 0 7 7" width="14" height="14" shapeRendering="crispEdges" aria-hidden="true">
+      <path d={REFRESH_PATH} fill="currentColor" />
+    </svg>
+  );
+}
+
+/**
  * A button that looks for a new release now, and what it found, said in a live region beside it. Presses while
  * a check runs make no second check. A release that is found is stored in the background as any other, and
  * `UpdateNotice` offers it once it waits; from then on the note says it, and the line here says nothing.
  */
 export function UpdateCheck({
+  version,
   updates,
   noteShown,
   failures,
 }: {
+  /** The version (`versionLabel()`), which the sign follows on the line of what the game is. */
+  version: string;
   updates: UpdateControls;
   noteShown: boolean;
   /** How many newer releases could not be stored so far (`OfflineState.updateFailures`). */
@@ -137,9 +172,18 @@ export function UpdateCheck({
   })();
   return (
     <div className="update-check">
-      <button type="button" className="pixel-button small-button" aria-disabled={checking} onClick={onCheck}>
-        {UI_TEXT.offline.check.button}
-      </button>
+      <Subtitle version={version}>
+        <button
+          type="button"
+          className="quiet-button icon-button"
+          aria-label={UI_TEXT.offline.check.button}
+          title={UI_TEXT.offline.check.button}
+          aria-disabled={checking}
+          onClick={onCheck}
+        >
+          <RefreshSign />
+        </button>
+      </Subtitle>
       {/* A region of its own, there before the first answer so that answer is announced. */}
       <div aria-live="polite">{line !== null && <p className="note">{line}</p>}</div>
     </div>

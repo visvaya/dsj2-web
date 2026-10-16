@@ -24,7 +24,8 @@ export const UI_TEXT = {
   },
 
   menu: {
-    subtitle: (versionLabel: string) => `Skoki narciarskie · ${versionLabel}`,
+    /** Under the name of the game: what it is, and its version (`versionLabel`), which never breaks apart. */
+    tagline: "Skoki jak z DOS-a",
     navigation: "Główne menu",
     training: "Trening",
     replays: "Powtórki",
@@ -336,7 +337,7 @@ export const UI_TEXT = {
     installFailed: "Nie udało się zainstalować: spróbuj ponownie.",
     /** The check for a new release the player asks for in the main menu, and what it found. */
     check: {
-      button: "Sprawdź aktualizację",
+      button: "Szukaj aktualizacji",
       checking: "Sprawdzam...",
       latest: "Masz najnowszą wersję.",
       found: "Jest nowa wersja gry. Pobieram ją.",
