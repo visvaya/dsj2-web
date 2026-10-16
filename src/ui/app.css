@@ -1050,7 +1050,10 @@ h2 {
   min-width: 56px;
 }
 
-/* The note under the button that could not close the tab, and the notes of the replays: framed, so they are seen. */
+/*
+ * The framed notes: the note under the button that could not close the tab, the notes of a new release and the
+ * notes of the replays. Framed, so they are seen; all set one way.
+ */
 .quit-note,
 .framed-note {
   padding: 10px 12px;
@@ -1060,8 +1063,8 @@ h2 {
 
 /*
  * Where the frame has its full width the text fills it from edge to edge; the last line keeps to the left. The
- * long words are divided at the end of a line, at the places the text itself marks, so the gaps between words
- * stay close to a plain space in every browser.
+ * long words are divided at the end of a line, at the places the text itself marks (src/ui/typeset.ts), so the
+ * gaps between words stay close to a plain space in every browser.
  */
 @media (min-width: 600px) {
   .quit-note,
@@ -1069,14 +1072,6 @@ h2 {
     text-align: justify;
     text-align-last: left;
   }
-}
-
-/*
- * The note of a new release is two short sentences around a button: filled from edge to edge, a sentence broken
- * in two lines would get wide gaps between its words, so it keeps to the left.
- */
-.framed-note.install-note {
-  text-align: start;
 }
 
 /* What did not work is framed in red. */

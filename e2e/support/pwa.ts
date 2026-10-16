@@ -4,6 +4,7 @@ import type { BrowserContext, Page } from "@playwright/test";
 import type { TestRelease } from "../releases/paths";
 import { TEXT } from "./app";
 import { expect, test } from "./fixtures";
+import { asSet, setPatternSource } from "./typeset-text";
 
 /** What the menu says about playing without a network and about a waiting release (src/text/ui-text.ts). */
 export const OFFLINE_NOTE = {
@@ -13,7 +14,9 @@ export const OFFLINE_NOTE = {
    * With the version the waiting worker names: both test releases are built with one. The main menu says it
    * short, beside its install button; the menu of a jump says it with the way to get it.
    */
-  updateWaiting: /^Jest nowa wersja gry: \d+\.\d+\.\d+\.(?: Zamknij grę całkowicie|$)/,
+  updateWaiting: new RegExp(
+    `^Jest nowa wersja gry: \\d+\\.\\d+\\.\\d+\\.(?: ${setPatternSource("Zamknij grę całkowicie")}|$)`,
+  ),
 } as const;
 
 /** The check for a new release in the main menu, what it says, and the button that installs a waiting one. */
@@ -23,8 +26,8 @@ export const UPDATE_CHECK = {
   found: "Jest nowa wersja gry. Pobieram ją.",
   unreachable: "Brak połączenia: nie można sprawdzić.",
   install: "Zainstaluj teraz",
-  slowWay: "Albo zamknij wszystkie okna gry i\u00a0uruchom ją ponownie.",
-  elsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
+  slowWay: asSet("Albo zamknij wszystkie okna gry i uruchom ją ponownie."),
+  elsewhere: asSet("Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać."),
   reload: "Przeładuj",
 } as const;
 

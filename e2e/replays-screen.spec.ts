@@ -1,5 +1,6 @@
 import { TEXT, button, openMenu, press } from "./support/app";
 import { expect, test } from "./support/fixtures";
+import { asSet, setWithin } from "./support/typeset-text";
 
 // No file of the original game is available to the tests: playing a replay of the original is covered by
 // src/ui/original-replay-choice.test.ts, and here only the screen and its refusals.
@@ -16,22 +17,22 @@ test("the replay screen explains what it needs and refuses a file that is not a 
   await expect(page.getByRole("heading", { name: TEXT.replays })).toBeFocused();
   await expect(page).toHaveTitle("Powtórki · Telemark");
   // Without the player's Dsj.exe there are no hills of the original to play a replay on.
-  await expect(page.getByText(/najpierw wczytaj pliki gry/)).toBeVisible();
+  await expect(page.getByText(setWithin("najpierw wczytaj pliki gry"))).toBeVisible();
 
   const choose = (name: string, buffer: Buffer) =>
     page.locator('input[type="file"]').setInputFiles({ name, mimeType: "application/octet-stream", buffer });
   const status = page.getByRole("status");
 
   await choose("notatki.txt", Buffer.from("To nie jest powtórka.", "utf8"));
-  await expect(status).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
+  await expect(status).toHaveText(asSet("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry."));
   // Shown framed in red under the button that read the file.
   const note = page.locator(".framed-note");
-  await expect(note).toHaveText("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.");
+  await expect(note).toHaveText(asSet("To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry."));
   await expect(note).toHaveClass(/error-frame/);
 
   // The right size, but not what the original writes: the checksum gives it away.
   await choose("KARPACZ.RPL", Buffer.alloc(REPLAY_FILE_BYTES));
-  await expect(status).toHaveText("Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.");
+  await expect(status).toHaveText(asSet("Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza."));
 
   await press(button(page, TEXT.back), traits);
   await expect(page.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();

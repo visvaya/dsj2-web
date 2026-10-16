@@ -6,21 +6,13 @@ import type { GameFiles } from "../storage/game-files-store";
 import { UI_TEXT } from "../text/ui-text";
 import { gameFilesOutcome } from "./game-files-choice";
 import { OfflineNotice, Subtitle, UpdateCheck, UpdateNotice, useLastingWait } from "./offline-notice";
+import { typeset } from "./typeset";
 import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import type { OfflineSupportView } from "./use-offline-state";
 
-/** Written by number: as characters in the source they could not be told from nothing and from a space. */
-const SOFT_HYPHEN = String.fromCodePoint(0xad);
-const NO_BREAK_SPACE = String.fromCodePoint(0xa0);
-
-/**
- * Said when the browser does not let the page close its own window. The note is set flush to both edges of its
- * frame, so the long words carry the places where they may be divided at the end of a line ("|", shown as a
- * hyphen only where a word is divided), and "~" keeps a one-letter word with the word after it. Browsers divide
- * Polish words on their own only where they have a dictionary for it, which not every one has.
- */
-const QUIT_REFUSED = UI_TEXT.menu.quitRefused.replaceAll("|", SOFT_HYPHEN).replaceAll("~", NO_BREAK_SPACE);
+/** Said when the browser does not let the page close its own window: a framed note. */
+const QUIT_REFUSED = typeset(UI_TEXT.menu.quitRefused);
 /** A window that closes is gone before this; one that stays gets the note. */
 const QUIT_NOTE_AFTER_MS = 300;
 

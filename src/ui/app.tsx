@@ -15,6 +15,7 @@ import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../st
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { readOriginalHills } from "../original/original-hills";
 import { UI_TEXT } from "../text/ui-text";
+import { typeset } from "./typeset";
 import { HillScreen } from "./hill-screen";
 import { HowToScreen } from "./how-to-jump";
 import { InstallScreen } from "./install-screen";
@@ -258,7 +259,7 @@ export function App({ diagnostics }: AppProps) {
           onWatch: (hill) => {
             const replay = replays.recordReplay(hill);
             if (replay) show({ kind: "jump", hill, replay });
-            return replay ? null : UI_TEXT.replays.notTrue;
+            return replay ? null : typeset(UI_TEXT.replays.notTrue);
           },
         }}
         onBack={() => show({ kind: "menu" })}

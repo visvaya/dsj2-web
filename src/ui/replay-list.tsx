@@ -1,5 +1,6 @@
 import { entryBytes, sameReplay, type Shelf, type ShelfEntry, type ShelfKind } from "../storage/replay-shelf";
 import { UI_TEXT } from "../text/ui-text";
+import { typeset } from "./typeset";
 import { formatDecimal, formatSize } from "./number-text";
 import { replayHillLabel } from "./replay-hill";
 import { RPL_EXPORT_OFFERED, rplExportable } from "./rpl-export";
@@ -33,12 +34,13 @@ function rowText(entry: ShelfEntry): string {
 
 /**
  * A message framed where it belongs, like the note under the button that quits the game: in the colour of the game,
- * or in red for what did not work. A screen reader hears it from the status of the screen instead.
+ * or in red for what did not work. A screen reader hears it from the status of the screen instead. The text is set as
+ * every framed note's (`typeset`).
  */
 export function FramedNote({ text, error }: { text: string; error: boolean }) {
   return (
     <p className={error ? "note framed-note error-frame" : "note framed-note"} aria-hidden="true">
-      {text}
+      {typeset(text)}
     </p>
   );
 }

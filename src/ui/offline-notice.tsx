@@ -1,6 +1,7 @@
 import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { reduceUpdateCheck, type OfflineState } from "../pwa/offline-state";
 import { UI_TEXT } from "../text/ui-text";
+import { typeset } from "./typeset";
 import type { UpdateControls } from "./use-offline-state";
 
 /** Whether the game can be played without a network. */
@@ -46,16 +47,18 @@ function InstallNote({ version, onInstall }: { version: string | null; onInstall
   };
   return (
     <div className="framed-note update-note install-note">
-      <p className="note update-fact">{UI_TEXT.offline.updateFound(version)}</p>
+      <p className="note update-fact">{typeset(UI_TEXT.offline.updateFound(version))}</p>
       <button type="button" className="pixel-button small-button" aria-disabled={installing} onClick={onPress}>
         {UI_TEXT.offline.installNow}
       </button>
       <div aria-live="polite">
         {install !== "idle" && (
-          <p className="note update-fact">{installing ? UI_TEXT.offline.installing : UI_TEXT.offline.installFailed}</p>
+          <p className="note update-fact">
+            {typeset(installing ? UI_TEXT.offline.installing : UI_TEXT.offline.installFailed)}
+          </p>
         )}
       </div>
-      <p className="note">{UI_TEXT.offline.slowWay}</p>
+      <p className="note">{typeset(UI_TEXT.offline.slowWay)}</p>
     </div>
   );
 }
@@ -64,7 +67,7 @@ function InstallNote({ version, onInstall }: { version: string | null; onInstall
 function ElsewhereNote({ onReload }: { onReload: (() => void) | undefined }) {
   return (
     <div className="framed-note update-note install-note">
-      <p className="note update-fact">{UI_TEXT.offline.updatedElsewhere}</p>
+      <p className="note update-fact">{typeset(UI_TEXT.offline.updatedElsewhere)}</p>
       {onReload && (
         <button type="button" className="pixel-button small-button" onClick={onReload}>
           {UI_TEXT.offline.reload}
@@ -95,7 +98,7 @@ export function UpdateNotice({
   return (
     <div aria-live="polite">
       {shown && state && !updates && (
-        <p className="note framed-note update-note">{UI_TEXT.offline.updateWaiting(state.updateVersion)}</p>
+        <p className="note framed-note update-note">{typeset(UI_TEXT.offline.updateWaiting(state.updateVersion))}</p>
       )}
       {shown && state && updates && <InstallNote version={state.updateVersion} onInstall={updates.installNow} />}
       {elsewhere && <ElsewhereNote onReload={updates?.reloadNow} />}

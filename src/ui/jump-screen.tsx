@@ -5,6 +5,7 @@ import { newSeed } from "../game/training-session";
 import type { OfflineState } from "../pwa/offline-state";
 import type { HillRecord, Settings } from "../storage/save-data";
 import { UI_TEXT } from "../text/ui-text";
+import { typeset } from "./typeset";
 import { JumpMenu } from "./jump-menu";
 import { ReplayBar } from "./replay-bar";
 import { nextReplaySpeed, type JumpRecording, type ReplaySource, type ReplayView } from "./jump-replay";
@@ -54,9 +55,10 @@ const KEEP_NOTE: Readonly<Record<KeepOutcome, string>> = {
   kept: UI_TEXT.jumpScreen.replay.keptLast,
   notReady: UI_TEXT.replays.notReady,
   alreadyKept: UI_TEXT.jumpScreen.replay.alreadyKept,
-  keptFull: UI_TEXT.replays.keptFull,
-  loadedFull: UI_TEXT.replays.loadedFull,
-  budgetFull: UI_TEXT.replays.budgetFull,
+  // Shared with the framed notes of the replays screen, so they carry the marks of those notes.
+  keptFull: typeset(UI_TEXT.replays.keptFull),
+  loadedFull: typeset(UI_TEXT.replays.loadedFull),
+  budgetFull: typeset(UI_TEXT.replays.budgetFull),
 };
 
 /** How long the note about a kept jump stays in the menu. */

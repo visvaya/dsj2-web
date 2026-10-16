@@ -2,7 +2,9 @@ import type { CountryCode } from "../render/flags";
 
 /**
  * Every text the player sees or hears, in Polish, grouped by where it appears. Texts with a value in them are
- * functions; how the value itself is written (decimal comma, digits) stays with the code that shows it.
+ * functions; how the value itself is written (decimal comma, digits) stays with the code that shows it. Texts shown
+ * in a frame carry the marks of `typeset` (src/ui/typeset.ts): "|" where a word may be divided, "~" after a
+ * one-letter word; ui-text.test.ts lists them.
  */
 export const UI_TEXT = {
   appName: "Telemark",
@@ -35,12 +37,9 @@ export const UI_TEXT = {
     install: "Gra jako aplikacja",
     loadFiles: "Wczytaj pliki gry",
     quit: "Wyłącz grę",
-    /**
-     * "|" marks where a long word may be divided at the end of a line and "~" keeps a one-letter word with the
-     * next one; the menu turns them into a soft hyphen and a no-break space.
-     */
+    /** A framed note: "|" and "~" are the marks of `typeset` (src/ui/typeset.ts). */
     quitRefused:
-      "Gra nie może za|mknąć tej karty sama. Za|mknij ją krzy|ży|kiem karty albo kla|wi|sza|mi Ctrl+W. Możesz wyjść z~trybu peł|no|ekra|no|we|go przy|ci|skiem F11.",
+      "Gra nie może za|mknąć tej kar|ty sama. Za|mknij ją krzy|ży|kiem kar|ty albo kla|wi|sza|mi Ctrl+W. Mo|żesz wyjść z~try|bu peł|no|ekra|no|we|go przy|ci|skiem F11.",
     filesHelp:
       "Skocznie z oryginału: wybierz Dsj.exe ze swojej kopii gry (zawiera skocznie). Dsj.dat jest opcjonalny: daje nazwy z Twojej wersji gry. Plik zostaje w przeglądarce, nic nie jest wysyłane.",
     originalCount: (count: number) => `Skocznie z oryginału: ${count}. `,
@@ -70,11 +69,12 @@ export const UI_TEXT = {
     intro:
       "Tu znajdują się powtórki rekordów skoczni, zachowane i ostatnie skoki oraz wczytane powtórki: pliki .rpl z DSJ2 i pliki powtórek tej gry. Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku albo powtórki: „Zachowaj ostatni skok”.",
     load: "Wczytaj powtórki (*.rpl, plik powtórek *.json albo archiwum *.zip)",
-    needsGame: "Powtórki z DSJ2 grają na skoczniach oryginału: najpierw wczytaj pliki gry w menu głównym.",
-    notReplay: "To nie jest plik powtórki DSJ2 (.rpl).",
-    damaged: "Plik powtórki jest uszkodzony: suma kontrolna się nie zgadza.",
-    badValues: "Powtórka ma niepoprawne dane i nie da się jej odtworzyć.",
-    noHill: (hillNumber: number) => `Wczytany Dsj.exe nie ma skoczni nr ${hillNumber}, z której jest ta powtórka.`,
+    needsGame: "Po|wtór|ki z~DSJ2 gra|ją na skocz|niach ory|gi|na|łu: naj|pierw wczy|taj pli|ki gry w~me|nu głów|nym.",
+    notReplay: "To nie jest plik po|wtór|ki DSJ2 (.rpl).",
+    damaged: "Plik po|wtór|ki jest uszko|dzo|ny: suma kon|trol|na się nie zga|dza.",
+    badValues: "Po|wtór|ka ma nie|po|praw|ne dane i~nie da się jej od|two|rzyć.",
+    noHill: (hillNumber: number) =>
+      `Wczy|ta|ny Dsj.exe nie ma skocz|ni nr ${hillNumber}, z~któ|rej jest ta po|wtór|ka.`,
     groups: { record: "Rekordy skoczni", kept: "Zachowane", recent: "Ostatnie skoki", loaded: "Wczytane" },
     empty: "Nie ma jeszcze zapisanych powtórek.",
     /** One replay of the list: its result, its date and what it weighs. */
@@ -91,13 +91,13 @@ export const UI_TEXT = {
     usage: (count: number, used: string, budget: string) => `Powtórek: ${count}; zajęte ${used} z ${budget}.`,
     removeOldest: "Usuń najstarsze",
     removeOldestCount: "Ile najstarszych usunąć (rekordy zostają)",
-    removed: (count: number) => `Usunięto powtórek: ${count}.`,
-    keptFull: "Miejsce na zachowane powtórki się skończyło (100). Usuń starsze, żeby zachować nowe.",
-    loadedFull: "Miejsce na wczytane powtórki się skończyło (100). Usuń starsze, żeby wczytać nowe.",
+    removed: (count: number) => `Usu|nię|to po|wtó|rek: ${count}.`,
+    keptFull: "Miej|sce na za|cho|wa|ne po|wtór|ki się skoń|czy|ło (100). Usuń star|sze, że|by za|cho|wać nowe.",
+    loadedFull: "Miej|sce na wczy|ta|ne po|wtór|ki się skoń|czy|ło (100). Usuń star|sze, że|by wczy|tać nowe.",
     alreadyKept: "Ten skok jest już zachowany.",
-    keptDone: "Zachowano.",
+    keptDone: "Za|cho|wa|no.",
     notReady: "Powtórki jeszcze się wczytują; spróbuj za chwilę.",
-    removeArmed: "Dotknij jeszcze raz „Na pewno usunąć?”, żeby usunąć.",
+    removeArmed: "Do|tknij jesz|cze raz „Na pew|no usu|nąć?”, że|by usu|nąć.",
     select: (replay: string) => `Zaznacz: ${replay}`,
     selectAll: "Zaznacz wszystkie",
     selectNone: "Odznacz wszystkie",
@@ -105,28 +105,34 @@ export const UI_TEXT = {
     removeSelected: (count: number) => `Usuń zaznaczone (${count})`,
     confirmRemoveSelected: (count: number) => `Na pewno usunąć ${count}?`,
     exportTitle: "Powtórki z gry Telemark",
-    exported: { shared: "Udostępniono plik z powtórkami.", downloaded: "Zapisano plik z powtórkami.", cancelled: "" },
+    exported: {
+      shared: "Udo|stęp|nio|no plik z~po|wtór|ka|mi.",
+      downloaded: "Za|pi|sa|no plik z~po|wtór|ka|mi.",
+      cancelled: "",
+    },
     imported: (added: number, already: number) =>
-      already === 0 ? `Wczytano powtórek: ${added}.` : `Wczytano powtórek: ${added}; już zachowanych: ${already}.`,
-    importUnreadable: (count: number) => `Nie dało się odczytać powtórek: ${count}.`,
-    importSkipped: (count: number) => `Pominięte pliki, które nie są powtórkami: ${count}.`,
-    importUntrue: (count: number) => `Pominięte, bo nie grają do wyniku z pliku: ${count}.`,
-    notReplayFile: "To nie jest plik powtórki DSJ2 (.rpl) ani plik powtórek tej gry.",
+      already === 0
+        ? `Wczy|ta|no po|wtó|rek: ${added}.`
+        : `Wczy|ta|no po|wtó|rek: ${added}; już za|cho|wa|nych: ${already}.`,
+    importUnreadable: (count: number) => `Nie dało się od|czy|tać po|wtó|rek: ${count}.`,
+    importSkipped: (count: number) => `Po|mi|nię|te pli|ki, któ|re nie są po|wtór|ka|mi: ${count}.`,
+    importUntrue: (count: number) => `Po|mi|nię|te, bo nie gra|ją do wy|ni|ku z~pli|ku: ${count}.`,
+    notReplayFile: "To nie jest plik po|wtór|ki DSJ2 (.rpl) ani plik po|wtó|rek tej gry.",
     onlyForVisit: "Ta przeglądarka nie pozwala zapisać powtórek na stałe: znikną po zamknięciu strony.",
-    budgetFull: "Powtórki zajmują już całe przewidziane miejsce. Usuń starsze, żeby zapisać nowe.",
-    notTrue: "Ta powtórka nie pasuje do tej wersji gry albo jest uszkodzona, więc nie da się jej obejrzeć.",
-    hillMissing: "Skoczni tej powtórki nie ma w grze: wczytaj pliki gry w menu głównym.",
+    budgetFull: "Po|wtór|ki zaj|mu|ją już całe prze|wi|dzia|ne miej|sce. Usuń star|sze, że|by za|pi|sać nowe.",
+    notTrue: "Ta po|wtór|ka nie pa|su|je do tej wer|sji gry albo jest uszko|dzo|na, więc nie da się jej obej|rzeć.",
+    hillMissing: "Skocz|ni tej po|wtór|ki nie ma w~grze: wczy|taj pli|ki gry w~me|nu głów|nym.",
     hillRetired:
-      "Ta powtórka jest z poprzedniego kształtu tej skoczni, którego gra już nie ma, więc nie da się jej obejrzeć. Możesz ją usunąć.",
+      "Ta po|wtór|ka jest z~po|przed|nie|go kształ|tu tej skocz|ni, któ|re|go gra już nie ma, więc nie da się jej obej|rzeć. Mo|żesz ją usu|nąć.",
     retiredHill: (hillLabel: string) => `${hillLabel} (dawny kształt)`,
     rplExport: "Eksportuj .rpl",
     rplExportLabel: (replay: string) => `Eksportuj do pliku DSJ2 (.rpl): ${replay}`,
     rplTitle: "Powtórka do DSJ2",
     /** Added when a file plays to the same result, but not frame by frame the same jump. */
     rplApproximate:
-      "W DSJ2 ten skok da ten sam wynik, ale ruchy skoczka (na przykład po upadku) mogą wyglądać trochę inaczej.",
+      "W~DSJ2 ten skok da ten sam wy|nik, ale ru|chy skocz|ka (na przy|kład po upad|ku) mogą wy|glą|dać tro|chę ina|czej.",
     rplExportSelected: (count: number) => `Eksportuj zaznaczone do .rpl (${count})`,
-    rplCheckingMany: (done: number, all: number) => `Sprawdzam skoki do plików DSJ2: ${done} z ${all}…`,
+    rplCheckingMany: (done: number, all: number) => `Spraw|dzam sko|ki do pli|ków DSJ2: ${done} z~${all}…`,
     /** What came of exporting the selected replays to files of the original. */
     rplExportedMany: (
       files: number,
@@ -134,35 +140,35 @@ export const UI_TEXT = {
       counts: { approximate: number; unfit: number; ownHills: number },
     ) =>
       [
-        `${outcome === "shared" ? "Udostępniono" : "Zapisano"} plików .rpl: ${files}${files > 1 ? " (w archiwum .zip)" : ""}.`,
+        `${outcome === "shared" ? "Udo|stęp|nio|no" : "Zapisano"} pli|ków .rpl: ${files}${files > 1 ? " (w~archiwum .zip)" : ""}.`,
         counts.approximate > 0
-          ? `Z drobną różnicą w ruchach skoczka, przy tym samym wyniku: ${counts.approximate}.`
+          ? `Z~drob|ną róż|ni|cą w~ru|chach skocz|ka, przy tym sa|mym wy|ni|ku: ${counts.approximate}.`
           : "",
-        counts.unfit > 0 ? `Nie dało się zapisać: ${counts.unfit}.` : "",
-        counts.ownHills > 0 ? `Pominięte, bo ze skoczni własnych: ${counts.ownHills}.` : "",
-        "Skopiuj je do katalogu gry DSJ2.",
+        counts.unfit > 0 ? `Nie dało się za|pi|sać: ${counts.unfit}.` : "",
+        counts.ownHills > 0 ? `Po|mi|nię|te, bo ze skocz|ni włas|nych: ${counts.ownHills}.` : "",
+        "Sko|piuj je do ka|ta|lo|gu gry DSJ2.",
       ]
         .filter((part) => part !== "")
         .join(" "),
     rplNoneFit: (unfit: number, ownHills: number) =>
       [
-        "Żadnego z zaznaczonych skoków nie da się zapisać jako .rpl.",
-        unfit > 0 ? `Nie mieszczą się w pliku DSJ2: ${unfit}.` : "",
-        ownHills > 0 ? `Ze skoczni własnych, których DSJ2 nie zna: ${ownHills}.` : "",
+        "Żad|ne|go z~za|zna|czo|nych sko|ków nie da się za|pi|sać jako .rpl.",
+        unfit > 0 ? `Nie miesz|czą się w~pli|ku DSJ2: ${unfit}.` : "",
+        ownHills > 0 ? `Ze skocz|ni włas|nych, któ|rych DSJ2 nie zna: ${ownHills}.` : "",
       ]
         .filter((part) => part !== "")
         .join(" "),
     keepForGood: "Zachowaj na stałe",
     rplExported: {
-      shared: "Udostępniono plik .rpl. W DSJ2 otworzysz go, gdy będzie w katalogu gry.",
-      downloaded: "Zapisano plik .rpl. Skopiuj go do katalogu gry DSJ2, żeby go tam obejrzeć.",
+      shared: "Udo|stęp|nio|no plik .rpl. W~DSJ2 otwo|rzysz go, gdy bę|dzie w~ka|ta|lo|gu gry.",
+      downloaded: "Za|pi|sa|no plik .rpl. Sko|piuj go do ka|ta|lo|gu gry DSJ2, że|by go tam obej|rzeć.",
       cancelled: "",
     },
     rplUnfit:
-      "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 nie mieści wszystkich naciśnięć, na które skok zareagował (na przykład wybicia samym prawym przyciskiem albo dwóch osobnych naciśnięć przy wybiciu).",
+      "Tego sko|ku nie da się za|pi|sać jako .rpl: plik DSJ2 nie mieś|ci wszyst|kich na|ciś|nięć, na któ|re skok za|re|a|go|wał (na przy|kład wy|bi|cia sa|mym pra|wym przy|ci|skiem albo dwóch osob|nych na|ciś|nięć przy wy|bi|ciu).",
     rplUnfitMotion:
-      "Tego skoku nie da się zapisać jako .rpl: pochylanie (mysz, palec albo przechył), na które skok zareagował, trwało dłużej, niż mieści plik DSJ2 (około 15 s), na przykład po upadku.",
-    rplUnfitDiffers: "Tego skoku nie da się zapisać jako .rpl: plik DSJ2 odtworzyłby inny skok.",
+      "Tego sko|ku nie da się za|pi|sać jako .rpl: po|chy|la|nie (mysz, pa|lec albo prze|chył), na któ|re skok za|re|a|go|wał, trwa|ło dłu|żej, niż mieś|ci plik DSJ2 (oko|ło 15 s), na przy|kład po upad|ku.",
+    rplUnfitDiffers: "Tego sko|ku nie da się za|pi|sać jako .rpl: plik DSJ2 od|two|rzył|by inny skok.",
   },
 
   gameFiles: {
@@ -323,22 +329,19 @@ export const UI_TEXT = {
     },
     /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
     updateWaiting: (version: string | null) =>
-      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a\u00a0na telefonie także aplikację w\u00a0przełączniku aplikacji) i\u00a0uruchom ją ponownie, żeby się zainstalowała.`,
+      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Za|mknij grę cał|ko|wi|cie (wszyst|kie okna, a~na te|le|fo|nie tak|że apli|ka|cję w~prze|łącz|ni|ku apli|ka|cji) i~uru|chom ją po|now|nie, żeby się za|in|sta|lo|wa|ła.`,
     /** The short form beside the button that installs it, in the main menu. */
     updateFound: (version: string | null) =>
       version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`,
-    /**
-     * The way to get it without the button, under it. A one-letter word is bound to the next by a no-break space
-     * (\u00a0), so it never ends a line, as Polish typesetting wants.
-     */
-    slowWay: "Albo zamknij wszystkie okna gry i\u00a0uruchom ją ponownie.",
+    /** The way to get it without the button, under it. */
+    slowWay: "Albo za|mknij wszyst|kie okna gry i~uru|chom ją po|now|nie.",
     /** The release has taken over from another window; this one still runs the version it started with. */
-    updatedElsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
+    updatedElsewhere: "Gra zaktu|a|li|zo|wa|ła się w~in|nym ok|nie: prze|ła|duj, że|by jej uży|wać.",
     reload: "Przeładuj",
     /** Installs the waiting release in this window at once; the page loads again. Then what happens. */
     installNow: "Zainstaluj teraz",
-    installing: "Instaluję...",
-    installFailed: "Nie udało się zainstalować: spróbuj ponownie.",
+    installing: "In|sta|lu|ję...",
+    installFailed: "Nie uda|ło się za|in|sta|lo|wać: spró|buj po|now|nie.",
     /** The check for a new release the player asks for in the main menu, and what it found. */
     check: {
       button: "Szukaj aktualizacji",
