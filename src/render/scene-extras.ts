@@ -3,6 +3,7 @@ import { inrunYM, landingYM, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import { fastSin, hash } from "./jump-view-camera";
+import type { HillLook } from "./hill-look";
 import {
   LAYER,
   layerIndex,
@@ -16,6 +17,7 @@ import {
 } from "./scene-layers";
 import { color } from "./palette";
 import { FLOODLIGHT, firstMastXM } from "./scene-floodlight";
+import { skyRowsAbove } from "./scene-mountains";
 import { SKY_FIRST_INDEX } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
 
@@ -201,11 +203,74 @@ const MOON_ROOM_PX = MOON_ROW + MOON_RADIUS_PX + MOON_CLEARANCE_PX;
 /** Stars move with the farthest layer. */
 const STAR_DRIFT = 0.01;
 
+/** Where the moon stands for a hill and a picture: its column in the sky's own columns, as the stars', and its row. */
+interface MoonPlace {
+  skyColumn: number;
+  row: number;
+}
+
+const moonPlaces = new WeakMap<HillProfile, WeakMap<HillLook, Map<string, MoonPlace>>>();
+
+/**
+ * The moon's place for a whole jump: chosen once, for the camera at the start, where the sky shows most: near its
+ * usual place, or where the most sky shows above the mountains. It then keeps to the sky as the stars do, and the
+ * mountains, rising in the picture as the camera goes down, pass in front of it.
+ */
+function moonPlace(h: HillProfile, look: HillLook, view: SceneView, rows: number): MoonPlace {
+  let byLook = moonPlaces.get(h);
+  if (byLook === undefined) {
+    byLook = new WeakMap();
+    moonPlaces.set(h, byLook);
+  }
+  let byPicture = byLook.get(look);
+  if (byPicture === undefined) {
+    byPicture = new Map();
+    byLook.set(look, byPicture);
+  }
+  const key = `${view.widthPx}:${view.pixelWidth}:${rows}`;
+  const known = byPicture.get(key);
+  if (known !== undefined) return known;
+  const width = view.widthPx;
+  const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), width, view.pixelWidth);
+  const skyAt = skyRowsAbove(h, look, atStart, rows - 1);
+  const clearUnder = (cx: number) => {
+    let clear = rows;
+    for (let x = Math.max(0, cx - MOON_RADIUS_PX); x <= Math.min(width - 1, cx + MOON_RADIUS_PX); x++) {
+      clear = Math.min(clear, skyAt(x));
+    }
+    return clear;
+  };
+  let cx = Math.round(width * MOON_ACROSS);
+  let clear = clearUnder(cx);
+  for (let x = Math.round(width * MOON_FROM); x <= Math.round(width * MOON_TO) && clear < MOON_ROOM_PX; x++) {
+    const here = clearUnder(x);
+    if (here > clear) {
+      cx = x;
+      clear = here;
+    }
+  }
+  // With little sky it rises from behind the mountains, its top showing.
+  const row = Math.max(
+    MOON_LOWEST_TOP_PX + MOON_RADIUS_PX,
+    Math.min(MOON_ROW, clear - MOON_RADIUS_PX - MOON_CLEARANCE_PX),
+  );
+  const place = { skyColumn: cx + Math.round(atStart.camX * STAR_DRIFT), row };
+  byPicture.set(key, place);
+  return place;
+}
+
 /**
  * Stars and the moon, drawn over the sky's rows (0..`skyRows` - 1) after the mountains and before the background,
- * only where the sky still shows; the moon stands above the mountains in its column.
+ * only where the sky still shows: the mountains stand in front of them.
  */
-export function drawNightSky(c: SceneCanvas, view: SceneView, frame: number, skyRows: number) {
+export function drawNightSky(
+  c: SceneCanvas,
+  h: HillProfile,
+  look: HillLook,
+  view: SceneView,
+  frame: number,
+  skyRows: number,
+): void {
   const { fb, indices } = c;
   const star = color("star");
   const drift = Math.round(view.camX * STAR_DRIFT);
@@ -218,36 +283,13 @@ export function drawNightSky(c: SceneCanvas, view: SceneView, frame: number, sky
       if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0 && isSky(x, y)) px[y * fb.width + x] = star;
     }
   }
-  // The moon goes where the most sky shows above the mountains, near its usual place.
-  const clearAt = (x: number) => {
-    let y = 0;
-    while (y < rows && isSky(x, y)) y++;
-    return y;
-  };
-  const clearUnder = (cx: number) => {
-    let clear = rows;
-    for (let x = Math.max(0, cx - MOON_RADIUS_PX); x <= Math.min(fb.width - 1, cx + MOON_RADIUS_PX); x++) {
-      clear = Math.min(clear, clearAt(x));
-    }
-    return clear;
-  };
-  let cx = Math.round(fb.width * MOON_ACROSS);
-  let clear = clearUnder(cx);
-  for (let x = Math.round(fb.width * MOON_FROM); x <= Math.round(fb.width * MOON_TO) && clear < MOON_ROOM_PX; x++) {
-    const here = clearUnder(x);
-    if (here > clear) {
-      cx = x;
-      clear = here;
-    }
-  }
-  // With little sky it rises from behind the mountains, its top showing.
-  const cy = Math.max(
-    MOON_LOWEST_TOP_PX + MOON_RADIUS_PX,
-    Math.min(MOON_ROW, clear - MOON_RADIUS_PX - MOON_CLEARANCE_PX),
-  );
+  const place = moonPlace(h, look, view, rows);
+  const cx = place.skyColumn - drift;
+  const cy = place.row;
   for (let dy = -MOON_RADIUS_PX; dy <= MOON_RADIUS_PX; dy++) {
     for (let dx = -MOON_RADIUS_PX; dx <= MOON_RADIUS_PX; dx++) {
-      if (dx * dx + dy * dy > MOON_RADIUS_PX * MOON_RADIUS_PX) continue;
+      // Within half a pixel of the radius, so the disc is round rather than a square with its corners cut.
+      if (dx * dx + dy * dy > MOON_RADIUS_PX * (MOON_RADIUS_PX + 1)) continue;
       const x = cx + dx;
       const y = cy + dy;
       if (x < 0 || x >= fb.width || y < 0 || y >= rows || !isSky(x, y)) continue;
