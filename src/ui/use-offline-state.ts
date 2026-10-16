@@ -12,7 +12,7 @@ import { browserOfflineEnvironment, startOfflineSupport, type OfflineSupport } f
 /** What the menus can ask of the service worker. */
 export interface UpdateControls {
   checkNow: () => Promise<UpdateCheckOutcome>;
-  installNow: () => boolean;
+  installNow: (onFailed: () => void) => boolean;
   reloadNow: () => void;
 }
 
@@ -60,7 +60,7 @@ export function useOfflineState(): OfflineSupportView {
         ? null
         : {
             checkNow: () => support.current?.checkNow() ?? Promise.resolve("unavailable"),
-            installNow: () => support.current?.installNow() ?? false,
+            installNow: (onFailed) => support.current?.installNow(onFailed) ?? false,
             reloadNow: () => support.current?.reloadNow(),
           },
     [container],

@@ -15,6 +15,7 @@ describe("reduceOffline", () => {
       updateWaiting: false,
       updateVersion: null,
       updatedElsewhere: false,
+      updateFailures: 0,
     });
   });
 
@@ -31,7 +32,7 @@ describe("reduceOffline", () => {
 
   it("names the version of the waiting update, and forgets both once that release has taken over", () => {
     const named = reduceOffline(
-      { readiness: "ready", updateWaiting: true, updateVersion: null, updatedElsewhere: false },
+      { readiness: "ready", updateWaiting: true, updateVersion: null, updatedElsewhere: false, updateFailures: 0 },
       { type: "update-version", version: "0.10.0" },
     );
     expect(named).toMatchObject({ readiness: "ready", updateWaiting: true, updateVersion: "0.10.0" });
@@ -79,6 +80,14 @@ describe("a release installed in another window", () => {
     const waiting = reduceOffline(INITIAL_OFFLINE_STATE, "update-waiting");
     const elsewhere = reduceOffline(reduceOffline(waiting, "update-active"), "update-elsewhere");
     expect(elsewhere).toMatchObject({ updateWaiting: false, updatedElsewhere: true });
+  });
+});
+
+describe("a release that could not be stored", () => {
+  it("is counted, so a check can tell a failure that came after it", () => {
+    const once = reduceOffline(INITIAL_OFFLINE_STATE, "update-failed");
+    expect(reduceOffline(once, "update-failed").updateFailures).toBe(2);
+    expect(once).toMatchObject({ readiness: "preparing", updateWaiting: false });
   });
 });
 

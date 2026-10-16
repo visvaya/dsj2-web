@@ -62,7 +62,7 @@ function MenuHeader({
         {UI_TEXT.appName}
       </h1>
       <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
-      {updates && <UpdateCheck updates={updates} noteShown={noteShown} />}
+      {updates && <UpdateCheck updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />}
       <UpdateNotice state={state} updates={updates} />
     </header>
   );

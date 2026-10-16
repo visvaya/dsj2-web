@@ -35,13 +35,26 @@ export function useLastingWait(waiting: boolean): boolean {
 }
 
 /** The note of a waiting release in the main menu: the fact, the button that installs it now, the slow way. */
-function InstallNote({ version, onInstall }: { version: string | null; onInstall: () => void }) {
+function InstallNote({ version, onInstall }: { version: string | null; onInstall: (onFailed: () => void) => boolean }) {
+  const [install, setInstall] = useState<"idle" | "installing" | "failed">("idle");
+  const installing = install === "installing";
+  const onPress = () => {
+    if (installing) return;
+    // The page reloads once the release has taken over; until then the player is told it is under way.
+    const started = onInstall(() => setInstall("failed"));
+    setInstall(started ? "installing" : "failed");
+  };
   return (
     <div className="framed-note update-note install-note">
       <p className="note update-fact">{UI_TEXT.offline.updateFound(version)}</p>
-      <button type="button" className="pixel-button small-button" onClick={onInstall}>
+      <button type="button" className="pixel-button small-button" aria-disabled={installing} onClick={onPress}>
         {UI_TEXT.offline.installNow}
       </button>
+      <div aria-live="polite">
+        {install !== "idle" && (
+          <p className="note update-fact">{installing ? UI_TEXT.offline.installing : UI_TEXT.offline.installFailed}</p>
+        )}
+      </div>
       <p className="note">{UI_TEXT.offline.slowWay}</p>
     </div>
   );
@@ -95,25 +108,40 @@ export function UpdateNotice({
  * a check runs make no second check. A release that is found is stored in the background as any other, and
  * `UpdateNotice` offers it once it waits; from then on the note says it, and the line here says nothing.
  */
-export function UpdateCheck({ updates, noteShown }: { updates: UpdateControls; noteShown: boolean }) {
+export function UpdateCheck({
+  updates,
+  noteShown,
+  failures,
+}: {
+  updates: UpdateControls;
+  noteShown: boolean;
+  /** How many newer releases could not be stored so far (`OfflineState.updateFailures`). */
+  failures: number;
+}) {
   const [check, dispatch] = useReducer(reduceUpdateCheck, "idle");
+  // The failures counted when the last check started: one more since then is the release that check found.
+  const [failuresAtCheck, setFailuresAtCheck] = useState(failures);
   const checking = check === "checking";
   const onCheck = () => {
     if (checking) return;
+    setFailuresAtCheck(failures);
     dispatch("start");
     void updates.checkNow().then(dispatch);
   };
+  const line = (() => {
+    if (check === "idle") return null;
+    if (check !== "found") return UI_TEXT.offline.check[check];
+    if (failures > failuresAtCheck) return UI_TEXT.offline.check.downloadFailed;
+    // Once the note of the waiting release shows, the note alone says it.
+    return noteShown ? null : UI_TEXT.offline.check.found;
+  })();
   return (
     <div className="update-check">
       <button type="button" className="pixel-button small-button" aria-disabled={checking} onClick={onCheck}>
         {UI_TEXT.offline.check.button}
       </button>
       {/* A region of its own, there before the first answer so that answer is announced. */}
-      <div aria-live="polite">
-        {check !== "idle" && !(check === "found" && noteShown) && (
-          <p className="note">{UI_TEXT.offline.check[check]}</p>
-        )}
-      </div>
+      <div aria-live="polite">{line !== null && <p className="note">{line}</p>}</div>
     </div>
   );
 }

@@ -16,7 +16,10 @@ interface FakeWorker {
   /** The version of the game it names, when it is of a release that names one. */
   version: string | null;
   addEventListener(type: "statechange", listener: () => void): void;
+  removeEventListener(type: "statechange", listener: () => void): void;
   become(state: ServiceWorkerState): void;
+  /** How many listeners follow the worker. */
+  followers(): number;
 }
 
 function fakeWorker(state: ServiceWorkerState, whole = true, version: string | null = null): FakeWorker {
@@ -26,10 +29,15 @@ function fakeWorker(state: ServiceWorkerState, whole = true, version: string | n
     whole,
     version,
     addEventListener: (_type, listener) => listeners.push(listener),
+    removeEventListener: (_type, listener) => {
+      const index = listeners.indexOf(listener);
+      if (index !== -1) listeners.splice(index, 1);
+    },
     become(next) {
       worker.state = next;
-      for (const listener of listeners) listener();
+      for (const listener of listeners.slice()) listener();
     },
+    followers: () => listeners.length,
   };
   return worker;
 }
@@ -245,7 +253,17 @@ describe("startOfflineSupport", () => {
     registration.installing = null;
     next.become("redundant");
     await settle();
-    expect(events).toEqual(["ready"]);
+    // Still ready; the failure is told, so a check that found the release can say it was not stored.
+    expect(events).toEqual(["ready", "update-failed"]);
+  });
+
+  it("does not count a waiting release that a newer one replaces as a failure", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { events } = start(() => Promise.resolve(registration));
+    await settle();
+    waiting.become("redundant");
+    expect(events).not.toContain("update-failed");
   });
 
   it("checks for a new release when the player comes back, but not more often than the interval", async () => {
@@ -316,6 +334,13 @@ describe("checking for a new release on demand", () => {
     expect(await support.checkNow()).toBe("found");
   });
 
+  it("says the game is still being stored when the first release has not taken over yet", async () => {
+    const registration = fakeRegistration({ installing: fakeWorker("installing") });
+    registration.onUpdate = () => Promise.resolve(registration);
+    const { support } = start(() => Promise.resolve(registration));
+    expect(await support.checkNow()).toBe("saving");
+  });
+
   it("says the server could not be reached when the check is refused", async () => {
     const registration = fakeRegistration({ active: fakeWorker("activated") });
     const { support } = start(() => Promise.resolve(registration));
@@ -338,7 +363,45 @@ describe("checking for a new release on demand", () => {
   });
 });
 
+const noFailure = (): void => undefined;
+
 describe("installing a waiting release on demand", () => {
+  it("says so when the waiting release is dropped instead of taking over, and can be asked again", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { support, reloads } = start(() => Promise.resolve(registration));
+    await settle();
+    let failures = 0;
+    expect(
+      support.installNow(() => {
+        failures += 1;
+      }),
+    ).toBe(true);
+    waiting.become("redundant");
+    expect(failures).toBe(1);
+    expect(reloads()).toBe(0);
+
+    const next = fakeWorker("installed");
+    registration.waiting = next;
+    expect(support.installNow(noFailure)).toBe(true);
+    next.become("activated");
+    expect(reloads()).toBe(1);
+  });
+
+  it("does not reload, and stops following the worker, once stopped after the press", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { support, reloads, stop } = start(() => Promise.resolve(registration));
+    await settle();
+    const before = waiting.followers();
+    support.installNow(noFailure);
+    expect(waiting.followers()).toBe(before + 1);
+    stop();
+    expect(waiting.followers()).toBe(before);
+    waiting.become("activated");
+    expect(reloads()).toBe(0);
+  });
+
   it("asks the waiting worker to take over and reloads the page once it is active", async () => {
     const active = fakeWorker("activated");
     const waiting = fakeWorker("installed");
@@ -346,7 +409,7 @@ describe("installing a waiting release on demand", () => {
     const { support, askedToTakeOver, reloads } = start(() => Promise.resolve(registration));
     await settle();
 
-    expect(support.installNow()).toBe(true);
+    expect(support.installNow(noFailure)).toBe(true);
     expect(askedToTakeOver).toEqual([waiting]);
     expect(reloads()).toBe(0);
     waiting.become("activating");
@@ -360,8 +423,8 @@ describe("installing a waiting release on demand", () => {
     const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
     const { support, askedToTakeOver, reloads } = start(() => Promise.resolve(registration));
     await settle();
-    support.installNow();
-    support.installNow();
+    support.installNow(noFailure);
+    support.installNow(noFailure);
     expect(askedToTakeOver).toHaveLength(2);
     waiting.become("activated");
     waiting.become("activated");
@@ -372,7 +435,7 @@ describe("installing a waiting release on demand", () => {
     const registration = fakeRegistration({ active: fakeWorker("activated") });
     const { support, askedToTakeOver } = start(() => Promise.resolve(registration));
     await settle();
-    expect(support.installNow()).toBe(false);
+    expect(support.installNow(noFailure)).toBe(false);
     expect(askedToTakeOver).toEqual([]);
   });
 
@@ -408,7 +471,7 @@ describe("installing a waiting release on demand", () => {
     const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
     const { support, events } = start(() => Promise.resolve(registration), true);
     await settle();
-    support.installNow();
+    support.installNow(noFailure);
     waiting.become("activated");
     await settle();
     expect(events).not.toContain("update-elsewhere");
@@ -436,7 +499,7 @@ describe("installing a waiting release on demand", () => {
     const { support, askedToTakeOver, stop } = start(() => Promise.resolve(registration));
     await settle();
     stop();
-    expect(support.installNow()).toBe(false);
+    expect(support.installNow(noFailure)).toBe(false);
     expect(askedToTakeOver).toEqual([]);
   });
 });

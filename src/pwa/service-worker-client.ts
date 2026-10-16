@@ -5,6 +5,7 @@ import { PWA_CONFIG } from "./pwa-config";
 export interface WorkerLike {
   readonly state: ServiceWorkerState;
   addEventListener(type: "statechange", listener: () => void): void;
+  removeEventListener(type: "statechange", listener: () => void): void;
 }
 
 export interface RegistrationLike<W extends WorkerLike> {
@@ -40,10 +41,11 @@ export interface OfflineSupport {
   checkNow: () => Promise<UpdateCheckOutcome>;
   /**
    * Asks the waiting release to take over and reloads this page once it has; false when no release waits.
+   * `onFailed` is called when that release is dropped instead of taking over.
    * Only the page whose player asked reloads; other windows of the game are switched to the new worker and
    * keep running the code they started with.
    */
-  installNow: () => boolean;
+  installNow: (onFailed: () => void) => boolean;
   /** Loads the page again, to use a release installed from another window. */
   reloadNow: () => void;
 }
@@ -90,8 +92,11 @@ export function startOfflineSupport<W extends WorkerLike>(
 
   /** Follows a worker that is installing or waiting, to its activation or its failure. */
   const follow = (registration: RegistrationLike<W>, worker: W) => {
+    // A worker followed from before it was stored; one that was waiting already was stored.
+    let stored = worker.state !== "installing";
     worker.addEventListener("statechange", () => {
       const active = registration.active;
+      if (worker.state === "installed") stored = true;
       if (worker.state === "installed" && active !== null && active !== worker) {
         noteWait(worker);
         emit("update-waiting");
@@ -106,6 +111,8 @@ export function startOfflineSupport<W extends WorkerLike>(
       }
       // A first install that failed; a failed update leaves the active worker and its release as they were.
       if (worker.state === "redundant" && active === null) emit("unavailable");
+      // A newer release that could not be stored. A waiting one that a still newer release replaces is not.
+      if (worker.state === "redundant" && active !== null && !stored) emit("update-failed");
     });
   };
 
@@ -156,36 +163,62 @@ export function startOfflineSupport<W extends WorkerLike>(
       return "unreachable";
     }
     const newer = registration.installing ?? registration.waiting;
-    return registration.active !== null && newer !== null ? "found" : "latest";
+    if (registration.active === null) return newer === null ? "latest" : "saving";
+    return newer === null ? "latest" : "found";
   };
 
-  let reloading = false;
-  const installNow = (): boolean => {
-    const waiting = current?.waiting ?? null;
-    if (stopped || waiting === null) return false;
-    if (askedWorker !== waiting) {
-      askedWorker = waiting;
-      // Followed by its own state, not by the page's controller: a page loaded past the worker (a forced
-      // reload) has no controller to change, and is reloaded all the same.
-      waiting.addEventListener("statechange", () => {
-        if (waiting.state !== "activated" || reloading) return;
-        reloading = true;
-        env.reload();
-      });
-    }
-    env.askToTakeOver(waiting);
-    return true;
-  };
+  const installer = startInstaller(env, {
+    waiting: () => (stopped ? null : (current?.waiting ?? null)),
+    asked: (worker) => {
+      askedWorker = worker;
+    },
+  });
 
   return {
     stop: () => {
       stopped = true;
       stopListening?.();
+      installer.stop();
     },
     checkNow,
-    installNow,
+    installNow: installer.installNow,
     reloadNow: () => env.reload(),
   };
+}
+
+/**
+ * The install the player asks for: asks the waiting release to take over and reloads the page once it has.
+ * `onFailed` is called when that release is dropped instead (a newer one replaced it); a later press can ask
+ * again. `stop` forgets the worker, so a stopped page never reloads.
+ */
+function startInstaller<W extends WorkerLike>(
+  env: Pick<OfflineEnvironment<W>, "askToTakeOver" | "reload">,
+  page: { waiting: () => W | null; asked: (worker: W) => void },
+): { installNow: (onFailed: () => void) => boolean; stop: () => void } {
+  let reloading = false;
+  let stopFollowing: (() => void) | null = null;
+  const installNow = (onFailed: () => void): boolean => {
+    const waiting = page.waiting();
+    if (waiting === null) return false;
+    stopFollowing?.();
+    page.asked(waiting);
+    // Followed by its own state, not by the page's controller: a page loaded past the worker (a forced
+    // reload) has no controller to change, and is reloaded all the same.
+    const onState = () => {
+      if (waiting.state === "redundant") onFailed();
+      if (waiting.state !== "activated" || reloading) return;
+      reloading = true;
+      env.reload();
+    };
+    waiting.addEventListener("statechange", onState);
+    stopFollowing = () => {
+      waiting.removeEventListener("statechange", onState);
+      stopFollowing = null;
+    };
+    env.askToTakeOver(waiting);
+    return true;
+  };
+  return { installNow, stop: () => stopFollowing?.() };
 }
 
 function saysComplete(data: unknown): boolean {
