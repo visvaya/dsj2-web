@@ -3,7 +3,17 @@ import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { startStaticServer, type StaticServer } from "../scripts/lib/static-server.mjs";
 import { RELEASE_A, RELEASE_B } from "./releases/paths";
-import { BUILT_IN_HILL_ID, builtInHill, leaveJumpForHills, openHillList, openJump, storedSave } from "./support/app";
+import {
+  BUILT_IN_HILL_ID,
+  builtInHill,
+  button,
+  leaveJumpForHills,
+  openHillList,
+  openJump,
+  openJumpControls,
+  storedSave,
+  TEXT,
+} from "./support/app";
 import { expect, test } from "./support/fixtures";
 import { playUntilLanded } from "./support/jump";
 import {
@@ -19,9 +29,11 @@ import {
   playerData,
   relaunchUntil,
   requireServiceWorkers,
+  scriptOf,
   scriptPathOf,
   sourceShaSeenBy,
   statusSeenBy,
+  UPDATE_CHECK,
   workerStates,
 } from "./support/pwa";
 
@@ -107,6 +119,23 @@ test.describe("without a network", () => {
     });
   });
 
+  test("a check for a new release without a network says it could not check", async ({ page, context }) => {
+    const server = testServer();
+    await openGame(page, server.origin);
+    await requireServiceWorkers(page);
+    await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+    await page.close();
+    const running = await relaunchUntil(context, server.origin, RELEASE_A);
+
+    server.setOffline(true);
+    await button(running, UPDATE_CHECK.button).click();
+    await expect(running.getByText(UPDATE_CHECK.unreachable)).toBeVisible();
+    // Pressed again once the network is back, the check answers.
+    server.setOffline(false);
+    await button(running, UPDATE_CHECK.button).click();
+    await expect(running.getByText(UPDATE_CHECK.latest)).toBeVisible();
+  });
+
   test("a first visit without a network gets no game", async ({ page }) => {
     const server = testServer();
     server.setOffline(true);
@@ -185,6 +214,77 @@ test("a new release waits until every window is closed, then takes over and keep
   await expect(updated.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
   await expect.poll(() => storedReleases(updated)).toHaveLength(1);
   expect(await playerData(updated)).toEqual(PLANTED_DATA);
+});
+
+test("a check with nothing new on the server says the game is up to date", async ({ page, context }) => {
+  const server = testServer();
+  await openGame(page, server.origin);
+  await requireServiceWorkers(page);
+  await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+  await page.close();
+  const running = await relaunchUntil(context, server.origin, RELEASE_A);
+
+  await button(running, UPDATE_CHECK.button).click();
+  await expect(running.getByText(UPDATE_CHECK.latest)).toBeVisible();
+  await expect(running.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
+  expect(await workerStates(running)).toEqual({ installing: false, waiting: false, active: true });
+});
+
+test("a release found on demand installs at once in the window that asks, and other windows go on", async ({
+  page,
+  context,
+  traits,
+}) => {
+  const server = testServer();
+  // Two launches, a check, an install with a reload and a visit to the jump screen.
+  test.slow();
+  await openGame(page, server.origin);
+  await requireServiceWorkers(page);
+  await expect(page.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+  await page.close();
+
+  const first = await relaunchUntil(context, server.origin, RELEASE_A);
+  await plantPlayerData(first);
+  const second = await context.newPage();
+  await openGame(second, server.origin);
+  // Set on the page itself: gone if anything reloads it.
+  await second.evaluate(() => {
+    document.documentElement.dataset["untouched"] = "yes";
+  });
+
+  server.setRoot(RELEASE_B.dir);
+  await button(first, UPDATE_CHECK.button).click();
+  await expect(first.getByText(UPDATE_CHECK.found)).toBeVisible();
+  await expect(first.getByText(OFFLINE_NOTE.updateWaiting)).toBeVisible();
+  expect(await workerStates(first)).toEqual({ installing: false, waiting: true, active: true });
+
+  // The menu of a jump says a release waits, but offers no install there: a reload would end the jump.
+  await openHillList(second, traits);
+  await openJump(second, traits);
+  await openJumpControls(second, traits);
+  await expect(second.getByText(OFFLINE_NOTE.updateWaiting)).toBeVisible();
+  await expect(button(second, UPDATE_CHECK.install)).toHaveCount(0);
+
+  // The page loads again once the new worker is active; nothing is asked of the page while it does.
+  const reloaded = first.waitForEvent("load");
+  await button(first, UPDATE_CHECK.install).click();
+  await reloaded;
+  expect(await scriptOf(first)).toBe(scriptPathOf(RELEASE_B));
+  await expect(first.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
+  expect(await controlled(first)).toBe(true);
+  expect(await sourceShaSeenBy(first)).toBe(RELEASE_B.sourceSha);
+  await expect(first.getByText(OFFLINE_NOTE.ready)).toBeVisible();
+  await expect(first.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
+  expect(await playerData(first)).toEqual(PLANTED_DATA);
+
+  // The other window was not reloaded: it still runs the release it started with, now under the new worker,
+  // and its jump screen still works. The note of the waiting release is gone, as that release took over.
+  expect(await second.evaluate(() => document.documentElement.dataset["untouched"])).toBe("yes");
+  expect(await scriptOf(second)).toBe(scriptPathOf(RELEASE_A));
+  await expect(second.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
+  await second.getByRole("button", { name: TEXT.toHills }).click();
+  await expect(second.getByRole("heading", { name: TEXT.hillListTitle })).toBeVisible();
+  await openJump(second, traits);
 });
 
 test.describe("when the next release is damaged on the server", () => {

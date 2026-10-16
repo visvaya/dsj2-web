@@ -2,12 +2,15 @@ import { announcement, button, jumpCanvas, openJumpFromStart, openMenu, TEXT } f
 import { expect, test } from "./support/fixtures";
 import { expectVisibleFocus, tabThrough } from "./support/focus";
 import { playJump } from "./support/jump";
+import { UPDATE_CHECK } from "./support/pwa";
 
 test.skip(({ traits }) => !traits.desktop, "keyboard operation is checked where there is a keyboard");
 
 test("the menu and the hill list are operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  expect(await tabThrough(page, 7)).toEqual([
+  // The check for a new release, under the version at the top, comes first.
+  expect(await tabThrough(page, 8)).toEqual([
+    UPDATE_CHECK.button,
     TEXT.training,
     TEXT.replays,
     TEXT.outfit,
@@ -36,7 +39,7 @@ test("the menu and the hill list are operated with the keyboard alone", async ({
 
 test("the outfit screen is operated with the keyboard alone", async ({ page }) => {
   await openMenu(page);
-  for (let i = 0; i < 3; i++) await page.keyboard.press("Tab");
+  for (let i = 0; i < 4; i++) await page.keyboard.press("Tab");
   await expect(button(page, TEXT.outfit)).toBeFocused();
   await page.keyboard.press("Space");
   await expect(page.getByRole("heading", { name: TEXT.outfitTitle })).toBeFocused();
@@ -65,6 +68,7 @@ test("the outfit screen is operated with the keyboard alone", async ({ page }) =
 
 test("the jump screen is operated with the keyboard alone: Escape opens its menu and closes it", async ({ page }) => {
   await openMenu(page);
+  await page.keyboard.press("Tab");
   await page.keyboard.press("Tab");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeFocused();

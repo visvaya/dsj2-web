@@ -13,6 +13,15 @@ export const OFFLINE_NOTE = {
   updateWaiting: /^Jest nowa wersja gry: \d+\.\d+\.\d+\. Zamknij grę całkowicie/,
 } as const;
 
+/** The check for a new release in the main menu, what it says, and the button that installs a waiting one. */
+export const UPDATE_CHECK = {
+  button: "Sprawdź aktualizację",
+  latest: "Masz najnowszą wersję.",
+  found: "Jest nowa wersja gry. Pobieram ją.",
+  unreachable: "Brak połączenia: nie można sprawdzić.",
+  install: "Zainstaluj teraz",
+} as const;
+
 const SAVE_KEY = "telemark.save";
 /** A cache that is not the game's: an update or a rollback must leave it alone. */
 const FOREIGN_CACHE = "someone-elses-cache";
@@ -219,7 +228,7 @@ export function playerData(page: Page): Promise<PlayerData> {
 export const PLANTED_DATA: PlayerData = { save: PLANTED_SAVE, filesRecord: "kept", foreignCache: "kept" };
 
 /** Path of the script the page was started with. */
-const scriptOf = (page: Page): Promise<string | null> =>
+export const scriptOf = (page: Page): Promise<string | null> =>
   page.evaluate(() => document.querySelector("script[src]")?.getAttribute("src") ?? null);
 
 /** Opens a window, again and again, until `arrived` says the window is the one that was wanted. */
