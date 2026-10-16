@@ -24,8 +24,8 @@ const PREVIEW_HEIGHT_PX = 48;
  * them, and two even rows when not, never leaving a lone swatch in a row of its own.
  */
 const SWATCH_HALF = Math.ceil(OUTFIT_SWATCHES.length / 2);
-const SWATCH_INDICES = OUTFIT_SWATCHES.map((_rgb, i) => i);
-const SWATCH_HALVES = [SWATCH_INDICES.slice(0, SWATCH_HALF), SWATCH_INDICES.slice(SWATCH_HALF)];
+const SWATCHES = OUTFIT_SWATCHES.map((rgb, i) => ({ rgb, i }));
+const SWATCH_HALVES = [SWATCHES.slice(0, SWATCH_HALF), SWATCHES.slice(SWATCH_HALF)];
 
 function css([r, g, b]: readonly [number, number, number]): string {
   return `rgb(${r} ${g} ${b})`;
@@ -59,9 +59,8 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
               <legend>{UI_TEXT.outfit.part[part]}</legend>
               <div className="swatches">
                 {SWATCH_HALVES.map((half) => (
-                  <div key={half[0]} className="swatch-half">
-                    {half.map((i) => {
-                      const rgb = OUTFIT_SWATCHES[i] ?? ([0, 0, 0] as const);
+                  <div key={half[0]?.i} className="swatch-half">
+                    {half.map(({ rgb, i }) => {
                       return (
                         <label key={css(rgb)} className="swatch" style={{ background: css(rgb) }}>
                           <input
