@@ -1,7 +1,7 @@
 import { LAYER_TABLE_LENGTH_M } from "../render/hill-layer-tables";
 import { inrunSlope, inrunYM, landingArcLengthM, landingSlope, landingYM, type HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
-import type { HillProblem, HillSpec } from "./hill-spec";
+import type { HillProblem, HillRuleLevel, HillSpec } from "./hill-spec";
 
 /**
  * Design thresholds of a hill's geometry: what makes a hill fair to jump, as opposed to the format limits of
@@ -175,10 +175,46 @@ export function hillGeometry(h: HillProfile, kPointM: number): HillGeometry {
   };
 }
 
-const problem = (rule: string, message: string): HillProblem => ({
+/**
+ * The level of each geometry rule. Admission rules are what the engine and the scene need, or what no hill of this
+ * game lacks; style rules describe a modern hill, which the game's own hills follow and the play checks judge in
+ * what matters (sailing past the landing area, stopping in the scene, landing near K).
+ */
+export const GEOMETRY_RULE_LEVELS = {
+  /** A step in the track is a blow to the skis. */
+  "join-height": "admission",
+  /** A kink in the track is a blow to the skis. */
+  "join-slope": "admission",
+  /** A rising inrun can stop the jumper before the takeoff. */
+  "inrun-descends": "admission",
+  /** A rising landing hill is a wall the jumper flies into. */
+  "landing-descends": "admission",
+  /**
+   * The scenery is drawn only this far, but what matters is that the jumper stops before it, which the play checks
+   * judge; the outrun's lowest point may lie further (some of the original's hills have it past the scene).
+   */
+  "outrun-within-scene": "style",
+  /** A table far above or below the landing hill makes the takeoff meaningless. */
+  "table-height": "admission",
+  /** The game's hills take off at angles well outside the modern range and play well. */
+  "takeoff-angle": "style",
+  /** The play checks judge whether a skilled player can sail past the landing area. */
+  "landing-area-length": "style",
+  /** The play checks judge whether the jumper stops inside the scene. */
+  "outrun-length": "style",
+  /** The play checks judge whether the good player lands near K. */
+  "k-near-steepest": "style",
+  /** The play checks judge whether the good player lands near K, where this slope matters. */
+  "landing-angle-at-k": "style",
+} as const satisfies Record<string, HillRuleLevel>;
+
+type GeometryRule = keyof typeof GEOMETRY_RULE_LEVELS;
+
+const problem = (rule: GeometryRule, message: string): HillProblem => ({
   rule: `geometry.${rule}`,
   path: "profile",
   message,
+  level: GEOMETRY_RULE_LEVELS[rule],
 });
 
 const outside = (value: number, min: number, max: number) => !(value >= min && value <= max);
@@ -204,7 +240,7 @@ function joinProblems(g: HillGeometry): HillProblem[] {
  */
 export function geometryRuleProblems(g: HillGeometry, kPointM: number): HillProblem[] {
   const pastK = (g.landingAreaEndM - kPointM) / kPointM;
-  const checks: readonly [boolean, string, string][] = [
+  const checks: readonly [boolean, GeometryRule, string][] = [
     [
       outside(g.takeoffAngleDeg, r.takeoffAngleMinDeg, r.takeoffAngleMaxDeg),
       "takeoff-angle",
@@ -237,8 +273,13 @@ export function geometryRuleProblems(g: HillGeometry, kPointM: number): HillProb
   ];
 }
 
-/** Problems of a hill's geometry by the design rules; empty when the hill passes them all. */
+/** Problems of a hill's geometry by every rule, each with its level; empty when the hill passes them all. */
 export function geometryProblems(spec: HillSpec): readonly HillProblem[] {
   const profile = buildHillProfile(spec.profile.inrun, spec.profile.landing);
   return geometryRuleProblems(hillGeometry(profile, spec.kPointM), spec.kPointM);
+}
+
+/** Geometry problems that refuse a hill: those of the admission rules. */
+export function admissionProblems(spec: HillSpec): readonly HillProblem[] {
+  return geometryProblems(spec).filter((p) => p.level === "admission");
 }
