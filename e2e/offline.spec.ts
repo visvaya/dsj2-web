@@ -224,10 +224,16 @@ test("a check with nothing new on the server says the game is up to date", async
   await page.close();
   const running = await relaunchUntil(context, server.origin, RELEASE_A);
 
-  // Yellow as every other choice of the screens, before it is pressed or pointed at.
+  // A choice that stands back: a dimmer yellow than the main choices, as bright as they are when pointed at.
   const colourOf = (name: string) => button(running, name).evaluate((element) => getComputedStyle(element).color);
   await running.mouse.move(0, 0);
+  expect(await colourOf(UPDATE_CHECK.button)).not.toBe(await colourOf(TEXT.training));
+  await button(running, UPDATE_CHECK.button).hover();
   expect(await colourOf(UPDATE_CHECK.button)).toBe(await colourOf(TEXT.training));
+  // At the far end of the version's line.
+  const check = await button(running, UPDATE_CHECK.button).boundingBox();
+  const rule = await running.locator("header").boundingBox();
+  expect((rule?.x ?? 0) + (rule?.width ?? 0) - ((check?.x ?? 0) + (check?.width ?? 0))).toBeLessThanOrEqual(2);
   await button(running, UPDATE_CHECK.button).click();
   await expect(running.getByText(UPDATE_CHECK.latest)).toBeVisible();
   await expect(running.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);

@@ -137,7 +137,7 @@ export function UpdateCheck({
   })();
   return (
     <div className="update-check">
-      <button type="button" className="pixel-button small-button" aria-disabled={checking} onClick={onCheck}>
+      <button type="button" className="quiet-button" aria-disabled={checking} onClick={onCheck}>
         {UI_TEXT.offline.check.button}
       </button>
       {/* A region of its own, there before the first answer so that answer is announced. */}

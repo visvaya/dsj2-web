@@ -61,8 +61,11 @@ function MenuHeader({
       <h1 className="title" tabIndex={-1} ref={headingRef}>
         {UI_TEXT.appName}
       </h1>
-      <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
-      {updates && <UpdateCheck updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />}
+      {/* The version, and at the far end of its line the quiet check for a newer one. */}
+      <div className="version-line">
+        <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
+        {updates && <UpdateCheck updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />}
+      </div>
       <UpdateNotice state={state} updates={updates} />
     </header>
   );

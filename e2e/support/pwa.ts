@@ -18,7 +18,7 @@ export const OFFLINE_NOTE = {
 
 /** The check for a new release in the main menu, what it says, and the button that installs a waiting one. */
 export const UPDATE_CHECK = {
-  button: "Sprawdź aktualizację",
+  button: "Szukaj aktualizacji",
   latest: "Masz najnowszą wersję.",
   found: "Jest nowa wersja gry. Pobieram ją.",
   unreachable: "Brak połączenia: nie można sprawdzić.",
