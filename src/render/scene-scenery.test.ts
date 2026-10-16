@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { landingYM } from "../sim/hill-profile";
+import { inrunYM, landingYM } from "../sim/hill-profile";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
 import { backgroundWaves, drawFloodlightSpill } from "./scene-backdrop";
 import { FrameBuffer } from "./frame-buffer";
 import { sceneView } from "./scene-layers";
 import { sceneCanvas } from "./scene-span";
-import { BIRD_FRAMES } from "./scene-extras";
+import { BIRD_FRAMES, drawBirds } from "./scene-extras";
+import { color } from "./palette";
 import { LINE_COLOUR, distanceLines } from "./scene-hill";
 import { SKY_FIRST_INDEX, greyedMiddle, sceneDac } from "./scene-palette";
 import { placeTrees, sceneTrees } from "./scene-trees";
@@ -121,6 +122,19 @@ describe("the birds", () => {
         expect(rows.join("")).toContain("#");
       }
     }
+  });
+
+  it("keep to the sky over the top of the inrun: in the picture at the start, out of it lower down", () => {
+    if (!hill) throw new Error("no hill");
+    const h = hill.profile;
+    const birdPixelsAt = (xM: number, yM: number) => {
+      const fb = new FrameBuffer(432, 200);
+      drawBirds(fb, h, sceneView(xM, yM, 432, 1.2), 0);
+      return fb.pixels.filter((p) => p === color("bird")).length;
+    };
+    expect(birdPixelsAt(h.startXM, inrunYM(h, h.startXM))).toBeGreaterThan(0);
+    expect(birdPixelsAt(h.takeoffXM, inrunYM(h, h.takeoffXM))).toBe(0);
+    expect(birdPixelsAt(h.takeoffXM + 60, landingYM(h, h.takeoffXM + 60))).toBe(0);
   });
 });
 

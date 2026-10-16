@@ -10,6 +10,7 @@ import {
   layerRows,
   layerX,
   originalColumn,
+  sceneView,
   viewColumn,
   type SceneView,
 } from "./scene-layers";
@@ -288,18 +289,26 @@ const BIRD_BEAT_FRAMES = 6;
 const BIRD_BEATS = 8;
 const BIRD_GLIDE_BEATS = 6;
 const BIRD_COUNT = 4;
+/**
+ * The layer of the background the birds fly in: they keep their height over the top of the inrun, so the
+ * picture leaves them behind as the camera follows the jumper down.
+ */
+const BIRD_LAYER = 7;
 
 /** A few birds crossing high above the background, beating their wings in bursts and gliding between them. */
-export function drawBirds(fb: FrameBuffer, view: SceneView, frame: number) {
+export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, frame: number) {
   const span = fb.width + 60;
   const origin = view.camX * 0.05;
+  // Rows the picture has moved since the jumper stood at the start, in the birds' layer.
+  const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), view.widthPx, view.pixelWidth);
+  const drop = layerOffset(view, BIRD_LAYER).y - layerOffset(atStart, BIRD_LAYER).y;
   const wing = color("bird");
   const body = color("birdBody");
   for (let i = 0; i < BIRD_COUNT; i++) {
     const far = i % 2 === 1;
     const worldX = frame * (far ? 0.09 : 0.14 + i * 0.02) + i * 131;
     const sx = Math.round((((worldX - origin) % span) + span) % span) - 30;
-    const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2));
+    const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2)) + drop;
     const beat = Math.floor(frame / BIRD_BEAT_FRAMES) + i * 5;
     const gliding = beat % (BIRD_BEATS + BIRD_GLIDE_BEATS) >= BIRD_BEATS;
     const shapes = BIRD_FRAMES[far ? "far" : "near"];

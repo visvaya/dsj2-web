@@ -164,7 +164,8 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
 - Dodatki portu: pora dnia i pogoda, góry w tle (`scene-mountains.ts`: pasmo szczytów na najdalszej warstwie tła,
   przesuwane o połowę wolniej od niej, z mgiełką ku kolorowi nieba), rękawy wiatru i maszty z reflektorami na dalszym
   płocie, lampki na słupkach wzdłuż najazdu, gwiazdy i księżyc (rysowane po górach, tylko na niebie; księżyc staje
-  tam, gdzie widać najwięcej nieba), ptaki (w żadnej fazie lotu nie są płaską kreską), duch rekordu
+  tam, gdzie widać najwięcej nieba), ptaki (w żadnej fazie lotu nie są płaską kreską; latają
+  w warstwie 7 tła nad szczytem najazdu, więc obraz zostawia je w górze, gdy kamera zjeżdża za skoczkiem), duch rekordu
   (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
   przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
 - Zmierzch i noc (dodatki portu, `palette.ts`): tło ma paletę „daleką” (o zmierzchu cieplejszą i ciemniejszą,
