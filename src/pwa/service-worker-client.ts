@@ -24,6 +24,8 @@ export interface OfflineEnvironment<W extends WorkerLike> {
   /** Calls the listener when the player comes back: the network returns or the page is shown again. */
   onReturn(listener: () => void): () => void;
   nowMs(): number;
+  /** Whether a worker answers for this page. */
+  controlled(): boolean;
   /** Asks a waiting worker to take over now. */
   askToTakeOver(worker: W): void;
   /** Loads the page again. */
@@ -42,6 +44,8 @@ export interface OfflineSupport {
    * keep running the code they started with.
    */
   installNow: () => boolean;
+  /** Loads the page again, to use a release installed from another window. */
+  reloadNow: () => void;
 }
 
 /**
@@ -77,17 +81,27 @@ export function startOfflineSupport<W extends WorkerLike>(
     );
   };
 
+  // Workers that waited while an older one answered for this page, and the one this page asked to take over.
+  const waitedWhileControlled = new Set<W>();
+  let askedWorker: W | null = null;
+  const noteWait = (worker: W) => {
+    if (env.controlled()) waitedWhileControlled.add(worker);
+  };
+
   /** Follows a worker that is installing or waiting, to its activation or its failure. */
   const follow = (registration: RegistrationLike<W>, worker: W) => {
     worker.addEventListener("statechange", () => {
       const active = registration.active;
       if (worker.state === "installed" && active !== null && active !== worker) {
+        noteWait(worker);
         emit("update-waiting");
         tellVersion(worker);
       }
       if (worker.state === "activated") {
         // On a page no worker answers for (a first visit), a new release takes over at once.
         emit("update-active");
+        // A page an older worker answered for runs that release's code until it is loaded again.
+        if (waitedWhileControlled.has(worker) && askedWorker !== worker) emit("update-elsewhere");
         confirm(worker);
       }
       // A first install that failed; a failed update leaves the active worker and its release as they were.
@@ -99,6 +113,7 @@ export function startOfflineSupport<W extends WorkerLike>(
     if (registration.active !== null) {
       confirm(registration.active);
       if (registration.waiting !== null) {
+        noteWait(registration.waiting);
         emit("update-waiting");
         tellVersion(registration.waiting);
       }
@@ -144,7 +159,6 @@ export function startOfflineSupport<W extends WorkerLike>(
     return registration.active !== null && newer !== null ? "found" : "latest";
   };
 
-  let askedWorker: W | null = null;
   let reloading = false;
   const installNow = (): boolean => {
     const waiting = current?.waiting ?? null;
@@ -170,6 +184,7 @@ export function startOfflineSupport<W extends WorkerLike>(
     },
     checkNow,
     installNow,
+    reloadNow: () => env.reload(),
   };
 }
 
@@ -224,6 +239,7 @@ export function browserOfflineEnvironment(container: ServiceWorkerContainer): Of
       };
     },
     nowMs: () => performance.now(),
+    controlled: () => container.controller !== null,
     askToTakeOver: (worker) => worker.postMessage({ type: PWA_CONFIG.TAKE_OVER_MESSAGE_TYPE }, []),
     reload: () => window.location.reload(),
   };

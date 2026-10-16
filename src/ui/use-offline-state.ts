@@ -13,6 +13,7 @@ import { browserOfflineEnvironment, startOfflineSupport, type OfflineSupport } f
 export interface UpdateControls {
   checkNow: () => Promise<UpdateCheckOutcome>;
   installNow: () => boolean;
+  reloadNow: () => void;
 }
 
 /** What the game knows of playing without a network, and what it can ask of the service worker. */
@@ -60,6 +61,7 @@ export function useOfflineState(): OfflineSupportView {
         : {
             checkNow: () => support.current?.checkNow() ?? Promise.resolve("unavailable"),
             installNow: () => support.current?.installNow() ?? false,
+            reloadNow: () => support.current?.reloadNow(),
           },
     [container],
   );

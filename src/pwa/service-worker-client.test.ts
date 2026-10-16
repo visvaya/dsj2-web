@@ -93,7 +93,7 @@ interface Setup {
   listening: () => boolean;
 }
 
-function start(register: () => Promise<FakeRegistration>): Setup {
+function start(register: () => Promise<FakeRegistration>, controlled = false): Setup {
   const events: OfflineEvent[] = [];
   const clock = { nowMs: 0 };
   let returnListener: (() => void) | null = null;
@@ -111,6 +111,7 @@ function start(register: () => Promise<FakeRegistration>): Setup {
     },
     nowMs: () => clock.nowMs,
     askToTakeOver: (worker) => askedToTakeOver.push(worker),
+    controlled: () => controlled,
     reload: () => {
       reloads += 1;
     },
@@ -378,7 +379,7 @@ describe("installing a waiting release on demand", () => {
   it("never reloads a page whose player did not ask, when another window installs the release", async () => {
     const waiting = fakeWorker("installed");
     const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
-    const { reloads, events } = start(() => Promise.resolve(registration));
+    const { reloads, events } = start(() => Promise.resolve(registration), true);
     await settle();
     registration.waiting = null;
     registration.active = waiting;
@@ -386,7 +387,47 @@ describe("installing a waiting release on demand", () => {
     waiting.become("activated");
     await settle();
     expect(reloads()).toBe(0);
+    // That page still runs the release it started with, and is told so.
     expect(events).toContain("update-active");
+    expect(events.at(-2)).toBe("update-elsewhere");
+  });
+
+  it("tells a page that another window installed a release found while it was open", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    const { events } = start(() => Promise.resolve(registration), true);
+    await settle();
+    const next = fakeWorker("installing");
+    registration.find(next);
+    registration.installTo(next, "activated");
+    await settle();
+    expect(events).toContain("update-elsewhere");
+  });
+
+  it("does not tell the page that asked, nor a page no worker answered for", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { support, events } = start(() => Promise.resolve(registration), true);
+    await settle();
+    support.installNow();
+    waiting.become("activated");
+    await settle();
+    expect(events).not.toContain("update-elsewhere");
+
+    const uncontrolled = fakeRegistration({ active: fakeWorker("activated") });
+    const other = start(() => Promise.resolve(uncontrolled), false);
+    await settle();
+    const next = fakeWorker("installing");
+    uncontrolled.find(next);
+    uncontrolled.installTo(next, "activated");
+    await settle();
+    expect(other.events).not.toContain("update-elsewhere");
+  });
+
+  it("reloads the page on demand", () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    const { support, reloads } = start(() => Promise.resolve(registration));
+    support.reloadNow();
+    expect(reloads()).toBe(1);
   });
 
   it("does nothing after it is stopped", async () => {

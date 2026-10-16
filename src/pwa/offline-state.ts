@@ -12,10 +12,13 @@ export interface OfflineState {
   updateWaiting: boolean;
   /** The version of the game in that release, once its worker has told it; null before, or from an older worker. */
   updateVersion: string | null;
+  /** A release has taken over from another window while this page still runs the code it started with. */
+  updatedElsewhere: boolean;
 }
 
 /**
- * "update-active": the release that was waiting has taken over, so there is nothing left to wait for. An
+ * "update-active": the release that was waiting has taken over, so there is nothing left to wait for.
+ * "update-elsewhere": it was installed from another window, and this page needs a reload to use it. An
  * "update-version" names the version of the waiting release.
  */
 export type OfflineEvent =
@@ -23,17 +26,20 @@ export type OfflineEvent =
   | "unavailable"
   | "update-waiting"
   | "update-active"
+  | "update-elsewhere"
   | { type: "update-version"; version: string };
 
 export const INITIAL_OFFLINE_STATE: OfflineState = {
   readiness: "preparing",
   updateWaiting: false,
   updateVersion: null,
+  updatedElsewhere: false,
 };
 
 export function reduceOffline(state: OfflineState, event: OfflineEvent): OfflineState {
   if (typeof event === "object") return { ...state, updateVersion: event.version };
   if (event === "update-waiting") return { ...state, updateWaiting: true };
+  if (event === "update-elsewhere") return { ...state, updatedElsewhere: true };
   if (event === "update-active") return { ...state, updateWaiting: false, updateVersion: null };
   return { ...state, readiness: event };
 }

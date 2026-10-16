@@ -71,12 +71,12 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   wersję.”, „Jest nowa wersja gry. Pobieram ją.” albo „Brak połączenia: nie można sprawdzić.” (przeglądarka nie
   odróżnia braku sieci od braku odpowiedzi serwera). Kolejne naciśnięcia w trakcie sprawdzania nic nie robią.
   Bez workera (podgląd jednoplikowy, serwer deweloperski, niebezpieczny adres) przycisku nie ma: nie ma czego
-  sprawdzać. W menu głównym ramka czekającego wydania ma przycisk „Zainstaluj teraz”: strona wysyła do
+  sprawdzać. W menu głównym ramka czekającego wydania jest krótka: „Jest nowa wersja gry: <numer>.”, przycisk „Zainstaluj teraz” i pod nim „Albo zamknij wszystkie okna gry i uruchom ją ponownie.”; linia obok przycisku sprawdzania przestaje wtedy mówić o nowej wersji. Po naciśnięciu „Zainstaluj teraz” strona wysyła do
   czekającego workera komunikat `telemark:take-over`, worker woła `skipWaiting()`, a strona przeładowuje się raz,
   gdy ten worker jest aktywny (śledzony po własnym stanie, nie po zmianie kontrolera strony, więc działa też na
   stronie wczytanej z pominięciem workera, np. po Ctrl+Shift+R). Menu skoku przycisku nie ma: przeładowanie
   przerwałoby skok. Inne otwarte okna gry nie są przeładowywane: przechodzą pod nowego workera, dalej działają
-  na kodzie, z którym wystartowały, i tracą ramkę czekającego wydania (ono już przejęło). Strona startowa nowego
+  na kodzie, z którym wystartowały; zamiast ramki czekającego wydania pokazują „Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.”, w menu głównym z przyciskiem „Przeładuj” (w menu skoku bez niego). Okno rozpoznaje to po tym, że wydanie czekało, gdy stronę obsługiwał starszy worker, a ta strona o instalację nie prosiła. Strona startowa nowego
   wydania usuwa przy tym cache poprzedniego; okno starego wydania ma cały kod wczytany (gra nie doczytuje
   modułów), a plik, którego nowe wydanie nie ma, dostałoby z sieci.
 - **Poprzednie wydanie zostaje zapisane, dopóki nie wystartuje strona nowego.** Przejęcie przez nowego workera

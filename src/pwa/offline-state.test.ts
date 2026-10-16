@@ -10,23 +10,32 @@ import { PWA_CONFIG } from "./pwa-config";
 
 describe("reduceOffline", () => {
   it("starts without a promise of playing offline", () => {
-    expect(INITIAL_OFFLINE_STATE).toEqual({ readiness: "preparing", updateWaiting: false, updateVersion: null });
+    expect(INITIAL_OFFLINE_STATE).toEqual({
+      readiness: "preparing",
+      updateWaiting: false,
+      updateVersion: null,
+      updatedElsewhere: false,
+    });
   });
 
   it("becomes ready, or unavailable, and keeps a waiting update through both", () => {
     const waiting = reduceOffline(INITIAL_OFFLINE_STATE, "update-waiting");
-    expect(waiting).toEqual({ readiness: "preparing", updateWaiting: true, updateVersion: null });
-    expect(reduceOffline(waiting, "ready")).toEqual({ readiness: "ready", updateWaiting: true, updateVersion: null });
+    expect(waiting).toMatchObject({ readiness: "preparing", updateWaiting: true, updateVersion: null });
+    expect(reduceOffline(waiting, "ready")).toMatchObject({
+      readiness: "ready",
+      updateWaiting: true,
+      updateVersion: null,
+    });
     expect(reduceOffline(waiting, "unavailable")).toMatchObject({ readiness: "unavailable", updateWaiting: true });
   });
 
   it("names the version of the waiting update, and forgets both once that release has taken over", () => {
     const named = reduceOffline(
-      { readiness: "ready", updateWaiting: true, updateVersion: null },
+      { readiness: "ready", updateWaiting: true, updateVersion: null, updatedElsewhere: false },
       { type: "update-version", version: "0.10.0" },
     );
-    expect(named).toEqual({ readiness: "ready", updateWaiting: true, updateVersion: "0.10.0" });
-    expect(reduceOffline(named, "update-active")).toEqual({
+    expect(named).toMatchObject({ readiness: "ready", updateWaiting: true, updateVersion: "0.10.0" });
+    expect(reduceOffline(named, "update-active")).toMatchObject({
       readiness: "ready",
       updateWaiting: false,
       updateVersion: null,
@@ -62,6 +71,14 @@ describe("updateCheckDue", () => {
   it("is due once the interval has passed, not before", () => {
     expect(updateCheckDue(1000 + intervalMs - 1, 1000)).toBe(false);
     expect(updateCheckDue(1000 + intervalMs, 1000)).toBe(true);
+  });
+});
+
+describe("a release installed in another window", () => {
+  it("is remembered, and nothing waits any more", () => {
+    const waiting = reduceOffline(INITIAL_OFFLINE_STATE, "update-waiting");
+    const elsewhere = reduceOffline(reduceOffline(waiting, "update-active"), "update-elsewhere");
+    expect(elsewhere).toMatchObject({ updateWaiting: false, updatedElsewhere: true });
   });
 });
 

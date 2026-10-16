@@ -5,7 +5,7 @@ import { readOriginalHills } from "../original/original-hills";
 import type { GameFiles } from "../storage/game-files-store";
 import { UI_TEXT } from "../text/ui-text";
 import { gameFilesOutcome } from "./game-files-choice";
-import { OfflineNotice, UpdateCheck, UpdateNotice } from "./offline-notice";
+import { OfflineNotice, UpdateCheck, UpdateNotice, useLastingWait } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import type { OfflineSupportView } from "./use-offline-state";
@@ -54,14 +54,16 @@ function MenuHeader({
   headingRef: RefObject<HTMLHeadingElement | null>;
   offline: OfflineSupportView;
 }) {
+  // The same moment the note of a waiting release appears: from then on the note alone says it.
+  const noteShown = useLastingWait(state?.updateWaiting === true);
   return (
     <header>
       <h1 className="title" tabIndex={-1} ref={headingRef}>
         {UI_TEXT.appName}
       </h1>
       <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
-      {updates && <UpdateCheck updates={updates} />}
-      <UpdateNotice state={state} onInstall={updates?.installNow} />
+      {updates && <UpdateCheck updates={updates} noteShown={noteShown} />}
+      <UpdateNotice state={state} updates={updates} />
     </header>
   );
 }
