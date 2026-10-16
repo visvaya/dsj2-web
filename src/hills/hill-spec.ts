@@ -18,9 +18,20 @@ export interface HillSpec {
   readonly look: HillLook;
 }
 
-/** One thing wrong with a hill: a stable rule id, where in the data, and a short text for logs. */
+/**
+ * How binding a rule is: a hill must pass every `admission` rule; a `style` rule is what the game's own hills
+ * follow, and a player hill breaking it gets a notice, not a refusal.
+ */
+export type HillRuleLevel = "admission" | "style";
+
+/**
+ * One thing wrong with a hill: a stable rule id, where in the data, and a short text for logs. Only geometry rules
+ * come in two levels, so only geometry problems carry one; format and play problems are admission problems by
+ * nature and leave it out.
+ */
 export interface HillProblem {
   readonly rule: string;
   readonly path: string;
   readonly message: string;
+  readonly level?: HillRuleLevel;
 }
