@@ -167,6 +167,12 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   tam, gdzie widać najwięcej nieba), ptaki (w żadnej fazie lotu nie są płaską kreską), duch rekordu
   (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
   przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
+- Zmierzch i noc (dodatki portu, `palette.ts`): tło ma paletę „daleką” (o zmierzchu cieplejszą i ciemniejszą,
+  nocą w świetle księżyca), skocznia „bliską”. O zmierzchu obie mają ten sam ciepły odcień, a tło jest tylko
+  trochę ciemniejsze; słabszy odcień skoczni rysował ostrą granicę wzdłuż jej dalszej krawędzi. Gdy świecą
+  reflektory (zmierzch i noc), ich światło sięga 28 wierszy nad dalszą krawędź skoczni: piksele tła i drzew
+  przechodzą ku kolorom palety bliskiej, przy krawędzi o 55%, wyżej coraz mniej (z kwadratem odległości), niebo
+  zostaje bez zmian (`drawFloodlightSpill` w `scene-backdrop.ts`).
 - Podgląd stroju i ikona to ta sama scena bez interfejsu, wycięta wokół skoczka (`drawJumperPreview`).
 
 ## Weryfikacja
