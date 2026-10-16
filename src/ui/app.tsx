@@ -27,6 +27,7 @@ import { ReplaysScreen } from "./replays-screen";
 import { screenTitle } from "./screen-title";
 import { SettingsScreen } from "./settings-screen";
 import { useOfflineState } from "./use-offline-state";
+import { saveSync } from "./save-sync";
 import { useRecordGhost, useReplayShelf } from "./use-replay-shelf";
 
 type Screen =
@@ -130,29 +131,36 @@ function useGameFiles() {
 
 /**
  * The save: read once, then changed through `update`, which stores every change. A write is merged with what
- * another window stored meanwhile (see mergedSave), and what it stored comes back into this window.
+ * another window stored meanwhile (see mergedSave), and what it stored comes back into this window; what other
+ * windows store comes in too (see saveSync).
  */
 function useStoredSave() {
   const [save, setSave] = useState<SaveData>(emptySave);
   const [backend] = useState<StorageBackend>(detectBackend);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [sync] = useState(() => saveSync(backend, setSave));
 
   useEffect(() => {
     let cancelled = false;
     void loadSave(backend).then((loaded) => {
       if (!cancelled) setSave(loaded);
     });
+    const disconnect = sync.connect();
     return () => {
       cancelled = true;
+      disconnect();
     };
-  }, [backend]);
+  }, [backend, sync]);
 
   const update = (next: (current: SaveData) => SaveData) =>
     setSave((prev) => {
       const changed = next(prev);
       if (changed !== prev) {
         saveSave(backend, changed).then(
-          (stored) => setSave((current) => mergedSave(stored, current)),
+          (stored) => {
+            sync.written();
+            setSave((current) => mergedSave(stored, current));
+          },
           () => setSaveFailed(true),
         );
       }

@@ -82,7 +82,7 @@ function aWindow(record: IdbRecord) {
       const after = next(mine);
       journal = journalAfter(journal, mine, after);
       const saved = await store.save(after, journal);
-      if (saved.durable) journal = journalAfterWrite(journal, saved.shelf);
+      if (saved.durable) journal = journalAfterWrite(journal, journal);
       mine = saved.shelf;
       return mine;
     },
@@ -123,7 +123,8 @@ describe("replay store", () => {
     expect(store.name).toBe("indexedDB");
     await store.save(shelf, journal);
     expect(store.name).toBe("memory");
-    expect(await store.load()).toEqual(shelf);
+    // No read or write ever succeeded: the stored shelf is not known, and the caller tries again later.
+    await expect(store.load()).rejects.toThrow("blocked");
 
     const record = storedRecord(undefined);
     const recovering = replayStoreWithFallback(recordReplayStore(record));
@@ -158,6 +159,19 @@ describe("replay store", () => {
     await first.change((s) => s.filter((e) => e.id !== "a"));
     await second.change((s) => [...s, entry("c")]);
     expect(ids(await aWindow(record).load())).toEqual(["b", "c"]);
+  });
+
+  it("keeps an entry read in again in another window after this one deleted and stored the deletion", async () => {
+    const record = storedRecord(undefined);
+    const first = aWindow(record);
+    await first.load();
+    await first.change(() => [entry("import:x"), entry("b")]);
+    await first.change((s) => s.filter((e) => e.id !== "import:x"));
+    const second = aWindow(record);
+    await second.load();
+    await second.change((s) => [...s, entry("import:x")]);
+    await first.change((s) => [...s, entry("c")]);
+    expect(ids(await aWindow(record).load())).toEqual(["b", "c", "import:x"]);
   });
 
   it("never writes over a stored record of a version it does not know", async () => {

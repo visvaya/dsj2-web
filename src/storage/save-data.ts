@@ -198,15 +198,28 @@ export function withJump(
 }
 
 /**
+ * Which of two records of one hill stands when two windows hold different ones: the longer jump; between equal
+ * ones, the newer (on the same date, the first). The merges of the save and of the replays follow this one rule.
+ * Whether a new jump makes a record at all is beatsRecord's to say (strictly longer); this rule only picks between
+ * records made in different windows.
+ */
+export function betterRecordOf(
+  first: { distanceM: number; dateIso: string },
+  second: { distanceM: number; dateIso: string },
+): "first" | "second" {
+  if (first.distanceM !== second.distanceM) return first.distanceM > second.distanceM ? "first" : "second";
+  return first.dateIso >= second.dateIso ? "first" : "second";
+}
+
+/**
  * The save to store when a window writes `mine` over `stored` (another window may have stored since): per hill the
- * better record of the two (the one `beatsRecord` would keep: the longer jump; this window's on a tie), and this
- * window's settings, as the last written.
+ * record that stands (betterRecordOf), and the settings of `mine`, as the last written.
  */
 export function mergedSave(stored: SaveData, mine: SaveData): SaveData {
   const records: Record<string, HillRecord> = { ...stored.records };
   for (const [hillId, record] of Object.entries(mine.records)) {
     const held = records[hillId];
-    if (held === undefined || record.distanceM >= held.distanceM) records[hillId] = record;
+    if (held === undefined || betterRecordOf(record, held) === "first") records[hillId] = record;
   }
   return { ...mine, records };
 }

@@ -1,23 +1,7 @@
+import { entry, record } from "./test-support/shelf-entries";
 import { describe, expect, it } from "vitest";
-import { ENGINE_REVISION, type ShelfEntry } from "./replay-shelf";
+import type { ShelfEntry } from "./replay-shelf";
 import { EMPTY_JOURNAL, journalAfter, journalAfterWrite, mergedShelf } from "./shelf-merge";
-
-function entry(id: string, over: Partial<ShelfEntry> = {}): ShelfEntry {
-  return {
-    id,
-    kind: "kept",
-    hill: { id: "own-1", name: "A", kPointM: 90 },
-    dateIso: "2026-10-14T12:00:00.000Z",
-    result: { distanceM: 88.5, points: 101.5, fell: false },
-    newRecord: false,
-    engineRevision: ENGINE_REVISION,
-    replay: { kind: "own", seed: 42, inputs: "" },
-    ...over,
-  };
-}
-
-const record = (id: string, distanceM: number, dateIso = "2026-10-14T12:00:00.000Z") =>
-  entry(id, { kind: "record", dateIso, result: { distanceM, points: 100, fell: false } });
 
 const ids = (shelf: readonly ShelfEntry[]) => shelf.map((e) => e.id);
 
@@ -38,7 +22,7 @@ describe("merging the shelf of a window with the stored one", () => {
     expect(ids(mergedShelf([], [entry("a")], EMPTY_JOURNAL))).toEqual([]);
     // "b" was added here and stored; another window deleted it since.
     const added = journalAfter(EMPTY_JOURNAL, [], [entry("b")]);
-    const written = journalAfterWrite(added, [entry("b")]);
+    const written = journalAfterWrite(added, added);
     expect(ids(mergedShelf([], [entry("b")], written))).toEqual([]);
   });
 

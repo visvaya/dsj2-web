@@ -83,6 +83,7 @@ export function replayStoreWithFallback(primary: ReplayStore): ReplayStore {
   // The last shelf the store read or wrote, or kept when it could not: what a failed operation gives back.
   let mirror: Shelf = [];
   let failures = 0;
+  let known = false;
   return {
     get name() {
       return failures >= REPLAY_STORE.FAILURES_BEFORE_NOTICE ? "memory" : primary.name;
@@ -91,8 +92,11 @@ export function replayStoreWithFallback(primary: ReplayStore): ReplayStore {
       try {
         mirror = await primary.load();
         failures = 0;
-      } catch {
+        known = true;
+      } catch (error) {
         failures += 1;
+        // Before any read or write succeeded, the shelf of the store is not known: the caller tries again later.
+        if (!known) throw error;
       }
       return mirror;
     },
@@ -101,6 +105,7 @@ export function replayStoreWithFallback(primary: ReplayStore): ReplayStore {
         const saved = await primary.save(shelf, journal);
         failures = 0;
         mirror = saved.shelf;
+        known = true;
         return saved;
       } catch {
         failures += 1;

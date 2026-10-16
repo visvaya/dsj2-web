@@ -39,9 +39,16 @@ export function useReplayShelf(settings: ReplaySettings) {
   const [storeName, setStoreName] = useState(store.name);
   // Whether the browser offers a store at all; where it does not, the replays screen says so on its own.
   const [offered] = useState(() => store.name !== "memory");
-  const [sync] = useState(() => shelfSync(store, { setShelf, setStoreName }));
   const { maxAgeDays, maxSizeKb } = settings;
   const cleanup = useRef(cleanupOf(settings));
+  // oxlint-disable-next-line react/refs -- the clean-up reads the ref when a shelf is taken from the store, not in a render
+  const [sync] = useState(() =>
+    shelfSync(store, {
+      setShelf,
+      setStoreName,
+      clean: (taken) => cleanedShelf(taken, cleanup.current, new Date()),
+    }),
+  );
 
   /** Changes the shelf; the clean-up of the settings follows every change. */
   const change = (next: (current: Shelf) => Shelf) =>
@@ -63,7 +70,15 @@ export function useReplayShelf(settings: ReplaySettings) {
 
   useEffect(() => {
     let cancelled = false;
-    void store.load().then((stored) => {
+    // A first read that fails leaves the shelf empty for now: writes still merge with the store, and the read is
+    // tried again after a while and on every return to the page.
+    const failed = () => {
+      if (cancelled) return;
+      setStoreName(store.name);
+      setLoaded(true);
+      sync.readLater();
+    };
+    store.load().then((stored) => {
       if (cancelled) return;
       setShelf((early) => {
         // What came from the store is not this window's addition: from the merged shelf only the clean-up counts.
@@ -74,7 +89,7 @@ export function useReplayShelf(settings: ReplaySettings) {
       });
       setStoreName(store.name);
       setLoaded(true);
-    });
+    }, failed);
     return () => {
       cancelled = true;
     };

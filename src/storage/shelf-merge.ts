@@ -1,9 +1,9 @@
 import type { Shelf, ShelfEntry } from "./replay-shelf";
+import { betterRecordOf } from "./save-data";
 
 /**
  * What one window did to the shelf since it opened, so that its write can be merged with what other windows of
- * the game stored meanwhile: the entries it added and has not stored yet, and the entries it deleted (kept for the
- * visit, so a write of another window that still holds one does not bring it back here).
+ * the game stored meanwhile: the entries it added and the entries it deleted, both until a write stores them.
  */
 export interface ShelfJournal {
   added: ReadonlySet<string>;
@@ -37,19 +37,23 @@ export function journalAfter(journal: ShelfJournal, before: Shelf, after: Shelf)
   return { added, deleted };
 }
 
-/** The journal once `written` is stored: what it added is in the store now and shares the fate of the rest there. */
-export function journalAfterWrite(journal: ShelfJournal, written: Shelf): ShelfJournal {
-  const writtenIds = new Set(written.map((e) => e.id));
-  return { added: new Set([...journal.added].filter((id) => !writtenIds.has(id))), deleted: journal.deleted };
+/**
+ * The journal once a write that started from `sent` is stored: the merge has decided the fate of every addition it
+ * took (stored, or dropped as the replay of a record that lost to a longer one) and every deletion is in the store,
+ * so both leave the journal; what the window changed while the write ran stays for the next write. A deletion kept
+ * beyond its write is not needed: another window holding the entry drops it, as one stored once and gone since.
+ */
+export function journalAfterWrite(journal: ShelfJournal, sent: ShelfJournal): ShelfJournal {
+  return {
+    added: new Set([...journal.added].filter((id) => !sent.added.has(id))),
+    deleted: new Set([...journal.deleted].filter((id) => !sent.deleted.has(id))),
+  };
 }
 
-/**
- * Of two replays of a hill record, the one of the record that stands: records go to the longer clean jump (see
- * beatsRecord), so the longer one; between equal ones, the newer.
- */
+/** Of two replays of a hill record, the one of the record that stands (betterRecordOf, as for the save). */
 function betterRecord(a: ShelfEntry, b: ShelfEntry): ShelfEntry {
-  if (a.result.distanceM !== b.result.distanceM) return a.result.distanceM > b.result.distanceM ? a : b;
-  return a.dateIso >= b.dateIso ? a : b;
+  const first = { distanceM: a.result.distanceM, dateIso: a.dateIso };
+  return betterRecordOf(first, { distanceM: b.result.distanceM, dateIso: b.dateIso }) === "first" ? a : b;
 }
 
 /**
