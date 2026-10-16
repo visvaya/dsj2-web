@@ -58,6 +58,8 @@ describe("player view", () => {
 describe("player policy", () => {
   it("holds the early lean in the first part of the flight and the shaped lean after it", () => {
     expect(policyLeanRad(policy, { ...view, framesSinceTakeoff: 10 })).toBe(0.1);
+    // Before the takeoff the flight has not begun: the lean held is the one of its first frame.
+    expect(policyLeanRad(policy, { ...view, framesSinceTakeoff: null })).toBe(0.1);
     expect(policyLeanRad(policy, view)).toBeCloseTo(0.3);
     expect(policyLeanRad(policy, { ...view, speedMPerS: 30 })).toBeCloseTo(0.35);
     expect(policyLeanRad(policy, { ...view, aboveTerrainM: 5 })).toBeCloseTo(0.4);

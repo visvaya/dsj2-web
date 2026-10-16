@@ -33,6 +33,16 @@ describe("hill oracle", () => {
     expect(one.outcome.finalHash).toBe(playJump(training, seed, EXACT_PLAYER_LEVEL, seed).finalHash);
   });
 
+  it("keeps the landing style of the policy it starts from", () => {
+    const seed = 14;
+    const search = { ...ORACLE_SEARCH, maxJumps: 1 };
+    const telemark = oracleJump(training, seed, { ...TRAINED_PLAYER_POLICY, telemark: true }, search);
+    const twoFooted = oracleJump(training, seed, { ...TRAINED_PLAYER_POLICY, telemark: false }, search);
+    // The same start choice, landed another way: a different jump.
+    expect(twoFooted.choice).toEqual(telemark.choice);
+    expect(twoFooted.outcome.finalHash).not.toBe(telemark.outcome.finalHash);
+  });
+
   it("scores a fall or a disqualification below any clean jump", () => {
     const clean = playJump(training, 1, EXACT_PLAYER_LEVEL, 1);
     expect(jumpScore(clean)).toBe(clean.points);
