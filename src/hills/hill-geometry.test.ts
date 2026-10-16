@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { LAYER_TABLE_LENGTH_M } from "../render/hill-layer-tables";
 import { buildHillProfile } from "../sim/hill-setup";
-import { geometryProblems, geometryRuleProblems, HILL_RULES, hillGeometry, type HillGeometry } from "./hill-geometry";
+import {
+  admissionProblems,
+  GEOMETRY_RULE_LEVELS,
+  geometryProblems,
+  geometryRuleProblems,
+  HILL_RULES,
+  hillGeometry,
+  type HillGeometry,
+} from "./hill-geometry";
 import type { HillSpec } from "./hill-spec";
 import { EXTREME_HILLS, training, variant } from "./test-support/hill-variants";
 
@@ -59,6 +67,41 @@ describe("hill geometry", () => {
   ] as const)("reports %s alone for measures that break only that rule", (rule, change) => {
     const g: HillGeometry = { ...trainingGeometry(), ...change };
     expect(geometryRuleProblems(g, training.kPointM).map((p) => p.rule)).toEqual([rule]);
+  });
+
+  it.each([
+    ["join-height", "admission"],
+    ["join-slope", "admission"],
+    ["inrun-descends", "admission"],
+    ["landing-descends", "admission"],
+    ["outrun-within-scene", "admission"],
+    ["table-height", "admission"],
+    ["takeoff-angle", "style"],
+    ["landing-area-length", "style"],
+    ["outrun-length", "style"],
+    ["k-near-steepest", "style"],
+    ["landing-angle-at-k", "style"],
+  ] as const)("gives the rule %s the level %s", (rule, level) => {
+    expect(GEOMETRY_RULE_LEVELS[rule]).toBe(level);
+  });
+
+  it("marks every geometry problem with the level of its rule", () => {
+    const g: HillGeometry = { ...trainingGeometry(), inrunDescends: false, takeoffAngleDeg: 20 };
+    expect(geometryRuleProblems(g, training.kPointM).map((p) => [p.rule, p.level])).toEqual([
+      ["geometry.takeoff-angle", "style"],
+      ["geometry.inrun-descends", "admission"],
+    ]);
+  });
+
+  it("admits a hill that breaks only a style rule, with the problem still reported", () => {
+    const spec = variant({ kPointM: 80 });
+    expect(rulesOf(spec)).toEqual(["geometry.landing-area-length"]);
+    expect(admissionProblems(spec)).toEqual([]);
+  });
+
+  it("refuses a hill that breaks an admission rule", () => {
+    const spec = variant({ landing: { outrunCurveA: 0.0007 } });
+    expect(admissionProblems(spec).map((p) => p.rule)).toEqual(["geometry.outrun-within-scene"]);
   });
 
   it.each(EXTREME_HILLS)("gives finite measures for the %s hill the format allows", (_name, spec) => {
