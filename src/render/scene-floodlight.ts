@@ -1,15 +1,7 @@
 import type { HillProfile } from "../sim/hill-profile";
-import { truncToInt } from "../sim/pascal-numeric";
 import { hillLayerTables, rowsAt } from "./hill-layer-tables";
-import {
-  LAYER,
-  LAYER_SCALE,
-  ORIGINAL_CENTRE_COLUMN,
-  ORIGINAL_PX_PER_M,
-  layerOffset,
-  originalColumn,
-  type SceneView,
-} from "./scene-layers";
+import { worldXAtDepth } from "./scene-anchor";
+import { LAYER, LAYER_SCALE, layerOffset, originalColumn, type SceneView } from "./scene-layers";
 import { mixPacked } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
 
@@ -70,15 +62,6 @@ export function floodlightPalettes(near: Uint32Array, far: Uint32Array): readonl
 }
 
 /**
- * World x shown by original column `column` at depth `scale` (a layer's scale, between or beyond the layers): the
- * column of world x on a layer of that scale is 14 x scale + 160, less the layer's scroll, which is camX x scale
- * cut to whole columns as the layers' own scroll is, so a step of light keeps to the column the hill has there.
- */
-function worldXAt(view: SceneView, column: number, scale: number): number {
-  return (truncToInt(view.camX * scale) + column - ORIGINAL_CENTRE_COLUMN) / (scale * ORIGINAL_PX_PER_M);
-}
-
-/**
  * Relights rows `top`..`bottom` of a column already drawn in the lit palette: the row at `top` lies at depth
  * `scaleTop`, each row further down `scalePerRow` nearer, and each pixel takes the step of light of the world x
  * it shows there.
@@ -98,7 +81,7 @@ function relightColumn(
   const end = Math.min(rows.bottom, c.lastRow);
   if (first > end) return;
   const stepAt = (y: number) =>
-    floodlightStep(h, worldXAt(view, column, rows.scaleTop + rows.scalePerRow * (y - rows.top)));
+    floodlightStep(h, worldXAtDepth(view, column, rows.scaleTop + rows.scalePerRow * (y - rows.top)));
   // World x changes one way down a column, so each step covers one run of rows: find where each run ends.
   for (let from = first; from <= end;) {
     const step = stepAt(from);

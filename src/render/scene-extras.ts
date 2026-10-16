@@ -1,19 +1,11 @@
-import { inrunYM, type HillProfile } from "../sim/hill-profile";
+import type { HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import { fastSin, hash } from "./jump-view-camera";
 import type { HillLook } from "./hill-look";
-import { hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
-import {
-  LAYER,
-  layerIndex,
-  layerOffset,
-  layerX,
-  nearestViewColumn,
-  originalColumn,
-  sceneView,
-  type SceneView,
-} from "./scene-layers";
+import { hillLayerTables } from "./hill-layer-tables";
+import { layerScroll, layerSpanXM, onSurface, skyDrift, viewAtStart, type ScreenPoint } from "./scene-anchor";
+import { LAYER, type SceneView } from "./scene-layers";
 import { color } from "./palette";
 import { FLOODLIGHT, firstMastXM } from "./scene-floodlight";
 import { skyRowsAbove } from "./scene-mountains";
@@ -25,17 +17,6 @@ import { VIEW_MAX_WIDTH_PX } from "./view-size";
  * This project's additions to the original's scene (wind socks, floodlights at dusk and night, stars, the moon,
  * birds; the mountains are in `scene-mountains.ts`), placed on the original's layers so they move with the hill.
  */
-
-/**
- * Where a prop at world x stands on what is drawn of a layer: the view column nearest to its table index, and the
- * row of the table at the index that column shows, so it stays on the fence or the rail under it as the picture
- * scrolls instead of moving a row against it where the view skips its own index.
- */
-function onLayer(view: SceneView, layer: number, table: LayerTable, xM: number): [number, number] {
-  const off = layerOffset(view, layer);
-  const sx = nearestViewColumn(view, layerIndex(layer, xM) - off.x);
-  return [sx, rowsAt(table, off.x + originalColumn(view, sx)) + off.y];
-}
 
 /** Rows of the far fence; masts and socks stand on its top. */
 const FAR_FENCE_ROWS = 5;
@@ -92,15 +73,6 @@ export function windSockDirection(s: JumpSimState): [number, number] {
   return [x * scale, y * scale];
 }
 
-/** World x of the far fence's visible stretch, from a little left of the view to a little right of it. */
-function farRange(view: SceneView, marginPx: number): [number, number] {
-  const off = layerOffset(view, LAYER.farEdge);
-  return [
-    layerX(LAYER.farEdge, off.x + originalColumn(view, -marginPx)),
-    layerX(LAYER.farEdge, off.x + originalColumn(view, view.widthPx + marginPx)),
-  ];
-}
-
 /**
  * Wind socks on poles on the far fence, every 25 m along the landing hill: cones in bands of red and white that
  * stream the way the box's arrow points and fill with the wind, narrower and hanging down in a calm; the flutter
@@ -113,10 +85,10 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
   const [ux0, uy0] = windSockDirection(s);
   const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
   const first = h.takeoffXM + SOCK_FIRST_AFTER_TAKEOFF_M;
-  const [from, to] = farRange(view, 20);
+  const [from, to] = layerSpanXM(view, LAYER.farEdge, 20);
   const start = first + Math.max(0, Math.ceil((from - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
   for (let x = start; x <= Math.min(to, h.outrunStartXM); x += SOCK_SPACING_M) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
+    const [sx, ground] = onSurface(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - SOCK_POLE_PX;
     fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
@@ -159,10 +131,10 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   const glow = color("lampGlow");
   const headW = FLOODLIGHT_LAMPS + 2;
   const first = firstMastXM(h);
-  const [from, to] = farRange(view, headW + FLOODLIGHT_RAY_PX);
+  const [from, to] = layerSpanXM(view, LAYER.farEdge, headW + FLOODLIGHT_RAY_PX);
   const start = first + Math.max(0, Math.ceil((from - first) / FLOODLIGHT.mastSpacingM)) * FLOODLIGHT.mastSpacingM;
   for (let x = start; x <= to; x += FLOODLIGHT.mastSpacingM) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
+    const [sx, ground] = onSurface(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
     drawSoftGlow(fb, sx, top - 3, FLOODLIGHT_GLOW, glow);
@@ -211,7 +183,7 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
   const glow = color("lampGlow");
   const pole = color("post");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
-    const [sx, track] = onLayer(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x);
+    const [sx, track] = onSurface(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x);
     if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
@@ -233,8 +205,6 @@ const MOON_LOWEST_TOP_PX = 1;
 const MOON_FROM = 0.3;
 const MOON_TO = 0.92;
 const MOON_ROOM_PX = MOON_ROW + MOON_RADIUS_PX + MOON_CLEARANCE_PX;
-/** Stars move with the farthest layer. */
-const STAR_DRIFT = 0.01;
 
 /** Where the moon stands for a hill and a picture: its column in the sky's own columns, as the stars', and its row. */
 interface MoonPlace {
@@ -264,7 +234,7 @@ function moonPlace(h: HillProfile, look: HillLook, view: SceneView, rows: number
   const known = byPicture.get(key);
   if (known !== undefined) return known;
   const width = view.widthPx;
-  const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), width, view.pixelWidth);
+  const atStart = viewAtStart(h, view);
   const skyAt = skyRowsAbove(h, look, atStart, rows - 1);
   const clearUnder = (cx: number) => {
     let clear = rows;
@@ -287,9 +257,15 @@ function moonPlace(h: HillProfile, look: HillLook, view: SceneView, rows: number
     MOON_LOWEST_TOP_PX + MOON_RADIUS_PX,
     Math.min(MOON_ROW, clear - MOON_RADIUS_PX - MOON_CLEARANCE_PX),
   );
-  const place = { skyColumn: cx + Math.round(atStart.camX * STAR_DRIFT), row };
+  const place = { skyColumn: cx + skyDrift(atStart), row };
   byPicture.set(key, place);
   return place;
+}
+
+/** Where the moon's centre shows in a picture whose sky has `rows` rows: its place for the jump, less the drift. */
+export function moonInPicture(h: HillProfile, look: HillLook, view: SceneView, rows: number): ScreenPoint {
+  const place = moonPlace(h, look, view, rows);
+  return [place.skyColumn - skyDrift(view), place.row];
 }
 
 /**
@@ -306,7 +282,7 @@ export function drawNightSky(
 ): void {
   const { fb, indices } = c;
   const star = color("star");
-  const drift = Math.round(view.camX * STAR_DRIFT);
+  const drift = skyDrift(view);
   const px = fb.pixels;
   const rows = Math.min(skyRows, fb.height);
   const isSky = (x: number, y: number) => (indices[y * fb.width + x] ?? 0) >= SKY_FIRST_INDEX;
@@ -316,9 +292,7 @@ export function drawNightSky(
       if (r % 53 === 0 && ((r >>> 9) + Math.floor(frame / 20)) % 7 !== 0 && isSky(x, y)) px[y * fb.width + x] = star;
     }
   }
-  const place = moonPlace(h, look, view, rows);
-  const cx = place.skyColumn - drift;
-  const cy = place.row;
+  const [cx, cy] = moonInPicture(h, look, view, rows);
   for (let dy = -MOON_RADIUS_PX; dy <= MOON_RADIUS_PX; dy++) {
     for (let dx = -MOON_RADIUS_PX; dx <= MOON_RADIUS_PX; dx++) {
       // Within half a pixel of the radius, so the disc is round rather than a square with its corners cut.
@@ -367,7 +341,7 @@ const BIRD_COUNT = 4;
  * The layer of the background the birds fly in: they keep their height over the top of the inrun, so the
  * picture leaves them behind as the camera follows the jumper down.
  */
-const BIRD_LAYER = 7;
+export const BIRD_LAYER = 7;
 /**
  * Columns the birds' flight wraps around, centred on the middle of the picture: the widest picture and a bird's
  * margin either side, the same for every width, so a narrower picture shows the middle of the same flock.
@@ -375,21 +349,33 @@ const BIRD_LAYER = 7;
 const BIRD_MARGIN_PX = 30;
 const BIRD_SPAN_PX = VIEW_MAX_WIDTH_PX + 2 * BIRD_MARGIN_PX;
 
-/** A few birds crossing high above the background, beating their wings in bursts and gliding between them. */
-export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, frame: number) {
+/** Columns a bird has flown along its layer by `frame`, from where it starts. */
+export function birdFlightPx(bird: number, frame: number): number {
+  return frame * (bird % 2 === 1 ? 0.09 : 0.14 + bird * 0.02) + bird * 131;
+}
+
+/** Where each bird's body shows in the picture: its flight less its layer's scroll, wrapped around the span. */
+export function birdPlaces(h: HillProfile, view: SceneView, frame: number): ScreenPoint[] {
   const span = BIRD_SPAN_PX;
   // The layer's scroll in the picture's columns: the birds move across the picture as the trees under them do.
-  const origin = layerOffset(view, BIRD_LAYER).x / view.pixelWidth;
+  const scroll = layerScroll(view, BIRD_LAYER);
   // Rows the picture has moved since the jumper stood at the start, in the birds' layer.
-  const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), view.widthPx, view.pixelWidth);
-  const drop = layerOffset(view, BIRD_LAYER).y - layerOffset(atStart, BIRD_LAYER).y;
+  const drop = scroll.y - layerScroll(viewAtStart(h, view), BIRD_LAYER).y;
+  return Array.from({ length: BIRD_COUNT }, (_, i): ScreenPoint => {
+    const flown = birdFlightPx(i, frame) - scroll.x;
+    return [
+      Math.round((((flown % span) + span) % span) + (view.widthPx - span) / 2),
+      Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2)) + drop,
+    ];
+  });
+}
+
+/** A few birds crossing high above the background, beating their wings in bursts and gliding between them. */
+export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, frame: number) {
   const wing = color("bird");
   const body = color("birdBody");
-  for (let i = 0; i < BIRD_COUNT; i++) {
+  birdPlaces(h, view, frame).forEach(([sx, sy], i) => {
     const far = i % 2 === 1;
-    const worldX = frame * (far ? 0.09 : 0.14 + i * 0.02) + i * 131;
-    const sx = Math.round(((((worldX - origin) % span) + span) % span) + (fb.width - span) / 2);
-    const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2)) + drop;
     const beat = Math.floor(frame / BIRD_BEAT_FRAMES) + i * 5;
     const gliding = beat % (BIRD_BEATS + BIRD_GLIDE_BEATS) >= BIRD_BEATS;
     const shapes = BIRD_FRAMES[far ? "far" : "near"];
@@ -401,5 +387,5 @@ export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, fram
         else if (ch === "#") fb.put(sx + dx - (row.length >> 1), sy + dy - 1, body);
       }
     });
-  }
+  });
 }

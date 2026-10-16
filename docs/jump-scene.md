@@ -159,6 +159,23 @@ pasku etykieta fazy (rampa 0x58) i prędkość, biała z ciemniejszym cieniem: w
 niżej prawie nie odcinał się od liter. Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale; miga co pół
 sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół sekundy widoczności.
 
+## Miejsca rzeczy świata na obrazie
+
+Każdą rzecz świata (rekwizyt, koniec linii, drzewo, ptak, księżyc, belkę startową) port stawia na obrazie przez
+`src/render/scene-anchor.ts`, w jednym z czterech miejsc, i rzecz porusza się tylko tak, jak to miejsce:
+
+- na rysowanej powierzchni warstwy (płot, poręcz, krawędź zeskoku): kolumna najbliższa indeksowi tablicy, wiersz
+  powierzchni pod tą kolumną (`onSurface`; koniec linii odległości z własną wysokością: `onSurfaceAtHeight`);
+- na warstwie tła, z jej przewijaniem (`layerPlacer` dla drzew, `layerScroll` dla ptaków);
+- na niebie, tylko z dryfem gwiazd (`skyDrift`; księżyc wybiera miejsce raz na skok, `viewAtStart`);
+- na samym ekranie (interfejs): bez świata pod spodem.
+
+Belka startowa zostaje przy rachunku oryginału (`onLayerExact`: zaokrąglona kolumna i dokładny wiersz), bo tak ją
+rysuje oryginał. Same powierzchnie rysują się kolumna po kolumnie z tablic warstw (`scene-layers.ts`,
+`hill-layer-tables.ts`), a cień skoczka i figura mają własną, stałą kolumnę na obrazie. Test
+`scene-anchor.guard.test.ts` pilnuje, że poza modułem miejsc i prymitywami nikt nie liczy miejsca z rzutu sam,
+a `scene-motion.test.ts` sprawdza niezmienniki ruchu przez cały skok (opis w `testing.md`).
+
 ## Różnice portu (świadome)
 
 - Widok ma kwadratowe piksele i szerokość od 256 do 432 kolumn: kolumna portu odpowiada 6/5 kolumny oryginału
