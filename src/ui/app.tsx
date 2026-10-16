@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { MARK_FIRST_SCREEN, markOnce } from "../game/performance-marks";
+import { tiltSupported } from "../game/tilt-input";
 import { beatsRecord, emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
@@ -46,7 +47,13 @@ function SideScreen({ kind, settings, onSettings, onBack, focusOnEntry }: SidePr
   }
   if (kind === "install") return <InstallScreen onBack={onBack} focusOnEntry={focusOnEntry} />;
   // The instructions speak of the steering in use: on a touch screen, a finger or the tilt of the phone.
-  return <HowToScreen tilt={settings.leanControl === "tilt"} onBack={onBack} focusOnEntry={focusOnEntry} />;
+  return (
+    <HowToScreen
+      tilt={settings.leanControl === "tilt" && tiltSupported()}
+      onBack={onBack}
+      focusOnEntry={focusOnEntry}
+    />
+  );
 }
 
 /** The screen shown, and how to show another one. */

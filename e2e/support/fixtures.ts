@@ -17,7 +17,15 @@ interface Fixtures {
   pageProblems: string[];
 }
 
+/**
+ * The motion sensor a test's browser has: none (the default, so a touch screen leans with the finger as most
+ * tests expect), one that reads steadily, one that gives no readings, or one that asks the player first and
+ * then gives it or refuses it (as on an iPhone; the first request, made without a tap, is always refused).
+ */
+type MotionSensor = "none" | "steady" | "silent" | "asks-grant" | "asks-deny";
+
 interface Options {
+  motionSensor: MotionSensor;
   /**
    * The problems a test causes on purpose, as one pattern of their messages: the error the browser logs for a
    * script that is not there, for example. Set with `test.use` on the tests that break something, never wider.
@@ -33,9 +41,36 @@ interface Options {
  */
 const REFUSE_MOUSE_CAPTURE = Boolean(process.env["BROWSER_TESTS_EDGE"]);
 
+/** Runs in the page before its scripts: replaces the browser's motion sensor with the one the test asks for. */
+function fakeMotionSensor(kind: MotionSensor): void {
+  if (kind === "none") {
+    Reflect.deleteProperty(window, "DeviceOrientationEvent");
+    Object.defineProperty(window, "DeviceOrientationEvent", { value: undefined, configurable: true });
+    return;
+  }
+  const sensor = function DeviceOrientationEvent() {};
+  if (kind === "asks-grant" || kind === "asks-deny") {
+    let asked = 0;
+    Object.defineProperty(sensor, "requestPermission", {
+      value: () => {
+        asked++;
+        if (asked === 1) return Promise.reject(new DOMException("Needs a tap", "NotAllowedError"));
+        return Promise.resolve(kind === "asks-grant" ? "granted" : "denied");
+      },
+    });
+  }
+  Object.defineProperty(window, "DeviceOrientationEvent", { value: sensor, configurable: true });
+  if (kind === "silent") return;
+  setInterval(() => {
+    window.dispatchEvent(Object.assign(new Event("deviceorientation"), { alpha: 0, beta: 30, gamma: 0 }));
+  }, 50);
+}
+
 export const test = base.extend<Fixtures & Options>({
   expectedProblems: [null, { option: true }],
-  context: async ({ context }, provide) => {
+  motionSensor: ["none", { option: true }],
+  context: async ({ context, motionSensor }, provide) => {
+    await context.addInitScript(fakeMotionSensor, motionSensor);
     if (REFUSE_MOUSE_CAPTURE) {
       await context.addInitScript(() => {
         Element.prototype.requestPointerLock = () =>

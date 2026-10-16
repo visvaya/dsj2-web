@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { HillChoice } from "../game/hill-choice";
 import { pickScenery } from "../game/scenery";
 import { newSeed } from "../game/training-session";
@@ -17,6 +17,7 @@ import { useEntryFocus } from "./use-entry-focus";
 import { useJumpLoop } from "./use-jump-loop";
 import { TOUCH_QUERY, useMediaQuery } from "./use-media-query";
 import { usePauseMenu } from "./use-pause-menu";
+import { ScreenNote } from "./screen-note";
 import { useSoundEngine } from "./use-sound-engine";
 import { useSteering } from "./use-steering";
 
@@ -129,6 +130,31 @@ function PauseSign({ touch }: { touch: boolean }) {
   );
 }
 
+/**
+ * The question about tilting stops the jump at once, before the player starts; once per visit, so after a "back"
+ * it waits in the menu, above the buttons, until it is answered.
+ */
+function useAskAboutTilt(
+  steering: { tiltQuestion: boolean; answerTiltQuestion: (yes: boolean) => void },
+  jumping: boolean,
+  menu: { menuOpen: boolean; openMenu: () => void },
+) {
+  const question = steering.tiltQuestion;
+  const askedRef = useRef(false);
+  const yesRef = useRef<HTMLButtonElement>(null);
+  const { menuOpen, openMenu } = menu;
+  useEffect(() => {
+    if (!question || !jumping || askedRef.current) return;
+    askedRef.current = true;
+    openMenu();
+  }, [question, jumping, openMenu]);
+  // After the menu's own focus on its first button (an effect of the pause menu, which runs first).
+  useEffect(() => {
+    if (menuOpen && question && jumping) yesRef.current?.focus();
+  }, [menuOpen, question, jumping]);
+  return { tiltQuestion: question, onTiltAnswer: steering.answerTiltQuestion, tiltYesRef: yesRef };
+}
+
 /** The classes of the screen: how it is played, and what is over the picture or under it. */
 function gameClass(c: { touch: boolean; controls: string; menuOpen: boolean; replaying: boolean; bar: boolean }) {
   const classes = [
@@ -184,6 +210,7 @@ export function JumpScreen(props: Props) {
   useNowPlaying(UI_TEXT.hillLabel(hill.name, hill.kPointM));
   const keepLast = useKeepLastJump(loop, props.onKeepJump);
   const bar = replay !== null && settings.replays.slider;
+  const tiltAsk = useAskAboutTilt(steering, replay === null, menu);
   const pad = (side: "left" | "right") => (
     <TouchPad
       side={side}
@@ -253,6 +280,7 @@ export function JumpScreen(props: Props) {
           tiltOn={tiltOn}
           onToggleTilt={steering.toggleTilt}
           tiltNote={steering.tiltNote}
+          {...tiltAsk}
           onExit={props.onExit}
           offline={props.offline}
           onOtherReplay={props.onOpenReplays}
@@ -260,6 +288,7 @@ export function JumpScreen(props: Props) {
       </div>
       {touch && pad("left")}
       {touch && pad("right")}
+      <ScreenNote touch={touch} jumping={replay === null} tiltNote={steering.tiltNote} hidden={menu.menuOpen} />
       <p className="sr-only" aria-live="polite">
         {announcement}
       </p>

@@ -755,6 +755,30 @@ h2 {
   font-size: 14px;
 }
 
+/*
+ * A short note over the jump screen (the motion sensor, turning the phone): beside the pause button, where the
+ * top of the screen is free in portrait, and never in the way of a finger.
+ */
+.screen-note {
+  position: fixed;
+  top: calc(max(8px, var(--safe-top)) + 6px);
+  right: max(8px, var(--safe-right));
+  left: calc(max(8px, var(--safe-left)) + 58px);
+  z-index: 1;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--text);
+  background: rgb(0 0 0 / 75%);
+  pointer-events: none;
+}
+
+/* Kept on the page while silent, so a screen reader hears what comes into it. */
+.screen-note:empty {
+  display: none;
+}
+
 /* During a replay the zones keep their place but are not there for the fingers. */
 .touch-pad-idle {
   visibility: hidden;

@@ -35,6 +35,11 @@ interface Props {
   onToggleTilt: () => void;
   /** A note about the motion sensor, or nothing. */
   tiltNote: string;
+  /** Whether the menu asks first whether to lean by tilting the phone (the browser gives the sensor after a tap). */
+  tiltQuestion: boolean;
+  onTiltAnswer: (yes: boolean) => void;
+  /** The question's yes, which takes the focus when the question opens the menu. */
+  tiltYesRef: RefObject<HTMLButtonElement | null>;
   onExit: () => void;
   /** How the replay is being watched; null while jumping. */
   replay: ReplayView | null;
@@ -147,6 +152,39 @@ function TrainingButtons(
   );
 }
 
+/**
+ * Whether to lean by tilting the phone, asked above the menu's buttons where the browser gives the sensor only
+ * after a tap. An answer closes the menu and the jump goes on; the focus starts on the yes, tilting being the
+ * default.
+ */
+function TiltQuestion({
+  onAnswer,
+  onResume,
+  focusRef,
+}: {
+  onAnswer: (yes: boolean) => void;
+  onResume: () => void;
+  focusRef: RefObject<HTMLButtonElement | null>;
+}) {
+  const answer = (yes: boolean) => {
+    onAnswer(yes);
+    onResume();
+  };
+  return (
+    <div className="tilt-question" role="group" aria-labelledby="tilt-question-text">
+      <p className="note" id="tilt-question-text">
+        {JUMP_TEXT.tiltQuestion}
+      </p>
+      <button type="button" className="pixel-button" ref={focusRef} onClick={() => answer(true)}>
+        {JUMP_TEXT.tiltYes}
+      </button>
+      <button type="button" className="pixel-button" onClick={() => answer(false)}>
+        {JUMP_TEXT.tiltNo}
+      </button>
+    </div>
+  );
+}
+
 /** The buttons of the jump screen; in the open menu, the instructions or the list of hills can take their place. */
 export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
   if (p.panel !== "menu") {
@@ -168,8 +206,10 @@ export function JumpMenu({ headingRef, resumeRef, ...p }: Props) {
       </>
     );
   }
+  const asking = p.menuOpen && p.tiltQuestion && p.replay === null;
   return (
     <>
+      {asking && <TiltQuestion onAnswer={p.onTiltAnswer} onResume={p.onResume} focusRef={p.tiltYesRef} />}
       {p.menuOpen && (
         <button type="button" className="pixel-button resume-button" ref={resumeRef} onClick={p.onResume}>
           {p.replay ? REPLAY_TEXT.resume : JUMP_TEXT.resume}

@@ -353,7 +353,13 @@ export const UI_TEXT = {
       keptLast: "Ostatni skok jest zachowany na ekranie „Powtórki”.",
       alreadyKept: "Ten skok jest już zachowany.",
     },
-    tiltHint: "Dotknij „Pochylanie”, aby włączyć przechył.",
+    /** Asked once where the browser gives the motion sensor only after a tap; tilting is the default. */
+    tiltQuestion: "Pochylać skoczka, przechylając telefon? Przeglądarka zapyta o zgodę na czujnik ruchu.",
+    tiltYes: "Tak, przechylaniem",
+    tiltNo: "Nie, palcem",
+    tiltNoSensor: "Telefon nie podaje przechyłu: tym razem pochylanie palcem.",
+    /** A suggestion over the jump screen held upright; the game plays either way. */
+    turnLandscape: "Obróć telefon poziomo: więcej miejsca na skok.",
     padKey: { left: "L", right: "P" },
     leftPadHints: ["przeciągnij: pochylenie"],
     rightPadHints: ["L+P: wybicie", "P: telemark", "szybko drugie P: wąski telemark", "L+P w locie: dwie nogi"],
