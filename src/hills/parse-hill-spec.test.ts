@@ -105,8 +105,14 @@ describe("hill spec parser", () => {
 
   it("reports parts of the inrun in the wrong order", () => {
     const input = json();
+    set(input, "profile.inrun.flatEndXM", 30);
+    expect(rulesOf(input)).toEqual(["format.order profile.inrun.lineEndXM"]);
+  });
+
+  it("accepts a start on the flat part of the inrun", () => {
+    const input = json();
     set(input, "profile.inrun.flatEndXM", 12);
-    expect(rulesOf(input)).toEqual(["format.order profile.inrun.flatEndXM"]);
+    expect(rulesOf(input)).toEqual([]);
   });
 
   it("reports an outrun that starts too close to the takeoff", () => {

@@ -17,7 +17,8 @@
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 | `src/game/touch-landing.test.ts` | skok polami dotykowymi krokowany jak na ekranie skoku: w locie pole L tylko pochyla, pole P zaczyna telemark, nowe dotknięcie L kończy jego przygotowanie, a oba pola naraz lądują na dwie nogi; klawiatura i mysz bez zmian | wszędzie, także w CI |
 | `src/render/frame-time.budget.test.ts` | czas kroku symulacji i rysowania najszerszego obrazu wobec budżetu (opis w „Pomiar wydajności”) | wszędzie, także w CI |
-| `src/hills/*.test.ts` | format skoczni własnych (ścisła kontrola danych, każda skocznia własna po przejściu przez JSON), reguły geometrii (każda reguła na zmienionej kopii skoczni treningowej), odcisk geometrii przypięty dla każdej skoczni własnej; opis w [hills.md](hills.md); testy obrazu w `src/render`, które dotyczą rysowania skoczni (ruch obrazu, rekwizyty, sceneria, figura, tytuł, budżet czasu, migawka pikseli), przechodzą przez każdą skocznię własną ([hills.md](hills.md), „Kontrole obrazu”) | wszędzie, także w CI |
+| `src/hills/*.test.ts` (bez `*.local.test.ts`) | format skoczni własnych (ścisła kontrola danych, każda skocznia własna po przejściu przez JSON), reguły geometrii (każda reguła na zmienionej kopii skoczni treningowej), odcisk geometrii przypięty dla każdej skoczni własnej; opis w [hills.md](hills.md); testy obrazu w `src/render`, które dotyczą rysowania skoczni (ruch obrazu, rekwizyty, sceneria, figura, tytuł, budżet czasu, migawka pikseli), przechodzą przez każdą skocznię własną ([hills.md](hills.md), „Kontrole obrazu”) | wszędzie, także w CI |
+| `src/hills/original-hills.local.test.ts` | skocznie własne wobec skoczni oryginału: żadna nie jest za bardzo podobna do skoczni oryginału, każda gra w zakresie skoczni oryginału o punkcie K w granicach 15 m od swojego, skocznie oryginału przechodzą kontrolę formatu; opis w [hills.md](hills.md), „Podobieństwo skoczni” | tylko z plikami gry (`DSJ2_GAME_DIR`), nigdy w CI |
 | `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
 | `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest, zgodność czcionki ekranów ze znakami obrazu skoku; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
@@ -315,7 +316,7 @@ DSJ2_TRACE_DIR=/ścieżka/traces DSJ2_GAME_DIR=/ścieżka/gra pnpm test
 | `DSJ2_TRACE_DIR` | `hills.hilltrace` oraz `Dsj.exe` i `Dsj.dat` w `DSJ2_GAME_DIR` | błąd w `original-hills.golden.test.ts` |
 | `DSJ2_TRACE` (bez katalogu) | wskazany plik istnieje | błąd w każdym teście korzystającym ze śladów |
 | dowolna zmienna śladów | `<nazwa>.rpl` w `DSJ2_GAME_DIR` dla każdego śladu `<nazwa>.trace` | błąd w `jump-sim.golden.test.ts` z listą śladów bez powtórki |
-| `DSJ2_GAME_DIR` | `Dsj.exe` i `Dsj.dat` | błąd w `original-hills.golden.test.ts` |
+| `DSJ2_GAME_DIR` | `Dsj.exe` i `Dsj.dat` | błąd w `original-hills.golden.test.ts` i `src/hills/original-hills.local.test.ts` |
 
 Gdy ustawiono `DSJ2_TRACE_DIR`, zmienna `DSJ2_TRACE` nie jest brana pod uwagę, także wtedy, gdy katalogu nie da się
 odczytać. Samo `DSJ2_GAME_DIR` (bez śladów) uruchamia tylko testy odczytu skoczni; porównanie profili ze śladem

@@ -133,10 +133,7 @@ function readInrun(r: Reader, fields: Fields): InrunSpec {
     curveA: r.num(f, path, "curveA", L.curveA),
   };
   // The profile functions take the flat part up to flatEndXM, the line from there to lineEndXM and the curve
-  // after it, and the jumper starts on the line or the curve: a flat part past the line's end would be overwritten.
-  if (valid(inrun.flatEndXM, inrun.startXM)) {
-    r.order(inrun.flatEndXM <= inrun.startXM, `${path}.flatEndXM`, "the flat part must end before the start");
-  }
+  // after it: a flat part past the line's end would be overwritten. The start may lie on the flat part.
   if (valid(inrun.startXM, inrun.takeoffXM)) {
     r.order(inrun.startXM < inrun.takeoffXM, `${path}.startXM`, "the start must lie before the takeoff");
   }
