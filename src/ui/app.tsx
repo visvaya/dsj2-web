@@ -156,12 +156,16 @@ function useStoredSave() {
     setSave((prev) => {
       const changed = next(prev);
       if (changed !== prev) {
+        const done = sync.saving();
         saveSave(backend, changed).then(
           (stored) => {
-            sync.written();
+            done(true);
             setSave((current) => mergedSave(stored, current));
           },
-          () => setSaveFailed(true),
+          () => {
+            done(false);
+            setSaveFailed(true);
+          },
         );
       }
       return changed;

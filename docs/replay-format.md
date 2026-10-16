@@ -121,7 +121,9 @@ i listą wpisów; `src/storage/replay-store.ts`). Rekord skoczni (odległość, 
   zapisane przez inne. Zapis czyta teraz zapis z magazynu i zostawia przy każdej skoczni rekord według
   `betterRecordOf`; ustawienia są z okna, które zapisuje (ostatni zapis wygrywa). Zapisany wynik wraca do okna,
   a inne okna czytają zapis po wiadomości na kanale `telemark-save` i po powrocie do strony
-  (`src/ui/save-sync.ts`), więc lista skoczni i rozpoznanie nowego rekordu widzą rekordy wszystkich okien.
+  (`src/ui/save-sync.ts`), więc lista skoczni i rozpoznanie nowego rekordu widzą rekordy wszystkich okien. Zapis, którego nie da się
+  odczytać, niczego nie zmienia, a dopóki okno samo zapisuje, z odczytu bierze tylko rekordy i zostawia swoje
+  ustawienia.
 - **Błędy zapisu i odczytu.** Otwarcie bazy, które nie kończy się w 5 s (inna karta trzyma bazę przy zmianie
   wersji), liczy się jako błąd; zapis liczy się dopiero po zakończeniu transakcji (przepełniony dysk przerywa ją
   na końcu). Po błędzie zapisu lista zostaje w pamięci okna, a dziennik bez zmian, więc następny zapis (przy

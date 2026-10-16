@@ -3,8 +3,8 @@ import type { IdbRecord } from "../storage/idb-record";
 import { withRecord, type Shelf } from "../storage/replay-shelf";
 import { entry, record } from "../storage/test-support/shelf-entries";
 import { recordReplayStore, replayStoreWithFallback, type ReplayStore } from "../storage/replay-store";
-import { emptySave, withJump, type SaveData } from "../storage/save-data";
-import { memoryBackend, saveSave } from "../storage/save-store";
+import { emptySave, withJump, withSettings, type SaveData } from "../storage/save-data";
+import { SAVE_KEY, memoryBackend, saveSave } from "../storage/save-store";
 import { saveSync } from "./save-sync";
 import { SHELF_SYNC, shelfSync } from "./shelf-sync";
 
@@ -136,9 +136,41 @@ describe("a window's save kept in step with the other windows", () => {
     const writing = saveSync(backend, () => undefined);
     const stops = [listening.connect(), writing.connect()];
     await saveSave(backend, withJump(emptySave(), "own-1", { distanceM: 90, points: 80, fell: false }, new Date()));
-    writing.written();
+    writing.saving()(true);
     await settle();
     expect(here.records["own-1"]?.distanceM).toBe(90);
     for (const stop of stops) stop();
+  });
+
+  it("keeps this window's settings when the stored save cannot be read", async () => {
+    const backend = memoryBackend();
+    await backend.set(SAVE_KEY, "not json");
+    let here: SaveData = withSettings(emptySave(), { sound: false });
+    const sync = saveSync(backend, (update) => {
+      here = update(here);
+    });
+    sync.refresh();
+    await settle();
+    expect(here.settings.sound).toBe(false);
+  });
+
+  it("keeps a settings change of this window while its save is under way, and takes the records read", async () => {
+    const backend = memoryBackend();
+    const elsewhere = withJump(emptySave(), "own-1", { distanceM: 90, points: 80, fell: false }, new Date());
+    await saveSave(backend, elsewhere);
+    let here: SaveData = withSettings(emptySave(), { sound: false });
+    const sync = saveSync(backend, (update) => {
+      here = update(here);
+    });
+    const done = sync.saving();
+    sync.refresh();
+    await settle();
+    expect(here.settings.sound).toBe(false);
+    expect(here.records["own-1"]?.distanceM).toBe(90);
+    done(true);
+    // Once this window's save is stored, a read takes the stored settings again.
+    sync.refresh();
+    await settle();
+    expect(here.settings.sound).toBe(true);
   });
 });

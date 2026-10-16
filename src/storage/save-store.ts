@@ -1,4 +1,4 @@
-import { field, mergedSave, parseSave, type SaveData } from "./save-data";
+import { field, mergedSave, parseSave, readableSave, type SaveData } from "./save-data";
 
 /** Where saves live; chosen at run time by `detectBackend`. */
 export interface StorageBackend {
@@ -74,6 +74,16 @@ export function detectBackend(scope: { storage?: unknown; localStorage?: SyncKey
     // Storage disabled (private mode, blocked cookies): fall through.
   }
   return memoryBackend();
+}
+
+/** The stored save, or null when there is none, it cannot be read, or the storage fails: nothing to take in. */
+export async function readSave(backend: StorageBackend): Promise<SaveData | null> {
+  try {
+    const json = await backend.get(SAVE_KEY);
+    return json === null ? null : readableSave(json);
+  } catch {
+    return null;
+  }
 }
 
 export async function loadSave(backend: StorageBackend): Promise<SaveData> {

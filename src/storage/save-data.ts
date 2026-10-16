@@ -107,16 +107,20 @@ function asRecord(v: unknown): HillRecord | null {
 
 /** Reads stored JSON; anything unreadable or from an unknown version yields an empty save. */
 export function parseSave(json: string | null): SaveData {
-  if (json === null) return emptySave();
+  return json === null ? emptySave() : (readableSave(json) ?? emptySave());
+}
+
+/** Reads stored JSON; null when it is not a save of a version this game knows. */
+export function readableSave(json: string): SaveData | null {
   let raw: unknown;
   try {
     raw = JSON.parse(json);
   } catch {
-    return emptySave();
+    return null;
   }
   const version = field(raw, "schemaVersion");
   // Version 1 had records only; version 2 adds settings.
-  if (version !== 1 && version !== SAVE_SCHEMA_VERSION) return emptySave();
+  if (version !== 1 && version !== SAVE_SCHEMA_VERSION) return null;
   const records: Record<string, HillRecord> = {};
   const stored = field(raw, "records");
   if (typeof stored === "object" && stored !== null) {
