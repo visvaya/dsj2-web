@@ -15,7 +15,7 @@ import {
 } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { LAYER, layerOffset, layerRows, layerX, originalColumn, type SceneView } from "./scene-layers";
-import { SKY_FIRST_INDEX } from "./scene-palette";
+import { mixPacked, SKY_FIRST_INDEX } from "./scene-palette";
 import { colourSpan, type SceneCanvas } from "./scene-span";
 
 /**
@@ -211,19 +211,11 @@ export function drawBackgroundBands(
 const SPILL_ROWS_PX = 28;
 const SPILL_AT_EDGE = 0.55;
 
-/** A packed colour moved `share` (0..1) of the way towards another, alpha kept. */
-function mixPacked(from: number, to: number, share: number): number {
-  const channel = (shift: number) => {
-    const a = (from >>> shift) & 0xff;
-    return Math.round(a + (((to >>> shift) & 0xff) - a) * share) << shift;
-  };
-  return ((from & 0xff000000) | channel(0) | channel(8) | channel(16)) >>> 0;
-}
-
 /**
- * This project's addition while the floodlights are on: their light reaches the snow and the trees just behind
- * the landing hill, fading with the distance from its far edge, so the lit hill does not end in a hard line
- * against the night. Drawn over the background before the hill; the sky is left alone.
+ * This project's addition at dusk: the floodlights' light reaches the snow and the trees just behind the landing
+ * hill, fading with the distance from its far edge, so the lit hill does not end in a hard line against the
+ * darker background. Drawn over the background before the hill; the sky is left alone. At night the light stays
+ * on the hill instead (`scene-floodlight.ts`).
  */
 export function drawFloodlightSpill(c: SceneCanvas, h: HillProfile, view: SceneView, near: Uint32Array): void {
   const farEdge = hillLayerTables(h).farEdge;

@@ -1,13 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { inrunYM, landingYM } from "../sim/hill-profile";
+import { DEFAULT_OUTFIT } from "../game/outfit";
+import { startTrainingJump } from "../game/training-session";
+import { inrunYM, landingYM, type HillProfile } from "../sim/hill-profile";
+import { hillLayerTables, rowsAt } from "./hill-layer-tables";
+import { drawHillScene } from "./jump-view-scene";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
 import { backgroundWaves, drawFloodlightSpill } from "./scene-backdrop";
+import {
+  FLOODLIGHT,
+  firstMastXM,
+  floodlightPalettes,
+  floodlightStep,
+  relightLandingHill,
+  relightNearGround,
+} from "./scene-floodlight";
 import { FrameBuffer } from "./frame-buffer";
-import { sceneView } from "./scene-layers";
+import { LAYER, LAYER_SCALE, layerOffset, originalColumn, sceneView, type SceneView } from "./scene-layers";
 import { sceneCanvas } from "./scene-span";
 import { BIRD_FRAMES, drawBirds } from "./scene-extras";
-import { color } from "./palette";
+import { color, withLook } from "./palette";
 import { LINE_COLOUR, distanceLines } from "./scene-hill";
 import { SKY_FIRST_INDEX, greyedMiddle, sceneDac } from "./scene-palette";
 import { placeTrees, sceneTrees } from "./scene-trees";
@@ -180,7 +192,7 @@ describe("this project's trees", () => {
   });
 });
 
-describe("the floodlights' light behind the hill", () => {
+describe("the floodlights' light behind the hill at dusk", () => {
   it("brightens the background towards the hill's far edge, a few rows above it only, and leaves the sky alone", () => {
     if (!hill) throw new Error("no hill");
     const fb = new FrameBuffer(64, 200);
@@ -212,5 +224,169 @@ describe("the floodlights' light behind the hill", () => {
       expect(run).toEqual(run.toSorted((a, b) => a - b));
       expect(Math.max(...run)).toBeLessThan(160);
     }
+  });
+});
+
+/** The colour of each far edge table index in a picture of the landing hill relit with the camera at x. */
+function farEdgeColours(h: HillProfile, cameraXM: number): Map<number, number> {
+  const fb = new FrameBuffer(160, 200);
+  const c = sceneCanvas(fb, 199);
+  c.indices.fill(20);
+  const near = new Uint32Array(256).fill(0xffffffff);
+  const far = new Uint32Array(256).fill(0xff000000);
+  const view = sceneView(cameraXM, inrunYM(h, cameraXM), 160, 1);
+  fb.pixels.fill(near[20] ?? 0);
+  relightLandingHill(c, h, view, floodlightPalettes(near, far));
+  const edge = layerOffset(view, LAYER.farEdge);
+  const table = hillLayerTables(h).farEdge;
+  const colours = new Map<number, number>();
+  for (let sx = 0; sx < 160; sx++) {
+    const j = edge.x + originalColumn(view, sx);
+    const y = rowsAt(table, j) + edge.y;
+    if (y >= 0 && y < 200) colours.set(j, fb.pixels[y * 160 + sx] ?? 0);
+  }
+  return colours;
+}
+
+/**
+ * Where full light begins along one row of the relit hill: the world x of the first column, from the left, at full
+ * light, by the perspective of the layers (a column shows world x = camX / 14 + (column - 160) / (14 x scale) at the
+ * depth `scale`). The row is a share of the way from the far edge to the near edge (`across`), or a number of rows
+ * under the near edge (`below`). Null when the row shows no such change.
+ */
+function fullLightFromXM(h: HillProfile, view: SceneView, row: { across: number } | { below: number }): number | null {
+  const width = view.widthPx;
+  const fb = new FrameBuffer(width, 200);
+  const c = sceneCanvas(fb, 199);
+  c.indices.fill(20);
+  const lit = 0xffffffff;
+  fb.pixels.fill(lit);
+  const palettes = floodlightPalettes(new Uint32Array(256).fill(lit), new Uint32Array(256).fill(0xff000000));
+  relightLandingHill(c, h, view, palettes);
+  relightNearGround(c, h, view, palettes);
+  const t = hillLayerTables(h);
+  const far = layerOffset(view, LAYER.farEdge);
+  const near = layerOffset(view, LAYER.nearEdge);
+  const farScale = LAYER_SCALE[LAYER.farEdge] ?? 1;
+  const nearScale = LAYER_SCALE[LAYER.nearEdge] ?? 1;
+  const lit0 = Array.from({ length: width }, (_x, sx) => {
+    const column = originalColumn(view, sx);
+    const top = rowsAt(t.farEdge, far.x + column) + far.y;
+    const bottom = rowsAt(t.nearEdge, near.x + column) + near.y;
+    const [y, scale] =
+      "across" in row
+        ? [Math.round(top + row.across * (bottom - top)), farScale + row.across * (nearScale - farScale)]
+        : [bottom + row.below, nearScale + row.below * FLOODLIGHT.nearGroundScalePerRow];
+    const inPicture = y >= 0 && y < 200;
+    return { column, scale, inPicture, full: inPicture && fb.pixels[y * width + sx] === lit };
+  });
+  const k = lit0.findIndex((p, i) => i > 0 && p.full && lit0[i - 1]?.inPicture === true && lit0[i - 1]?.full === false);
+  const at = lit0[k];
+  return at === undefined ? null : view.camX / 14 + (at.column - 160) / (14 * at.scale);
+}
+
+/** Rows 170 to 179 of a picture 160 columns wide: the hill under the inrun in the test below. */
+function bottomRows(pixels: Uint32Array): number[] {
+  return Array.from(pixels.subarray(170 * 160, 180 * 160));
+}
+
+describe("the floodlights' light on the hill at night", () => {
+  const profiles = OWN_HILLS.map((choice) => choice.profile);
+
+  it("lights the hill fully from just before the first mast all the way down, landing area and outrun included", () => {
+    for (const h of profiles) {
+      const from = firstMastXM(h) - FLOODLIGHT.fullLightM;
+      expect(from).toBeLessThan(h.takeoffXM);
+      const xs = Array.from({ length: 200 }, (_x, k) => from + k * 1.5);
+      expect(xs.filter((x) => floodlightStep(h, x) !== 0)).toEqual([]);
+      expect(floodlightStep(h, h.outrunStartXM + 100)).toBe(0);
+    }
+  });
+
+  it("weakens in steps up the inrun, and the top of the inrun is the weakest", () => {
+    for (const h of profiles) {
+      const xs = Array.from({ length: 120 }, (_x, k) => h.takeoffXM - k);
+      const steps = xs.map((x) => floodlightStep(h, x));
+      expect(steps).toEqual(steps.toSorted((a, b) => a - b));
+      expect(new Set(steps).size).toBe(FLOODLIGHT.stepShares.length + 1);
+      expect(floodlightStep(h, h.startXM)).toBe(FLOODLIGHT.stepShares.length);
+    }
+    expect(FLOODLIGHT.stepShares).toEqual(FLOODLIGHT.stepShares.toSorted((a, b) => a - b));
+    expect(Math.max(...FLOODLIGHT.stepShares)).toBeLessThan(1);
+  });
+
+  it("builds each step's palette between the lit and the moonlit ones, the lit one first", () => {
+    const near = new Uint32Array(256).fill(0xffc8c8c8);
+    const far = new Uint32Array(256).fill(0xff141414);
+    const palettes = floodlightPalettes(near, far);
+    expect(palettes[0]).toBe(near);
+    expect(floodlightPalettes(near, far)).toBe(palettes);
+    const reds = palettes.map((pal) => (pal[7] ?? 0) & 0xff);
+    expect(reds).toEqual([200, ...FLOODLIGHT.stepShares.map((share) => Math.round(200 - 180 * share))]);
+  });
+
+  it("keeps the light of every place on the hill where it is while the camera moves", () => {
+    const h = hill?.profile;
+    if (h === undefined) throw new Error("no hill");
+    const a = farEdgeColours(h, h.takeoffXM - 8);
+    const b = farEdgeColours(h, h.takeoffXM - 4);
+    const shared = [...a.keys()].filter((j) => b.has(j));
+    expect(shared.length).toBeGreaterThan(40);
+    expect(shared.map((j) => b.get(j))).toEqual(shared.map((j) => a.get(j)));
+    // The picture shows more than one step, so the comparison sees the steps themselves.
+    expect(new Set(shared.map((j) => a.get(j))).size).toBeGreaterThan(1);
+  });
+
+  it("keeps full light starting at the same place on the hill, across it and below it, as the camera moves", () => {
+    const h = hill?.profile;
+    if (h === undefined) throw new Error("no hill");
+    const at = (xM: number, liftM = 0) => sceneView(xM, inrunYM(h, xM) + liftM, 432, 1.2);
+    // At the takeoff and past it, and at the takeoff with the camera lower down.
+    const views = [at(h.takeoffXM), at(h.takeoffXM + 4), at(h.takeoffXM, -3)];
+    for (const row of [{ across: 0.5 }, { across: 0.9 }, { below: 6 }]) {
+      const xs = views.map((view) => fullLightFromXM(h, view, row));
+      // Full light starts in sight in every view, so each finds it.
+      expect(xs.map((x) => x !== null)).toEqual(views.map(() => true));
+      const found = xs.flatMap((x) => (x === null ? [] : [x]));
+      // Within two columns of the nearest depth these rows show (a column there is under 0.1 m).
+      expect(Math.max(...found) - Math.min(...found)).toBeLessThan(0.2);
+    }
+  });
+
+  it("is drawn only at night: at dusk the hill under the inrun keeps the lit colours", () => {
+    const choice = OWN_HILLS[0];
+    if (choice === undefined) throw new Error("no hill");
+    const h = choice.profile;
+    // The jumper 10 m before the takeoff, with the hill under the inrun in the lower rows.
+    const start = startTrainingJump(choice, 3).state;
+    const xM = h.takeoffXM - 10;
+    const state = { ...start, jumper: { ...start.jumper, xM, yM: inrunYM(h, xM) } };
+    const draw = (floodlights: "dusk" | "night" | undefined) => {
+      const fb = new FrameBuffer(160, 200);
+      // The colours of the night, so that the lit and the moonlit palettes differ.
+      withLook({ lighting: "night", fog: false }, () =>
+        drawHillScene(
+          fb,
+          {
+            profile: h,
+            kPointM: choice.kPointM,
+            look: choice.look,
+            state,
+            outfit: DEFAULT_OUTFIT,
+            recordM: 0,
+            pixelWidth: 1,
+            ...(floodlights === undefined ? {} : { floodlights }),
+          },
+          180,
+        ),
+      );
+      return fb.pixels;
+    };
+    const plain = draw(undefined);
+    const dusk = draw("dusk");
+    const night = draw("night");
+    // Below the far edge the hill is drawn in the same colours at dusk as without the lights' changes.
+    expect(bottomRows(dusk)).toEqual(bottomRows(plain));
+    expect(bottomRows(night)).not.toEqual(bottomRows(plain));
   });
 });

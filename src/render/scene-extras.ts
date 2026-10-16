@@ -15,6 +15,7 @@ import {
   type SceneView,
 } from "./scene-layers";
 import { color } from "./palette";
+import { FLOODLIGHT, firstMastXM } from "./scene-floodlight";
 import { SKY_FIRST_INDEX } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
 
@@ -102,8 +103,6 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
   }
 }
 
-const MAST_SPACING_M = 30;
-const MAST_FIRST_AFTER_TAKEOFF_M = 12;
 const MAST_HEIGHT_PX = 78;
 /** The floodlight's head: lamps in one row inside a dark frame, and the short rays of light either side of it. */
 const FLOODLIGHT_LAMPS = 4;
@@ -124,10 +123,10 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   const lamp = color("lampLight");
   const glow = color("lampGlow");
   const headW = FLOODLIGHT_LAMPS + 2;
-  const first = h.takeoffXM + MAST_FIRST_AFTER_TAKEOFF_M;
+  const first = firstMastXM(h);
   const [from, to] = farRange(view, headW + FLOODLIGHT_RAY_PX);
-  const start = first + Math.max(0, Math.ceil((from - first) / MAST_SPACING_M)) * MAST_SPACING_M;
-  for (let x = start; x <= to; x += MAST_SPACING_M) {
+  const start = first + Math.max(0, Math.ceil((from - first) / FLOODLIGHT.mastSpacingM)) * FLOODLIGHT.mastSpacingM;
+  for (let x = start; x <= to; x += FLOODLIGHT.mastSpacingM) {
     const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
