@@ -1,4 +1,6 @@
-# Supply-chain guard: refuse a version published with weaker provenance than an
+# Supply-chain guards: refuse a version published with weaker provenance than an
 # earlier one of the same package (for example trusted publishing dropped to a
-# plain token).
+# plain token), and any version younger than a week (in minutes), so a release
+# pulled after a compromise never reaches the lockfile.
 trustPolicy: no-downgrade
+minimumReleaseAge: 10080
