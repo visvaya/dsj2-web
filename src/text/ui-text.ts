@@ -25,7 +25,7 @@ export const UI_TEXT = {
 
   menu: {
     /** Under the name of the game: what it is, and its version (`versionLabel`), which never breaks apart. */
-    tagline: "Skoki narciarskie",
+    tagline: "Skoki jak z DOS-a",
     navigation: "Główne menu",
     training: "Trening",
     replays: "Powtórki",
