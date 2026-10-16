@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { OWN_HILLS, type HillChoice } from "../game/hill-choice";
+import { OWN_HILLS, hillChoiceOf, type HillChoice } from "../game/hill-choice";
 import { DEFAULT_OUTFIT, type Outfit } from "../game/outfit";
 import { previewFlightState } from "../game/outfit-preview";
 import {
@@ -9,6 +9,8 @@ import {
   stepTrainingJump,
   type TrainingJump,
 } from "../game/training-session";
+import { parseHillSpec } from "../hills/parse-hill-spec";
+import { OWN_HILL_SPECS } from "../hills/own-hills";
 import { PHASE, notesShownBy, type FrameInput } from "../sim/jump-logic";
 import { makeBot, type BotOptions } from "../sim/test-support/synthetic";
 import { FrameBuffer } from "./frame-buffer";
@@ -65,6 +67,17 @@ const VARIANTS: readonly Variant[] = LIGHTINGS.flatMap((lighting, li) =>
     ),
   ),
 );
+
+/**
+ * The smaller set every own hill after the first gets under its own keys: one width, every lighting, clear weather.
+ * The first hill's full set covers the weather and the widths, which draw the same way on any hill.
+ */
+const HILL_VARIANTS: readonly Variant[] = LIGHTINGS.map((lighting) => ({
+  name: `${lighting}, clear, 356 px, mouse`,
+  scenery: { lighting, snowfall: false, fog: false },
+  widthPx: 356,
+  controls: "mouse",
+}));
 
 interface Moment {
   name: string;
@@ -165,11 +178,14 @@ function practiceHill(): HillChoice {
 const NO_INPUT: FrameInput = { left: false, right: false, dy: 0 };
 
 /** Hash of the frame for each variant at each moment of the scenario, drawn while the jump is at that moment. */
-function capture(sc: Scenario): Record<string, Record<string, string>> {
-  const hill = practiceHill();
+function capture(
+  sc: Scenario,
+  hill: HillChoice = practiceHill(),
+  variants: readonly Variant[] = VARIANTS,
+): Record<string, Record<string, string>> {
   let jump = startTrainingJump(hill, sc.seed);
   const bot = sc.bot === null ? () => NO_INPUT : makeBot(hill.profile, sc.bot, () => jump.state);
-  const buffers = new Map(WIDTHS_PX.map((w) => [w, new FrameBuffer(w, VIEW_HEIGHT_PX)]));
+  const buffers = new Map(variants.map((v) => [v.widthPx, new FrameBuffer(v.widthPx, VIEW_HEIGHT_PX)]));
   const frames: Record<string, Record<string, string>> = {};
   for (let f = 0; f < 4000 && jump.framesAfterEnd < 400; f++) {
     jump = stepTrainingJump(jump, bot(jump.state.logic.frame + 1));
@@ -177,13 +193,14 @@ function capture(sc: Scenario): Record<string, Record<string, string>> {
     for (const moment of sc.moments) {
       if (frames[moment.name] !== undefined || !moment.when(jump, frame)) continue;
       const hashes: Record<string, string> = {};
-      for (const v of VARIANTS) {
+      for (const v of variants) {
         const fb = buffers.get(v.widthPx);
         if (!fb) throw new Error("no buffer");
         fb.pixels.fill(0);
         drawJumpView(fb, {
           profile: hill.profile,
           kPointM: hill.kPointM,
+          look: hill.look,
           hillName: hill.name,
           playerName: "GRACZ 1",
           state: jump.state,
@@ -252,4 +269,63 @@ describe("jump view pixels", () => {
     }
     expect(hashes).toMatchSnapshot();
   });
+});
+
+/** The clean jump with a telemark landing: the moments every own hill is drawn at. */
+function telemarkJump(): Scenario {
+  const sc = SCENARIOS[0];
+  if (sc === undefined) throw new Error("no telemark jump");
+  return sc;
+}
+
+/**
+ * A hill that exists only in this test: the first own hill's data with another id, another sky and other trees,
+ * parsed and built the way every own hill is.
+ */
+function otherLookHill(): HillChoice {
+  const first = OWN_HILL_SPECS[0];
+  if (first === undefined) throw new Error("no own hill");
+  const parsed = parseHillSpec(
+    JSON.parse(
+      JSON.stringify({
+        ...first,
+        id: "test-other-look",
+        look: { ...first.look, skyRgb6: [50, 30, 20], trees: { ...first.look.trees, seed: 777 } },
+      }),
+    ),
+  );
+  if (!parsed.ok) throw new Error(parsed.problems.map((p) => `${p.path}: ${p.message}`).join("; "));
+  return hillChoiceOf(parsed.spec);
+}
+
+describe("jump view pixels of every own hill", () => {
+  // The first own hill has the full set above; each further hill adds its own keys to the snapshot.
+  for (const hill of OWN_HILLS.slice(1)) {
+    it(
+      `${hill.id}: ${telemarkJump().name}`,
+      () => {
+        const sc = telemarkJump();
+        const frames = capture(sc, hill, HILL_VARIANTS);
+        expect(sc.moments.filter((m) => frames[m.name] === undefined).map((m) => m.name)).toEqual([]);
+        expect(frames).toMatchSnapshot();
+      },
+      SCENARIO_TIMEOUT_MS,
+    );
+  }
+
+  it(
+    "draws a hill of another look differently at every moment, through the same path",
+    () => {
+      const sc = telemarkJump();
+      const first = capture(sc, practiceHill(), HILL_VARIANTS);
+      const other = capture(sc, otherLookHill(), HILL_VARIANTS);
+      const pairs = sc.moments.flatMap((m) =>
+        HILL_VARIANTS.map((v) => [first[m.name]?.[v.name], other[m.name]?.[v.name]] as const),
+      );
+      expect(pairs).toHaveLength(sc.moments.length * HILL_VARIANTS.length);
+      expect(pairs.filter(([a, b]) => a === undefined || b === undefined)).toEqual([]);
+      expect(pairs.filter(([a, b]) => a === b)).toEqual([]);
+    },
+    SCENARIO_TIMEOUT_MS,
+  );
 });
