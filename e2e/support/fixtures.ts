@@ -22,7 +22,7 @@ interface Fixtures {
  * tests expect), one that reads steadily, one that gives no readings, or one that asks the player first and
  * then gives it or refuses it (as on an iPhone; the first request, made without a tap, is always refused).
  */
-export type MotionSensor = "none" | "steady" | "silent" | "asks-grant" | "asks-deny";
+type MotionSensor = "none" | "steady" | "silent" | "asks-grant" | "asks-deny";
 
 interface Options {
   motionSensor: MotionSensor;

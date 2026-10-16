@@ -112,8 +112,9 @@ test.describe("with a browser that asks first", () => {
     await button(page, "Nie, palcem").tap();
     await expect(button(page, TEXT.leftPad)).toBeVisible();
     await expectFingerSaved(page);
-    await page.reload();
-    await expect(button(page, TEXT.leftPad).or(page.getByRole("button", { name: TEXT.pause }))).toBeVisible();
+    // A new visit: the game starts at its menu, and the jump screen no longer asks.
+    await openJumpFromStart(page, traits);
+    await expect(button(page, TEXT.leftPad)).toBeVisible();
     await expect(page.getByText(QUESTION)).toHaveCount(0);
   });
 });
