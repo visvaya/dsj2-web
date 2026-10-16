@@ -134,6 +134,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
       outfit: m.outfit ?? DEFAULT_OUTFIT,
       recordM: m.recordM ?? 0,
       pixelWidth: SQUARE_PIXEL_WIDTH,
+      floodlit: lightsOn,
       ...(m.ghost === undefined ? {} : { ghost: m.ghost, drawGhost: (f, g, a) => drawGhost(f, h, g, a) }),
     },
     groundBottom - 1,
