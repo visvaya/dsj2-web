@@ -69,12 +69,12 @@ export const UI_TEXT = {
     intro:
       "Tu znajdują się powtórki rekordów skoczni, zachowane i ostatnie skoki oraz wczytane powtórki: pliki .rpl z DSJ2 i pliki powtórek tej gry. Rekord skoczni zapisuje się sam; inny skok zachowasz w menu skoku albo powtórki: „Zachowaj ostatni skok”.",
     load: "Wczytaj powtórki (*.rpl, plik powtórek *.json albo archiwum *.zip)",
-    needsGame: "Pow|tór|ki z~DSJ2 gra|ją na skocz|niach ory|gi|na|łu: naj|pierw wczy|taj pli|ki gry w~me|nu głów|nym.",
-    notReplay: "To nie jest plik pow|tór|ki DSJ2 (.rpl).",
-    damaged: "Plik pow|tór|ki jest usz|ko|dzo|ny: suma kon|trol|na się nie zga|dza.",
-    badValues: "Pow|tór|ka ma nie|po|praw|ne dane i~nie da się jej od|two|rzyć.",
+    needsGame: "Po|wtór|ki z~DSJ2 gra|ją na skocz|niach ory|gi|na|łu: naj|pierw wczy|taj pli|ki gry w~me|nu głów|nym.",
+    notReplay: "To nie jest plik po|wtór|ki DSJ2 (.rpl).",
+    damaged: "Plik po|wtór|ki jest uszko|dzo|ny: suma kon|trol|na się nie zga|dza.",
+    badValues: "Po|wtór|ka ma nie|po|praw|ne dane i~nie da się jej od|two|rzyć.",
     noHill: (hillNumber: number) =>
-      `Wczy|ta|ny Dsj.exe nie ma skocz|ni nr ${hillNumber}, z~któ|rej jest ta pow|tór|ka.`,
+      `Wczy|ta|ny Dsj.exe nie ma skocz|ni nr ${hillNumber}, z~któ|rej jest ta po|wtór|ka.`,
     groups: { record: "Rekordy skoczni", kept: "Zachowane", recent: "Ostatnie skoki", loaded: "Wczytane" },
     empty: "Nie ma jeszcze zapisanych powtórek.",
     /** One replay of the list: its result, its date and what it weighs. */
@@ -91,13 +91,13 @@ export const UI_TEXT = {
     usage: (count: number, used: string, budget: string) => `Powtórek: ${count}; zajęte ${used} z ${budget}.`,
     removeOldest: "Usuń najstarsze",
     removeOldestCount: "Ile najstarszych usunąć (rekordy zostają)",
-    removed: (count: number) => `Usu|nię|to pow|tó|rek: ${count}.`,
-    keptFull: "Miej|sce na za|cho|wa|ne pow|tór|ki się skoń|czy|ło (100). Usuń star|sze, że|by za|cho|wać nowe.",
-    loadedFull: "Miej|sce na wczy|ta|ne pow|tór|ki się skoń|czy|ło (100). Usuń star|sze, że|by wczy|tać nowe.",
+    removed: (count: number) => `Usu|nię|to po|wtó|rek: ${count}.`,
+    keptFull: "Miej|sce na za|cho|wa|ne po|wtór|ki się skoń|czy|ło (100). Usuń star|sze, że|by za|cho|wać nowe.",
+    loadedFull: "Miej|sce na wczy|ta|ne po|wtór|ki się skoń|czy|ło (100). Usuń star|sze, że|by wczy|tać nowe.",
     alreadyKept: "Ten skok jest już zachowany.",
     keptDone: "Za|cho|wa|no.",
     notReady: "Powtórki jeszcze się wczytują; spróbuj za chwilę.",
-    removeArmed: "Dot|knij jesz|cze raz „Na pew|no usu|nąć?”, że|by usu|nąć.",
+    removeArmed: "Do|tknij jesz|cze raz „Na pew|no usu|nąć?”, że|by usu|nąć.",
     select: (replay: string) => `Zaznacz: ${replay}`,
     selectAll: "Zaznacz wszystkie",
     selectNone: "Odznacz wszystkie",
@@ -106,24 +106,24 @@ export const UI_TEXT = {
     confirmRemoveSelected: (count: number) => `Na pewno usunąć ${count}?`,
     exportTitle: "Powtórki z gry Telemark",
     exported: {
-      shared: "Udo|stęp|nio|no plik z~pow|tór|ka|mi.",
-      downloaded: "Za|pi|sa|no plik z~pow|tór|ka|mi.",
+      shared: "Udo|stęp|nio|no plik z~po|wtór|ka|mi.",
+      downloaded: "Za|pi|sa|no plik z~po|wtór|ka|mi.",
       cancelled: "",
     },
     imported: (added: number, already: number) =>
       already === 0
-        ? `Wczy|ta|no pow|tó|rek: ${added}.`
-        : `Wczy|ta|no pow|tó|rek: ${added}; już za|cho|wa|nych: ${already}.`,
-    importUnreadable: (count: number) => `Nie dało się od|czy|tać pow|tó|rek: ${count}.`,
-    importSkipped: (count: number) => `Po|mi|nię|te pli|ki, któ|re nie są pow|tór|ka|mi: ${count}.`,
+        ? `Wczy|ta|no po|wtó|rek: ${added}.`
+        : `Wczy|ta|no po|wtó|rek: ${added}; już za|cho|wa|nych: ${already}.`,
+    importUnreadable: (count: number) => `Nie dało się od|czy|tać po|wtó|rek: ${count}.`,
+    importSkipped: (count: number) => `Po|mi|nię|te pli|ki, któ|re nie są po|wtór|ka|mi: ${count}.`,
     importUntrue: (count: number) => `Po|mi|nię|te, bo nie gra|ją do wy|ni|ku z~pli|ku: ${count}.`,
-    notReplayFile: "To nie jest plik pow|tór|ki DSJ2 (.rpl) ani plik pow|tó|rek tej gry.",
+    notReplayFile: "To nie jest plik po|wtór|ki DSJ2 (.rpl) ani plik po|wtó|rek tej gry.",
     onlyForVisit: "Ta przeglądarka nie pozwala zapisać powtórek na stałe: znikną po zamknięciu strony.",
-    budgetFull: "Pow|tór|ki zaj|mu|ją już całe prze|wi|dzia|ne miej|sce. Usuń star|sze, że|by za|pi|sać nowe.",
-    notTrue: "Ta pow|tór|ka nie pa|su|je do tej wer|sji gry albo jest usz|ko|dzo|na, więc nie da się jej obej|rzeć.",
-    hillMissing: "Skocz|ni tej pow|tór|ki nie ma w~grze: wczy|taj pli|ki gry w~me|nu głów|nym.",
+    budgetFull: "Po|wtór|ki zaj|mu|ją już całe prze|wi|dzia|ne miej|sce. Usuń star|sze, że|by za|pi|sać nowe.",
+    notTrue: "Ta po|wtór|ka nie pa|su|je do tej wer|sji gry albo jest uszko|dzo|na, więc nie da się jej obej|rzeć.",
+    hillMissing: "Skocz|ni tej po|wtór|ki nie ma w~grze: wczy|taj pli|ki gry w~me|nu głów|nym.",
     hillRetired:
-      "Ta pow|tór|ka jest z~po|przed|nie|go kształ|tu tej skocz|ni, któ|re|go gra już nie ma, więc nie da się jej obej|rzeć. Mo|żesz ją usu|nąć.",
+      "Ta po|wtór|ka jest z~po|przed|nie|go kształ|tu tej skocz|ni, któ|re|go gra już nie ma, więc nie da się jej obej|rzeć. Mo|żesz ją usu|nąć.",
     retiredHill: (hillLabel: string) => `${hillLabel} (dawny kształt)`,
     rplExport: "Eksportuj .rpl",
     rplExportLabel: (replay: string) => `Eksportuj do pliku DSJ2 (.rpl): ${replay}`,
@@ -329,14 +329,14 @@ export const UI_TEXT = {
     },
     /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
     updateWaiting: (version: string | null) =>
-      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zam|knij grę cał|ko|wi|cie (wszyst|kie okna, a~na te|le|fo|nie tak|że apli|ka|cję w~prze|łącz|ni|ku apli|ka|cji) i~uru|chom ją po|now|nie, żeby się za|in|sta|lo|wa|ła.`,
+      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Za|mknij grę cał|ko|wi|cie (wszyst|kie okna, a~na te|le|fo|nie tak|że apli|ka|cję w~prze|łącz|ni|ku apli|ka|cji) i~uru|chom ją po|now|nie, żeby się za|in|sta|lo|wa|ła.`,
     /** The short form beside the button that installs it, in the main menu. */
     updateFound: (version: string | null) =>
       version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`,
     /** The way to get it without the button, under it. */
-    slowWay: "Albo zam|knij wszyst|kie okna gry i~uru|chom ją po|now|nie.",
+    slowWay: "Albo za|mknij wszyst|kie okna gry i~uru|chom ją po|now|nie.",
     /** The release has taken over from another window; this one still runs the version it started with. */
-    updatedElsewhere: "Gra zak|tu|a|li|zo|wa|ła się w~in|nym ok|nie: prze|ła|duj, że|by jej uży|wać.",
+    updatedElsewhere: "Gra zaktu|a|li|zo|wa|ła się w~in|nym ok|nie: prze|ła|duj, że|by jej uży|wać.",
     reload: "Przeładuj",
     /** Installs the waiting release in this window at once; the page loads again. Then what happens. */
     installNow: "Zainstaluj teraz",
