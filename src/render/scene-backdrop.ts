@@ -206,3 +206,39 @@ export function drawBackgroundBands(
     }
   }
 }
+
+/** Rows above the landing hill's far edge that the floodlights reach, and the share of their light at the edge. */
+const SPILL_ROWS_PX = 28;
+const SPILL_AT_EDGE = 0.55;
+
+/** A packed colour moved `share` (0..1) of the way towards another, alpha kept. */
+function mixPacked(from: number, to: number, share: number): number {
+  const channel = (shift: number) => {
+    const a = (from >>> shift) & 0xff;
+    return Math.round(a + (((to >>> shift) & 0xff) - a) * share) << shift;
+  };
+  return ((from & 0xff000000) | channel(0) | channel(8) | channel(16)) >>> 0;
+}
+
+/**
+ * This project's addition while the floodlights are on: their light reaches the snow and the trees just behind
+ * the landing hill, fading with the distance from its far edge, so the lit hill does not end in a hard line
+ * against the night. Drawn over the background before the hill; the sky is left alone.
+ */
+export function drawFloodlightSpill(c: SceneCanvas, h: HillProfile, view: SceneView, near: Uint32Array): void {
+  const farEdge = hillLayerTables(h).farEdge;
+  const edgeOff = layerOffset(view, LAYER.farEdge);
+  const { fb, indices } = c;
+  const pixels = fb.pixels;
+  for (let sx = 0; sx < fb.width; sx++) {
+    const edgeY = rowsAt(farEdge, edgeOff.x + originalColumn(view, sx)) + edgeOff.y;
+    const bottom = Math.min(edgeY, c.lastRow);
+    for (let y = Math.max(0, edgeY - SPILL_ROWS_PX); y <= bottom; y++) {
+      const i = y * fb.width + sx;
+      const index = indices[i] ?? 0;
+      if (index >= SKY_FIRST_INDEX) continue;
+      const lit = 1 - (edgeY - y) / SPILL_ROWS_PX;
+      pixels[i] = mixPacked(pixels[i] ?? 0, near[index] ?? 0, SPILL_AT_EDGE * lit * lit);
+    }
+  }
+}

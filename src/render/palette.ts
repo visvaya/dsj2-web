@@ -77,8 +77,9 @@ function shade(base: Rgb, far: boolean, lighting: Lighting): Rgb {
   if (lighting === "day") return base;
   const [r, g, b] = base;
   if (lighting === "dusk") {
-    // Low sun: warm and a little dimmer, the far scenery more so.
-    return far ? vga(r * 0.85 + 18, g * 0.7, b * 0.76) : vga(r * 0.95 + 8, g * 0.84, b * 0.8);
+    // Low sun, the same warm tint on the hill and behind it (a weaker tint on the hill drew a hard line along its
+    // far edge); the far scenery a little dimmer.
+    return far ? vga(r * 0.85 + 18, g * 0.7, b * 0.76) : vga(r * 0.9 + 16, g * 0.75, b * 0.78);
   }
   // Moonlit backdrop: dark and blue. Floodlit hill (slope, inrun, fences, jumper): a little dimmer and cooler.
   return far ? vga(r * 0.2 + 4, g * 0.24 + 6, b * 0.36 + 20) : vga(r * 0.8, g * 0.82, b * 0.9);
