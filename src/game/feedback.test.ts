@@ -23,6 +23,9 @@ function run(landingHeightM: number | null): string[] {
   return events;
 }
 
+/** A browser that gives the motion sensor without asking. */
+function PLAIN_SENSOR() {}
+
 describe("haptic feedback", () => {
   it("reports start, takeoff and landing of a clean jump once each", () => {
     expect(run(2)).toEqual(["start", "takeoff", "landing"]);
@@ -102,12 +105,11 @@ describe("tilt steering", () => {
   });
 
   it("tells a browser without the sensor and one that asks first from one that gives it at once", () => {
-    const plain = function DeviceOrientationEvent() {};
     const ios = Object.assign(function DeviceOrientationEvent() {}, {
       requestPermission: () => Promise.resolve("granted"),
     });
     expect([tiltSupported(undefined), tiltAsksFirst(undefined)]).toEqual([false, false]);
-    expect([tiltSupported(plain), tiltAsksFirst(plain)]).toEqual([true, false]);
+    expect([tiltSupported(PLAIN_SENSOR), tiltAsksFirst(PLAIN_SENSOR)]).toEqual([true, false]);
     expect([tiltSupported(ios), tiltAsksFirst(ios)]).toEqual([true, true]);
   });
 });
