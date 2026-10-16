@@ -8,7 +8,7 @@ import { OWN_HILL_SPECS } from "./own-hills";
  * and add the old id to RETIRED_OWN_HILL_IDS, then pin the new id here.
  */
 const PINNED: Readonly<Record<string, string>> = {
-  "own-2": "0676e9fd",
+  "own-3": "5d8a7866",
 };
 
 describe("hill fingerprint", () => {

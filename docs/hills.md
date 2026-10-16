@@ -16,12 +16,12 @@ Typ `HillSpec` (`src/hills/hill-spec.ts`), wersja formatu `schemaVersion: 1`. Pr
 ```json
 {
   "schemaVersion": 1,
-  "id": "own-2",
+  "id": "own-3",
   "name": "Ćwiczebna",
   "kPointM": 90,
   "profile": {
     "inrun": {
-      "startXM": 11.4, "flatEndXM": 10, "lineEndXM": 25.3, "takeoffXM": 46,
+      "startXM": 10.6, "flatEndXM": 9.2, "lineEndXM": 25.3, "takeoffXM": 46,
       "lineSlope": -1, "lineInterceptM": 230, "curveA": 0.02
     },
     "landing": {
@@ -200,6 +200,10 @@ niego nie wchodzi. Test przypina odcisk każdej skoczni własnej. Zmiana geometr
 a stary trafia do `RETIRED_OWN_HILL_IDS` (`src/game/hill-choice.ts`): rekordy i powtórki zostają przy starym
 kształcie i nigdy nie spotykają nowego.
 
+Skocznia „Ćwiczebna” ma obecnie identyfikator `own-3`; `own-1` i `own-2` to jej wcześniejsze kształty. Na `own-2`
+rozbieg był krótszy (`startXM` 11,4 i `flatEndXM` 10 zamiast 10,6 i 9,2) i najlepszy skok lądował w okolicy punktu
+K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkości.
+
 ## Dodanie skoczni
 
 1. Skopiować dane istniejącej skoczni w `src/hills/own-hills.ts`, nadać nowy `id` i nazwę, zmienić liczby.
@@ -207,6 +211,7 @@ kształcie i nigdy nie spotykają nowego.
 3. `corepack pnpm test src/render`: kontrole obrazu; nowe klucze migawki pikseli dla nowej skoczni zapisuje
    `corepack pnpm test -u src/render/jump-view.pixels.test.ts`, a w diffie mają się pojawić tylko one.
 4. Przejrzeć migawkę pikseli i testy przeglądarkowe, które wskazują skocznię wbudowaną (`e2e/support/app.ts`;
-   czasy naciśnięć w `e2e/support/jump.ts` zmierzono na tej skoczni).
+   czasy naciśnięć w `e2e/support/jump-timing.ts` zmierzono na tej skoczni; test
+   `src/game/scripted-jump-timing.test.ts` sprawdza, że nadal dają czyste lądowanie z zapasem 0,1 s).
 5. Skoczyć na komputerze i na telefonie.
 6. Podnieść wersję jak przy każdej zmianie gry.

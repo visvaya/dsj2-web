@@ -33,7 +33,7 @@ describe("a replay on the shelf", () => {
   it("plays back to the result it was kept with", () => {
     const { hill: on, recording, result } = trainingJump();
     const entry = ownEntry("kept", on, { recording, result }, NOW);
-    expect(entry.id).toContain("kept:own-2:");
+    expect(entry.id).toContain("kept:own-3:");
     const source = sourceOfEntry(entry);
     if (!source) throw new Error("no source");
     expect(playedResult(source, on)).toEqual(result);

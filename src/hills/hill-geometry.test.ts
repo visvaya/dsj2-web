@@ -34,7 +34,7 @@ describe("hill geometry", () => {
     const g = trainingGeometry();
     expect(g.takeoffAngleDeg).toBeCloseTo(9.76, 2);
     expect(g.tableHeightM).toBeCloseTo(2.03, 2);
-    expect(g.inrunDropM).toBeCloseTo(26.03, 2);
+    expect(g.inrunDropM).toBeCloseTo(26.83, 2);
     expect(g.steepestInrunDeg).toBeCloseTo(45, 3);
     expect(g.kXM).toBeCloseTo(121.87, 1);
     expect(g.landingAngleAtKDeg).toBeCloseTo(41.45, 1);

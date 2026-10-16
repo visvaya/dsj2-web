@@ -7,14 +7,16 @@ import type { HillSpec } from "./hill-spec";
 export const OWN_HILL_SPECS: readonly HillSpec[] = [
   {
     schemaVersion: 1,
-    // "own-1" was the first profile of this hill, outside the original's ranges at its K point.
-    id: "own-2",
+    // Earlier shapes: "own-1" was outside the original's ranges at its K point; on "own-2", with a shorter
+    // inrun (start 11.4, flat end 10), the best jump landed at K instead of a few metres past it, as on hills of a
+    // similar size.
+    id: "own-3",
     name: "Ćwiczebna",
     kPointM: 90,
     profile: {
       inrun: {
-        startXM: 11.4,
-        flatEndXM: 10,
+        startXM: 10.6,
+        flatEndXM: 9.2,
         lineEndXM: 25.3,
         takeoffXM: 46,
         lineSlope: -1,
