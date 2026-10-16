@@ -79,33 +79,60 @@ export function windSockDirection(s: JumpSimState): [number, number] {
  * is only for show.
  */
 export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, s: JumpSimState, frame: number) {
+  for (const {
+    xM: x,
+    at: [sx, ground],
+  } of sockPlaces(h, view)) {
+    drawWindSock(fb, s, frame, x, sx, ground);
+  }
+}
+
+/** A prop on the hill: its number in its row of props, its world x and where its foot shows on the picture. */
+export interface PropPlace {
+  index: number;
+  xM: number;
+  at: ScreenPoint;
+}
+
+/** Props every `spacingM` from `firstM`, on the far fence, within world x `from`..`to`. */
+function fencePropPlaces(h: HillProfile, view: SceneView, firstM: number, spacingM: number, from: number, to: number) {
+  const places: PropPlace[] = [];
+  let index = Math.max(0, Math.ceil((from - firstM) / spacingM));
+  for (let x = firstM + index * spacingM; x <= to; x += spacingM) {
+    places.push({ index: index++, xM: x, at: onSurface(view, LAYER.farEdge, hillLayerTables(h).farEdge, x) });
+  }
+  return places;
+}
+
+/** The wind socks near enough to the view to show: on the far fence, every 25 m from past the takeoff. */
+export function sockPlaces(h: HillProfile, view: SceneView): PropPlace[] {
+  const [from, to] = layerSpanXM(view, LAYER.farEdge, 20);
+  const first = h.takeoffXM + SOCK_FIRST_AFTER_TAKEOFF_M;
+  return fencePropPlaces(h, view, first, SOCK_SPACING_M, from, Math.min(to, h.outrunStartXM));
+}
+
+function drawWindSock(fb: FrameBuffer, s: JumpSimState, frame: number, x: number, sx: number, ground: number) {
   const pole = color("post");
   const red = color("sockRed");
   const white = color("sockWhite");
   const [ux0, uy0] = windSockDirection(s);
   const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
-  const first = h.takeoffXM + SOCK_FIRST_AFTER_TAKEOFF_M;
-  const [from, to] = layerSpanXM(view, LAYER.farEdge, 20);
-  const start = first + Math.max(0, Math.ceil((from - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
-  for (let x = start; x <= Math.min(to, h.outrunStartXM); x += SOCK_SPACING_M) {
-    const [sx, ground] = onSurface(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
-    const top = ground - FAR_FENCE_ROWS - SOCK_POLE_PX;
-    fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
-    const flutter = 0.12 * k * fastSin(frame / 4 + x);
-    const ux = ux0 - flutter * uy0;
-    const uy = uy0 + flutter * ux0;
-    // Across the sock keeps its full width however short it shows.
-    const across = Math.hypot(ux, uy) || 1;
-    // A cone from the ring at the top of the pole to the tail, filled across its width, in bands of red and white.
-    const full = SOCK_SLACK_WIDTH + (1 - SOCK_SLACK_WIDTH) * k;
-    const tailHalf = SOCK_TAIL_HALF_PX * Math.min(1, k / SOCK_LIMP_BELOW);
-    for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.25) {
-      const share = t / SOCK_LENGTH_PX;
-      const half = (SOCK_MOUTH_HALF_PX + (tailHalf - SOCK_MOUTH_HALF_PX) * share) * full;
-      const c = Math.min(SOCK_BANDS - 1, Math.floor(share * SOCK_BANDS)) % 2 === 0 ? red : white;
-      for (let w = -half; w <= half; w += 0.25) {
-        fb.put(sx + 0.5 + ux * t - (uy / across) * w, top + uy * t + (ux / across) * w, c);
-      }
+  const top = ground - FAR_FENCE_ROWS - SOCK_POLE_PX;
+  fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
+  const flutter = 0.12 * k * fastSin(frame / 4 + x);
+  const ux = ux0 - flutter * uy0;
+  const uy = uy0 + flutter * ux0;
+  // Across the sock keeps its full width however short it shows.
+  const across = Math.hypot(ux, uy) || 1;
+  // A cone from the ring at the top of the pole to the tail, filled across its width, in bands of red and white.
+  const full = SOCK_SLACK_WIDTH + (1 - SOCK_SLACK_WIDTH) * k;
+  const tailHalf = SOCK_TAIL_HALF_PX * Math.min(1, k / SOCK_LIMP_BELOW);
+  for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.25) {
+    const share = t / SOCK_LENGTH_PX;
+    const half = (SOCK_MOUTH_HALF_PX + (tailHalf - SOCK_MOUTH_HALF_PX) * share) * full;
+    const c = Math.min(SOCK_BANDS - 1, Math.floor(share * SOCK_BANDS)) % 2 === 0 ? red : white;
+    for (let w = -half; w <= half; w += 0.25) {
+      fb.put(sx + 0.5 + ux * t - (uy / across) * w, top + uy * t + (ux / across) * w, c);
     }
   }
 }
@@ -114,6 +141,7 @@ const MAST_HEIGHT_PX = 78;
 /** The floodlight's head: lamps in one row inside a dark frame, and the short rays of light either side of it. */
 const FLOODLIGHT_LAMPS = 4;
 const FLOODLIGHT_RAY_PX = 2;
+const FLOODLIGHT_HEAD_PX = FLOODLIGHT_LAMPS + 2;
 /** A light glow around the lamps of a floodlight and of an inrun lamp: radius and strength at the centre. */
 const FLOODLIGHT_GLOW = { radius: 9, strength: 0.35 } as const;
 const INRUN_LAMP_GLOW = { radius: 4, strength: 0.3 } as const;
@@ -129,12 +157,10 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   const pole = color("post");
   const lamp = color("lampLight");
   const glow = color("lampGlow");
-  const headW = FLOODLIGHT_LAMPS + 2;
-  const first = firstMastXM(h);
-  const [from, to] = layerSpanXM(view, LAYER.farEdge, headW + FLOODLIGHT_RAY_PX);
-  const start = first + Math.max(0, Math.ceil((from - first) / FLOODLIGHT.mastSpacingM)) * FLOODLIGHT.mastSpacingM;
-  for (let x = start; x <= to; x += FLOODLIGHT.mastSpacingM) {
-    const [sx, ground] = onSurface(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
+  const headW = FLOODLIGHT_HEAD_PX;
+  for (const {
+    at: [sx, ground],
+  } of mastPlaces(h, view)) {
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
     drawSoftGlow(fb, sx, top - 3, FLOODLIGHT_GLOW, glow);
@@ -146,6 +172,12 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
     fb.rect(left + headW, top - 3, FLOODLIGHT_RAY_PX, 1, glow);
     fb.rect(left + 1, top - 4, FLOODLIGHT_LAMPS, 1, glow);
   }
+}
+
+/** The floodlight masts near enough to the view to show: on the far fence, every 30 m from the first. */
+export function mastPlaces(h: HillProfile, view: SceneView): PropPlace[] {
+  const [from, to] = layerSpanXM(view, LAYER.farEdge, FLOODLIGHT_HEAD_PX + FLOODLIGHT_RAY_PX);
+  return fencePropPlaces(h, view, firstMastXM(h), FLOODLIGHT.mastSpacingM, from, to);
 }
 
 /**
@@ -182,8 +214,9 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
   const lamp = color("lampLight");
   const glow = color("lampGlow");
   const pole = color("post");
-  for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
-    const [sx, track] = onSurface(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x);
+  for (const {
+    at: [sx, track],
+  } of inrunLampPlaces(h, view)) {
     if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
@@ -191,6 +224,16 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
     fb.rect(sx - 1, top - 1, 2, 1, lamp);
     fb.put(sx - 1, top - 2, glow);
   }
+}
+
+/** The inrun lamps: on the far rail, every 8 m from the start to the takeoff. */
+export function inrunLampPlaces(h: HillProfile, view: SceneView): PropPlace[] {
+  const places: PropPlace[] = [];
+  let index = 0;
+  for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
+    places.push({ index: index++, xM: x, at: onSurface(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x) });
+  }
+  return places;
 }
 
 /** The moon's radius, its place across the view and its height in the sky. */

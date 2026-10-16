@@ -3,7 +3,7 @@ import { roundHalfEven } from "../sim/pascal-numeric";
 import { colourAt, hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { LAYER, LAYER_SCALE, layerIndex, layerOffset, originalColumn, type SceneView } from "./scene-layers";
-import { onLayerExact } from "./scene-anchor";
+import { gatePlace } from "./scene-anchor";
 import { colourSpan, darkenSnow, putIndex, type SceneCanvas } from "./scene-span";
 
 /**
@@ -160,7 +160,7 @@ export function drawSkiTracks(c: SceneCanvas, h: HillProfile, view: SceneView, p
 
 /** A point of the start gate on a layer: above the track at the start position. */
 function gatePoint(h: HillProfile, view: SceneView, layer: number): [number, number] {
-  const [sx, row] = onLayerExact(view, layer, h.startXM, inrunYM(h, h.startXM));
+  const [sx, row] = gatePlace(view, layer, h.startXM, inrunYM(h, h.startXM));
   return [sx, row - GATE_ABOVE_TRACK_PX];
 }
 

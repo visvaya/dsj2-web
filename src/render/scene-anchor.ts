@@ -64,10 +64,11 @@ export function onSurfaceAtHeight(
 }
 
 /**
- * A point at world (x, y) of a layer as the original places it on its own screen: the rounded column of its table
- * index and its exact row. Only for what the original draws so, apart from any drawn surface (the start gate).
+ * A point of the start gate at world (x, y) of a layer, as the original places it on its own screen: the rounded
+ * column of its table index and its exact row. Only the start gate is placed so (the guard test allows it in
+ * `scene-inrun.ts` alone): a thing standing on a drawn surface placed this way moves a row against it.
  */
-export function onLayerExact(view: SceneView, layer: number, xM: number, yM: number): ScreenPoint {
+export function gatePlace(view: SceneView, layer: number, xM: number, yM: number): ScreenPoint {
   const off = layerOffset(view, layer);
   return [viewColumn(view, layerIndex(layer, xM) - off.x), layerRows(layer, yM) + off.y];
 }
