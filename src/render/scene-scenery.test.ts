@@ -183,23 +183,20 @@ describe("the floodlights' light behind the hill", () => {
       sceneView(hill.profile.takeoffXM + 40, landingYM(hill.profile, hill.profile.takeoffXM + 40), 64, 1.2),
       near,
     );
-    let litColumns = 0;
-    for (let x = 0; x < 64; x++) {
+    const columns = Array.from({ length: 64 }, (_column, x) => {
       const red = Array.from({ length: 200 }, (_row, y) => (fb.pixels[y * 64 + x] ?? 0) & 0xff);
-      const lit = red.flatMap((r, y) => (r > 0 ? [y] : []));
-      if (x < 32) {
-        expect(lit).toEqual([]);
-        continue;
-      }
-      if (lit.length === 0) continue;
-      litColumns++;
+      const rows = red.flatMap((r, y) => (r > 0 ? [y] : []));
+      return { x, rows, run: rows.map((y) => red[y] ?? 0) };
+    });
+    expect(columns.filter((column) => column.x < 32 && column.rows.length > 0)).toEqual([]);
+    const lit = columns.filter((column) => column.rows.length > 0);
+    expect(lit.length).toBeGreaterThan(0);
+    for (const { rows, run } of lit) {
       // One run of rows, getting lighter downwards, at most the reach of the light and never full light.
-      expect(lit.at(-1)! - lit[0]! + 1).toBe(lit.length);
-      expect(lit.length).toBeLessThanOrEqual(28);
-      const run = lit.map((y) => red[y] ?? 0);
-      expect(run).toEqual([...run].sort((a, b) => a - b));
+      expect((rows.at(-1) ?? 0) - (rows[0] ?? 0) + 1).toBe(rows.length);
+      expect(rows.length).toBeLessThanOrEqual(28);
+      expect(run).toEqual(run.toSorted((a, b) => a - b));
       expect(Math.max(...run)).toBeLessThan(160);
     }
-    expect(litColumns).toBeGreaterThan(0);
   });
 });
