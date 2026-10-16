@@ -85,8 +85,9 @@ test("the jump screen is operated with the keyboard alone: Escape opens its menu
   expect(visited).toEqual([
     expect.stringMatching(TEXT.jumpAgain),
     // Unavailable before the first jump has ended, but still reached, so a screen reader can tell it is there.
-    TEXT.watchReplay,
-    TEXT.keepLast,
+    // Each names its key, as the new jump does.
+    expect.stringMatching(/^Obejrzyj ostatni skok \(P\)$/),
+    expect.stringMatching(/^Zachowaj ostatni skok \(S\)$/),
     "Jak skakać",
     expect.stringMatching(TEXT.toHills),
     "Mniejsza czułość",

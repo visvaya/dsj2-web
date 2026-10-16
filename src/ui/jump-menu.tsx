@@ -83,6 +83,7 @@ function ReplayButtons(p: ReplayButtonsProps) {
         <>
           <button type="button" className="pixel-button" onClick={p.onKeepLast}>
             {REPLAY_TEXT.keepLast}
+            {touch ? "" : JUMP_TEXT.keepKey}
           </button>
           <button type="button" className="pixel-button" onClick={onReplayEnd}>
             {REPLAY_TEXT.end}
@@ -132,6 +133,7 @@ function TrainingButtons(
         onClick={p.replayAvailable ? p.onWatchReplay : undefined}
       >
         {REPLAY_TEXT.watch}
+        {p.touch ? "" : JUMP_TEXT.watchKey}
       </button>
       <button
         type="button"
@@ -140,6 +142,7 @@ function TrainingButtons(
         onClick={p.replayAvailable ? p.onKeepLast : undefined}
       >
         {REPLAY_TEXT.keepLast}
+        {p.touch ? "" : JUMP_TEXT.keepKey}
       </button>
       {!p.replayAvailable && <p className="note">{REPLAY_TEXT.notYet}</p>}
       <button type="button" className="pixel-button" onClick={() => p.onPanel("help")}>

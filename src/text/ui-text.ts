@@ -333,6 +333,9 @@ export const UI_TEXT = {
     resumeKey: " (Esc)",
     again: "Skocz jeszcze raz",
     againKey: " (R)",
+    /** The keys of watching and keeping the last jump, after the buttons where a keyboard is used. */
+    watchKey: " (P)",
+    keepKey: " (S)",
     changeHill: "Zmień skocznię",
     exit: "Wyjdź do menu głównego",
     /** Watching the last jump again. */
