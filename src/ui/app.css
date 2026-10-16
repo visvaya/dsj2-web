@@ -589,25 +589,9 @@ h2 {
   gap: 6px;
 }
 
-/*
- * The version, and at the far end of its line the check for a new release, which goes under it, to the right,
- * when the line has no room.
- */
-.version-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0 16px;
-}
-
-/* The check: a quiet button, and under it, on the right, what the check found. */
-.update-check {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  margin-left: auto;
-  text-align: right;
+/* The last word of the version and the sign that looks for a newer one: they wrap together. */
+.keep-together {
+  white-space: nowrap;
 }
 
 /*
@@ -626,9 +610,37 @@ h2 {
   cursor: pointer;
 }
 
-/* What the check found: as small as its button, so it does not say more than the button. */
+/* What the check found: small, so it does not say more than the sign beside it. */
 .update-check .note {
   font-size: clamp(12px, 3.2vw, 14px);
+}
+
+/* A sign alone in a button: a square target large enough to hit, on the middle of the line of text it ends. */
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  min-height: 28px;
+  margin-left: 6px;
+  padding: 0;
+  vertical-align: middle;
+}
+
+/* While the check runs the sign turns, in quarter turns so its pixels stay whole. */
+.icon-button[aria-disabled="true"] svg {
+  animation: quarter-turns 0.8s steps(4) infinite;
+}
+
+@keyframes quarter-turns {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-button[aria-disabled="true"] svg {
+    animation: none;
+  }
 }
 
 .quiet-button:hover,

@@ -230,10 +230,10 @@ test("a check with nothing new on the server says the game is up to date", async
   expect(await colourOf(UPDATE_CHECK.button)).not.toBe(await colourOf(TEXT.training));
   await button(running, UPDATE_CHECK.button).hover();
   expect(await colourOf(UPDATE_CHECK.button)).toBe(await colourOf(TEXT.training));
-  // At the far end of the version's line.
-  const check = await button(running, UPDATE_CHECK.button).boundingBox();
-  const rule = await running.locator("header").boundingBox();
-  expect((rule?.x ?? 0) + (rule?.width ?? 0) - ((check?.x ?? 0) + (check?.width ?? 0))).toBeLessThanOrEqual(2);
+  // A sign right after the version, in its line.
+  await expect(
+    running.locator("p", { hasText: /wersja \d/i }).getByRole("button", { name: UPDATE_CHECK.button }),
+  ).toBeVisible();
   await button(running, UPDATE_CHECK.button).click();
   await expect(running.getByText(UPDATE_CHECK.latest)).toBeVisible();
   await expect(running.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);

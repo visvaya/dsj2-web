@@ -103,16 +103,45 @@ export function UpdateNotice({
   );
 }
 
+/** The sign of looking for a new release: a circle of the game's pixels that turns back on itself, its head down. */
+const REFRESH_PIXELS = [
+  "...###...",
+  ".##...##.",
+  ".#.....#.",
+  "#......#.",
+  "#....####",
+  "#.....###",
+  ".#.....#.",
+  ".##......",
+  "...###...",
+] as const;
+
+/** The sign's pixels as one path of unit squares. */
+const REFRESH_PATH = REFRESH_PIXELS.flatMap((row, y) =>
+  Array.from(row).flatMap((cell, x) => (cell === "#" ? [`M${x} ${y}h1v1h-1z`] : [])),
+).join("");
+
+function RefreshSign() {
+  return (
+    <svg viewBox="0 0 9 9" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
+      <path d={REFRESH_PATH} fill="currentColor" />
+    </svg>
+  );
+}
+
 /**
  * A button that looks for a new release now, and what it found, said in a live region beside it. Presses while
  * a check runs make no second check. A release that is found is stored in the background as any other, and
  * `UpdateNotice` offers it once it waits; from then on the note says it, and the line here says nothing.
  */
 export function UpdateCheck({
+  version,
   updates,
   noteShown,
   failures,
 }: {
+  /** The line of the version; the sign follows its last word, and wraps with it. */
+  version: string;
   updates: UpdateControls;
   noteShown: boolean;
   /** How many newer releases could not be stored so far (`OfflineState.updateFailures`). */
@@ -137,9 +166,22 @@ export function UpdateCheck({
   })();
   return (
     <div className="update-check">
-      <button type="button" className="quiet-button" aria-disabled={checking} onClick={onCheck}>
-        {UI_TEXT.offline.check.button}
-      </button>
+      <p className="note">
+        {version.slice(0, version.lastIndexOf(" ") + 1)}
+        <span className="keep-together">
+          {version.slice(version.lastIndexOf(" ") + 1)}
+          <button
+            type="button"
+            className="quiet-button icon-button"
+            aria-label={UI_TEXT.offline.check.button}
+            title={UI_TEXT.offline.check.button}
+            aria-disabled={checking}
+            onClick={onCheck}
+          >
+            <RefreshSign />
+          </button>
+        </span>
+      </p>
       {/* A region of its own, there before the first answer so that answer is announced. */}
       <div aria-live="polite">{line !== null && <p className="note">{line}</p>}</div>
     </div>

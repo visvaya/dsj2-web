@@ -56,16 +56,17 @@ function MenuHeader({
 }) {
   // The same moment the note of a waiting release appears: from then on the note alone says it.
   const noteShown = useLastingWait(state?.updateWaiting === true);
+  const version = UI_TEXT.menu.subtitle(versionLabel());
   return (
     <header>
       <h1 className="title" tabIndex={-1} ref={headingRef}>
         {UI_TEXT.appName}
       </h1>
-      {/* The version, and at the far end of its line the quiet check for a newer one. */}
-      <div className="version-line">
-        <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
-        {updates && <UpdateCheck updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />}
-      </div>
+      {updates ? (
+        <UpdateCheck version={version} updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />
+      ) : (
+        <p className="note">{version}</p>
+      )}
       <UpdateNotice state={state} updates={updates} />
     </header>
   );
