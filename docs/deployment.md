@@ -67,8 +67,9 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   wtedy komunikat jest bez numeru. Komunikat pojawia się dopiero po 1,5 s oczekiwania: przy pierwszym uruchomieniu
   po aktualizacji przeglądarka potrafi przez chwilę zgłaszać nowe wydanie jako czekające, zanim przejmie ono
   stronę, a komunikat na tę chwilę migałby.
-- **Sprawdzenie i instalacja na żądanie.** Menu główne ma pod numerem wersji przycisk „Sprawdź aktualizację”
-  (`registration.update()`); wynik pojawia się obok w regionie `aria-live="polite"`: „Sprawdzam...”, „Masz
+- **Sprawdzenie i instalacja na żądanie.** Menu główne ma na końcu wiersza z numerem wersji (na wąskim ekranie pod
+  nim, z prawej) cichy przycisk „Szukaj aktualizacji”: mniejszy, bez ramki, w przygaszonej żółci
+  (`registration.update()`); wynik pojawia się pod nim w regionie `aria-live="polite"`, tej samej wielkości: „Sprawdzam...”, „Masz
   najnowszą wersję.”, „Jest nowa wersja gry. Pobieram ją.”, „Gra jeszcze się zapisuje.” (pierwsza wizyta, pierwsze
   wydanie jeszcze się zapisuje) albo „Brak połączenia: nie można sprawdzić.” (przeglądarka nie odróżnia braku sieci
   od braku odpowiedzi serwera). Gdy znalezionego wydania nie udało się zapisać (worker odrzucony przed zapisaniem),
