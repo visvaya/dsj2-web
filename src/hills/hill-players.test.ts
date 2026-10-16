@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { EXACT_PLAYER_LEVEL, PLAYER_LEVELS, playJump, randomJump, takeoffAimSearch } from "./hill-players";
+import {
+  EXACT_PLAYER_LEVEL,
+  PLAYER_LEVELS,
+  playJump,
+  randomJump,
+  takeoffAimSearch,
+  withAimFrames,
+} from "./hill-players";
 import { PLAY_RULES } from "./hill-play";
+import { TRAINED_PLAYER_POLICY } from "./player-policy";
 import { fullAimSweep } from "./test-support/full-aim-sweep";
 
 const [training] = OWN_HILLS;
@@ -45,7 +53,13 @@ describe("hill players", () => {
   it("lands an exact good player at the search's best aim within 1 m of the best", () => {
     const [sweep] = takeoffAimSearch(training, [3], PLAY_RULES.windowToleranceM);
     if (sweep === undefined) throw new Error("no sweep");
-    const jump = playJump(training, 3, EXACT_PLAYER_LEVEL, 3, sweep.bestAimFrames);
+    const jump = playJump(
+      training,
+      3,
+      EXACT_PLAYER_LEVEL,
+      3,
+      withAimFrames(TRAINED_PLAYER_POLICY, sweep.bestAimFrames),
+    );
     expect(Math.abs(jump.distanceM - sweep.bestDistanceM)).toBeLessThanOrEqual(1);
     expect(jump.fell).toBe(false);
     expect(sweep.windowFrames).toBeGreaterThanOrEqual(PLAY_RULES.windowMinFrames);

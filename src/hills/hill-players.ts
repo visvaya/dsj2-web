@@ -5,6 +5,14 @@ import { landingSlope, terrainYM } from "../sim/hill-profile";
 import { PHASE, type FrameInput } from "../sim/jump-logic";
 import { createStartWind } from "../sim/training-wind";
 import type { WindState } from "../sim/wind";
+import {
+  policyLandingHeightM,
+  policyLeanRad,
+  policyTakesOff,
+  TRAINED_PLAYER_POLICY,
+  type PlayerPolicy,
+} from "./player-policy";
+import { playerView, type PlayerView } from "./player-view";
 
 /**
  * Bots that play a hill like a player does, for the simulation checks of a hill. Everything here is pure and
@@ -27,8 +35,6 @@ const BOT_TIMING = {
   maxJumpFrames: 6000,
   /** Mouse motion is clamped to this many mickeys per frame, either way. */
   maxSteerMickeys: 40,
-  /** Body angle (rad) the steering holds: it steers towards minus this value. */
-  steerTargetRad: 0.3,
   /** Mickeys per radian of body angle error. */
   steerMickeysPerRad: 60,
   /** Landing: right for this many frames, then left from 8 to 12 frames after the first press (telemark). */
@@ -47,8 +53,11 @@ export interface PlayerLevel {
   steerGain: number;
   /** Standard deviation of the mouse motion added each frame, in mickeys. */
   steerNoiseMickeys: number;
-  /** Height above the terrain at which the landing press comes, and its standard deviation, in metres. */
-  landingHeightM: number;
+  /**
+   * Height of the landing press relative to the policy's (negative is later), and its standard deviation, in
+   * metres: a weaker player waits too long.
+   */
+  landingHeightOffsetM: number;
   landingHeightSpreadM: number;
 }
 
@@ -58,26 +67,26 @@ export const PLAYER_LEVELS = {
     timingSpreadS: 0.08,
     steerGain: 0.6,
     steerNoiseMickeys: 8,
-    landingHeightM: 1.5,
+    landingHeightOffsetM: -0.7,
     landingHeightSpreadM: 1,
   },
   average: {
     timingSpreadS: 0.04,
     steerGain: 1,
     steerNoiseMickeys: 4,
-    landingHeightM: 2,
+    landingHeightOffsetM: -0.2,
     landingHeightSpreadM: 0.5,
   },
   good: {
     timingSpreadS: 0.015,
     steerGain: 1,
     steerNoiseMickeys: 2,
-    landingHeightM: 2.2,
+    landingHeightOffsetM: 0,
     landingHeightSpreadM: 0.2,
   },
 } as const satisfies Record<string, PlayerLevel>;
 
-/** A good player that never misses the aim: the reference for the takeoff window and the best distance. */
+/** A good player that never misses: the trained policy exactly, the reference for the takeoff window. */
 export const EXACT_PLAYER_LEVEL: PlayerLevel = {
   ...PLAYER_LEVELS.good,
   timingSpreadS: 0,
@@ -85,7 +94,7 @@ export const EXACT_PLAYER_LEVEL: PlayerLevel = {
   landingHeightSpreadM: 0,
 };
 
-/** Where the bot aims the takeoff press when no aim is given: frames of time left to the edge. */
+/** Where the aim search starts: frames of time left to the edge. */
 const DEFAULT_TAKEOFF_AIM_FRAMES = 14;
 
 /** What one jump came to. */
@@ -95,6 +104,8 @@ export interface JumpOutcome {
   /** The game's kind of fall (`fallType`), 0 for none. */
   fallType: number;
   disqualified: boolean;
+  /** The game's points for the jump (`logic.points`): distance points and the judges' notes. */
+  points: number;
   /** Speed at the first airborne frame; 0 when the jumper never left the ground. */
   takeoffSpeedKmPerH: number;
   flightTimeS: number;
@@ -234,6 +245,7 @@ function run(hill: HillChoice, seed: number, decide: Decide): JumpOutcome {
   const disqualified = logic.distanceM === 0;
   return {
     distanceM: logic.distanceM,
+    points: logic.points,
     fell: logic.fallType !== 0 && !disqualified,
     fallType: logic.fallType,
     disqualified,
@@ -253,49 +265,59 @@ function run(hill: HillChoice, seed: number, decide: Decide): JumpOutcome {
 /** How a landing is pressed: telemark (right, then left), two-footed (right only) or not at all. */
 type LandingStyle = "telemark" | "two-footed" | "none";
 
-/** What a bot sets out to do in one jump, apart from the noise of its level. */
-interface BotPlan {
-  /** Time left to the edge at the takeoff press, in seconds; null never presses for the takeoff. */
-  aimS: number | null;
-  /** Body angle (rad) the flight steering holds, by frame: it steers towards minus this value. */
-  steerTargetRad: (frame: number) => number;
-  /** Height above the terrain at which the landing press comes, in metres. */
-  landingHeightM: number;
+/** What a bot sets out to do in one jump, from what it sees, apart from the noise of its level. */
+export interface BotPlan {
+  /** Whether the takeoff press comes at this view; null never presses for the takeoff. */
+  takesOff: ((view: PlayerView) => boolean) | null;
+  /** Lean the flight steering holds at this view, in radians: it steers towards a body angle of minus this. */
+  leanRad: (view: PlayerView) => number;
+  /** Height above the terrain below which the landing press comes at this view, in metres. */
+  landingHeightM: (view: PlayerView) => number;
   landing: LandingStyle;
 }
 
+/** The plan of a policy, with a player's aim shift (seconds, positive presses earlier) and landing offset (m). */
+function policyPlan(policy: PlayerPolicy, aimShiftS: number, landingOffsetM: number): BotPlan {
+  return {
+    takesOff: (view) => policyTakesOff(policy, view, aimShiftS),
+    leanRad: (view) => policyLeanRad(policy, view),
+    landingHeightM: (view) => policyLandingHeightM(policy, view) + landingOffsetM,
+    landing: policy.telemark ? "telemark" : "two-footed",
+  };
+}
+
 /** The bot of one player level; its noise and its per-jump draws (aim, landing height) come from `noiseSeed`. */
-function playerBot(player: PlayerLevel, noiseSeed: number, aimFrames: number): Decide {
+function playerBot(policy: PlayerPolicy, player: PlayerLevel, noiseSeed: number): Decide {
   const noise = noiseFrom(noiseSeed);
-  const aimS = aimFrames * FRAME_S + noise.normal() * player.timingSpreadS;
-  const landingHeightM = player.landingHeightM + noise.normal() * player.landingHeightSpreadM;
-  return planBot(player, noise, {
-    aimS,
-    steerTargetRad: () => BOT_TIMING.steerTargetRad,
-    landingHeightM,
-    landing: "telemark",
-  });
+  const aimShiftS = noise.normal() * player.timingSpreadS;
+  const landingOffsetM = player.landingHeightOffsetM + noise.normal() * player.landingHeightSpreadM;
+  return planBot(player, noise, policyPlan(policy, aimShiftS, landingOffsetM));
 }
 
 /** A bot that follows a plan, with the steering and the noise of a player level. */
 function planBot(player: PlayerLevel, noise: Noise, plan: BotPlan): Decide {
-  const { aimS, landingHeightM } = plan;
   let pressedTakeoff = false;
+  let takeoffFrame: number | null = null;
   let landingFrame: number | null = null;
   let previousAboveM = 0;
   return (jump, frame) => {
     const { jumper, logic } = jump.state;
-    const hill = jump.hill.profile;
     const { phase } = logic;
-    if (aimS !== null && phase === PHASE.crouch && !pressedTakeoff && jumper.speedMPerS > 0) {
-      pressedTakeoff = (hill.takeoffXM - jumper.xM) / jumper.speedMPerS <= aimS;
-    }
+    if (takeoffFrame === null && jumper.airborne) takeoffFrame = frame;
+    const view = playerView(jump, frame, takeoffFrame);
+    if (plan.takesOff !== null && !pressedTakeoff) pressedTakeoff = plan.takesOff(view);
     const takingOff = pressedTakeoff && (phase === PHASE.crouch || phase === PHASE.takeoff) && !jumper.airborne;
     // Only a sinking jumper lands: just past the edge the jumper is as low as the table is high, but rising.
-    const aboveM = jumper.yM - terrainYM(hill, jumper.xM);
+    const aboveM = view.aboveTerrainM;
     const sinking = aboveM < previousAboveM;
     previousAboveM = aboveM;
-    if (plan.landing !== "none" && landingFrame === null && inFlight(phase) && sinking && aboveM < landingHeightM) {
+    if (
+      plan.landing !== "none" &&
+      landingFrame === null &&
+      inFlight(phase) &&
+      sinking &&
+      aboveM < plan.landingHeightM(view)
+    ) {
       landingFrame = frame;
     }
     const sinceLanding = landingFrame === null ? -1 : frame - landingFrame;
@@ -303,8 +325,9 @@ function planBot(player: PlayerLevel, noise: Noise, plan: BotPlan): Decide {
     const landingRight = sinceLanding >= 0 && sinceLanding < t.landingRightFrames;
     const landingLeft =
       plan.landing === "telemark" && sinceLanding >= t.landingLeftFromFrame && sinceLanding <= t.landingLeftToFrame;
-    const steer = (logic.bodyAngleRad + plan.steerTargetRad(frame)) * t.steerMickeysPerRad * player.steerGain;
-    const dy = inFlight(phase) && landingFrame === null ? steer + noise.normal() * player.steerNoiseMickeys : 0;
+    const flying = inFlight(phase) && landingFrame === null;
+    const steer = flying ? (logic.bodyAngleRad + plan.leanRad(view)) * t.steerMickeysPerRad * player.steerGain : 0;
+    const dy = flying ? steer + noise.normal() * player.steerNoiseMickeys : 0;
     return {
       left: frame === t.startFrame || (phase === PHASE.inrun && frame >= t.crouchFromFrame) || takingOff || landingLeft,
       right: takingOff || landingRight,
@@ -313,16 +336,30 @@ function planBot(player: PlayerLevel, noise: Noise, plan: BotPlan): Decide {
   };
 }
 
-/** One jump of a player on a hill: `seed` sets the jump (wind), `noiseSeed` the player's own errors. */
+/**
+ * One jump of a player on a hill: `seed` sets the jump (wind), `noiseSeed` the player's own errors, `policy` how
+ * it plays (the trained player unless given).
+ */
 export function playJump(
   hill: HillChoice,
   seed: number,
   player: PlayerLevel,
   noiseSeed: number,
-  aimFrames: number = DEFAULT_TAKEOFF_AIM_FRAMES,
+  policy: PlayerPolicy = TRAINED_PLAYER_POLICY,
 ): JumpOutcome {
-  return run(hill, seed, playerBot(player, noiseSeed, aimFrames));
+  return run(hill, seed, playerBot(policy, player, noiseSeed));
 }
+
+/** One jump of a player who never errs and follows `plan`: what the oracle tries. */
+export function planJump(hill: HillChoice, seed: number, plan: BotPlan): JumpOutcome {
+  return run(hill, seed, planBot(EXACT_PLAYER_LEVEL, noiseFrom(seed), plan));
+}
+
+/** A policy with its takeoff aim set to `aimFrames` frames of time left to the edge. */
+export const withAimFrames = (policy: PlayerPolicy, aimFrames: number): PlayerPolicy => ({
+  ...policy,
+  takeoffAimS: aimFrames * FRAME_S,
+});
 
 /** One jump with random inputs: both buttons pressed now and then, the mouse anywhere within its clamp. */
 export function randomJump(hill: HillChoice, seed: number, noiseSeed: number): JumpOutcome {
@@ -390,13 +427,14 @@ export function takeoffAimSearch(
   seeds: readonly number[],
   toleranceM: number,
   startAimFrames: number = DEFAULT_TAKEOFF_AIM_FRAMES,
+  policy: PlayerPolicy = TRAINED_PLAYER_POLICY,
 ): AimSearch[] {
   const results: AimSearch[] = [];
   let start = clamp(startAimFrames, AIM_RANGE_FRAMES.from, AIM_RANGE_FRAMES.to);
   for (const seed of seeds) {
     const tries: AimTry[] = [];
     const tryAim = (aim: number): AimTry => {
-      const t = { aim, outcome: playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, aim) };
+      const t = { aim, outcome: playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, withAimFrames(policy, aim)) };
       tries.push(t);
       return t;
     };
@@ -438,7 +476,7 @@ export interface Scenario {
   landing: LandingStyle;
 }
 
-/** Body angles the scenario poses hold, in radians (the players hold `BOT_TIMING.steerTargetRad`). */
+/** Leans the scenario poses hold, in radians; the steady pose is the trained player's flight. */
 const SCENARIO_POSE = {
   forwardRad: 0.6,
   backRad: 0,
@@ -446,12 +484,12 @@ const SCENARIO_POSE = {
   oscillationHalfPeriodFrames: 35,
 } as const;
 
-const STEER_TARGET_OF_POSE: Readonly<Record<Scenario["pose"], (frame: number) => number>> = {
-  steady: () => BOT_TIMING.steerTargetRad,
+const LEAN_OF_POSE: Readonly<Record<Scenario["pose"], (view: PlayerView) => number>> = {
+  steady: (view) => policyLeanRad(TRAINED_PLAYER_POLICY, view),
   forward: () => SCENARIO_POSE.forwardRad,
   back: () => SCENARIO_POSE.backRad,
-  oscillating: (frame) =>
-    Math.floor(frame / SCENARIO_POSE.oscillationHalfPeriodFrames) % 2 === 0
+  oscillating: (view) =>
+    Math.floor(view.frame / SCENARIO_POSE.oscillationHalfPeriodFrames) % 2 === 0
       ? SCENARIO_POSE.forwardRad
       : SCENARIO_POSE.backRad,
 };
@@ -459,14 +497,11 @@ const STEER_TARGET_OF_POSE: Readonly<Record<Scenario["pose"], (frame: number) =>
 /** One designed jump of an exact good player, its takeoff shifted from `aimFrames` as the scenario says. */
 export function scenarioJump(hill: HillChoice, seed: number, scenario: Scenario, aimFrames: number): JumpOutcome {
   const shift = scenario.takeoffShiftFrames;
-  return run(
-    hill,
-    seed,
-    planBot(EXACT_PLAYER_LEVEL, noiseFrom(seed), {
-      aimS: shift === null ? null : (aimFrames + shift) * FRAME_S,
-      steerTargetRad: STEER_TARGET_OF_POSE[scenario.pose],
-      landingHeightM: scenario.landingHeightM,
-      landing: scenario.landing,
-    }),
-  );
+  const aim = withAimFrames(TRAINED_PLAYER_POLICY, aimFrames + (shift ?? 0));
+  return planJump(hill, seed, {
+    takesOff: shift === null ? null : (view) => policyTakesOff(aim, view, 0),
+    leanRad: LEAN_OF_POSE[scenario.pose],
+    landingHeightM: () => scenario.landingHeightM,
+    landing: scenario.landing,
+  });
 }

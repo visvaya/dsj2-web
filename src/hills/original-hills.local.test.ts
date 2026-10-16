@@ -5,7 +5,9 @@ import { readOriginalHills, type OriginalHill } from "../original/original-hills
 import { hillGoldenFiles } from "../sim/test-support/golden-files";
 import { GEOMETRY_RULE_LEVELS, geometryProblems } from "./hill-geometry";
 import { hillDistance, LIKENESS } from "./hill-likeness";
-import { playMeasures, type PlayMeasures } from "./hill-play";
+import { jumpScore, oracleJump } from "./hill-oracle";
+import { PLAY_RULES, playMeasures, WIND_CLASSES, windClassSeeds, type PlayMeasures } from "./hill-play";
+import { EXACT_PLAYER_LEVEL, playJump } from "./hill-players";
 import { OWN_HILL_SPECS } from "./own-hills";
 import type { HillSpec } from "./hill-spec";
 import { parseHillSpec } from "./parse-hill-spec";
@@ -68,6 +70,45 @@ const ENVELOPE: readonly EnvelopeMeasure[] = [
 
 const ownHills = OWN_HILL_SPECS.map(hillChoiceOf);
 
+/** Hill sizes the trained player is compared with the oracle in: K points up to each end, in metres. */
+const SIZE_BUCKET_ENDS_M = [90, 120, 160, Number.POSITIVE_INFINITY];
+
+/**
+ * How close the trained player must come to the oracle, as the distance the oracle adds, in shares of K: on
+ * average over a size bucket and at its 90th percentile. Proposed from the run that set it: on the originals up to
+ * K120, where the bots were already trusted, the mean was 0.049 and 0.055 and the 90th percentile 0.100 and 0.097;
+ * from K120 to K160 they were 0.072 and 0.141, above K160 0.096 and 0.195.
+ */
+const ORACLE_GAP_MAX = { meanShareOfK: 0.06, p90ShareOfK: 0.12 } as const;
+
+/** One original and wind: what the trained player and the oracle made of it. */
+interface OracleGap {
+  kPointM: number;
+  points: number;
+  distanceShareOfK: number;
+  playerFell: boolean;
+}
+
+/** The trained player against the oracle on one hill, on the strongest seed of each wind class. */
+function oracleGaps(hill: HillChoice, seeds: readonly number[]): OracleGap[] {
+  return seeds.map((seed) => {
+    const player = playJump(hill, seed, EXACT_PLAYER_LEVEL, seed);
+    const best = oracleJump(hill, seed);
+    return {
+      kPointM: hill.kPointM,
+      points: best.score - jumpScore(player),
+      distanceShareOfK: (best.outcome.distanceM - player.distanceM) / hill.kPointM,
+      playerFell: player.fell || player.disqualified,
+    };
+  });
+}
+
+const mean = (v: readonly number[]): number => v.reduce((a, b) => a + b, 0) / v.length;
+const p90 = (v: readonly number[]): number => v.toSorted((a, b) => a - b)[Math.floor(0.9 * (v.length - 1))] ?? 0;
+
+/** The 37 hills, four winds each, about 60 jumps of the oracle per wind: about 75 s alone. */
+const ORACLE_TIMEOUT_MS = 900_000;
+
 describe.skipIf(!golden.requested)("own hills against the hills of the original", () => {
   it("has the files it was asked to compare", () => {
     expect(golden.problems).toEqual([]);
@@ -108,6 +149,44 @@ describe.skipIf(!golden.requested)("own hills against the hills of the original"
       expect(outside).toEqual([]);
     },
     ENVELOPE_TIMEOUT_MS,
+  );
+
+  it.skipIf(exePath === undefined)(
+    "keeps the trained player within the margin of the oracle on every size the bots are trusted with",
+    () => {
+      const seedsByClass = windClassSeeds(1, 256, 1);
+      const seeds = WIND_CLASSES.flatMap((c) => seedsByClass[c]);
+      const gaps = originalHillChoices(load()).flatMap((hill) => oracleGaps(hill, seeds));
+      const buckets = SIZE_BUCKET_ENDS_M.map((end, i) => {
+        const start = SIZE_BUCKET_ENDS_M[i - 1] ?? 0;
+        const inside = gaps.filter((g) => g.kPointM > start && g.kPointM <= end);
+        const shares = inside.map((g) => g.distanceShareOfK);
+        return {
+          start,
+          end,
+          hills: inside.length / seeds.length,
+          meanShareOfK: mean(shares),
+          p90ShareOfK: p90(shares),
+          meanPoints: mean(inside.map((g) => g.points)),
+          playerFalls: inside.filter((g) => g.playerFell).length,
+        };
+      });
+      const table = buckets
+        .map(
+          (b) =>
+            `K ${b.start}..${b.end}: ${b.hills} hills, gap ${b.meanShareOfK.toFixed(3)} K mean, ` +
+            `${b.p90ShareOfK.toFixed(3)} K p90, ${b.meanPoints.toFixed(1)} points, ${b.playerFalls} falls`,
+        )
+        .join("; ");
+      const trusted = buckets.filter((b) => b.start < PLAY_RULES.botReliableMaxKPointM);
+      const outside = trusted.filter(
+        (b) =>
+          !(b.meanShareOfK <= ORACLE_GAP_MAX.meanShareOfK && b.p90ShareOfK <= ORACLE_GAP_MAX.p90ShareOfK) ||
+          b.playerFalls > 0,
+      );
+      expect({ outside: outside.map((b) => `K ${b.start}..${b.end}`), table }).toEqual({ outside: [], table });
+    },
+    ORACLE_TIMEOUT_MS,
   );
 
   it.skipIf(exePath === undefined)("reads every original hill through the hill format", () => {
