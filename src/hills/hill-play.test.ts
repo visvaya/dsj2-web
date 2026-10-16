@@ -4,8 +4,11 @@ import { PLAY_RULES, PLAY_SAMPLE, playMeasures, playProblems, type PlayMeasures 
 import type { HillSpec } from "./hill-spec";
 import { OWN_HILL_SPECS } from "./own-hills";
 
-/** The whole evaluation of one hill takes about 8 s alone and more under the full parallel suite. */
-const EVALUATION_TIMEOUT_MS = 30_000;
+/**
+ * The whole evaluation of one hill takes about 8 s alone; under coverage, which instruments the simulation, and the
+ * full parallel suite on a slow machine it took 46 s.
+ */
+const EVALUATION_TIMEOUT_MS = 120_000;
 
 const [training] = OWN_HILL_SPECS;
 if (training === undefined) throw new Error("no own hill");
