@@ -17,8 +17,11 @@
 // CSS measured again on 2026-10-16: 22425 bytes, with the screens' font (the jump picture's letters, 4788 bytes
 // of woff2, 4763 bytes of the stylesheet's gzip as base64) and the rules that set the screens in it; the same
 // stylesheet without that font is 17271 bytes. The budget keeps a margin of about 15%.
+// JavaScript measured again on 2026-10-16: 145996 bytes on master (0.15.0), after the night light on the hill, the
+// moon and the props kept in place, and the check and install of a new release; the budget keeps a margin of
+// about 4%, as before.
 export const DIST_BUDGETS = {
-  JS_GZIP_BUDGET_BYTES: 146_000,
+  JS_GZIP_BUDGET_BYTES: 152_000,
   CSS_GZIP_BUDGET_BYTES: 25_800,
   // Measured on 2026-10-13: the service worker 3890 bytes gzip (3160 before it kept the release before for the
   // pages that still need it), the four icons 9682 bytes.
