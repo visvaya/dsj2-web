@@ -22,16 +22,25 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     globals: false,
-    // Coverage is measured for the simulation only, where a wrong number does not crash anything.
+    // Coverage is measured where a wrong value does not crash anything but silently gives wrong results: the
+    // simulation, the save with records and replays, and the hill format with its checks. Each directory keeps
+    // its own thresholds; tests and test helpers are not counted.
     coverage: {
       provider: "v8",
-      include: ["src/sim/**"],
-      exclude: ["src/sim/**/*.test.ts", "src/sim/test-support/**", "src/sim/data/**"],
+      include: ["src/sim/**", "src/storage/**", "src/hills/**"],
+      exclude: ["src/**/*.test.ts", "src/**/test-support/**", "src/sim/data/**"],
       reporter: ["text-summary", "html"],
-      // Two points under the values measured on 2026-10-12 without files of the original game, as in CI,
-      // where the golden tests are skipped: statements 93.8, branches 80.35, functions 95, lines 94.66.
+      // Two points under the measured values, rounded down. src/sim: measured on 2026-10-12 without files of
+      // the original game, as in CI, where the golden tests are skipped: statements 93.8, branches 80.35,
+      // functions 95, lines 94.66. src/storage and src/hills:
+      // measured on 2026-10-16, storage statements 91.14, branches 89.28, functions 88.44, lines 93.18; hills
+      // statements 99.03, branches 93.45, functions 100, lines 99.44.
       // Raise them when coverage improves; never lower them to make a run pass.
-      thresholds: { statements: 91, branches: 78, functions: 93, lines: 92 },
+      thresholds: {
+        "src/sim/**": { statements: 91, branches: 78, functions: 93, lines: 92 },
+        "src/storage/**": { statements: 89, branches: 87, functions: 86, lines: 91 },
+        "src/hills/**": { statements: 97, branches: 91, functions: 98, lines: 97 },
+      },
     },
   },
 });

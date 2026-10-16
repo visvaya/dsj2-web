@@ -4,5 +4,5 @@
   "threshold": 0,
   "reporters": ["console"],
   "gitignore": true,
-  "ignore": ["**/pnpm-lock.yaml", "**/*.snap", "**/*.md", "node_modules/**", "dist/**", "coverage/**", "src/sim/**"]
+  "ignore": ["**/pnpm-lock.yaml", "**/*.snap", "**/*.md", "node_modules/**", "dist/**", "coverage/**"]
 }
