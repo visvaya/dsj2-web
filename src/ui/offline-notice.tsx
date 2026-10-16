@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState } from "react";
+import { useEffect, useReducer, useState, type ReactNode } from "react";
 import { reduceUpdateCheck, type OfflineState } from "../pwa/offline-state";
 import { UI_TEXT } from "../text/ui-text";
 import type { UpdateControls } from "./use-offline-state";
@@ -103,18 +103,24 @@ export function UpdateNotice({
   );
 }
 
-/** The sign of looking for a new release: a circle of the game's pixels that turns back on itself, its head down. */
-const REFRESH_PIXELS = [
-  "...###...",
-  ".##...##.",
-  ".#.....#.",
-  "#......#.",
-  "#....####",
-  "#.....###",
-  ".#.....#.",
-  ".##......",
-  "...###...",
-] as const;
+/**
+ * What the game is and its version, with whatever follows the version (the sign of the check). The version keeps
+ * to one line; when it goes to a line of its own, the dot between the two is left out.
+ */
+export function Subtitle({ version, children }: { version: string; children?: ReactNode }) {
+  return (
+    <p className="note subtitle">
+      <span>{UI_TEXT.menu.tagline}</span>
+      <span className="subtitle-version">
+        {version}
+        {children}
+      </span>
+    </p>
+  );
+}
+
+/** The sign of looking for a new release: a circle of the game's pixels turning clockwise, its head at the top. */
+const REFRESH_PIXELS = ["..###.#", ".#...##", "#...###", "#......", "#.....#", ".#...#.", "..###.."] as const;
 
 /** The sign's pixels as one path of unit squares. */
 const REFRESH_PATH = REFRESH_PIXELS.flatMap((row, y) =>
@@ -123,7 +129,7 @@ const REFRESH_PATH = REFRESH_PIXELS.flatMap((row, y) =>
 
 function RefreshSign() {
   return (
-    <svg viewBox="0 0 9 9" width="18" height="18" shapeRendering="crispEdges" aria-hidden="true">
+    <svg viewBox="0 0 7 7" width="14" height="14" shapeRendering="crispEdges" aria-hidden="true">
       <path d={REFRESH_PATH} fill="currentColor" />
     </svg>
   );
@@ -140,7 +146,7 @@ export function UpdateCheck({
   noteShown,
   failures,
 }: {
-  /** The line of the version; the sign follows its last word, and wraps with it. */
+  /** The version (`versionLabel()`), which the sign follows on the line of what the game is. */
   version: string;
   updates: UpdateControls;
   noteShown: boolean;
@@ -166,22 +172,18 @@ export function UpdateCheck({
   })();
   return (
     <div className="update-check">
-      <p className="note">
-        {version.slice(0, version.lastIndexOf(" ") + 1)}
-        <span className="keep-together">
-          {version.slice(version.lastIndexOf(" ") + 1)}
-          <button
-            type="button"
-            className="quiet-button icon-button"
-            aria-label={UI_TEXT.offline.check.button}
-            title={UI_TEXT.offline.check.button}
-            aria-disabled={checking}
-            onClick={onCheck}
-          >
-            <RefreshSign />
-          </button>
-        </span>
-      </p>
+      <Subtitle version={version}>
+        <button
+          type="button"
+          className="quiet-button icon-button"
+          aria-label={UI_TEXT.offline.check.button}
+          title={UI_TEXT.offline.check.button}
+          aria-disabled={checking}
+          onClick={onCheck}
+        >
+          <RefreshSign />
+        </button>
+      </Subtitle>
       {/* A region of its own, there before the first answer so that answer is announced. */}
       <div aria-live="polite">{line !== null && <p className="note">{line}</p>}</div>
     </div>

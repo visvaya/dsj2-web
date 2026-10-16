@@ -24,7 +24,8 @@ export const UI_TEXT = {
   },
 
   menu: {
-    subtitle: (versionLabel: string) => `Skoki narciarskie · ${versionLabel}`,
+    /** Under the name of the game: what it is, and its version (`versionLabel`), which never breaks apart. */
+    tagline: "Skoki narciarskie",
     navigation: "Główne menu",
     training: "Trening",
     replays: "Powtórki",

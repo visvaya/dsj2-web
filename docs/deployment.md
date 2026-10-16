@@ -68,8 +68,8 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
   po aktualizacji przeglądarka potrafi przez chwilę zgłaszać nowe wydanie jako czekające, zanim przejmie ono
   stronę, a komunikat na tę chwilę migałby.
 - **Sprawdzenie i instalacja na żądanie.** Menu główne ma zaraz za numerem wersji (sklejoną z nim przy zawijaniu)
-  ikonkę strzałki w kółku: przycisk bez ramki w przygaszonej żółci, z nazwą „Szukaj aktualizacji” dla czytnika
-  i w podpowiedzi, obracający się ćwierćobrotami w czasie sprawdzania (bez ruchu przy `prefers-reduced-motion`)
+  ikonkę strzałki w kółku (7 na 7 pikseli gry, pole 24 px): przycisk bez ramki w przygaszonej żółci, z nazwą
+  „Szukaj aktualizacji” dla czytnika i w podpowiedzi, z ramką w motywie wysokiego kontrastu, obracający się ćwierćobrotami w czasie sprawdzania (bez ruchu przy `prefers-reduced-motion`)
   (`registration.update()`); wynik pojawia się pod wersją w regionie `aria-live="polite"`, drobnym pismem: „Sprawdzam...”, „Masz
   najnowszą wersję.”, „Jest nowa wersja gry. Pobieram ją.”, „Gra jeszcze się zapisuje.” (pierwsza wizyta, pierwsze
   wydanie jeszcze się zapisuje) albo „Brak połączenia: nie można sprawdzić.” (przeglądarka nie odróżnia braku sieci
