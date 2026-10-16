@@ -1,4 +1,5 @@
 import type { HillProfile } from "../sim/hill-profile";
+import { truncToInt } from "../sim/pascal-numeric";
 import { hillLayerTables, rowsAt } from "./hill-layer-tables";
 import {
   LAYER,
@@ -9,6 +10,7 @@ import {
   originalColumn,
   type SceneView,
 } from "./scene-layers";
+import { mixPacked } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
 
 /**
@@ -21,12 +23,15 @@ export const FLOODLIGHT = {
   /** Masts on the far fence: the first a little past the takeoff, then at a regular spacing. */
   mastSpacingM: 30,
   firstMastAfterTakeoffM: 12,
-  /** The hill is fully lit this far from a mast: half the spacing, so the pools of neighbouring masts meet. */
-  fullLightM: 15,
-  /** Width of each weaker step of light beyond that. */
-  stepM: 8,
+  /**
+   * The hill is fully lit this far before the first mast (from a little before the takeoff) and all the way past
+   * it, where the pools of the masts meet.
+   */
+  fullLightM: 13,
+  /** Width of each weaker step of light beyond that: narrow, so the light fades over about 10 m in small steps. */
+  stepM: 1.5,
   /** Share of the moonlit colour in each step, from the one next to the full light outwards. */
-  stepShares: [0.2, 0.4, 0.55, 0.7],
+  stepShares: [0.09, 0.17, 0.26, 0.34, 0.43, 0.51, 0.6],
   /** How much nearer (in layer scale) each row of the snow in front of the near edge lies. */
   nearGroundScalePerRow: 0.02,
 } as const;
@@ -45,15 +50,6 @@ export function floodlightStep(h: HillProfile, xM: number): number {
   const short = firstMastXM(h) - FLOODLIGHT.fullLightM - xM;
   if (short <= 0) return 0;
   return Math.min(FLOODLIGHT.stepShares.length, Math.ceil(short / FLOODLIGHT.stepM));
-}
-
-/** A packed colour moved `share` (0..1) of the way towards another, alpha kept. */
-export function mixPacked(from: number, to: number, share: number): number {
-  const channel = (shift: number) => {
-    const a = (from >>> shift) & 0xff;
-    return Math.round(a + (((to >>> shift) & 0xff) - a) * share) << shift;
-  };
-  return ((from & 0xff000000) | channel(0) | channel(8) | channel(16)) >>> 0;
 }
 
 const stepPaletteCache = new WeakMap<Uint32Array, WeakMap<Uint32Array, readonly Uint32Array[]>>();
@@ -75,10 +71,11 @@ export function floodlightPalettes(near: Uint32Array, far: Uint32Array): readonl
 
 /**
  * World x shown by original column `column` at depth `scale` (a layer's scale, between or beyond the layers): the
- * column of world x on a layer of that scale is 14 x scale + 160, less the layer's scroll of camX x scale.
+ * column of world x on a layer of that scale is 14 x scale + 160, less the layer's scroll, which is camX x scale
+ * cut to whole columns as the layers' own scroll is, so a step of light keeps to the column the hill has there.
  */
 function worldXAt(view: SceneView, column: number, scale: number): number {
-  return (view.camX + (column - ORIGINAL_CENTRE_COLUMN) / scale) / ORIGINAL_PX_PER_M;
+  return (truncToInt(view.camX * scale) + column - ORIGINAL_CENTRE_COLUMN) / (scale * ORIGINAL_PX_PER_M);
 }
 
 /**
@@ -127,13 +124,15 @@ function relightColumn(
 const FAR_SCALE = LAYER_SCALE[LAYER.farEdge] ?? 1;
 const NEAR_SCALE = LAYER_SCALE[LAYER.nearEdge] ?? 1;
 
-/** Rows of the landing hill in a column: from its far edge to its near edge. */
-function hillRows(h: HillProfile, view: SceneView, sx: number): [number, number] {
+/** Rows of the landing hill in a column of the picture: from its far edge to its near edge. */
+function hillRows(h: HillProfile, view: SceneView): (sx: number) => [number, number] {
   const t = hillLayerTables(h);
   const far = layerOffset(view, LAYER.farEdge);
   const near = layerOffset(view, LAYER.nearEdge);
-  const column = originalColumn(view, sx);
-  return [rowsAt(t.farEdge, far.x + column) + far.y, rowsAt(t.nearEdge, near.x + column) + near.y];
+  return (sx) => {
+    const column = originalColumn(view, sx);
+    return [rowsAt(t.farEdge, far.x + column) + far.y, rowsAt(t.nearEdge, near.x + column) + near.y];
+  };
 }
 
 /**
@@ -147,8 +146,9 @@ export function relightLandingHill(
   view: SceneView,
   palettes: readonly Uint32Array[],
 ): void {
+  const rowsOf = hillRows(h, view);
   for (let sx = 0; sx < c.fb.width; sx++) {
-    const [top, bottom] = hillRows(h, view, sx);
+    const [top, bottom] = rowsOf(sx);
     const scalePerRow = bottom > top ? (NEAR_SCALE - FAR_SCALE) / (bottom - top) : 0;
     relightColumn(c, h, view, palettes, sx, { top, bottom, scaleTop: FAR_SCALE, scalePerRow });
   }
@@ -156,11 +156,19 @@ export function relightLandingHill(
 
 /**
  * The snow in front of the near edge by night: it comes nearer by a fixed depth per row, so the steps of the
- * landing hill go on down the picture and turn with the camera as ground does.
+ * landing hill go on down the picture and turn with the camera as ground does. This ground has no shape of its
+ * own, so the depth is counted from the near edge: the steps keep their world x as the camera moves along the
+ * hill, and move with the near edge when it moves up or down the picture.
  */
-export function relightNearGround(c: SceneCanvas, h: HillProfile, view: SceneView, palettes: readonly Uint32Array[]) {
+export function relightNearGround(
+  c: SceneCanvas,
+  h: HillProfile,
+  view: SceneView,
+  palettes: readonly Uint32Array[],
+): void {
+  const rowsOf = hillRows(h, view);
   for (let sx = 0; sx < c.fb.width; sx++) {
-    const [, bottom] = hillRows(h, view, sx);
+    const [, bottom] = rowsOf(sx);
     relightColumn(c, h, view, palettes, sx, {
       top: bottom,
       bottom: c.lastRow,

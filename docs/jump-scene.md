@@ -174,13 +174,15 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   światło reflektorów sięga 28 wierszy nad dalszą krawędź skoczni: piksele tła i drzew przechodzą ku kolorom
   palety bliskiej, przy krawędzi o 55%, wyżej coraz mniej (z kwadratem odległości), niebo zostaje bez zmian
   (`drawFloodlightSpill` w `scene-backdrop.ts`). Nocą tło zostaje w świetle księżyca, a światło reflektorów
-  leży na skoczni (`scene-floodlight.ts`): skocznia jest w pełni oświetlona od 15 m przed pierwszym masztem
+  leży na skoczni (`scene-floodlight.ts`): skocznia jest w pełni oświetlona od 13 m przed pierwszym masztem
   (maszty co 30 m od 12 m za progiem, więc dalej zawsze w zasięgu któregoś) aż do końca wybiegu; wyżej, pod
-  najazdem, słabnie co 8 m o stopień: cztery stopnie przesuwają kolory o 20, 40, 55 i 70% ku palecie dalekiej,
-  schodkami jak pasma palety oryginału. Stopień piksela zależy od miejsca na świecie, które pokazuje: wiersze
-  między dalszą a bliższą krawędzią przechodzą głębią od warstwy 17 do 23, śnieg przed bliższą krawędzią dalej
-  o stałą głębię na wiersz, więc granice stopni leżą na skoczni jak linie odległości i nie jadą z kamerą.
-  Najazd ma własne lampy i zostaje oświetlony.
+  najazdem, słabnie co 1,5 m o stopień: siedem stopni przesuwa kolory od 9 do 60% ku palecie dalekiej, drobnymi
+  schodkami jak pasma palety oryginału. Stopień piksela zależy od miejsca na świecie, które pokazuje (przesunięcie
+  kamery liczone w całych kolumnach, jak przewijanie warstw): wiersze między dalszą a bliższą krawędzią
+  przechodzą głębią od warstwy 17 do 23, więc granice stopni leżą na skoczni jak linie odległości i nie jadą
+  z kamerą. Śnieg przed bliższą krawędzią nie ma własnego kształtu: jego głębia rośnie o stałą wartość na wiersz
+  od bliższej krawędzi, więc przy ruchu kamery wzdłuż skoczni stopnie stoją w miejscu, a w pionie przesuwają się
+  razem z bliższą krawędzią. Najazd i jego podpory zostają oświetlone (lampy najazdu).
 - Podgląd stroju i ikona to ta sama scena bez interfejsu, wycięta wokół skoczka (`drawJumperPreview`).
 
 ## Weryfikacja

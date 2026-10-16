@@ -15,8 +15,7 @@ import {
 } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { LAYER, layerOffset, layerRows, layerX, originalColumn, type SceneView } from "./scene-layers";
-import { mixPacked } from "./scene-floodlight";
-import { SKY_FIRST_INDEX } from "./scene-palette";
+import { mixPacked, SKY_FIRST_INDEX } from "./scene-palette";
 import { colourSpan, type SceneCanvas } from "./scene-span";
 
 /**
