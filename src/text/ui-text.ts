@@ -50,6 +50,7 @@ export const UI_TEXT = {
     filesForgotten: "Zapomniano pliki gry.",
     forgetFiles: "Zapomnij pliki",
     notPersistent: "Przeglądarka nie pozwala zapisywać danych: rekordy znikną po zamknięciu strony.",
+    replaysNotStored: "Nie udało się zapisać powtórek: nowe mogą zniknąć po zamknięciu strony.",
   },
 
   /** What the phone shows of the game's sound outside the page (lock screen, control centre). */

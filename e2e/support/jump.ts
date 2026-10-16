@@ -25,6 +25,9 @@ const START_TAP_WAIT_MS = 200;
 const START_TAP_LIMIT = 60;
 const START_TIMEOUT_MS = 20_000;
 const RESULT_TIMEOUT_MS = 40_000;
+/** Presses that start the next jump early: how many, and the wait after each. */
+const EARLY_PRESS_LIMIT = 80;
+const EARLY_PRESS_WAIT_MS = 100;
 
 export interface JumpOutcome {
   kind: "landed" | "fell" | "disqualified";
@@ -160,6 +163,29 @@ export async function finishedOutcome(page: Page): Promise<JumpOutcome> {
 export async function playJump(page: Page, traits: DeviceTraits, options: JumpOptions = {}): Promise<JumpOutcome> {
   await (traits.touch ? driveWithTouch(page, options) : driveWithMouse(page, options));
   return finishedOutcome(page);
+}
+
+/**
+ * One jump with the mouse up to its landing, then presses of the left button, as a player starts the next jump
+ * as soon as the game lets them, while the jumper still slides out. Returns the landing as it was announced, or
+ * null when the jumper fell or stopped before a press was taken.
+ */
+export async function jumpAndGoOnEarly(page: Page): Promise<string | null> {
+  await driveWithMouse(page, {});
+  await expect(announcement(page)).toHaveText(/^(Lądowanie|Upadek): |^Dyskwalifikacja\./, {
+    timeout: RESULT_TIMEOUT_MS,
+  });
+  const landed = /^Lądowanie: (\d+,\d{2}) metra\./.exec((await announcement(page).textContent()) ?? "");
+  if (landed === null) return null;
+  for (let attempt = 0; attempt < EARLY_PRESS_LIMIT; attempt++) {
+    const said = (await announcement(page).textContent()) ?? "";
+    // The jumper stopped first: the jump ended the usual way, which tells nothing here.
+    if (RESULT.test(said)) return null;
+    if (said === "") return landed[1] ?? null;
+    await clickMouse(page, "left");
+    await page.waitForTimeout(EARLY_PRESS_WAIT_MS);
+  }
+  return null;
 }
 
 export async function restartJump(page: Page, traits: DeviceTraits): Promise<void> {

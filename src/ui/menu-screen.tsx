@@ -32,6 +32,8 @@ interface Props {
   onGameFiles: (files: GameFiles) => void;
   onForgetFiles: () => void;
   persistent: boolean;
+  /** Whether replays can be stored only for this visit: the browser store keeps failing. */
+  replaysNotStored: boolean;
   /** Whether the game can start without a network, and the means to check for and install a new release. */
   offline: OfflineSupportView;
   /** Opens another screen of the game. */
@@ -79,6 +81,7 @@ export function MenuScreen({
   onGameFiles,
   onForgetFiles,
   persistent,
+  replaysNotStored,
   offline,
   onOpen,
   onOriginalHills,
@@ -185,6 +188,7 @@ export function MenuScreen({
         </div>
       )}
       {!persistent && <p className="note error">{UI_TEXT.menu.notPersistent}</p>}
+      {replaysNotStored && <p className="note error">{UI_TEXT.menu.replaysNotStored}</p>}
       {message && (
         <p className={message.error ? "note error" : "note"} role="status">
           {message.text}

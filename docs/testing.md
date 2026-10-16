@@ -179,6 +179,7 @@ Co sprawdzają pliki w `e2e/`:
 | `http-policy.spec.ts` | serwer testów przechodzi tę samą kontrolę co wdrożenie (`scripts/check-deployment.mjs`); polityka treści, typy i reguły cache strony, workera, manifestu i licencji; strona nie blokuje powiększania | `desktop-chromium` |
 | `single-file.spec.ts` | strona jednoplikowa nie pobiera niczego poza sobą, nie rejestruje workera także pod bezpiecznym adresem, działa bez sieci i w ramce | komputery |
 | `safe-area.spec.ts` | przy ustawionych wcięciach ekranu (wartości telefonu w poziomie) żadna treść nie leży pod zasłoniętą krawędzią, na każdym ekranie | wszystkie |
+| `two-windows.spec.ts` | dwa okna gry: rekord i ostatni skok z jednego oraz skok zachowany w drugim, które trzymało starszą listę i starszy zapis, zostają w obu po przeładowaniu; rekord to dłuższy z dwóch skoków, a jego powtórka to ten skok | wszystkie |
 | `storage-blocked.spec.ts` | przy zablokowanym magazynie gra ostrzega, działa i trzyma ustawienia do końca wizyty, bez nieobsłużonych błędów | `desktop-chromium`, `android-portrait` |
 
 Skok trwa w czasie rzeczywistym (70 kroków symulacji na sekundę), więc test steruje nim według zegara strony,

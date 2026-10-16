@@ -107,16 +107,20 @@ function asRecord(v: unknown): HillRecord | null {
 
 /** Reads stored JSON; anything unreadable or from an unknown version yields an empty save. */
 export function parseSave(json: string | null): SaveData {
-  if (json === null) return emptySave();
+  return json === null ? emptySave() : (readableSave(json) ?? emptySave());
+}
+
+/** Reads stored JSON; null when it is not a save of a version this game knows. */
+export function readableSave(json: string): SaveData | null {
   let raw: unknown;
   try {
     raw = JSON.parse(json);
   } catch {
-    return emptySave();
+    return null;
   }
   const version = field(raw, "schemaVersion");
   // Version 1 had records only; version 2 adds settings.
-  if (version !== 1 && version !== SAVE_SCHEMA_VERSION) return emptySave();
+  if (version !== 1 && version !== SAVE_SCHEMA_VERSION) return null;
   const records: Record<string, HillRecord> = {};
   const stored = field(raw, "records");
   if (typeof stored === "object" && stored !== null) {
@@ -195,4 +199,31 @@ export function withJump(
       [hillId]: { distanceM: jump.distanceM, points: jump.points, dateIso: now.toISOString() },
     },
   };
+}
+
+/**
+ * Which of two records of one hill stands when two windows hold different ones: the longer jump; between equal
+ * ones, the newer (on the same date, the first). The merges of the save and of the replays follow this one rule.
+ * Whether a new jump makes a record at all is beatsRecord's to say (strictly longer); this rule only picks between
+ * records made in different windows.
+ */
+export function betterRecordOf(
+  first: { distanceM: number; dateIso: string },
+  second: { distanceM: number; dateIso: string },
+): "first" | "second" {
+  if (first.distanceM !== second.distanceM) return first.distanceM > second.distanceM ? "first" : "second";
+  return first.dateIso >= second.dateIso ? "first" : "second";
+}
+
+/**
+ * The save to store when a window writes `mine` over `stored` (another window may have stored since): per hill the
+ * record that stands (betterRecordOf), and the settings of `mine`, as the last written.
+ */
+export function mergedSave(stored: SaveData, mine: SaveData): SaveData {
+  const records: Record<string, HillRecord> = { ...stored.records };
+  for (const [hillId, record] of Object.entries(mine.records)) {
+    const held = records[hillId];
+    if (held === undefined || betterRecordOf(record, held) === "first") records[hillId] = record;
+  }
+  return { ...mine, records };
 }

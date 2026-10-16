@@ -95,6 +95,43 @@ Jedna powtórka wychodzi jako `telemark-powtorka_<dzień>_<godzina>_<skocznia>.j
 archiwum ZIP `telemark-powtorki_<dzień>_<godzina>.zip` z osobnym plikiem na skok. Wczytać można plik, archiwum
 (bez kompresji albo z kompresją deflate, z limitami liczby i rozmiaru plików) i plik `.rpl`.
 
+## Przechowywanie listy powtórek
+
+Lista leży w IndexedDB, w bazie `telemark-replays` (magazyn `replays`, jeden rekord `shelf` ze `schemaVersion`
+i listą wpisów; `src/storage/replay-store.ts`). Rekord skoczni (odległość, punkty) jest osobno, w zapisie gry
+(`src/storage/save-store.ts`, localStorage).
+
+- **Zapis z kilku okien.** Każde okno gry trzyma własną kopię listy i dziennik zmian: wpisy, które dodało, i wpisy,
+  które usunęło, w obu wypadkach do zapisu, który je obejmie. Zapis czyta rekord, łączy go z listą okna i zapisuje
+  wynik w jednej transakcji (`src/storage/shelf-merge.ts`): zostaje to, co zapisane, poza wpisami usuniętymi w tym
+  oknie; z wpisów okna, których w bazie nie ma, wchodzą tylko dodane i niezapisane (inne były już zapisane, więc
+  usunęło je inne okno). Po udanym zapisie dziennik traci to, co zapis z niego wziął: o dodanych zdecydowało
+  łączenie (zapisane albo odrzucone jako słabsza powtórka rekordu), usunięcia są w bazie. Dlatego wpis usunięty
+  w jednym oknie i wczytany ponownie w innym (ten sam identyfikator) zostaje.
+- **Powtórka rekordu** zostaje jedna na skocznię, według tej samej zasady co rekord w zapisie gry (`betterRecordOf`
+  w `src/storage/save-data.ts`): dłuższy skok, przy równej odległości nowszy. Powtórka rekordu zastąpiona w oknie
+  nową nie liczy się jako usunięta, bo okno ze starszym zapisem mogło uznać za rekord krótszy skok. To, czy nowy
+  skok jest rekordem, rozstrzyga `beatsRecord` (skok dłuższy od rekordu), a `betterRecordOf` tylko wybiera między
+  rekordami z różnych okien.
+- **Odświeżanie.** Okno przyjmuje połączoną listę, z tym samym sprzątaniem z ustawień co przy każdej zmianie. Po
+  zapisie okno daje znać innym przez `BroadcastChannel` (`src/ui/shelf-sync.ts`), a one czytają listę na nowo;
+  każde okno czyta ją też, gdy strona znów staje się widoczna (także tam, gdzie `BroadcastChannel` nie ma). Okno,
+  którego ostatni zapis się nie udał, zamiast czytać zapisuje.
+- **Zapis gry z kilku okien.** Ten sam problem miał zapis gry: okno ze starszym zapisem nadpisywało rekordy
+  zapisane przez inne. Zapis czyta teraz zapis z magazynu i zostawia przy każdej skoczni rekord według
+  `betterRecordOf`; ustawienia są z okna, które zapisuje (ostatni zapis wygrywa). Zapisany wynik wraca do okna,
+  a inne okna czytają zapis po wiadomości na kanale `telemark-save` i po powrocie do strony
+  (`src/ui/save-sync.ts`), więc lista skoczni i rozpoznanie nowego rekordu widzą rekordy wszystkich okien. Zapis, którego nie da się
+  odczytać, niczego nie zmienia, a dopóki okno samo zapisuje, z odczytu bierze tylko rekordy i zostawia swoje
+  ustawienia.
+- **Błędy zapisu i odczytu.** Otwarcie bazy, które nie kończy się w 5 s (inna karta trzyma bazę przy zmianie
+  wersji), liczy się jako błąd; zapis liczy się dopiero po zakończeniu transakcji (przepełniony dysk przerywa ją
+  na końcu). Po błędzie zapisu lista zostaje w pamięci okna, a dziennik bez zmian, więc następny zapis (przy
+  następnej zmianie albo powrocie do strony) wpisuje też to, czego nie zapisał poprzedni. Po dwóch błędach z rzędu
+  menu mówi, że powtórki mogą zniknąć po zamknięciu strony; pierwsza udana operacja to cofa. Pierwszy odczyt, który
+  się nie udał, gra powtarza po 2 s (do trzech razy) i przy każdym powrocie do strony. Rekordu zapisanego przez
+  nowszą wersję gry (nieznana `schemaVersion`) gra nie nadpisuje nigdy.
+
 ## Plik zapisany przez tę grę
 
 Od 2026-10-15 (wersja 0.11.1) ekran „Powtórki” nie oferuje tego eksportu (`RPL_EXPORT_OFFERED` w `src/ui/rpl-export.ts`):

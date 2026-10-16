@@ -1,4 +1,3 @@
-import type { Page } from "@playwright/test";
 import {
   TEXT,
   announcement,
@@ -7,18 +6,12 @@ import {
   openJumpControls,
   openJumpFromStart,
   openMenu,
+  openReplays,
   press,
+  replayRows,
 } from "./support/app";
-import { expect, test, type DeviceTraits } from "./support/fixtures";
-import { playUntilLanded } from "./support/jump";
-
-const replayRows = (page: Page, group: string) => page.getByRole("region", { name: group }).getByRole("listitem");
-
-async function openReplays(page: Page, traits: DeviceTraits): Promise<void> {
-  await openMenu(page);
-  await press(button(page, TEXT.replays), traits);
-  await expect(page.getByRole("heading", { name: TEXT.replays })).toBeVisible();
-}
+import { expect, test } from "./support/fixtures";
+import { jumpAndGoOnEarly, playUntilLanded } from "./support/jump";
 
 test("a record keeps its replay, a jump can be kept by hand, and both stay after a reload", async ({
   page,
@@ -67,6 +60,26 @@ test("a record keeps its replay, a jump can be kept by hand, and both stay after
   await press(remove, traits);
   await expect(page.getByRole("region", { name: "Zachowane" })).toHaveCount(0);
   await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);
+});
+
+test("a record whose next jump was started before the jumper stopped keeps its replay after a reload", async ({
+  page,
+  traits,
+}) => {
+  test.skip(traits.touch, "the next jump is started with the mouse");
+  await openJumpFromStart(page, traits);
+  let distance: string | null = null;
+  for (let attempt = 0; attempt < 3 && distance === null; attempt++) distance = await jumpAndGoOnEarly(page);
+  expect(distance, "a clean landing followed by an early start of the next jump").not.toBeNull();
+
+  // The jump that set the record was left while its jumper still slid out; its replay is stored all the same.
+  await page.reload();
+  await openReplays(page, traits);
+  await expect(replayRows(page, "Rekordy skoczni")).toHaveCount(1);
+  await expect(replayRows(page, "Rekordy skoczni")).toContainText(`${distance ?? ""} m`);
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.training), traits);
+  await expect(button(page, "Powtórka rekordu: Ćwiczebna K90")).toBeVisible();
 });
 
 test("the replay screen keeps the last jumps and switches the clean-up on; the settings, the ghost", async ({

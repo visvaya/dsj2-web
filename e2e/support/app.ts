@@ -90,6 +90,17 @@ export async function openJumpFromStart(page: Page, traits: DeviceTraits, addres
   await openJump(page, traits);
 }
 
+/** The rows of one group of the replays screen. */
+export const replayRows = (page: Page, group: string): Locator =>
+  page.getByRole("region", { name: group }).getByRole("listitem");
+
+/** From a fresh page to the replays screen. */
+export async function openReplays(page: Page, traits: DeviceTraits): Promise<void> {
+  await openMenu(page);
+  await press(button(page, TEXT.replays), traits);
+  await expect(page.getByRole("heading", { name: TEXT.replays })).toBeVisible();
+}
+
 /** The buttons of the jump screen sit in a menu behind the pause button, on every device. */
 export async function openJumpControls(page: Page, traits: DeviceTraits): Promise<void> {
   await press(button(page, TEXT.pause), traits);

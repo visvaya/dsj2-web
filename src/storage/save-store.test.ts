@@ -105,6 +105,32 @@ describe("save store", () => {
     expect(await loadSave(backend)).toEqual(save);
   });
 
+  it("keeps the records another window stored, the better one per hill; the settings are the last written", async () => {
+    const backend = memoryBackend();
+    const elsewhere = withJump(
+      withJump(emptySave(), "own-1", { distanceM: 90, points: 80, fell: false }, NOW),
+      "own-2",
+      { distanceM: 50, points: 40, fell: false },
+      NOW,
+    );
+    await saveSave(backend, elsewhere);
+    // This window never saw those records: it jumped a shorter own-1 and a longer own-2, and changed a setting.
+    const here = withSettings(
+      withJump(
+        withJump(emptySave(), "own-1", { distanceM: 70, points: 60, fell: false }, NOW),
+        "own-2",
+        { distanceM: 60, points: 50, fell: false },
+        NOW,
+      ),
+      { sound: false },
+    );
+    const merged = await saveSave(backend, here);
+    expect(merged.records["own-1"]?.distanceM).toBe(90);
+    expect(merged.records["own-2"]?.distanceM).toBe(60);
+    expect(merged.settings.sound).toBe(false);
+    expect(await loadSave(backend)).toEqual(merged);
+  });
+
   it("prefers host storage, then localStorage, then memory", async () => {
     const host = new Map<string, string>();
     const hostStore = {
