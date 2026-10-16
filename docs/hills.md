@@ -101,8 +101,63 @@ z `HILL_RULES` (identyfikatory `geometry.…`). Pomiary są skończone dla każd
   sąsiednie wysokości różnią się mniej, niż rozróżnia pojedyncza precyzja).
 
 Zakresy kąta progu, wysokości progu i nachylenia w K, położenie K oraz długość strefy lądowania to założenia
-projektu, a nie granice sprawdzone symulacją; potwierdzają je albo zmieniają kontrole oparte na symulacji skoków,
-które dochodzą w kolejnym kroku.
+projektu, a nie granice sprawdzone symulacją; sprawdzają je pośrednio kontrole oparte na symulacji skoków
+(następna sekcja).
+
+## Kontrole symulacją
+
+Geometria nie mówi, czy skocznia dobrze się skacze. Kontrole w `src/hills/hill-play.ts` puszczają prawdziwą
+symulację (`startTrainingJump`, `stepTrainingJump`) z botami z `src/hills/hill-players.ts` i porównują wyniki
+z progami `PLAY_RULES`. `playMeasures` zwraca same liczby, `playProblems` stosuje do nich progi (reguły `play.*`).
+Każda kontrola obejmuje wszystkie skocznie własne, więc nowa skocznia wchodzi do nich przez same dane.
+
+Bot naciska jak gracz: lewy przycisk na starcie, oba przyciski w przysiadzie, gdy czas do krawędzi progu
+(`(takeoffXM - xM) / speedMPerS`) spadnie do celu, i trzyma je do oderwania; w locie prowadzi kąt ciała do -0,3 rad;
+przy opadaniu poniżej wysokości lądowania naciska prawy przez 4 klatki, a lewy od 8. do 12. klatki (telemark).
+Szum bota pochodzi z własnego, zasianego `BorlandRandom` (rozkład zbliżony do normalnego z sumy 12 liczb
+jednostajnych, bez funkcji przestępnych, więc wynik jest ten sam w każdym silniku).
+
+Trzy poziomy graczy (`PLAYER_LEVELS`):
+
+- słaby: rozrzut wybicia 0,08 s, sterowanie 0,6 poprawki z szumem 8, lądowanie na 1,5 +- 1 m;
+- średni: rozrzut 0,04 s, pełne sterowanie z szumem 4, lądowanie na 2 +- 0,5 m;
+- dobry: rozrzut 0,015 s, pełne sterowanie z szumem 2, lądowanie na 2,2 +- 0,2 m.
+
+Okno wybicia to liczba klatek celu (co 1/70 s), przy których skoczek bez błędów ląduje najwyżej 3 m przed
+najlepszym skokiem, bez upadku i dyskwalifikacji. Jedna klatka wybicia jest warta kilka metrów: to cecha fizyki
+gry, a nie skoczni, więc okno liczy się w klatkach.
+
+Reguły (każda mierzona na zasianych skokach, liczby prób w `PLAY_SAMPLE`):
+
+- `bot-unreliable`: skocznia powyżej K120 nie przechodzi kontroli, bo proste sterowanie bota jest wiarygodne tylko
+  do tej wielkości, a wyżej wynik zależy od bota, nie od skoczni; zniesie to dopiero lepszy bot;
+- `takeoff-window`: okno wybicia co najmniej 2 klatki na każdym ziarnie, żeby nie trzeba było trafić jednej klatki;
+- `good-median`: mediana dobrego gracza od K-20 do K+10 m, żeby skocznia skakała się na swój rozmiar;
+- `levels-ordered`: mediany rosną od słabego przez średniego do dobrego, bo umiejętność ma się opłacać;
+- `skill-wins`: dobry skacze dalej od średniego w co najmniej 70% par skoków przy tym samym wietrze;
+- `fall-rate`: średni i dobry przewracają się (lub są dyskwalifikowani) najwyżej w 5% skoków;
+- `best-short`: najlepszy skok co najmniej K-10 m, inaczej skoczni nie da się doskoczyć do K;
+- `best-past-landing-area`: najlepszy skok najwyżej 5 m za końcem strefy lądowania, żeby nikt jej nie przeskoczył;
+- `flight-time`: mediana lotu dobrego gracza co najmniej 2,5 s, żeby był to prawdziwy lot;
+- `flight-height`: 90. centyl największej wysokości nad zeskokiem najwyżej 8 m, bo skoczek leci blisko stoku;
+- `takeoff-speed`: prędkość na progu od 50 do 120 km/h, w zakresie skoczni narciarskich;
+- `wind-spread`: odchylenie standardowe odległości bota bez błędów przy stałym celu (sam wiatr) najwyżej 6 m;
+- `random-ends`, `random-finite`: skoki z losowym sterowaniem kończą się przed limitem klatek i dają skończone
+  liczby;
+- `random-within-scene`: skok z losowym sterowaniem zatrzymuje się przed 380 m, gdzie kończy się scena;
+- `random-below-terrain`: punkt skoczka schodzi najwyżej 0,5 m pod teren (na skoczni Ćwiczebna zmierzono 0 m).
+
+### Równe szanse
+
+- Te same wejścia dają ten sam wynik na każdym urządzeniu: test sprawdza, że skok z tym samym ziarnem, graczem
+  i szumem daje ten sam skrót stanu końcowego, a z innym ziarnem inny.
+- Umiejętność ma ważyć więcej niż wiatr: dobry gracz wygrywa ze średnim w większości par, a sam wiatr przesuwa
+  skok o ograniczoną liczbę metrów.
+- Żadna skocznia nie może wymagać trafienia jednej klatki: okno wybicia ma co najmniej 2 klatki.
+- Żadna skocznia nie może pozwolić dobremu skoczkowi wylądować za strefą lądowania.
+
+Jedna klatka wybicia (1/70 s) jest warta kilka metrów odległości. To cecha fizyki gry, wspólna dla wszystkich
+skoczni, a nie wada konkretnej skoczni.
 
 ## Odcisk geometrii i identyfikator
 
@@ -115,7 +170,7 @@ kształcie i nigdy nie spotykają nowego.
 ## Dodanie skoczni
 
 1. Skopiować dane istniejącej skoczni w `src/hills/own-hills.ts`, nadać nowy `id` i nazwę, zmienić liczby.
-2. `corepack pnpm test src/hills`: format, reguły geometrii i odcisk (nowy odcisk dopisać do tabeli w teście).
+2. `corepack pnpm test src/hills`: format, reguły geometrii, kontrole symulacją i odcisk (nowy odcisk dopisać do tabeli w teście).
 3. Przejrzeć migawkę pikseli i testy przeglądarkowe, które wskazują skocznię wbudowaną (`e2e/support/app.ts`;
    czasy naciśnięć w `e2e/support/jump.ts` zmierzono na tej skoczni).
 4. Skoczyć na komputerze i na telefonie.
