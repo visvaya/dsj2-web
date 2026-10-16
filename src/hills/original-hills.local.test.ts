@@ -5,7 +5,7 @@ import { readOriginalHills, type OriginalHill } from "../original/original-hills
 import { hillGoldenFiles } from "../sim/test-support/golden-files";
 import { GEOMETRY_RULE_LEVELS, geometryProblems } from "./hill-geometry";
 import { hillDistance, LIKENESS } from "./hill-likeness";
-import { PLAY_RULES, playMeasures, type PlayMeasures } from "./hill-play";
+import { playMeasures, type PlayMeasures } from "./hill-play";
 import { OWN_HILL_SPECS } from "./own-hills";
 import type { HillSpec } from "./hill-spec";
 import { parseHillSpec } from "./parse-hill-spec";
@@ -118,26 +118,23 @@ describe.skipIf(!golden.requested)("own hills against the hills of the original"
     expect(rejected).toEqual([]);
   });
 
-  // Larger hills cannot be admitted at all (the play checks refuse them), so the levels are set on the rest.
-  it.skipIf(exePath === undefined)(
-    "passes every admission rule of the geometry on every original hill an own hill may match in size",
-    () => {
-      const specs = load().flatMap((h) => {
-        const result = parseOriginal(h);
-        return result.ok && result.spec.kPointM <= PLAY_RULES.botReliableMaxKPointM ? [result.spec] : [];
-      });
-      const problems = specs.map((spec) => ({ spec, problems: geometryProblems(spec) }));
-      const refused = problems.flatMap(({ spec, problems: found }) =>
-        found.filter((p) => p.level === "admission").map((p) => `${spec.id}: ${p.rule} (${p.message})`),
-      );
-      // Shown only when an admission rule fails: how many originals pass each rule, to place the levels again.
-      const passing = Object.entries(GEOMETRY_RULE_LEVELS)
-        .map(([rule, level]) => {
-          const count = problems.filter(({ problems: found }) => !found.some((p) => p.rule === `geometry.${rule}`));
-          return `${rule} (${level}): ${count.length}/${specs.length}`;
-        })
-        .join("; ");
-      expect(refused, `originals passing each rule: ${passing}`).toEqual([]);
-    },
-  );
+  // Every hill of the game plays, so none may fail a rule a hill needs to be admitted.
+  it.skipIf(exePath === undefined)("passes every admission rule of the geometry on every original hill", () => {
+    const specs = load().flatMap((h) => {
+      const result = parseOriginal(h);
+      return result.ok ? [result.spec] : [];
+    });
+    const problems = specs.map((spec) => ({ spec, problems: geometryProblems(spec) }));
+    const refused = problems.flatMap(({ spec, problems: found }) =>
+      found.filter((p) => p.level === "admission").map((p) => `${spec.id}: ${p.rule} (${p.message})`),
+    );
+    // Shown only when an admission rule fails: how many originals pass each rule, to place the levels again.
+    const passing = Object.entries(GEOMETRY_RULE_LEVELS)
+      .map(([rule, level]) => {
+        const count = problems.filter(({ problems: found }) => !found.some((p) => p.rule === `geometry.${rule}`));
+        return `${rule} (${level}): ${count.length}/${specs.length}`;
+      })
+      .join("; ");
+    expect(refused, `originals passing each rule: ${passing}`).toEqual([]);
+  });
 });

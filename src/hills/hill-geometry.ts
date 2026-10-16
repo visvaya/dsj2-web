@@ -189,8 +189,11 @@ export const GEOMETRY_RULE_LEVELS = {
   "inrun-descends": "admission",
   /** A rising landing hill is a wall the jumper flies into. */
   "landing-descends": "admission",
-  /** The scenery is drawn only this far; past it the jumper slides out of the scene. */
-  "outrun-within-scene": "admission",
+  /**
+   * The scenery is drawn only this far, but what matters is that the jumper stops before it, which the play checks
+   * judge; the outrun's lowest point may lie further (some of the original's hills have it past the scene).
+   */
+  "outrun-within-scene": "style",
   /** A table far above or below the landing hill makes the takeoff meaningless. */
   "table-height": "admission",
   /** The game's hills take off at angles well outside the modern range and play well. */

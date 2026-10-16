@@ -110,18 +110,20 @@ poziomu nie mają, bo z natury są dopuszczające):
   - `join-height`, `join-slope`: stopień albo załamanie toru to uderzenie w narty;
   - `inrun-descends`: wznoszący się rozbieg może zatrzymać skoczka przed progiem;
   - `landing-descends`: wznoszący się zeskok to ściana, w którą skoczek wlatuje;
-  - `outrun-within-scene`: scena jest rysowana tylko do tej odległości;
   - `table-height`: próg daleko nad zeskokiem albo pod nim odbiera wybiciu sens;
 - **styl** (`style`): reguły nowoczesnej skoczni, których trzymają się skocznie własne gry; skocznia gracza, która
   je łamie, jest dopuszczana z uwagą, a nie odrzucana:
   - `takeoff-angle`: skocznie oryginału mają progi daleko poza tym zakresem i dobrze się na nich skacze;
   - `landing-area-length`: czy dobry gracz przeskoczy strefę lądowania, sprawdza symulacja;
   - `outrun-length`: czy skoczek zatrzyma się w scenie, sprawdza symulacja;
+  - `outrun-within-scene`: scena jest rysowana do 380 m, ale liczy się to, że skoczek zatrzyma się przed jej
+    końcem, co sprawdza symulacja; najniższy punkt wybiegu może leżeć dalej (tak jest na dwóch skoczniach
+    oryginału);
   - `k-near-steepest`, `landing-angle-at-k`: czy dobry gracz ląduje blisko K, sprawdza symulacja.
 
 `geometryProblems` zwraca problemy obu poziomów, `admissionProblems` tylko dopuszczające. Testy skoczni własnych
-wymagają braku problemów obu poziomów. Test lokalny z plikami gry (`DSJ2_GAME_DIR`) sprawdza, że każda skocznia
-oryginału do K120 (większych kontrole symulacją i tak nie dopuszczają) przechodzi każdą regułę dopuszczenia;
+wymagają braku problemów obu poziomów. Test lokalny z plikami gry (`DSJ2_GAME_DIR`) sprawdza, że każda z 37 skoczni
+oryginału przechodzi każdą regułę dopuszczenia (na każdej da się skakać);
 liczbę skoczni oryginału spełniających każdą regułę pokazuje tylko wtedy, gdy któraś reguła dopuszczenia zawiedzie.
 
 Zakresy reguł stylu to założenia projektu, a nie granice sprawdzone symulacją; to, co mają zapewniać, sprawdzają

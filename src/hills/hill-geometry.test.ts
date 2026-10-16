@@ -74,7 +74,7 @@ describe("hill geometry", () => {
     ["join-slope", "admission"],
     ["inrun-descends", "admission"],
     ["landing-descends", "admission"],
-    ["outrun-within-scene", "admission"],
+    ["outrun-within-scene", "style"],
     ["table-height", "admission"],
     ["takeoff-angle", "style"],
     ["landing-area-length", "style"],
@@ -100,8 +100,8 @@ describe("hill geometry", () => {
   });
 
   it("refuses a hill that breaks an admission rule", () => {
-    const spec = variant({ landing: { outrunCurveA: 0.0007 } });
-    expect(admissionProblems(spec).map((p) => p.rule)).toEqual(["geometry.outrun-within-scene"]);
+    const spec = variant({ inrun: { lineInterceptM: 232 } });
+    expect(admissionProblems(spec).map((p) => p.rule)).toEqual(["geometry.table-height"]);
   });
 
   it.each(EXTREME_HILLS)("gives finite measures for the %s hill the format allows", (_name, spec) => {
