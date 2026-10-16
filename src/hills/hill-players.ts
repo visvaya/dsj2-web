@@ -16,7 +16,10 @@ const M_PER_S_TO_KM_PER_H = 3.6;
 const BOT_TIMING = {
   /** The frame of the left press that leaves the gate. */
   startFrame: 70,
-  /** From this frame on the bot holds left on the inrun, which puts the jumper into the crouch. */
+  /**
+   * From this frame on the bot holds left on the inrun, as a player might; the jumper crouches by itself after a
+   * few inrun frames, so this changes nothing in the jumps measured so far.
+   */
   crouchFromFrame: 140,
   /** A jump that has not ended after this many frames counts as stuck. */
   maxJumpFrames: 6000,

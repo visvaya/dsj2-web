@@ -27,9 +27,15 @@ export const PLAY_RULES = {
   goodBeatsAverageMinShare: 0.7,
   /** A hill that throws practised players is unfair: falls (and disqualifications) of average and good players. */
   fallRateMaxShare: 0.05,
-  /** The best jump reaches near the K point; less means the hill cannot be jumped to its size. */
+  /**
+   * The best jump, as the median over the wind seeds, reaches near the K point; less means the hill cannot be
+   * jumped to its size. The median and not the worst seed: one strong head wind must not fail a fair hill.
+   */
   bestFromKMinM: -10,
-  /** The best jump stays within the landing area plus this much: no skilled player sails past it. */
+  /**
+   * The best jump on any wind seed stays within the landing area plus this much: no skilled player sails past
+   * it, even with the most helpful wind of the sample.
+   */
   bestPastLandingAreaMaxM: 5,
   /** A real flight: the good player's median time in the air. */
   goodMedianFlightMinS: 2.5,
@@ -38,8 +44,12 @@ export const PLAY_RULES = {
   /** Speed at the takeoff of every bot jump, within what a ski jump hill gives. */
   takeoffSpeedMinKmPerH: 50,
   takeoffSpeedMaxKmPerH: 120,
-  /** Wind may move a jump, but by less than skill does: deviation of the good player's distance at a fixed aim. */
-  windSpreadMaxM: 6,
+  /**
+   * Wind may move a jump, but by less than skill does: deviation of the good player's distance at a fixed aim, as
+   * a share of the K point, because the same wind carries a jumper further in a longer flight (5.5% measured on
+   * the training hill).
+   */
+  windSpreadMaxShareOfK: 0.08,
   /** The scenery ends here; a random jump must stop before it. */
   finalXMaxM: LAYER_TABLE_LENGTH_M,
   /**
@@ -67,8 +77,8 @@ const NOISE_SEED_OFFSET = 1000;
 export interface PlayMeasures {
   /** Smallest takeoff window over the sweep seeds, in aim frames. */
   windowMinFrames: number;
-  /** Smallest and largest best distance of the sweep over its seeds. */
-  bestMinM: number;
+  /** Median and largest best distance of the sweep over its seeds. */
+  bestMedianM: number;
   bestMaxM: number;
   medianWeakM: number;
   medianAverageM: number;
@@ -135,7 +145,7 @@ export function playMeasures(hill: HillChoice, sample: PlaySample = PLAY_SAMPLE)
   const random = seedsOf(sample.randomJumps).map((seed) => randomJump(hill, seed, seed + NOISE_SEED_OFFSET));
   return {
     windowMinFrames: Math.min(...sweep.map((s) => s.windowFrames)),
-    bestMinM: Math.min(...sweep.map((s) => s.bestDistanceM)),
+    bestMedianM: median(sweep.map((s) => s.bestDistanceM)),
     bestMaxM: Math.max(...sweep.map((s) => s.bestDistanceM)),
     medianWeakM: median(distances(weak)),
     medianAverageM: median(distances(average)),
@@ -197,7 +207,7 @@ export function playProblems(spec: HillSpec, m: PlayMeasures): readonly HillProb
       "fall-rate",
       `fall rates average ${m.fallRateAverage}, good ${m.fallRateGood}`,
     ],
-    [!(m.bestMinM >= k + r.bestFromKMinM), "best-short", `best distance only ${m.bestMinM} m on K ${k} m`],
+    [!(m.bestMedianM >= k + r.bestFromKMinM), "best-short", `best distance only ${m.bestMedianM} m on K ${k} m`],
     [
       !(m.bestMaxM <= landingAreaEndM + r.bestPastLandingAreaMaxM),
       "best-past-landing-area",
@@ -214,7 +224,11 @@ export function playProblems(spec: HillSpec, m: PlayMeasures): readonly HillProb
       "takeoff-speed",
       `takeoff speed ${m.takeoffSpeedMinKmPerH}..${m.takeoffSpeedMaxKmPerH} km/h`,
     ],
-    [!(m.windSpreadM <= r.windSpreadMaxM), "wind-spread", `wind moves the distance by ${m.windSpreadM} m`],
+    [
+      !(m.windSpreadM <= r.windSpreadMaxShareOfK * k),
+      "wind-spread",
+      `wind moves the distance by ${m.windSpreadM} m on K ${k} m`,
+    ],
     [!m.randomAllEnded, "random-ends", "a jump with random inputs did not end"],
     [!m.randomAllFinite, "random-finite", "a jump with random inputs produced a number that is not finite"],
     [!(m.randomFinalXMaxM <= r.finalXMaxM), "random-within-scene", `a random jump stopped at ${m.randomFinalXMaxM} m`],

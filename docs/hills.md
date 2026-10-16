@@ -136,12 +136,15 @@ Reguły (każda mierzona na zasianych skokach, liczby prób w `PLAY_SAMPLE`):
 - `levels-ordered`: mediany rosną od słabego przez średniego do dobrego, bo umiejętność ma się opłacać;
 - `skill-wins`: dobry skacze dalej od średniego w co najmniej 70% par skoków przy tym samym wietrze;
 - `fall-rate`: średni i dobry przewracają się (lub są dyskwalifikowani) najwyżej w 5% skoków;
-- `best-short`: najlepszy skok co najmniej K-10 m, inaczej skoczni nie da się doskoczyć do K;
-- `best-past-landing-area`: najlepszy skok najwyżej 5 m za końcem strefy lądowania, żeby nikt jej nie przeskoczył;
+- `best-short`: mediana najlepszych skoków (po ziarnach wiatru) co najmniej K-10 m, inaczej skoczni nie da się
+  doskoczyć do K; mediana, a nie najgorsze ziarno, żeby jeden silny wiatr czołowy nie oblał uczciwej skoczni;
+- `best-past-landing-area`: najdłuższy z najlepszych skoków, także przy najkorzystniejszym wietrze próby, najwyżej
+  5 m za końcem strefy lądowania, żeby nikt jej nie przeskoczył;
 - `flight-time`: mediana lotu dobrego gracza co najmniej 2,5 s, żeby był to prawdziwy lot;
 - `flight-height`: 90. centyl największej wysokości nad zeskokiem najwyżej 8 m, bo skoczek leci blisko stoku;
 - `takeoff-speed`: prędkość na progu od 50 do 120 km/h, w zakresie skoczni narciarskich;
-- `wind-spread`: odchylenie standardowe odległości bota bez błędów przy stałym celu (sam wiatr) najwyżej 6 m;
+- `wind-spread`: odchylenie standardowe odległości bota bez błędów przy stałym celu (sam wiatr) najwyżej 8% K,
+  bo ten sam wiatr niesie dalej w dłuższym locie (na skoczni Ćwiczebna zmierzono 5,5% K);
 - `random-ends`, `random-finite`: skoki z losowym sterowaniem kończą się przed limitem klatek i dają skończone
   liczby;
 - `random-within-scene`: skok z losowym sterowaniem zatrzymuje się przed 380 m, gdzie kończy się scena;

@@ -13,7 +13,7 @@ if (training === undefined) throw new Error("no own hill");
 /** Measures that pass every rule on the training hill (K 90 m, landing area ending near 121 m). */
 const passing: PlayMeasures = {
   windowMinFrames: 3,
-  bestMinM: 84,
+  bestMedianM: 84,
   bestMaxM: 94,
   medianWeakM: 63,
   medianAverageM: 77,
@@ -59,19 +59,25 @@ describe("play rules", () => {
     ["play.skill-wins", { goodBeatsAverageShare: 0.6 }],
     ["play.fall-rate", { fallRateAverage: 0.1 }],
     ["play.fall-rate", { fallRateGood: 0.1 }],
-    ["play.best-short", { bestMinM: 79 }],
+    ["play.best-short", { bestMedianM: 79 }],
     ["play.best-past-landing-area", { bestMaxM: 127 }],
     ["play.flight-time", { medianGoodFlightS: 2.4 }],
     ["play.flight-height", { highestAboveTerrainP90M: 8.5 }],
     ["play.takeoff-speed", { takeoffSpeedMinKmPerH: 45 }],
     ["play.takeoff-speed", { takeoffSpeedMaxKmPerH: 125 }],
-    ["play.wind-spread", { windSpreadM: 6.5 }],
+    ["play.wind-spread", { windSpreadM: 7.3 }],
     ["play.random-ends", { randomAllEnded: false }],
     ["play.random-finite", { randomAllFinite: false }],
     ["play.random-within-scene", { randomFinalXMaxM: 381 }],
     ["play.random-below-terrain", { randomBelowTerrainMaxM: 0.6 }],
   ])("reports %s", (rule, change) => {
     expect(rulesOf(training, change)).toEqual([rule]);
+  });
+
+  it("allows wind a spread in proportion to the hill's size", () => {
+    const larger: HillSpec = { ...training, kPointM: PLAY_RULES.botReliableMaxKPointM };
+    expect(rulesOf(training, { windSpreadM: 9 })).toEqual(["play.wind-spread"]);
+    expect(rulesOf(larger, { windSpreadM: 9 }).filter((r) => r === "play.wind-spread")).toEqual([]);
   });
 
   it("does not judge a hill above the bots' reach", () => {
