@@ -148,7 +148,8 @@ describe("classes", () => {
     expect(classesIn("class Odd extends ErrorLike {}")).toEqual(["Odd"]);
   });
 
-  it("are only the pixel buffer and the seeded generator", () => {
+  // Reads and scans every source file: seconds on a loaded machine, past vitest's default of 5 s.
+  it("are only the pixel buffer and the seeded generator", { timeout: 30_000 }, () => {
     const root = fileURLToPath(new URL(".", import.meta.url));
     const found = sourceFiles(root).flatMap((path) => {
       const file = relative(root, path).replaceAll("\\", "/");

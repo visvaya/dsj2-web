@@ -46,7 +46,7 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 }
 
 /** Rows of the sky bands at the top of the scene; stars and the moon are drawn there only. */
-const SKY_ROWS = 48;
+export const SKY_ROWS = 48;
 /** The hill's name in the colour the original gives a replay's file name there (0xCB), a new record in 0xCD. */
 const TITLE_INK = 0xcb;
 /**

@@ -1,15 +1,8 @@
 import { landingYM, type HillProfile } from "../sim/hill-profile";
-import { colourAt, hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
+import { colourAt, hillLayerTables, rowsAt } from "./hill-layer-tables";
 import { colourSpan, putIndex, type SceneCanvas } from "./scene-span";
-import {
-  LAYER,
-  layerIndex,
-  layerOffset,
-  layerRows,
-  nearestViewColumn,
-  originalColumn,
-  type SceneView,
-} from "./scene-layers";
+import { onSurfaceAtHeight } from "./scene-anchor";
+import { LAYER, layerIndex, layerOffset, originalColumn, type SceneView } from "./scene-layers";
 import { landingXAtArcLength, rowRunLine } from "./scene-lines";
 
 /** Palette index of the snow far below the near edge (0x3E). */
@@ -114,14 +107,10 @@ function linePoint(h: HillProfile, distanceM: number): readonly [number, number]
 export function distanceLineEnds(h: HillProfile, view: SceneView, distanceM: number): [number, number, number, number] {
   const t = hillLayerTables(h);
   const [x, y] = linePoint(h, distanceM);
-  const end = (layer: number, table: LayerTable): [number, number] => {
-    const off = layerOffset(view, layer);
-    const j = layerIndex(layer, x);
-    const sx = nearestViewColumn(view, j - off.x);
-    const shown = off.x + originalColumn(view, sx);
-    return [sx, layerRows(layer, y) + off.y + rowsAt(table, shown) - rowsAt(table, j)];
-  };
-  return [...end(LAYER.farEdge, t.farEdge), ...end(LAYER.nearEdge, t.nearEdge)];
+  return [
+    ...onSurfaceAtHeight(view, LAYER.farEdge, t.farEdge, x, y),
+    ...onSurfaceAtHeight(view, LAYER.nearEdge, t.nearEdge, x, y),
+  ];
 }
 
 /** Lines across the landing hill, each from its point on the far edge to the same point on the near edge. */

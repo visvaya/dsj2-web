@@ -6,7 +6,8 @@ import { hash } from "./jump-view-camera";
 import { hillLayerTables, type LayerTable } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { backgroundLayerTable } from "./scene-backdrop";
-import { LAYER_SCALE, layerOffset, viewColumn, type SceneView } from "./scene-layers";
+import { layerPlacer } from "./scene-anchor";
+import { LAYER_SCALE, type SceneView } from "./scene-layers";
 import { hazedPalette } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
 import { TREE_VARIANTS, treeBitmap, treeHeightPx, treeWidthPx, type TreeBitmap, type TreeKind } from "./tree-bitmaps";
@@ -211,14 +212,13 @@ export function drawTrees(
 ): void {
   const trees = sceneTrees(h, look);
   for (let layer = fromLayer; layer <= toLayer; layer++) {
-    const off = layerOffset(view, layer);
+    const place = layerPlacer(view, layer);
     const layerPal = hazedPalette(pal, pal[HAZE_INDEX] ?? 0, hazeShare(layer));
     for (const t of trees) {
       if (t.layer !== layer) continue;
       // Whether the tree shows at all, before its bitmap is made: most of a hill's trees are out of the view.
       const halfWidth = Math.ceil(treeWidthPx(t.kind, t.size) / view.pixelWidth / 2) + 1;
-      const column = viewColumn(view, t.j - off.x);
-      const foot = t.rows + off.y;
+      const [column, foot] = place(t.j, t.rows);
       if (
         column - halfWidth >= c.fb.width ||
         column + halfWidth < 0 ||

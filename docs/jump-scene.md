@@ -159,6 +159,31 @@ pasku etykieta fazy (rampa 0x58) i prędkość, biała z ciemniejszym cieniem: w
 niżej prawie nie odcinał się od liter. Wiersz o nowym rekordzie też jest bez cienia, jak w oryginale; miga co pół
 sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół sekundy widoczności.
 
+## Miejsca rzeczy świata na obrazie
+
+Rzeczy świata stojące na czymś albo zawieszone w tle (rekwizyty, końce linii, drzewa, ptaki, księżyc, belka
+startowa) port stawia na obrazie przez `src/render/scene-anchor.ts`, w jednym z czterech miejsc:
+
+- na rysowanej powierzchni warstwy (płot, poręcz, krawędź zeskoku): kolumna najbliższa indeksowi tablicy, wiersz
+  powierzchni pod tą kolumną (`onSurface`; koniec linii odległości z własną wysokością: `onSurfaceAtHeight`).
+  Rekwizyt jest w kolumnie swojego indeksu albo, w kwadratowych pikselach, gdzie widok ten indeks pomija,
+  w kolumnie sąsiedniej. Miejsca rekwizytów dają funkcje w `scene-extras.ts` (`sockPlaces`, `mastPlaces`,
+  `inrunLampPlaces`), z których korzystają i rysowanie, i test ruchu;
+- na warstwie tła, z jej przewijaniem (`layerPlacer` dla drzew, `layerScroll` dla ptaków);
+- na niebie, tylko z dryfem gwiazd (`skyDrift`; księżyc wybiera miejsce raz na skok, `viewAtStart`);
+- na samym ekranie (interfejs): bez świata pod spodem.
+
+Belka startowa zostaje przy rachunku oryginału (`gatePlace`: zaokrąglona kolumna i dokładny wiersz), bo tak ją
+rysuje oryginał; ta funkcja służy tylko belce. Poza modułem zostaje wszystko, co rysuje się kolumna po kolumnie:
+powierzchnie z tablic warstw (`scene-layers.ts`, `hill-layer-tables.ts`, pliki zeskoku, rozbiegu, tła i gór)
+i nocne prześwietlenie w `scene-floodlight.ts`, które wiersze kolumny bierze z przewijania warstw samo, a z modułu
+tylko x świata pokazany w kolumnie (`worldXAtDepth`). Cień skoczka i figura mają własną, stałą kolumnę na obrazie.
+
+Test `scene-anchor.guard.test.ts` pilnuje, że pliki spoza modułu i prymitywów nie wołają rzutu wprost, a plik
+rekwizytów (`scene-extras.ts`) ani nie próbkuje kolumn obrazu, ani nie czyta wierszy powierzchni. W plikach, które
+rysują powierzchnie, test nie odróżni wiersza powierzchni od miejsca liczonego ręcznie; tam rekwizyty i linie
+pilnuje `scene-motion.test.ts` (opis w `testing.md`).
+
 ## Różnice portu (świadome)
 
 - Widok ma kwadratowe piksele i szerokość od 256 do 432 kolumn: kolumna portu odpowiada 6/5 kolumny oryginału
