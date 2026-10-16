@@ -3,24 +3,7 @@ import { LAYER_TABLE_LENGTH_M } from "../render/hill-layer-tables";
 import { buildHillProfile } from "../sim/hill-setup";
 import { geometryProblems, geometryRuleProblems, HILL_RULES, hillGeometry, type HillGeometry } from "./hill-geometry";
 import type { HillSpec } from "./hill-spec";
-import { HILL_SPEC_LIMITS } from "./hill-spec-limits";
-import { OWN_HILL_SPECS } from "./own-hills";
-
-const [training] = OWN_HILL_SPECS;
-if (training === undefined) throw new Error("no own hill");
-
-type Inrun = HillSpec["profile"]["inrun"];
-type Landing = HillSpec["profile"]["landing"];
-
-/** The training hill with some numbers changed. */
-const variant = (change: { kPointM?: number; inrun?: Partial<Inrun>; landing?: Partial<Landing> }): HillSpec => ({
-  ...training,
-  kPointM: change.kPointM ?? training.kPointM,
-  profile: {
-    inrun: { ...training.profile.inrun, ...change.inrun },
-    landing: { ...training.profile.landing, ...change.landing },
-  },
-});
+import { EXTREME_HILLS, training, variant } from "./test-support/hill-variants";
 
 const rulesOf = (spec: HillSpec) => geometryProblems(spec).map((p) => p.rule);
 
@@ -78,52 +61,7 @@ describe("hill geometry", () => {
     expect(geometryRuleProblems(g, training.kPointM).map((p) => p.rule)).toEqual([rule]);
   });
 
-  const L = HILL_SPEC_LIMITS;
-  const extremes: readonly [string, HillSpec][] = [
-    [
-      "smallest",
-      variant({
-        kPointM: L.kPointM.min,
-        inrun: { startXM: 0, flatEndXM: 0, lineEndXM: 0, takeoffXM: L.inrun.takeoffXM.min, curveA: 0.001 },
-        landing: {
-          centerXM: L.landing.centerXM.min,
-          centerYM: L.landing.centerYM.min,
-          amplitudeM: L.landing.amplitudeM.min,
-          widthM: L.landing.widthM.min,
-          outrunStartXM: L.inrun.takeoffXM.min + L.landing.outrunStartOverTakeoffMinM,
-          outrunCurveA: L.landing.outrunCurveA.min,
-          knollBlend: 0,
-        },
-      }),
-    ],
-    [
-      "largest",
-      variant({
-        kPointM: L.kPointM.max,
-        inrun: {
-          startXM: 60,
-          flatEndXM: 60,
-          lineEndXM: 150,
-          takeoffXM: 200,
-          lineSlope: -3,
-          lineInterceptM: 1000,
-          curveA: 0.1,
-        },
-        landing: {
-          centerXM: L.landing.centerXM.max,
-          centerYM: L.landing.centerYM.max,
-          amplitudeM: L.landing.amplitudeM.max,
-          widthM: L.landing.widthM.max,
-          outrunStartXM: L.landing.outrunStartXM.max,
-          outrunCurveA: L.landing.outrunCurveA.max,
-          knollBlend: 1,
-        },
-      }),
-    ],
-    ["gentlest", variant({ inrun: { lineSlope: -0.1 }, landing: { amplitudeM: 5, widthM: 300 } })],
-  ];
-
-  it.each(extremes)("gives finite measures for the %s hill the format allows", (_name, spec) => {
+  it.each(EXTREME_HILLS)("gives finite measures for the %s hill the format allows", (_name, spec) => {
     const { inrun, landing } = spec.profile;
     const g = hillGeometry(buildHillProfile(inrun, landing), spec.kPointM);
     expect(

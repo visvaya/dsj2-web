@@ -216,6 +216,40 @@ rozbiegu do progu, miejsca z profilu. Nowa skocznia dostaje je bez zmian w testa
 Testy, którym wystarcza dowolna skocznia (pasek, podpowiedzi, teksty, menu, dźwięk, powtórki, zapis), zostają na
 pierwszej skoczni własnej, żeby nie mnożyć czasu testów.
 
+## Podobieństwo skoczni
+
+`src/hills/hill-likeness.ts` mierzy, jak bardzo dwie skocznie są do siebie podobne, wyłącznie z ich danych.
+`hillShape` opisuje skocznię kilkoma liczbami: punkt K, spadek zeskoku poniżej progu w 12 równych odstępach
+poziomych od progu do końca obszaru lądowania (jako część K, więc skocznie różnej wielkości dają się porównać),
+długość poziomą tego odcinka jako część K, spadek rozbiegu, kąt progu i wysokość progu nad zeskokiem. Wygląd
+(niebo, teren, drzewa, podpory, ogrodzenia) się nie liczy: skocznia przemalowana to ta sama skocznia.
+
+`hillDistance` to średnia kwadratowa różnic tych składników, każdej podzielonej przez skalę z `LIKENESS_SCALES`
+(10 m punktu K, 0,02 K spadku zeskoku, 0,05 K długości zeskoku, 5 m spadku rozbiegu, 1° kąta progu, 0,5 m wysokości
+progu). Skala to różnica, którą skoczek odczuwa na skoczni, więc żaden składnik nie przeważa samą jednostką;
+punkty zeskoku tworzą jeden składnik, żeby profil nie przeważał liczbą punktów. Odległość wynosi 0 dla tej samej
+skoczni i jest symetryczna.
+
+Skocznie bliższe niż `LIKENESS.tooAlike` uznaje się za tę samą skocznię: kopia skoczni oryginału zostaje odrzucona,
+podobnie jak skocznia zbyt bliska już opublikowanej. Próg wybrano tuż poniżej odległości dwóch najbliższych różnych
+skoczni oryginału o podobnej wielkości, więc te liczą się jako różne. Kopia z każdą liczbą profilu przesuniętą
+o 1% bywa już dalej niż próg: taka zmiana bezwzględnych wysokości przesuwa próg o metry, co daje inną skocznię
+do skakania, i reguły geometrii oceniają ją jak każdą nową skocznię.
+
+### Porównanie ze skoczniami oryginału
+
+`src/hills/original-hills.local.test.ts` porównuje skocznie własne ze skoczniami oryginału odczytanymi z plików
+gracza. Działa tylko z ustawionym `DSJ2_GAME_DIR` (jak testy porównawcze), nigdy w CI; z ustawioną zmienną i bez
+plików kończy się błędem, a nie pominięciem. Nic odczytanego z plików gry nie trafia do repozytorium ani na dysk.
+Sprawdza, że żadna skocznia własna nie jest za bardzo podobna do skoczni oryginału, że każda gra w zakresie
+skoczni oryginału o punkcie K w granicach 15 m od swojego (najlepsza odległość i mediana dobrego gracza względem K,
+prędkość na progu, czas lotu, okno wybicia, rozrzut od wiatru jako część K; zakres poszerzony o margines
+rozrzutu pomiaru) oraz że skocznie oryginału przechodzą kontrolę formatu.
+
+```sh
+DSJ2_GAME_DIR=<katalog gry> corepack pnpm test src/hills/original-hills.local.test.ts
+```
+
 ## Odcisk geometrii i identyfikator
 
 `hillFingerprint` (`src/hills/hill-fingerprint.ts`) to skrót FNV-1a (32 bity, 8 cyfr szesnastkowych) z punktu K
