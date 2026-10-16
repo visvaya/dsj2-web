@@ -1,18 +1,18 @@
 import { displayedWindMPerS } from "../game/wind-display";
-import { inrunYM, landingYM, type HillProfile } from "../sim/hill-profile";
+import { inrunYM, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import { fastSin, hash } from "./jump-view-camera";
 import type { HillLook } from "./hill-look";
+import { hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
 import {
   LAYER,
   layerIndex,
   layerOffset,
-  layerRows,
   layerX,
+  nearestViewColumn,
   originalColumn,
   sceneView,
-  viewColumn,
   type SceneView,
 } from "./scene-layers";
 import { color } from "./palette";
@@ -26,10 +26,15 @@ import type { SceneCanvas } from "./scene-span";
  * birds; the mountains are in `scene-mountains.ts`), placed on the original's layers so they move with the hill.
  */
 
-/** Where world x stands on a layer's ground: screen column and row. */
-function onLayer(view: SceneView, layer: number, xM: number, yM: number): [number, number] {
+/**
+ * Where a prop at world x stands on what is drawn of a layer: the view column nearest to its table index, and the
+ * row of the table at the index that column shows, so it stays on the fence or the rail under it as the picture
+ * scrolls instead of moving a row against it where the view skips its own index.
+ */
+function onLayer(view: SceneView, layer: number, table: LayerTable, xM: number): [number, number] {
   const off = layerOffset(view, layer);
-  return [viewColumn(view, layerIndex(layer, xM) - off.x), layerRows(layer, yM) + off.y];
+  const sx = nearestViewColumn(view, layerIndex(layer, xM) - off.x);
+  return [sx, rowsAt(table, off.x + originalColumn(view, sx)) + off.y];
 }
 
 /** Rows of the far fence; masts and socks stand on its top. */
@@ -86,7 +91,7 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
   const [from, to] = farRange(view, 20);
   const start = first + Math.max(0, Math.ceil((from - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
   for (let x = start; x <= Math.min(to, h.outrunStartXM); x += SOCK_SPACING_M) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
+    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - SOCK_POLE_PX;
     fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
@@ -129,7 +134,7 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   const [from, to] = farRange(view, headW + FLOODLIGHT_RAY_PX);
   const start = first + Math.max(0, Math.ceil((from - first) / FLOODLIGHT.mastSpacingM)) * FLOODLIGHT.mastSpacingM;
   for (let x = start; x <= to; x += FLOODLIGHT.mastSpacingM) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
+    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
     drawSoftGlow(fb, sx, top - 3, FLOODLIGHT_GLOW, glow);
@@ -178,7 +183,7 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
   const glow = color("lampGlow");
   const pole = color("post");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
-    const [sx, track] = onLayer(view, LAYER.inrunFar, x, inrunYM(h, x));
+    const [sx, track] = onLayer(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x);
     if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
@@ -335,11 +340,18 @@ const BIRD_COUNT = 4;
  * picture leaves them behind as the camera follows the jumper down.
  */
 const BIRD_LAYER = 7;
+/**
+ * Columns the birds' flight wraps around, centred on the middle of the picture: the widest picture's 432 columns
+ * (`VIEW_MAX_WIDTH_PX`) and a bird's margin of 30 either side, the same for every width, so a narrower picture
+ * shows the middle of the same flock.
+ */
+const BIRD_SPAN_PX = 492;
 
 /** A few birds crossing high above the background, beating their wings in bursts and gliding between them. */
 export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, frame: number) {
-  const span = fb.width + 60;
-  const origin = view.camX * 0.05;
+  const span = BIRD_SPAN_PX;
+  // The layer's scroll in the picture's columns: the birds move across the picture as the trees under them do.
+  const origin = layerOffset(view, BIRD_LAYER).x / view.pixelWidth;
   // Rows the picture has moved since the jumper stood at the start, in the birds' layer.
   const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), view.widthPx, view.pixelWidth);
   const drop = layerOffset(view, BIRD_LAYER).y - layerOffset(atStart, BIRD_LAYER).y;
@@ -348,7 +360,7 @@ export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, fram
   for (let i = 0; i < BIRD_COUNT; i++) {
     const far = i % 2 === 1;
     const worldX = frame * (far ? 0.09 : 0.14 + i * 0.02) + i * 131;
-    const sx = Math.round((((worldX - origin) % span) + span) % span) - 30;
+    const sx = Math.round(((((worldX - origin) % span) + span) % span) + (fb.width - span) / 2);
     const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2)) + drop;
     const beat = Math.floor(frame / BIRD_BEAT_FRAMES) + i * 5;
     const gliding = beat % (BIRD_BEATS + BIRD_GLIDE_BEATS) >= BIRD_BEATS;

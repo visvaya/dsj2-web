@@ -166,8 +166,15 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   płocie, lampki na słupkach wzdłuż najazdu, gwiazdy i księżyc (rysowane po górach, tylko na niebie; miejsce
   księżyca wybierane raz na skok, dla kamery na starcie, tam, gdzie widać najwięcej nieba; dalej przesuwa się
   tylko z gwiazdami, a góry wchodzą przed niego; tarcza o promieniu 4 z dokładnością do pół piksela), ptaki (w żadnej fazie lotu nie są płaską kreską; latają
-  w warstwie 7 tła nad szczytem najazdu, więc obraz zostawia je w górze, gdy kamera zjeżdża za skoczkiem), duch rekordu
-  (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
+  w warstwie 7 tła nad szczytem najazdu i przesuwają się z nią w poziomie i w pionie, więc obraz zostawia je w górze,
+  gdy kamera zjeżdża za skoczkiem; ich miejsca liczone od środka obrazu nie zależą od jego szerokości), duch rekordu
+  (`scene-extras.ts`, `jump-view-ghost.ts`).
+- Kolumny obrazu w kwadratowych pikselach pomijają co szósty indeks tablicy warstwy (6 kolumn
+  oryginału na 5 obrazu), więc płot i krawędź pod danym miejscem biorą wysokość z indeksu, który kolumna akurat
+  pokazuje. Rękaw, maszt i lampka najazdu stają w kolumnie, której indeks leży najbliżej ich własnego (przy remisie
+  lewej), na wierszu tablicy dla tego indeksu, więc nie skaczą o wiersz względem płotu ani poręczy przy
+  przewijaniu. Końce linii odległości zachowują wysokość oryginału, gdy ich kolumna jest pokazana, a w przeciwnym
+  razie przechodzą do najbliższej pokazanej i zmieniają wiersz o tyle, o ile krawędź (`nearestViewColumn`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
   przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
 - Zmierzch i noc (dodatki portu, `palette.ts`): tło ma paletę „daleką” (o zmierzchu cieplejszą i ciemniejszą,
   nocą w świetle księżyca), skocznia „bliską”. O zmierzchu obie mają ten sam ciepły odcień, a tło jest tylko
