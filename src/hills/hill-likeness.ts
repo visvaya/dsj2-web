@@ -30,12 +30,13 @@ const LIKENESS_SCALES = {
 
 export const LIKENESS = {
   /**
-   * Two hills closer than this are the same hill. Chosen just below the distance between the closest two different
-   * hills of the original of a similar size, so those count as different. A copy with every profile number moved by
-   * 1% or more is often further than this: such a change of the absolute heights already moves the takeoff table by
-   * metres, which makes another hill to jump, and the geometry rules judge it as any new hill.
+   * Two hills closer than this are the same hill to a jumper: every scale above is about the smallest difference a
+   * jumper notices, so a distance under 1 is a difference hardly noticed. Set with a margin under the distance of
+   * the closest two different hills of the original, so those count as different. Moving the profile numbers by a
+   * share of their own value is no test of a copy: 1% of an absolute height already moves the takeoff table by
+   * metres, which makes another hill to jump, judged by the other rules as any new hill.
    */
-  tooAlike: 0.5,
+  tooAlike: 0.4,
 } as const;
 
 /** What describes how a hill plays and looks in profile, independent of its look. */

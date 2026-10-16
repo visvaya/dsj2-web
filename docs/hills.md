@@ -68,9 +68,9 @@ skocznią:
   przyciskiem pauzy w lewym górnym rogu (najdalej do kolumny 61) a oknem wiatru ze światłem startowym (57 px
   z odstępem) (`src/hills/hill-title.ts`);
 - `kPointM`: liczba całkowita 20..300;
-- rozbieg: zakresy pól oraz kolejność `flatEndXM <= startXM < takeoffXM` i `flatEndXM <= lineEndXM < takeoffXM`,
-  bo funkcje profilu biorą część płaską do `flatEndXM`, prostą do `lineEndXM`, a łuk dalej; płaska część za końcem
-  prostej zostałaby nadpisana łukiem;
+- rozbieg: zakresy pól oraz kolejność `startXM < takeoffXM` i `flatEndXM <= lineEndXM < takeoffXM`, bo funkcje
+  profilu biorą część płaską do `flatEndXM`, prostą do `lineEndXM`, a łuk dalej; płaska część za końcem prostej
+  zostałaby nadpisana łukiem; start może leżeć na części płaskiej;
 - zeskok: zakresy pól, wybieg zaczyna się co najmniej 20 m za progiem i najdalej na 600 m;
 - wygląd: kolory to indeksy palety 0..255 (bramka startowa najwyżej 254, bo jej druga połowa bierze następny
   indeks), niebo w 6-bitowym RGB, ziarna 0..65535, najwyżej 8 podpór i 8 ukrytych grup drzew, odcinki z początkiem
@@ -230,11 +230,12 @@ progu). Skala to różnica, którą skoczek odczuwa na skoczni, więc żaden sk�
 punkty zeskoku tworzą jeden składnik, żeby profil nie przeważał liczbą punktów. Odległość wynosi 0 dla tej samej
 skoczni i jest symetryczna.
 
-Skocznie bliższe niż `LIKENESS.tooAlike` uznaje się za tę samą skocznię: kopia skoczni oryginału zostaje odrzucona,
-podobnie jak skocznia zbyt bliska już opublikowanej. Próg wybrano tuż poniżej odległości dwóch najbliższych różnych
-skoczni oryginału o podobnej wielkości, więc te liczą się jako różne. Kopia z każdą liczbą profilu przesuniętą
-o 1% bywa już dalej niż próg: taka zmiana bezwzględnych wysokości przesuwa próg o metry, co daje inną skocznię
-do skakania, i reguły geometrii oceniają ją jak każdą nową skocznię.
+Skocznie bliższe niż `LIKENESS.tooAlike` (0,4) uznaje się za tę samą skocznię: kopia skoczni oryginału zostaje
+odrzucona, podobnie jak skocznia zbyt bliska już opublikowanej. Ponieważ każda skala to w przybliżeniu najmniejsza
+różnica, którą skoczek odczuwa, odległość poniżej 1 to różnica ledwie odczuwalna, a poniżej progu praktycznie żadna.
+Próg leży z zapasem poniżej odległości dwóch najbliższych różnych skoczni oryginału, więc te liczą się jako różne.
+Przesuwanie liczb profilu o procent ich wartości nie sprawdza kopii: 1% bezwzględnej wysokości przesuwa próg
+skoczni o metry, co daje już inną skocznię do skakania, ocenianą przez pozostałe reguły jak każda nowa.
 
 ### Porównanie ze skoczniami oryginału
 
