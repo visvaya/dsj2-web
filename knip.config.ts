@@ -17,6 +17,8 @@ const config: KnipConfig = {
     // scripts/lib/load-typescript.mjs).
     "src/original/test-support/hill-plans.ts",
     "src/original/test-support/fall-search.ts",
+    // Loaded by path from scripts/train-player.mjs.
+    "src/hills/test-support/player-training.ts",
     // Named only in stryker.config.json ("vitest.configFile"), which knip does not follow.
     "vitest.stryker.config.ts",
     // Browser tests (Playwright): the specs, the set-up that bundles the simulation harness, and the page

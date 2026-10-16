@@ -136,23 +136,110 @@ symulację (`startTrainingJump`, `stepTrainingJump`) z botami z `src/hills/hill-
 z progami `PLAY_RULES`. `playMeasures` zwraca same liczby, `playProblems` stosuje do nich progi (reguły `play.*`).
 Każda kontrola obejmuje wszystkie skocznie własne, więc nowa skocznia wchodzi do nich przez same dane.
 
-Bot naciska jak gracz: lewy przycisk na starcie, oba przyciski w przysiadzie, gdy czas do krawędzi progu
-(`(takeoffXM - xM) / speedMPerS`) spadnie do celu, i trzyma je do oderwania; w locie prowadzi kąt ciała do -0,3 rad;
-przy opadaniu poniżej wysokości lądowania naciska prawy przez 4 klatki, a lewy od 8. do 12. klatki (telemark).
-Szum bota pochodzi z własnego, zasianego `BorlandRandom` (rozkład zbliżony do normalnego z sumy 12 liczb
-jednostajnych, bez funkcji przestępnych, więc wynik jest ten sam w każdym silniku).
+Dawne boty grały według skryptu: cel wybicia z próbowania celów w symulacji, w locie jeden kąt ciała (0,3 rad)
+niezależnie od skoczni, wiatru i fazy lotu, lądowanie na stałej wysokości, bez czytania wiatru i bez wiedzy
+o punktach. Były wiarygodne tylko do K120, a na 38 skoczniach z prostszym botem rozrzut odległości na dużych
+skoczniach (40-60 m) pochodził od bota, a nie od skoczni. Teraz grają polityką gracza, którą wytrenowano,
+a wyrocznia mówi, ile da się ze skoczni wyciągnąć najwyżej.
 
-Trzy poziomy graczy (`PLAYER_LEVELS`):
+### Co widzi gracz
 
-- słaby: rozrzut wybicia 0,08 s, sterowanie 0,6 poprawki z szumem 8, lądowanie na 1,5 +- 1 m;
-- średni: rozrzut 0,04 s, pełne sterowanie z szumem 4, lądowanie na 2 +- 0,5 m;
-- dobry: rozrzut 0,015 s, pełne sterowanie z szumem 2, lądowanie na 2,2 +- 0,2 m.
+`playerView` (`src/hills/player-view.ts`) zwraca z bieżącego stanu skoku tylko to, co widzi gracz: klatkę, fazę,
+prędkość, czas do krawędzi progu przy obecnej prędkości, wysokość nad terenem pod skoczkiem i tempo, w jakim maleje,
+kąt ciała, liczbę klatek od oderwania oraz wiatr wzdłuż skoczni tak, jak pokazuje go wskaźnik (składowa x
+z `displayedWindMPerS`, liczona deterministycznym cosinusem, żeby bot decydował tak samo w każdym silniku). Nie widzi
+wiatru z przyszłości ani danych skoczni poza terenem pod sobą i krawędzią przed sobą.
+
+### Polityka gracza
+
+`PlayerPolicy` (`src/hills/player-policy.ts`) to 10 liczb z jednostką w nazwie:
+
+- `takeoffAimS`: oba przyciski w przysiadzie, gdy czas do krawędzi spadnie do tej wartości; trzymane do oderwania;
+- `earlyFlightFrames`, `earlyLeanRad`: pochylenie (minus kąt ciała, do którego prowadzi sterowanie) w pierwszych
+  klatkach lotu;
+- `leanRad`, `leanPerSpeedRadPerMPerS`, `leanPerHeightRadPerM`, `leanPerTailWindRadPerMPerS`: pochylenie w reszcie
+  lotu, liniowe względem prędkości (od 25 m/s), wysokości nad terenem (od 3 m) i pokazanego wiatru w plecy;
+  ograniczone do -0,2..0,9 rad;
+- `landingHeightM`, `landingPerClosingS`: przy opadaniu prawy przycisk przez 4 klatki, gdy wysokość spadnie poniżej
+  `landingHeightM` plus tempo opadania razy `landingPerClosingS`;
+- `telemark`: lewy od 8. do 12. klatki po prawym (telemark) albo bez niego (na dwie nogi).
+
+Sterowanie w locie to poprawka 60 mikrokroków myszy na radian błędu kąta, obcięta do 40 na klatkę. Szum bota
+pochodzi z własnego, zasianego `BorlandRandom` (rozkład zbliżony do normalnego z sumy 12 liczb jednostajnych, bez
+funkcji przestępnych, więc wynik jest ten sam w każdym silniku).
+
+Trzy poziomy graczy (`PLAYER_LEVELS`) to wytrenowana polityka z ludzkim szumem:
+
+- słaby: rozrzut wybicia 0,08 s, sterowanie 0,6 poprawki z szumem 8, lądowanie 0,7 m niżej niż polityka, +- 1 m;
+- średni: rozrzut 0,04 s, pełne sterowanie z szumem 4, lądowanie 0,2 m niżej, +- 0,5 m;
+- dobry: rozrzut 0,015 s, pełne sterowanie z szumem 2, lądowanie jak polityka, +- 0,2 m.
+
+`EXACT_PLAYER_LEVEL` to dobry gracz bez szumu, czyli sama polityka.
+
+### Trening
+
+`node scripts/train-player.mjs [liczba ocen]` (domyślnie 400) trenuje politykę i wypisuje liczby oraz wyniki do
+przepisania do `TRAINED_PLAYER_POLICY` i `TRAINED_POLICY_SCORES`; niczego nie zapisuje. Skrypt, a nie plik testów:
+trening trwa minuty, a wynikiem są liczby do przejrzenia i przepisania, nie werdykt. Trening jest deterministyczny:
+ten sam kod daje te same liczby.
+
+Zbiór treningowy (`src/hills/test-support/player-training.ts`) to wyłącznie skocznie własne i ich warianty z ich
+danych: wszystkie długości razy 0,7-2,5, rozbieg dłuższy albo krótszy o 4-32 m razy skala (dłuższy przesuwa resztę
+skoczni w prawo, bo start nie może zejść poniżej 0 m; próg zachowuje wysokość, bo reguły trzymają ją w stałym
+zakresie). Wariant zostaje, gdy przechodzi kontrolę formatu i reguły dopuszczenia geometrii oraz gdy mediana
+skoków gracza odniesienia (dawnego bota, `REFERENCE_PLAYER_POLICY`) leży między 0,75 K a końcem strefy lądowania,
+czyli skocznia skacze się na swój rozmiar. Zostaje 19 skoczni od K63 do K225. Na każdej skacze gracz bez szumu na
+dwóch najsilniejszych ziarnach każdej klasy wiatru; wynik to średnia punktów gry, a upadek lub dyskwalifikacja
+liczy się jako -100 punktów.
+
+Przeszukiwanie startuje od gracza odniesienia: najpierw strategia ewolucyjna (1+6) z zasianym generatorem (70%
+ocen; wszystkie liczby naraz, rozrzut w krokach zgrubnych, szerszy po zysku, węższy bez niego), potem przeszukiwanie
+po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: wszystkie skocznie zbioru mają ten sam
+kształt zeskoku, jedno porównanie stylów rozstrzygało kilka ziaren (raz na dwie nogi wygrało o 0,2 punktu na 152
+skokach), a gracz odniesienia lądujący na dwie nogi upada na tym samym zbiorze tak często, że jego średnia spada
+z 128 do 82 punktów.
+
+Wynik: 155,0 punktu na zbiorze treningowym (gracz odniesienia 127,6), 123,25 na samych skoczniach własnych, po 173
+ocenach, około 5 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
+pochylenia; zostały pochylenie 0,2 rad rosnące o 0,048 rad na metr wysokości, wybicie 0,2 s przed krawędzią
+i lądowanie na 1,8 m plus 0,04 s tempa opadania. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na
+skoczniach własnych: tani dowód, że ani polityka, ani symulacja się nie zmieniły.
+
+### Wyrocznia
+
+`oracleJump` (`src/hills/hill-oracle.ts`) zna skocznię i ziarno, więc i przyszły wiatr. Szuka zmian skoku
+wytrenowanego gracza, które dają najwięcej punktów: przesunięcia celu wybicia o całe klatki, pochylenia dodanego
+w czterech częściach lotu (do 35, 105 i 210 klatek od oderwania i dalej) i przesunięcia wysokości lądowania. To
+przeszukiwanie po współrzędnych z krokami 0,1 rad i 1 m, potem 0,04 rad i 0,4 m, najwyżej 60 skoków na ziarno;
+upadek i dyskwalifikacja to najgorszy wynik (-100 punktów). Startuje od skoku gracza, więc nigdy nie wypada
+gorzej od niego. Na skoczni Ćwiczebna cztery wyszukiwania (po jednym na klasę wiatru) to 141 skoków i około 1,3 s.
+
+### Porównanie z wyrocznią na skoczniach oryginału
+
+Test lokalny (z `DSJ2_GAME_DIR`, patrz niżej) gra każdą z 37 skoczni oryginału wytrenowanym graczem i wyrocznią na
+najsilniejszym ziarnie każdej klasy wiatru. Odległość, którą dokłada wyrocznia, jako część K (średnia i 90. centyl
+w przedziale wielkości), pomiar z 2026-10-17:
+
+| K | skoczni | średnio | 90. centyl | punkty średnio | upadki gracza |
+|---|---|---|---|---|---|
+| do 90 | 10 | 0,049 | 0,100 | 8,1 | 0 |
+| 90-120 | 7 | 0,055 | 0,097 | 11,3 | 0 |
+| 120-160 | 8 | 0,072 | 0,141 | 15,6 | 0 |
+| powyżej 160 | 12 | 0,096 | 0,195 | 24,2 | 0 |
+
+Margines wynika z przedziałów, w których boty już uznawano za wiarygodne: średnio najwyżej 0,06 K, 90. centyl
+najwyżej 0,12 K, bez upadków. Przedział 120-160 go przekracza, więc granica K120 (`botReliableMaxKPointM`) zostaje;
+test lokalny pilnuje marginesu do tej granicy. Na innych ziarnach (od 1001, 16 na skocznię) wytrenowany gracz
+zdobywa na skoczniach oryginału prawie tyle samo co dawny bot (do K90 118,8 wobec 117,7 punktu, 90-120 114,3 wobec
+111,5, 120-160 140,8 wobec 141,7, powyżej 160 159,7 wobec 164,1): trening na wariantach jednej skoczni własnej słabo
+przenosi się na inne kształty zeskoku. Podniesienie granicy wymaga skoczni treningowych o innych kształtach, czyli
+kolejnych skoczni własnych.
 
 Okno wybicia to liczba klatek celu (co 1/70 s), przy których skoczek bez błędów ląduje najwyżej 3 m przed
 najlepszym skokiem, bez upadku i dyskwalifikacji. Jedna klatka wybicia jest warta kilka metrów: to cecha fizyki
 gry, a nie skoczni, więc okno liczy się w klatkach.
 
-Najlepszy cel wybicia znajduje `takeoffAimSearch`. Odległość w funkcji celu rośnie o 5-7 m na klatkę do jednego
+Najlepszy cel wybicia znajduje `takeoffAimSearch`, z lotem i lądowaniem wytrenowanego gracza bez szumu. Odległość w funkcji celu rośnie o 5-7 m na klatkę do jednego
 szczytu i za nim spada (z urwiskiem około 6 klatek za wcześnie), więc wyszukiwanie zaczyna od najlepszego celu
 poprzedniego ziarna (dla pierwszego od 14 klatek) i idzie w obie strony, aż na danej stronie dwa cele z rzędu
 wypadną ponad 3 m poniżej najlepszego albo skończą się upadkiem; strona, na której pojawia się nowy najlepszy,
@@ -182,18 +269,21 @@ Reguły są mierzone na zasianych skokach. Próba (`PLAY_SAMPLE`):
 
 - 16 ziaren na klasę wiatru (razem 64), na których skacze każdy poziom gracza i bot bez błędów (sam wiatr);
 - 4 najsilniejsze ziarna na klasę (razem 16) w wyszukiwaniu celu wybicia;
+- najsilniejsze ziarno każdej klasy (razem 4) dla wyroczni, do 60 skoków każde;
 - 12 skoków zaprojektowanych na najsilniejszym ziarnie każdej klasy (razem 48);
 - 16 skoków z losowym sterowaniem (ziarna od 1) jako dodatkowe sprawdzenie na ślepo.
 
 Każda klasa jest więc w każdej części próby w równej części. `PlaySample` przyjmuje pierwsze ziarno przeglądu
-wiatru i skoków losowych, więc tę samą ocenę można powtórzyć na rozłącznej próbie. Jedna ocena to około 440
-skoków i około 4 s na tej maszynie (wcześniej 976 skoków i 7,8 s).
+wiatru i skoków losowych, więc tę samą ocenę można powtórzyć na rozłącznej próbie. Jedna ocena to około 580
+skoków i około 5,3 s na tej maszynie, z czego wyrocznia 141 skoków i około 1,3 s (bez wyroczni około 440 skoków
+i 4 s, a jeszcze wcześniej 976 skoków i 7,8 s).
 
 ### Skoki zaprojektowane
 
 `DESIGNED_SCENARIOS`: skok dobrego gracza bez błędów przy celu z wyszukiwania (mediana najlepszych celów), w każdym
 jedna rzecz zmieniona: wybicie dużo za wcześnie (20 klatek), wcześnie (4), późno (-4 klatki), bez wybicia; poza
-w locie pochylona (kąt ciała 0,6 rad), wyprostowana (0 rad), zmieniana co 35 klatek; lądowanie wcześnie (8 m nad
+w locie pochylona (kąt ciała 0,6 rad), wyprostowana (0 rad), zmieniana co 35 klatek (w pozostałych skokach lot
+prowadzi wytrenowana polityka, a lądowanie przychodzi na 1,8 m); lądowanie wcześnie (8 m nad
 zeskokiem), na dwie nogi (tylko prawy przycisk), bez lądowania; do tego jeden skok późny, ze zmienną pozą i bez
 lądowania. Każdy skok ma nazwę `<klasa>/<scenariusz>` (skoki losowe `random/<ziarno>`), a komunikat reguły podaje
 nazwę skoku, który ją złamał. Na skoczni Ćwiczebna upadają skoki bez wybicia (`fallType` 5) i bez lądowania
@@ -201,8 +291,8 @@ nazwę skoku, który ją złamał. Na skoczni Ćwiczebna upadają skoki bez wybi
 
 Reguły:
 
-- `bot-unreliable`: skocznia powyżej K120 nie przechodzi kontroli, bo proste sterowanie bota jest wiarygodne tylko
-  do tej wielkości, a wyżej wynik zależy od bota, nie od skoczni; zniesie to dopiero lepszy bot;
+- `bot-unreliable`: skocznia powyżej K120 nie przechodzi kontroli, bo wytrenowany gracz trzyma się blisko wyroczni
+  tylko do tej wielkości (porównanie wyżej), a wyżej wynik zależy od bota, nie od skoczni;
 - `takeoff-window`: mediana okna wybicia po ziarnach przeglądu co najmniej 2 klatki, żeby nie trzeba było trafić
   jednej klatki;
 - `takeoff-window-share`: okno co najmniej 2 klatki na co najmniej 75% ziaren przeglądu. Okno 1 klatki zdarza się
@@ -222,9 +312,11 @@ Reguły:
   nie powinien upaść. Skocznia Ćwiczebna spełnia także dawne 5%;
 - `best-short`: mediana najlepszych skoków (po ziarnach wiatru) co najmniej K-10 m, inaczej skoczni nie da się
   doskoczyć do K; mediana, a nie najgorsze ziarno, żeby jeden silny wiatr czołowy nie oblał uczciwej skoczni;
-- `best-past-landing-area`: najdłuższy z najlepszych skoków wyszukiwania, czyli skok w najkorzystniejszej klasie
-  wiatru (komunikat ją podaje; na skoczni Ćwiczebna to wiatr czołowy), najwyżej 5 m za końcem strefy lądowania,
-  żeby nikt jej nie przeskoczył;
+- `best-past-landing-area`: najdłuższy z najlepszych skoków wyroczni (po jednym na najsilniejszym ziarnie każdej
+  klasy wiatru), czyli skok w najkorzystniejszej klasie (komunikat ją podaje; na skoczni Ćwiczebna to wiatr czołowy,
+  102,5 m przy końcu strefy na 120,8 m), najwyżej 5 m za końcem strefy lądowania, żeby nikt jej nie przeskoczył.
+  Wcześniej mierzyło to wyszukiwanie celu wybicia, które zmieniało tylko cel, a wyrocznia szuka też lotu
+  i lądowania;
 - `flight-time`: mediana lotu dobrego gracza co najmniej 2,5 s, żeby był to prawdziwy lot;
 - `flight-height`: 90. centyl największej wysokości nad zeskokiem najwyżej 8 m, bo skoczek leci blisko stoku;
 - `takeoff-speed`: prędkość na progu od 50 do 120 km/h, w zakresie skoczni narciarskich;
@@ -243,7 +335,7 @@ w `src/hills/hill-play.stability.test.ts` ocenia każdą skocznię własną na t
 niespełnionych na każdym z nich.
 
 Kontrole mają dwa poziomy. Zwykłe uruchomienie testów (i bramka przed PR) ocenia każdą skocznię własną raz,
-na próbie opisanej wyżej; `corepack pnpm test src/hills` trwa około 6 s. Test stabilności trwa około 12 s na
+na próbie opisanej wyżej; `corepack pnpm test src/hills` trwa około 9 s. Test stabilności trwa około 17 s na
 skocznię, więc ma osobne polecenie, `corepack pnpm test:hills-stability` (zmienna `HILL_STABILITY=1` dołącza
 plik, który `vite.config.ts` poza nią pomija). CI uruchamia je w zadaniu `checks`, gdy zmiana dotyka
 `src/hills/`, `src/sim/`, `src/game/`, workflow, `package.json` albo `vite.config.ts`, a także gdy nie da się
@@ -321,7 +413,9 @@ plików kończy się błędem, a nie pominięciem. Nic odczytanego z plików gry
 Sprawdza, że żadna skocznia własna nie jest za bardzo podobna do skoczni oryginału, że każda gra w zakresie
 skoczni oryginału o punkcie K w granicach 15 m od swojego (najlepsza odległość i mediana dobrego gracza względem K,
 prędkość na progu, czas lotu, okno wybicia, rozrzut od wiatru jako część K; zakres poszerzony o margines
-rozrzutu pomiaru) oraz że skocznie oryginału przechodzą kontrolę formatu.
+rozrzutu pomiaru), że skocznie oryginału przechodzą kontrolę formatu oraz że wytrenowany gracz trzyma się marginesu
+wyroczni na skoczniach do granicy `botReliableMaxKPointM` (porównanie z wyrocznią wyżej; tabelę przedziałów podaje
+komunikat, gdy test nie przechodzi). Całość trwa około 2,5 minuty.
 
 ```sh
 DSJ2_GAME_DIR=<katalog gry> corepack pnpm test src/hills/original-hills.local.test.ts

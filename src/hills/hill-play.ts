@@ -2,6 +2,7 @@ import type { HillChoice } from "../game/hill-choice";
 import { LAYER_TABLE_LENGTH_M } from "../render/hill-layer-tables";
 import { buildHillProfile } from "../sim/hill-setup";
 import { hillGeometry } from "./hill-geometry";
+import { oracleJump, type OracleResult } from "./hill-oracle";
 import type { WindState } from "../sim/wind";
 import {
   EXACT_PLAYER_LEVEL,
@@ -16,6 +17,7 @@ import {
   type Scenario,
 } from "./hill-players";
 import type { HillProblem, HillSpec } from "./hill-spec";
+import { TRAINED_PLAYER_POLICY } from "./player-policy";
 
 /** Thresholds of the simulation checks: what makes a hill play well and fairly, measured with the bots. */
 export const PLAY_RULES = {
@@ -53,8 +55,9 @@ export const PLAY_RULES = {
    */
   bestFromKMinM: -10,
   /**
-   * The best jump on any wind seed stays within the landing area plus this much: no skilled player sails past
-   * it, even with the most helpful wind class of the sample (the class whose best jump goes furthest).
+   * The oracle's best jump (the most points it finds, looking ahead at the wind) on the strongest seed of each wind
+   * class stays within the landing area plus this much: no skilled player sails past it, even with the most helpful
+   * wind class of the sample (the class whose best jump goes furthest).
    */
   bestPastLandingAreaMaxM: 5,
   /** A real flight: the good player's median time in the air. */
@@ -132,8 +135,8 @@ export function windClassSeeds(
   });
 }
 
-/** Landing height of the designed jumps, as a good player's (metres above the terrain). */
-const SCENARIO_LANDING_HEIGHT_M = PLAYER_LEVELS.good.landingHeightM;
+/** Landing height of the designed jumps, as the trained player's when coming down slowly (metres above the terrain). */
+const SCENARIO_LANDING_HEIGHT_M = TRAINED_PLAYER_POLICY.landingHeightM;
 
 const BASE_SCENARIO: Scenario = {
   name: "best aim",
@@ -194,10 +197,11 @@ export interface PlayMeasures {
   windowAtLeastMinShare: number;
   /** Smallest takeoff window over the sweep seeds, in aim frames. */
   windowMinFrames: number;
-  /** Median and largest best distance of the sweep over its seeds. */
+  /** Median best distance of the aim search over its seeds. */
   bestMedianM: number;
+  /** The furthest of the oracle's best jumps, one on the strongest seed of each wind class. */
   bestMaxM: number;
-  /** The wind class of the largest best distance: the most helpful one. */
+  /** The wind class of that jump: the most helpful one. */
   bestMaxWindClass: WindClass;
   medianWeakM: number;
   medianAverageM: number;
@@ -246,8 +250,10 @@ export interface PlayEvaluation {
   measures: PlayMeasures;
   windSeeds: Readonly<Record<WindClass, readonly number[]>>;
   sweep: readonly (AimSearch & { windClass: WindClass })[];
-  /** The aim the players and the designed jumps take, in frames: the median best aim of the sweep. */
+  /** The aim the designed jumps take, in frames: the median best aim of the sweep. */
   aimFrames: number;
+  /** The oracle's best jump on the strongest seed of each wind class, in the order of `WIND_CLASSES`. */
+  oracle: readonly (OracleResult & { windClass: WindClass; seed: number })[];
   stress: readonly NamedJump[];
 }
 
@@ -299,13 +305,13 @@ export function playEvaluation(hill: HillChoice, sample: PlaySample = PLAY_SAMPL
   const aim = Math.round(median(sweep.map((s) => s.bestAimFrames)));
   const playerSeeds = classSeeds(sample.playerSeedsPerClass);
   const level = (player: (typeof PLAYER_LEVELS)[keyof typeof PLAYER_LEVELS]) =>
-    playerSeeds.map(({ seed }) => playJump(hill, seed, player, seed + NOISE_SEED_OFFSET, aim));
+    playerSeeds.map(({ seed }) => playJump(hill, seed, player, seed + NOISE_SEED_OFFSET));
   const weak = level(PLAYER_LEVELS.weak);
   const average = level(PLAYER_LEVELS.average);
   const good = level(PLAYER_LEVELS.good);
   const players = [...weak, ...average, ...good];
   const lifted = players.filter((o) => o.takeoffSpeedKmPerH > 0).map((o) => o.takeoffSpeedKmPerH);
-  const windOnly = playerSeeds.map(({ seed }) => playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, aim));
+  const windOnly = playerSeeds.map(({ seed }) => playJump(hill, seed, EXACT_PLAYER_LEVEL, seed));
   const designed = WIND_CLASSES.flatMap((windClass) => {
     const [seed] = windSeeds[windClass];
     if (seed === undefined) return [];
@@ -319,8 +325,12 @@ export function playEvaluation(hill: HillChoice, sample: PlaySample = PLAY_SAMPL
     outcome: randomJump(hill, seed, seed + NOISE_SEED_OFFSET),
   }));
   const stress = [...designed, ...random];
-  const bestMax = sweep.reduce<(typeof sweep)[number] | null>(
-    (b, s) => (b === null || s.bestDistanceM > b.bestDistanceM ? s : b),
+  const oracle = WIND_CLASSES.flatMap((windClass) => {
+    const [seed] = windSeeds[windClass];
+    return seed === undefined ? [] : [{ ...oracleJump(hill, seed), windClass, seed }];
+  });
+  const bestMax = oracle.reduce<(typeof oracle)[number] | null>(
+    (b, o) => (b === null || o.outcome.distanceM > b.outcome.distanceM ? o : b),
     null,
   );
   const goodFallsByClass = byWindClass(
@@ -333,7 +343,7 @@ export function playEvaluation(hill: HillChoice, sample: PlaySample = PLAY_SAMPL
     windowAtLeastMinShare: windows.filter((w) => w >= PLAY_RULES.windowMinFrames).length / windows.length,
     windowMinFrames: Math.min(...windows),
     bestMedianM: median(sweep.map((s) => s.bestDistanceM)),
-    bestMaxM: bestMax?.bestDistanceM ?? 0,
+    bestMaxM: bestMax?.outcome.distanceM ?? 0,
     bestMaxWindClass: bestMax?.windClass ?? "calm",
     medianWeakM: median(distances(weak)),
     medianAverageM: median(distances(average)),
@@ -357,7 +367,7 @@ export function playEvaluation(hill: HillChoice, sample: PlaySample = PLAY_SAMPL
     stressBelowTerrainMaxM: below.value,
     stressBelowTerrainMaxName: below.name,
   };
-  return { measures, windSeeds, sweep, aimFrames: aim, stress };
+  return { measures, windSeeds, sweep, aimFrames: aim, stress, oracle };
 }
 
 /** Runs the bots on a hill and measures how it plays. */

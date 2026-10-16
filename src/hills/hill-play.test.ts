@@ -84,6 +84,20 @@ describe("play rules", () => {
       },
       EVALUATION_TIMEOUT_MS,
     );
+
+    it(
+      "takes the best past the landing area from the oracle's jump on the strongest seed of each wind class",
+      () => {
+        const { oracle, measures, windSeeds } = evaluate();
+        expect(oracle.map((o) => o.windClass)).toEqual([...WIND_CLASSES]);
+        expect(oracle.map((o) => o.seed)).toEqual(WIND_CLASSES.map((c) => windSeeds[c][0]));
+        const furthest = Math.max(...oracle.map((o) => o.outcome.distanceM));
+        expect(measures.bestMaxM).toBe(furthest);
+        expect(oracle.find((o) => o.outcome.distanceM === furthest)?.windClass).toBe(measures.bestMaxWindClass);
+        expect(oracle.every((o) => !o.outcome.fell && !o.outcome.disqualified)).toBe(true);
+      },
+      EVALUATION_TIMEOUT_MS,
+    );
   });
 
   it("picks the strongest winds of each class, no seed in two classes", () => {
