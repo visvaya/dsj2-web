@@ -74,25 +74,59 @@ function ridgeOf(fx: number): number {
   return Math.max(0, rows - RIDGE_SINK_ROWS);
 }
 
-/** The range behind the farthest background layer, over the sky and under everything else. */
-export function drawMountains(c: SceneCanvas, h: HillProfile, look: HillLook, view: SceneView, far: Uint32Array) {
+/** The range in one column of the picture: its foot on the farthest layer, its height in rows, and where it is. */
+interface RangeColumn {
+  ground: number;
+  height: number;
+  rows: number;
+  fx: number;
+}
+
+/**
+ * The range's columns for a view: for each column of the picture, its foot and height (none where the farthest
+ * layer is off the top of the picture). Undefined for a hill without that layer.
+ */
+function rangeColumns(h: HillProfile, look: HillLook, view: SceneView, lastRow: number) {
   const base = backgroundLayerTable(h, look, BASE_LAYER);
-  if (base === undefined) return;
-  const pal = hazedPalette(far, FrameBuffer.pack(litRgb(HAZE_RGB, true)), HAZE_SHARE);
+  if (base === undefined) return undefined;
   const off = layerOffset(view, BASE_LAYER);
   const scroll = off.x * MOUNTAIN_SCROLL;
-  const { fb, indices } = c;
-  const pixels = fb.pixels;
-  for (let sx = 0; sx < fb.width; sx++) {
+  return (sx: number): RangeColumn | null => {
     const column = originalColumn(view, sx);
-    const ground = Math.min(c.lastRow + 1, rowsAt(base, off.x + column) + off.y);
-    if (ground <= TOP_MARGIN_ROWS) continue;
+    const ground = Math.min(lastRow + 1, rowsAt(base, off.x + column) + off.y);
+    if (ground <= TOP_MARGIN_ROWS) return null;
     const fx = column + scroll;
     // Where the horizon is high the whole range is lower, so its peaks are never cut flat by the top edge.
     const squash = Math.min(1, (ground - TOP_MARGIN_ROWS) / RIDGE_MAX_ROWS);
     const height = ridgeRows(fx) * squash;
-    if (height <= 0) continue;
-    const rows = Math.round(height);
+    return { ground, height, rows: height > 0 ? Math.round(height) : 0, fx };
+  };
+}
+
+/**
+ * Rows of open sky at the top of each column of the picture for a view: down to the ridge, or to the farthest
+ * layer where the range has no height there.
+ */
+export function skyRowsAbove(h: HillProfile, look: HillLook, view: SceneView, lastRow: number): (sx: number) => number {
+  const range = rangeColumns(h, look, view, lastRow);
+  return (sx) => {
+    const at = range?.(sx);
+    if (at === undefined || at === null) return lastRow + 1;
+    return Math.max(0, at.ground - at.rows);
+  };
+}
+
+/** The range behind the farthest background layer, over the sky and under everything else. */
+export function drawMountains(c: SceneCanvas, h: HillProfile, look: HillLook, view: SceneView, far: Uint32Array) {
+  const range = rangeColumns(h, look, view, c.lastRow);
+  if (range === undefined) return;
+  const pal = hazedPalette(far, FrameBuffer.pack(litRgb(HAZE_RGB, true)), HAZE_SHARE);
+  const { fb, indices } = c;
+  const pixels = fb.pixels;
+  for (let sx = 0; sx < fb.width; sx++) {
+    const at = range(sx);
+    if (at === null || at.height <= 0) continue;
+    const { ground, height, rows, fx } = at;
     // A face falling to the right is turned from the light, which comes from the left.
     const shaded = ridgeRows(fx + 2) < ridgeRows(fx - 2);
     // A ragged snowline: the snow reaches further down on the higher parts of the ridge.

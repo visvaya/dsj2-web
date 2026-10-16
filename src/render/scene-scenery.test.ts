@@ -18,7 +18,7 @@ import {
 import { FrameBuffer } from "./frame-buffer";
 import { LAYER, LAYER_SCALE, layerOffset, originalColumn, sceneView, type SceneView } from "./scene-layers";
 import { sceneCanvas } from "./scene-span";
-import { BIRD_FRAMES, drawBirds } from "./scene-extras";
+import { BIRD_FRAMES, drawBirds, drawNightSky } from "./scene-extras";
 import { color, withLook } from "./palette";
 import { LINE_COLOUR, distanceLines } from "./scene-hill";
 import { SKY_FIRST_INDEX, greyedMiddle, sceneDac } from "./scene-palette";
@@ -147,6 +147,46 @@ describe("the birds", () => {
     expect(birdPixelsAt(h.startXM, inrunYM(h, h.startXM))).toBeGreaterThan(0);
     expect(birdPixelsAt(h.takeoffXM, inrunYM(h, h.takeoffXM))).toBe(0);
     expect(birdPixelsAt(h.takeoffXM + 60, landingYM(h, h.takeoffXM + 60))).toBe(0);
+  });
+});
+
+/** The moon's pixels in the sky rows of a picture 432 wide, as (x, y) pairs. */
+function moonPixels(pixels: Uint32Array, moon: readonly number[]): [number, number][] {
+  const found: [number, number][] = [];
+  for (let y = 0; y < 48; y++) {
+    for (let x = 0; x < 432; x++) if (moon.includes(pixels[y * 432 + x] ?? 0)) found.push([x, y]);
+  }
+  return found;
+}
+
+describe("the moon", () => {
+  it("stays where it is when the mountains rise in front of it, cut by them rather than moved", () => {
+    if (!hill) throw new Error("no hill");
+    const h = hill.profile;
+    const view = sceneView(h.startXM, inrunYM(h, h.startXM), 432, 1.2);
+    const moon = withLook({ lighting: "night", fog: false }, () => [color("moon"), color("moonShade")]);
+    // The sky down to `skyRows`, with mountains from `ridgeRow` down.
+    const draw = (ridgeRow: number) => {
+      const fb = new FrameBuffer(432, 200);
+      const c = sceneCanvas(fb, 199);
+      c.indices.fill(SKY_FIRST_INDEX);
+      c.indices.fill(0x24, ridgeRow * 432);
+      withLook({ lighting: "night", fog: false }, () => drawNightSky(c, h, hill.look, view, 0, 48));
+      return moonPixels(fb.pixels, moon);
+    };
+    const whole = draw(48);
+    expect(whole.length).toBeGreaterThan(40);
+    const xs = whole.map(([x]) => x);
+    const ys = whole.map(([, y]) => y);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const radius = Math.max(...whole.map(([x, y]) => Math.hypot(x - cx, y - cy)));
+    for (const ridgeRow of [Math.round(cy) + 3, Math.round(cy), Math.round(cy) - 2]) {
+      const cut = draw(ridgeRow);
+      expect(cut.length).toBeGreaterThan(0);
+      expect(cut.length).toBeLessThan(whole.length);
+      expect(cut.filter(([x, y]) => Math.hypot(x - cx, y - cy) > radius + 0.01)).toEqual([]);
+    }
   });
 });
 
