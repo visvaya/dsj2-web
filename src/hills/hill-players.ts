@@ -3,6 +3,8 @@ import { isJumpOver, startTrainingJump, stepTrainingJump, type TrainingJump } fr
 import { BorlandRandom } from "../sim/borland-random";
 import { landingSlope, terrainYM } from "../sim/hill-profile";
 import { PHASE, type FrameInput } from "../sim/jump-logic";
+import { createStartWind } from "../sim/training-wind";
+import type { WindState } from "../sim/wind";
 
 /**
  * Bots that play a hill like a player does, for the simulation checks of a hill. Everything here is pure and
@@ -90,6 +92,8 @@ const DEFAULT_TAKEOFF_AIM_FRAMES = 14;
 export interface JumpOutcome {
   distanceM: number;
   fell: boolean;
+  /** The game's kind of fall (`fallType`), 0 for none. */
+  fallType: number;
   disqualified: boolean;
   /** Speed at the first airborne frame; 0 when the jumper never left the ground. */
   takeoffSpeedKmPerH: number;
@@ -231,6 +235,7 @@ function run(hill: HillChoice, seed: number, decide: Decide): JumpOutcome {
   return {
     distanceM: logic.distanceM,
     fell: logic.fallType !== 0 && !disqualified,
+    fallType: logic.fallType,
     disqualified,
     takeoffSpeedKmPerH: track.takeoffSpeedKmPerH,
     flightTimeS: logic.flightTimeS,
@@ -245,11 +250,36 @@ function run(hill: HillChoice, seed: number, decide: Decide): JumpOutcome {
   };
 }
 
+/** How a landing is pressed: telemark (right, then left), two-footed (right only) or not at all. */
+type LandingStyle = "telemark" | "two-footed" | "none";
+
+/** What a bot sets out to do in one jump, apart from the noise of its level. */
+interface BotPlan {
+  /** Time left to the edge at the takeoff press, in seconds; null never presses for the takeoff. */
+  aimS: number | null;
+  /** Body angle (rad) the flight steering holds, by frame: it steers towards minus this value. */
+  steerTargetRad: (frame: number) => number;
+  /** Height above the terrain at which the landing press comes, in metres. */
+  landingHeightM: number;
+  landing: LandingStyle;
+}
+
 /** The bot of one player level; its noise and its per-jump draws (aim, landing height) come from `noiseSeed`. */
 function playerBot(player: PlayerLevel, noiseSeed: number, aimFrames: number): Decide {
   const noise = noiseFrom(noiseSeed);
   const aimS = aimFrames * FRAME_S + noise.normal() * player.timingSpreadS;
   const landingHeightM = player.landingHeightM + noise.normal() * player.landingHeightSpreadM;
+  return planBot(player, noise, {
+    aimS,
+    steerTargetRad: () => BOT_TIMING.steerTargetRad,
+    landingHeightM,
+    landing: "telemark",
+  });
+}
+
+/** A bot that follows a plan, with the steering and the noise of a player level. */
+function planBot(player: PlayerLevel, noise: Noise, plan: BotPlan): Decide {
+  const { aimS, landingHeightM } = plan;
   let pressedTakeoff = false;
   let landingFrame: number | null = null;
   let previousAboveM = 0;
@@ -257,7 +287,7 @@ function playerBot(player: PlayerLevel, noiseSeed: number, aimFrames: number): D
     const { jumper, logic } = jump.state;
     const hill = jump.hill.profile;
     const { phase } = logic;
-    if (phase === PHASE.crouch && !pressedTakeoff && jumper.speedMPerS > 0) {
+    if (aimS !== null && phase === PHASE.crouch && !pressedTakeoff && jumper.speedMPerS > 0) {
       pressedTakeoff = (hill.takeoffXM - jumper.xM) / jumper.speedMPerS <= aimS;
     }
     const takingOff = pressedTakeoff && (phase === PHASE.crouch || phase === PHASE.takeoff) && !jumper.airborne;
@@ -265,14 +295,15 @@ function playerBot(player: PlayerLevel, noiseSeed: number, aimFrames: number): D
     const aboveM = jumper.yM - terrainYM(hill, jumper.xM);
     const sinking = aboveM < previousAboveM;
     previousAboveM = aboveM;
-    if (landingFrame === null && inFlight(phase) && sinking && aboveM < landingHeightM) {
+    if (plan.landing !== "none" && landingFrame === null && inFlight(phase) && sinking && aboveM < landingHeightM) {
       landingFrame = frame;
     }
     const sinceLanding = landingFrame === null ? -1 : frame - landingFrame;
     const t = BOT_TIMING;
     const landingRight = sinceLanding >= 0 && sinceLanding < t.landingRightFrames;
-    const landingLeft = sinceLanding >= t.landingLeftFromFrame && sinceLanding <= t.landingLeftToFrame;
-    const steer = (logic.bodyAngleRad + t.steerTargetRad) * t.steerMickeysPerRad * player.steerGain;
+    const landingLeft =
+      plan.landing === "telemark" && sinceLanding >= t.landingLeftFromFrame && sinceLanding <= t.landingLeftToFrame;
+    const steer = (logic.bodyAngleRad + plan.steerTargetRad(frame)) * t.steerMickeysPerRad * player.steerGain;
     const dy = inFlight(phase) && landingFrame === null ? steer + noise.normal() * player.steerNoiseMickeys : 0;
     return {
       left: frame === t.startFrame || (phase === PHASE.inrun && frame >= t.crouchFromFrame) || takingOff || landingLeft,
@@ -304,8 +335,14 @@ export function randomJump(hill: HillChoice, seed: number, noiseSeed: number): J
   }));
 }
 
-/** The takeoff aims a sweep tries, in frames of time left to the edge (negative is past it). */
-const AIM_SWEEP_FRAMES = { from: -10, to: 30 } as const;
+/** The takeoff aims an aim search may try, in frames of time left to the edge (negative is past it). */
+export const AIM_RANGE_FRAMES = { from: -10, to: 30 } as const;
+
+/**
+ * The aim search stops on a side after this many aims in a row that are not clean or fall more than the tolerance
+ * below the best so far. Two in a row, so that one frame which lands short next to the peak does not end it.
+ */
+const AIM_SEARCH_STOP_AFTER_FRAMES = 2;
 
 export interface AimSweep {
   bestDistanceM: number;
@@ -314,25 +351,122 @@ export interface AimSweep {
   windowFrames: number;
 }
 
-/** Sweeps the takeoff aim frame by frame for a good player who never misses it, once per jump seed. */
-export function bestTakeoffAim(hill: HillChoice, seeds: readonly number[], toleranceM: number): AimSweep[] {
-  const aims = Array.from(
-    { length: AIM_SWEEP_FRAMES.to - AIM_SWEEP_FRAMES.from + 1 },
-    (_, i) => AIM_SWEEP_FRAMES.from + i,
+/** One takeoff aim of an exact good player and what it came to. */
+export interface AimTry {
+  aim: number;
+  outcome: JumpOutcome;
+}
+
+/** The best aim, its distance and the takeoff window from the aims tried; the lowest aim wins a tie. */
+export function aimSweepOf(tries: readonly AimTry[], toleranceM: number): AimSweep {
+  const clean = tries.filter(({ outcome: o }) => !o.fell && !o.disqualified).toSorted((a, b) => a.aim - b.aim);
+  const best = clean.reduce<AimTry | null>(
+    (b, t) => (b === null || t.outcome.distanceM > b.outcome.distanceM ? t : b),
+    null,
   );
-  return seeds.map((seed) => {
-    const clean = aims
-      .map((aim) => ({ aim, o: playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, aim) }))
-      .filter(({ o }) => !o.fell && !o.disqualified);
-    const best = clean.reduce<{ aim: number; distanceM: number } | null>(
-      (b, { aim, o }) => (b === null || o.distanceM > b.distanceM ? { aim, distanceM: o.distanceM } : b),
-      null,
-    );
-    if (best === null) return { bestDistanceM: 0, bestAimFrames: AIM_SWEEP_FRAMES.from, windowFrames: 0 };
-    return {
-      bestDistanceM: best.distanceM,
-      bestAimFrames: best.aim,
-      windowFrames: clean.filter(({ o }) => o.distanceM >= best.distanceM - toleranceM).length,
+  if (best === null) return { bestDistanceM: 0, bestAimFrames: AIM_RANGE_FRAMES.from, windowFrames: 0 };
+  const bestDistanceM = best.outcome.distanceM;
+  return {
+    bestDistanceM,
+    bestAimFrames: best.aim,
+    windowFrames: clean.filter(({ outcome: o }) => o.distanceM >= bestDistanceM - toleranceM).length,
+  };
+}
+
+/** An aim search's result for one seed, with the number of jumps it took. */
+export interface AimSearch extends AimSweep {
+  jumps: number;
+}
+
+/**
+ * Finds the best takeoff aim of a good player who never misses it, once per jump seed. Distance against the aim
+ * rises to one peak and falls past it (with a cliff a few frames early), so instead of trying every aim of
+ * `AIM_RANGE_FRAMES` the search starts at the best aim of the previous seed (`startAimFrames` for the first) and
+ * steps outward on both sides until the distance has fallen more than the tolerance below the best. A side that
+ * finds a new best keeps going, so a best at the edge of what was tried widens the search.
+ */
+export function takeoffAimSearch(
+  hill: HillChoice,
+  seeds: readonly number[],
+  toleranceM: number,
+  startAimFrames: number = DEFAULT_TAKEOFF_AIM_FRAMES,
+): AimSearch[] {
+  const results: AimSearch[] = [];
+  let start = clamp(startAimFrames, AIM_RANGE_FRAMES.from, AIM_RANGE_FRAMES.to);
+  for (const seed of seeds) {
+    const tries: AimTry[] = [];
+    const tryAim = (aim: number): AimTry => {
+      const t = { aim, outcome: playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, aim) };
+      tries.push(t);
+      return t;
     };
-  });
+    const short = ({ outcome: o }: AimTry): boolean =>
+      o.fell || o.disqualified || o.distanceM < aimSweepOf(tries, toleranceM).bestDistanceM - toleranceM;
+    const side = (step: -1 | 1): void => {
+      let misses = 0;
+      for (
+        let aim = start + step;
+        aim >= AIM_RANGE_FRAMES.from && aim <= AIM_RANGE_FRAMES.to && misses < AIM_SEARCH_STOP_AFTER_FRAMES;
+        aim += step
+      ) {
+        misses = short(tryAim(aim)) ? misses + 1 : 0;
+      }
+    };
+    tryAim(start);
+    side(1);
+    side(-1);
+    const sweep = aimSweepOf(tries, toleranceM);
+    results.push({ ...sweep, jumps: tries.length });
+    if (sweep.windowFrames > 0) start = sweep.bestAimFrames;
+  }
+  return results;
+}
+
+/** The game's start wind for a jump seed, drawn as `startTrainingJump` draws it, known before the jump. */
+export function startWindOf(seed: number): WindState {
+  return createStartWind(new BorlandRandom(seed));
+}
+
+/** A designed jump: when the takeoff is pressed, how the flight is held and how the landing is pressed. */
+export interface Scenario {
+  name: string;
+  /** Takeoff aim relative to the best aim, in frames (positive is earlier); null presses no takeoff at all. */
+  takeoffShiftFrames: number | null;
+  pose: "steady" | "forward" | "back" | "oscillating";
+  /** Height above the terrain of the landing press, in metres. */
+  landingHeightM: number;
+  landing: LandingStyle;
+}
+
+/** Body angles the scenario poses hold, in radians (the players hold `BOT_TIMING.steerTargetRad`). */
+const SCENARIO_POSE = {
+  forwardRad: 0.6,
+  backRad: 0,
+  /** The oscillating pose switches between forward and back every this many frames. */
+  oscillationHalfPeriodFrames: 35,
+} as const;
+
+const STEER_TARGET_OF_POSE: Readonly<Record<Scenario["pose"], (frame: number) => number>> = {
+  steady: () => BOT_TIMING.steerTargetRad,
+  forward: () => SCENARIO_POSE.forwardRad,
+  back: () => SCENARIO_POSE.backRad,
+  oscillating: (frame) =>
+    Math.floor(frame / SCENARIO_POSE.oscillationHalfPeriodFrames) % 2 === 0
+      ? SCENARIO_POSE.forwardRad
+      : SCENARIO_POSE.backRad,
+};
+
+/** One designed jump of an exact good player, its takeoff shifted from `aimFrames` as the scenario says. */
+export function scenarioJump(hill: HillChoice, seed: number, scenario: Scenario, aimFrames: number): JumpOutcome {
+  const shift = scenario.takeoffShiftFrames;
+  return run(
+    hill,
+    seed,
+    planBot(EXACT_PLAYER_LEVEL, noiseFrom(seed), {
+      aimS: shift === null ? null : (aimFrames + shift) * FRAME_S,
+      steerTargetRad: STEER_TARGET_OF_POSE[scenario.pose],
+      landingHeightM: scenario.landingHeightM,
+      landing: scenario.landing,
+    }),
+  );
 }

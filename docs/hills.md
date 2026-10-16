@@ -127,10 +127,52 @@ Okno wybicia to liczba klatek celu (co 1/70 s), przy których skoczek bez błęd
 najlepszym skokiem, bez upadku i dyskwalifikacji. Jedna klatka wybicia jest warta kilka metrów: to cecha fizyki
 gry, a nie skoczni, więc okno liczy się w klatkach.
 
-Reguły są mierzone na zasianych skokach. Próba (`PLAY_SAMPLE`): 64 ziarna wiatru, na których skacze każdy poziom
-gracza i bot bez błędów (sam wiatr), 16 ziaren przeglądu celu wybicia (po 41 skoków) i 64 skoki z losowym
-sterowaniem. Ziarna zaczynają się od 1; `PlaySample` przyjmuje też pierwsze ziarno każdego zbioru, więc tę samą
-ocenę można powtórzyć na rozłącznej próbie.
+Najlepszy cel wybicia znajduje `takeoffAimSearch`. Odległość w funkcji celu rośnie o 5-7 m na klatkę do jednego
+szczytu i za nim spada (z urwiskiem około 6 klatek za wcześnie), więc wyszukiwanie zaczyna od najlepszego celu
+poprzedniego ziarna (dla pierwszego od 14 klatek) i idzie w obie strony, aż na danej stronie dwa cele z rzędu
+wypadną ponad 3 m poniżej najlepszego albo skończą się upadkiem; strona, na której pojawia się nowy najlepszy,
+idzie dalej, więc najlepszy na brzegu poszerza wyszukiwanie. Zakres celów to od -10 do 30 klatek. Na skoczni
+Ćwiczebna wyszukiwanie zajmuje 7-9 skoków na ziarno zamiast 41. Test porównuje je z przeglądem wszystkich 41 celów
+(`src/hills/test-support/full-aim-sweep.ts`) na 8 ziarnach: najlepsza odległość, najlepszy cel i okno są równe.
+
+### Klasy wiatru
+
+Wiatr startowy skoku zależy tylko od ziarna (`createStartWind`, wołane przez `startTrainingJump`), więc próba
+wybiera ziarna według wiatru, zanim skok się zacznie. `windClassSeeds` czyta wiatr startowy 256 kolejnych ziaren
+i dla każdej klasy (`WIND_CLASSES`) bierze ziarna o najwyższej ocenie, od najsilniejszego, bez powtórzeń między
+klasami (klasy wybierane w tej kolejności):
+
+- `head`: najsilniejszy wiatr czołowy, najbardziej ujemna składowa wzdłuż skoczni (`xMPerS`);
+- `calm`: cisza, najmniejsza prędkość (`speedMPerS`);
+- `tail`: najsilniejszy wiatr w plecy, najbardziej dodatnia składowa wzdłuż skoczni;
+- `variable`: wiatr najbardziej zmienny, największa skala błądzenia losowego w czasie skoku (`variabilityMPerS`).
+
+Na ziarnach 1-256 są to na przykład `head` 122, 253, 23, 125 (składowa -4,5 m/s), `calm` 182, 185, 27, 226
+(0,04-0,53 m/s), `tail` 138, 202, 234, 10 (+4,5 m/s), `variable` 14, 33, 235, 102 (zmienność 0,44-0,47). Wiatr
+czołowy niesie dalej: najlepszy skok przy nim to około 100 m, przy wietrze w plecy około 86 m.
+
+### Próba
+
+Reguły są mierzone na zasianych skokach. Próba (`PLAY_SAMPLE`):
+
+- 16 ziaren na klasę wiatru (razem 64), na których skacze każdy poziom gracza i bot bez błędów (sam wiatr);
+- 4 najsilniejsze ziarna na klasę (razem 16) w wyszukiwaniu celu wybicia;
+- 12 skoków zaprojektowanych na najsilniejszym ziarnie każdej klasy (razem 48);
+- 16 skoków z losowym sterowaniem (ziarna od 1) jako dodatkowe sprawdzenie na ślepo.
+
+Każda klasa jest więc w każdej części próby w równej części. `PlaySample` przyjmuje pierwsze ziarno przeglądu
+wiatru i skoków losowych, więc tę samą ocenę można powtórzyć na rozłącznej próbie. Jedna ocena to około 440
+skoków i około 4 s na tej maszynie (wcześniej 976 skoków i 7,8 s).
+
+### Skoki zaprojektowane
+
+`DESIGNED_SCENARIOS`: skok dobrego gracza bez błędów przy celu z wyszukiwania (mediana najlepszych celów), w każdym
+jedna rzecz zmieniona: wybicie dużo za wcześnie (20 klatek), wcześnie (4), późno (-4 klatki), bez wybicia; poza
+w locie pochylona (kąt ciała 0,6 rad), wyprostowana (0 rad), zmieniana co 35 klatek; lądowanie wcześnie (8 m nad
+zeskokiem), na dwie nogi (tylko prawy przycisk), bez lądowania; do tego jeden skok późny, ze zmienną pozą i bez
+lądowania. Każdy skok ma nazwę `<klasa>/<scenariusz>` (skoki losowe `random/<ziarno>`), a komunikat reguły podaje
+nazwę skoku, który ją złamał. Na skoczni Ćwiczebna upadają skoki bez wybicia (`fallType` 5) i bez lądowania
+(`fallType` 4); skoki losowe kończą się dyskwalifikacją z upadkiem typu 2, 3 albo 4.
 
 Reguły:
 
@@ -147,6 +189,7 @@ Reguły:
 - `good-median`: mediana dobrego gracza od K-20 do K+10 m, żeby skocznia skakała się na swój rozmiar;
 - `levels-ordered`: mediany rosną od słabego przez średniego do dobrego, bo umiejętność ma się opłacać;
 - `skill-wins`: dobry skacze dalej od średniego w co najmniej 70% par skoków przy tym samym wietrze;
+- `good-falls-in-class`: dobry gracz nie upada w żadnej klasie wiatru;
 - `fall-rate`: średni gracz przewraca się (lub jest dyskwalifikowany) najwyżej w 10% skoków, dobry najwyżej w 3%.
   Próg średniego jest luźniejszy niż wcześniejsze 5% (przy 32 skokach): bot średni ląduje z rozrzutem wysokości
   lądowania 0,5 m, więc pojedynczy upadek to błąd bota, a nie skoczni, a przy 5% jeden upadek więcej odwracał
@@ -154,24 +197,32 @@ Reguły:
   nie powinien upaść. Skocznia Ćwiczebna spełnia także dawne 5%;
 - `best-short`: mediana najlepszych skoków (po ziarnach wiatru) co najmniej K-10 m, inaczej skoczni nie da się
   doskoczyć do K; mediana, a nie najgorsze ziarno, żeby jeden silny wiatr czołowy nie oblał uczciwej skoczni;
-- `best-past-landing-area`: najdłuższy z najlepszych skoków, także przy najkorzystniejszym wietrze próby, najwyżej
-  5 m za końcem strefy lądowania, żeby nikt jej nie przeskoczył;
+- `best-past-landing-area`: najdłuższy z najlepszych skoków wyszukiwania, czyli skok w najkorzystniejszej klasie
+  wiatru (komunikat ją podaje; na skoczni Ćwiczebna to wiatr czołowy), najwyżej 5 m za końcem strefy lądowania,
+  żeby nikt jej nie przeskoczył;
 - `flight-time`: mediana lotu dobrego gracza co najmniej 2,5 s, żeby był to prawdziwy lot;
 - `flight-height`: 90. centyl największej wysokości nad zeskokiem najwyżej 8 m, bo skoczek leci blisko stoku;
 - `takeoff-speed`: prędkość na progu od 50 do 120 km/h, w zakresie skoczni narciarskich;
 - `wind-spread`: odchylenie standardowe odległości bota bez błędów przy stałym celu (sam wiatr) najwyżej 8% K,
   bo ten sam wiatr niesie dalej w dłuższym locie (na skoczni Ćwiczebna zmierzono 5,5% K);
-- `random-ends`, `random-finite`: skoki z losowym sterowaniem kończą się przed limitem klatek i dają skończone
+- `stress-ends`, `stress-finite`: skoki zaprojektowane i losowe kończą się przed limitem klatek i dają skończone
   liczby;
-- `random-within-scene`: skok z losowym sterowaniem zatrzymuje się przed 380 m, gdzie kończy się scena;
-- `random-below-terrain`: punkt skoczka schodzi najwyżej 0,5 m pod teren (na skoczni Ćwiczebna zmierzono 0 m).
+- `stress-within-scene`: każdy z nich zatrzymuje się przed 380 m, gdzie kończy się scena;
+- `stress-below-terrain`: punkt skoczka schodzi najwyżej 0,5 m pod teren (na skoczni Ćwiczebna zmierzono 0 m).
 
 ### Stabilność werdyktu
 
 Reguła liczona z próby musi dać ten sam werdykt na innej próbie, inaczej mierzy próbę, a nie skocznię. Test
-w `src/hills/hill-play.test.ts` ocenia każdą skocznię własną na trzech rozłącznych zbiorach ziaren (gracze 1-64,
-65-128, 129-192; przegląd 1-16, 17-32, 33-48; skoki losowe jak gracze) i wymaga tej samej listy reguł
+w `src/hills/hill-play.stability.test.ts` ocenia każdą skocznię własną na trzech rozłącznych zbiorach ziaren
+(przegląd wiatru 1-256, 257-512, 513-768; skoki losowe 1-16, 17-32, 33-48) i wymaga tej samej listy reguł
 niespełnionych na każdym z nich.
+
+Kontrole mają dwa poziomy. Zwykłe uruchomienie testów (i bramka przed PR) ocenia każdą skocznię własną raz,
+na próbie opisanej wyżej; `corepack pnpm test src/hills` trwa około 6 s. Test stabilności trwa około 12 s na
+skocznię, więc ma osobne polecenie, `corepack pnpm test:hills-stability` (zmienna `HILL_STABILITY=1` dołącza
+plik, który `vite.config.ts` poza nią pomija). CI uruchamia je w zadaniu `checks`, gdy zmiana dotyka
+`src/hills/`, `src/sim/`, `src/game/`, workflow, `package.json` albo `vite.config.ts`, a także gdy nie da się
+ustalić, co się zmieniło (ręczne uruchomienie, brak poprzedniego commita).
 
 ### Równe szanse
 
@@ -266,7 +317,8 @@ K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkośc
 ## Dodanie skoczni
 
 1. Skopiować dane istniejącej skoczni w `src/hills/own-hills.ts`, nadać nowy `id` i nazwę, zmienić liczby.
-2. `corepack pnpm test src/hills`: format, reguły geometrii, kontrole symulacją i odcisk (nowy odcisk dopisać do tabeli w teście).
+2. `corepack pnpm test src/hills`: format, reguły geometrii, kontrole symulacją i odcisk (nowy odcisk dopisać do tabeli w teście);
+   potem `corepack pnpm test:hills-stability`: ten sam werdykt na rozłącznych próbach.
 3. `corepack pnpm test src/render`: kontrole obrazu; nowe klucze migawki pikseli dla nowej skoczni zapisuje
    `corepack pnpm test -u src/render/jump-view.pixels.test.ts`, a w diffie mają się pojawić tylko one.
 4. Przejrzeć migawkę pikseli i testy przeglądarkowe, które wskazują skocznię wbudowaną (`e2e/support/app.ts`;

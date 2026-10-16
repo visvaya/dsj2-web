@@ -1,12 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { PLAY_RULES, PLAY_SAMPLE, playMeasures, playProblems, type PlayMeasures } from "./hill-play";
+import {
+  DESIGNED_SCENARIOS,
+  PLAY_RULES,
+  PLAY_SAMPLE,
+  playEvaluation,
+  playProblems,
+  WIND_CLASSES,
+  windClassSeeds,
+  type PlayMeasures,
+} from "./hill-play";
 import type { HillSpec } from "./hill-spec";
 import { OWN_HILL_SPECS } from "./own-hills";
 
 /**
- * The whole evaluation of one hill takes about 8 s alone; under coverage, which instruments the simulation, and the
- * full parallel suite on a slow machine it took 46 s.
+ * The whole evaluation of one hill takes about 4 s alone; under coverage, which instruments the simulation, and the
+ * full parallel suite on a slow machine it takes several times longer.
  */
 const EVALUATION_TIMEOUT_MS = 120_000;
 
@@ -20,36 +29,74 @@ const passing: PlayMeasures = {
   windowMinFrames: 3,
   bestMedianM: 84,
   bestMaxM: 94,
+  bestMaxWindClass: "head",
   medianWeakM: 63,
   medianAverageM: 77,
   medianGoodM: 84,
   goodBeatsAverageShare: 0.9,
   fallRateAverage: 0,
   fallRateGood: 0,
+  goodFallsByClass: { head: 0, calm: 0, tail: 0, variable: 0 },
   medianGoodFlightS: 3.9,
   highestAboveTerrainP90M: 5,
   takeoffSpeedMinKmPerH: 69,
   takeoffSpeedMaxKmPerH: 72,
   windSpreadM: 5,
-  randomAllEnded: true,
-  randomAllFinite: true,
-  randomFinalXMaxM: 190,
-  randomBelowTerrainMaxM: 0,
+  stressNotEnded: [],
+  stressNotFinite: [],
+  stressFinalXMaxM: 190,
+  stressFinalXMaxName: "tail/best aim",
+  stressBelowTerrainMaxM: 0,
+  stressBelowTerrainMaxName: "head/best aim",
 };
 
 const rulesOf = (spec: HillSpec, change: Partial<PlayMeasures>) =>
   playProblems(spec, { ...passing, ...change }).map((p) => p.rule);
 
 describe("play rules", () => {
-  it.each(OWN_HILL_SPECS.map((s) => [s.id, s] as const))(
-    "%s plays well and fairly",
-    (id, spec) => {
-      const hill = OWN_HILLS.find((h) => h.id === id);
-      if (hill === undefined) throw new Error(`no hill ${id}`);
-      expect(playProblems(spec, playMeasures(hill))).toEqual([]);
-    },
-    EVALUATION_TIMEOUT_MS,
-  );
+  describe.each(OWN_HILL_SPECS.map((s) => [s.id, s] as const))("%s", (id, spec) => {
+    const hill = OWN_HILLS.find((h) => h.id === id);
+    if (hill === undefined) throw new Error(`no hill ${id}`);
+    let evaluation: ReturnType<typeof playEvaluation> | undefined;
+    const evaluate = () => {
+      evaluation ??= playEvaluation(hill);
+      return evaluation;
+    };
+
+    it(
+      "plays well and fairly",
+      () => {
+        expect(playProblems(spec, evaluate().measures)).toEqual([]);
+      },
+      EVALUATION_TIMEOUT_MS,
+    );
+
+    it(
+      "takes every wind class into the aim search, the players and the designed jumps in equal shares",
+      () => {
+        const { windSeeds, sweep, stress } = evaluate();
+        for (const windClass of WIND_CLASSES) {
+          expect(windSeeds[windClass]).toHaveLength(PLAY_SAMPLE.playerSeedsPerClass);
+          expect(sweep.filter((s) => s.windClass === windClass)).toHaveLength(PLAY_SAMPLE.sweepSeedsPerClass);
+          expect(stress.filter((j) => j.name.startsWith(`${windClass}/`))).toHaveLength(DESIGNED_SCENARIOS.length);
+        }
+        expect(stress.filter((j) => j.name.startsWith("random/"))).toHaveLength(PLAY_SAMPLE.randomJumps);
+      },
+      EVALUATION_TIMEOUT_MS,
+    );
+  });
+
+  it("picks the strongest winds of each class, no seed in two classes", () => {
+    const seeds = windClassSeeds(1, 64, 4);
+    const all = WIND_CLASSES.flatMap((c) => seeds[c]);
+    expect(new Set(all).size).toBe(all.length);
+    expect(all.every((s) => s >= 1 && s <= 64)).toBe(true);
+  });
+
+  it("names every designed jump differently", () => {
+    const names = DESIGNED_SCENARIOS.map((s) => s.name);
+    expect(new Set(names).size).toBe(names.length);
+  });
 
   it("passes the hand-made measures", () => {
     expect(rulesOf(training, {})).toEqual([]);
@@ -58,27 +105,6 @@ describe("play rules", () => {
   it("tolerates a single 1-frame window and the bot's occasional fall", () => {
     expect(rulesOf(training, { windowMinFrames: 1, windowAtLeastMinShare: 0.9375, fallRateAverage: 0.1 })).toEqual([]);
   });
-
-  it.each(OWN_HILL_SPECS.map((s) => [s.id, s] as const))(
-    "%s gets the same verdict on other seeds, so the verdict on this hill does not depend on the seeds",
-    (id, spec) => {
-      const hill = OWN_HILLS.find((h) => h.id === id);
-      if (hill === undefined) throw new Error(`no hill ${id}`);
-      const verdict = (set: number) => {
-        const sample = {
-          ...PLAY_SAMPLE,
-          firstPlayerSeed: 1 + set * PLAY_SAMPLE.playerSeeds,
-          firstSweepSeed: 1 + set * PLAY_SAMPLE.sweepSeeds,
-          firstRandomSeed: 1 + set * PLAY_SAMPLE.randomJumps,
-        };
-        return playProblems(spec, playMeasures(hill, sample)).map((p) => p.rule);
-      };
-      const first = verdict(0);
-      expect(verdict(1)).toEqual(first);
-      expect(verdict(2)).toEqual(first);
-    },
-    3 * EVALUATION_TIMEOUT_MS,
-  );
 
   it.each<[string, Partial<PlayMeasures>]>([
     ["play.takeoff-window", { windowMedianFrames: 1.5 }],
@@ -98,12 +124,24 @@ describe("play rules", () => {
     ["play.takeoff-speed", { takeoffSpeedMinKmPerH: 45 }],
     ["play.takeoff-speed", { takeoffSpeedMaxKmPerH: 125 }],
     ["play.wind-spread", { windSpreadM: 7.3 }],
-    ["play.random-ends", { randomAllEnded: false }],
-    ["play.random-finite", { randomAllFinite: false }],
-    ["play.random-within-scene", { randomFinalXMaxM: 381 }],
-    ["play.random-below-terrain", { randomBelowTerrainMaxM: 0.6 }],
+    ["play.good-falls-in-class", { goodFallsByClass: { head: 0, calm: 0, tail: 1, variable: 0 } }],
+    ["play.stress-ends", { stressNotEnded: ["calm/no landing"] }],
+    ["play.stress-finite", { stressNotFinite: ["random/3"] }],
+    ["play.stress-within-scene", { stressFinalXMaxM: 381 }],
+    ["play.stress-below-terrain", { stressBelowTerrainMaxM: 0.6 }],
   ])("reports %s", (rule, change) => {
     expect(rulesOf(training, change)).toEqual([rule]);
+  });
+
+  it("names the designed or random jump that broke an invariant", () => {
+    const messages = playProblems(training, {
+      ...passing,
+      stressNotEnded: ["calm/no landing"],
+      stressBelowTerrainMaxM: 0.6,
+      stressBelowTerrainMaxName: "random/3",
+    }).map((p) => p.message);
+    expect(messages.join(" ")).toContain("calm/no landing");
+    expect(messages.join(" ")).toContain("random/3");
   });
 
   it("allows wind a spread in proportion to the hill's size", () => {

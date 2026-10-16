@@ -32,6 +32,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          # The commit and its first parent, to see which files the change touches (the hill stability step).
+          fetch-depth: 2
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -54,6 +56,29 @@ jobs:
       # Golden tests need a trace of the original game and are skipped here. The run also enforces the
       # coverage thresholds for src/sim set in vite.config.ts.
       - run: pnpm test:coverage
+      # The unit run evaluates every own hill once. Whether the verdict stays the same on two more disjoint seed
+      # sets takes longer and depends only on the hills, the simulation and the game, so it runs when the change
+      # touches them (or the way the check runs), and whenever the changed files cannot be listed.
+      - name: Decide whether the hill stability check is needed
+        id: hills
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          needed=true
+          if [ "$EVENT_NAME" = "pull_request" ] || [ "$EVENT_NAME" = "push" ]; then
+            # A pull request is checked out as its merge, a push as the new head: the first parent is the base.
+            if changed=$(git diff --name-only --no-renames HEAD^1 HEAD); then
+              relevant=$(printf '%s\n' "$changed" |
+                grep -E '^(src/hills/|src/sim/|src/game/|\.github/workflows/|package\.json$|vite\.config\.ts$)' || true)
+              if [ -z "$relevant" ]; then needed=false; fi
+            else
+              echo "::warning::The changed files could not be listed; the hill stability check runs."
+            fi
+          fi
+          echo "needed=$needed" | tee -a "$GITHUB_OUTPUT"
+      - name: Hill verdicts do not depend on the seeds
+        if: steps.hills.outputs.needed == 'true'
+        run: pnpm test:hills-stability
       - run: pnpm test:scripts
 
   build:
