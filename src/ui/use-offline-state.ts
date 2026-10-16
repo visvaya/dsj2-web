@@ -1,7 +1,26 @@
-import { useEffect, useState } from "react";
-import { INITIAL_OFFLINE_STATE, offlineSupportWanted, reduceOffline, type OfflineState } from "../pwa/offline-state";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  INITIAL_OFFLINE_STATE,
+  offlineSupportWanted,
+  reduceOffline,
+  type OfflineState,
+  type UpdateCheckOutcome,
+} from "../pwa/offline-state";
 import { PWA_CONFIG } from "../pwa/pwa-config";
-import { browserOfflineEnvironment, startOfflineSupport } from "../pwa/service-worker-client";
+import { browserOfflineEnvironment, startOfflineSupport, type OfflineSupport } from "../pwa/service-worker-client";
+
+/** What the menus can ask of the service worker. */
+export interface UpdateControls {
+  checkNow: () => Promise<UpdateCheckOutcome>;
+  installNow: (onFailed: () => void) => boolean;
+  reloadNow: () => void;
+}
+
+/** What the game knows of playing without a network, and what it can ask of the service worker. */
+export interface OfflineSupportView {
+  state: OfflineState | null;
+  updates: UpdateControls | null;
+}
 
 function serviceWorkerContainer(): ServiceWorkerContainer | null {
   // Missing in older browsers and in the private windows of some.
@@ -16,17 +35,35 @@ function serviceWorkerContainer(): ServiceWorkerContainer | null {
 }
 
 /**
- * Registers the service worker where the page is meant to have one and follows what it reports. Null where
- * the game has no offline mode at all (the single-file page, the development server, an insecure address).
+ * Registers the service worker where the page is meant to have one and follows what it reports. Both are null
+ * where the game has no offline mode at all (the single-file page, the development server, an insecure
+ * address): there is no release to check for or install there.
  */
-export function useOfflineState(): OfflineState | null {
+export function useOfflineState(): OfflineSupportView {
   const [container] = useState(serviceWorkerContainer);
   const [state, setState] = useState<OfflineState | null>(() => (container === null ? null : INITIAL_OFFLINE_STATE));
+  const support = useRef<OfflineSupport | null>(null);
   useEffect(() => {
     if (container === null) return undefined;
-    return startOfflineSupport(browserOfflineEnvironment(container), (event) => {
+    const started = startOfflineSupport(browserOfflineEnvironment(container), (event) => {
       setState((previous) => (previous === null ? null : reduceOffline(previous, event)));
     });
+    support.current = started;
+    return () => {
+      started.stop();
+      support.current = null;
+    };
   }, [container]);
-  return state;
+  const updates = useMemo<UpdateControls | null>(
+    () =>
+      container === null
+        ? null
+        : {
+            checkNow: () => support.current?.checkNow() ?? Promise.resolve("unavailable"),
+            installNow: (onFailed) => support.current?.installNow(onFailed) ?? false,
+            reloadNow: () => support.current?.reloadNow(),
+          },
+    [container],
+  );
+  return { state, updates };
 }

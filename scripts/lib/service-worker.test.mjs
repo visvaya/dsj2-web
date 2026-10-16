@@ -116,7 +116,10 @@ function startWorker(release, { caches, network, registration = { installing: nu
     location: { origin: ORIGIN },
     registration,
     addEventListener: (type, handler) => handlers.set(type, handler),
-    skipWaiting: () => forbidden.push("skipWaiting"),
+    skipWaiting: () => {
+      forbidden.push("skipWaiting");
+      return Promise.resolve();
+    },
     clients: { claim: () => forbidden.push("clients.claim") },
   };
   const source = renderServiceWorker(TEMPLATE, {
@@ -153,7 +156,7 @@ function startWorker(release, { caches, network, registration = { installing: nu
       await Promise.all(pending);
       return response;
     },
-    async message(data) {
+    async message(data, { withPort = true } = {}) {
       const pending = [];
       let reply = null;
       const port = {
@@ -161,7 +164,7 @@ function startWorker(release, { caches, network, registration = { installing: nu
           reply = message;
         },
       };
-      handlers.get("message")({ data, ports: [port], waitUntil: (promise) => pending.push(promise) });
+      handlers.get("message")({ data, ports: withPort ? [port] : [], waitUntil: (promise) => pending.push(promise) });
       await Promise.all(pending);
       return reply;
     },
@@ -501,4 +504,24 @@ test("other messages get no answer", async () => {
   for (const data of [null, undefined, "telemark:release", { type: "something else" }]) {
     assert.equal(await worker.message(data), null);
   }
+});
+
+test("a waiting worker takes over when a page asks it to, without answering and without claiming pages", async () => {
+  const world = { caches: makeCacheStorage(), network: makeNetwork(RELEASE_A) };
+  const worker = await installed(RELEASE_A, world);
+  for (const withPort of [false, true]) {
+    worker.forbidden.length = 0;
+    assert.equal(await worker.message({ type: "telemark:take-over" }, { withPort }), null);
+    assert.deepEqual(worker.forbidden, ["skipWaiting"]);
+  }
+});
+
+test("only that message makes the worker take over", async () => {
+  const world = { caches: makeCacheStorage(), network: makeNetwork(RELEASE_A) };
+  const worker = await installed(RELEASE_A, world);
+  for (const data of [null, "telemark:take-over", { type: "telemark:release" }, { type: "take-over" }]) {
+    await worker.message(data, { withPort: false });
+    await worker.message(data);
+  }
+  assert.deepEqual(worker.forbidden, []);
 });

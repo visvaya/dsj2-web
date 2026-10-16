@@ -587,6 +587,26 @@ h2 {
   gap: 6px;
 }
 
+/* The check for a new release under the version: the button and, beside it, what the check found. */
+.update-check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+/* The note of a waiting release with the button that installs it at once. */
+.install-note {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.install-note .update-fact {
+  color: inherit;
+}
+
 .files-status {
   display: flex;
   flex-wrap: wrap;

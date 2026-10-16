@@ -1,10 +1,11 @@
-import { updateCheckDue, type OfflineEvent } from "./offline-state";
+import { updateCheckDue, type OfflineEvent, type UpdateCheckOutcome } from "./offline-state";
 import { PWA_CONFIG } from "./pwa-config";
 
 /** The parts of a service worker, its registration and the browser that the page uses. */
 export interface WorkerLike {
   readonly state: ServiceWorkerState;
   addEventListener(type: "statechange", listener: () => void): void;
+  removeEventListener(type: "statechange", listener: () => void): void;
 }
 
 export interface RegistrationLike<W extends WorkerLike> {
@@ -24,19 +25,42 @@ export interface OfflineEnvironment<W extends WorkerLike> {
   /** Calls the listener when the player comes back: the network returns or the page is shown again. */
   onReturn(listener: () => void): () => void;
   nowMs(): number;
+  /** Whether a worker answers for this page. */
+  controlled(): boolean;
+  /** Asks a waiting worker to take over now. */
+  askToTakeOver(worker: W): void;
+  /** Loads the page again. */
+  reload(): void;
+}
+
+/** What the page can do with the service worker once it has started following it. */
+export interface OfflineSupport {
+  /** Stops the reports. */
+  stop: () => void;
+  /** Looks for a new release now and says what was found. */
+  checkNow: () => Promise<UpdateCheckOutcome>;
+  /**
+   * Asks the waiting release to take over and reloads this page once it has; false when no release waits.
+   * `onFailed` is called when that release is dropped instead of taking over.
+   * Only the page whose player asked reloads; other windows of the game are switched to the new worker and
+   * keep running the code they started with.
+   */
+  installNow: (onFailed: () => void) => boolean;
+  /** Loads the page again, to use a release installed from another window. */
+  reloadNow: () => void;
 }
 
 /**
- * Registers the service worker and reports what follows, as events for `reduceOffline`. Returns a function
- * that stops the reports.
+ * Registers the service worker and reports what follows, as events for `reduceOffline`.
  *
- * The page never makes a waiting worker take over and never reloads itself: a newer release starts with the
- * next launch after every window of the game has been closed, so a jump is never interrupted.
+ * On its own the page never makes a waiting worker take over and never reloads itself: a newer release starts
+ * with the next launch after every window of the game has been closed, so a jump is never interrupted. Only
+ * `installNow`, which the menus offer, makes it take over sooner.
  */
 export function startOfflineSupport<W extends WorkerLike>(
   env: OfflineEnvironment<W>,
   report: (event: OfflineEvent) => void,
-): () => void {
+): OfflineSupport {
   let stopped = false;
   let lastCheckMs = env.nowMs();
   const emit = (event: OfflineEvent) => {
@@ -59,21 +83,36 @@ export function startOfflineSupport<W extends WorkerLike>(
     );
   };
 
+  // Workers that waited while an older one answered for this page, and the one this page asked to take over.
+  const waitedWhileControlled = new Set<W>();
+  let askedWorker: W | null = null;
+  const noteWait = (worker: W) => {
+    if (env.controlled()) waitedWhileControlled.add(worker);
+  };
+
   /** Follows a worker that is installing or waiting, to its activation or its failure. */
   const follow = (registration: RegistrationLike<W>, worker: W) => {
+    // A worker followed from before it was stored; one that was waiting already was stored.
+    let stored = worker.state !== "installing";
     worker.addEventListener("statechange", () => {
       const active = registration.active;
+      if (worker.state === "installed") stored = true;
       if (worker.state === "installed" && active !== null && active !== worker) {
+        noteWait(worker);
         emit("update-waiting");
         tellVersion(worker);
       }
       if (worker.state === "activated") {
         // On a page no worker answers for (a first visit), a new release takes over at once.
         emit("update-active");
+        // A page an older worker answered for runs that release's code until it is loaded again.
+        if (waitedWhileControlled.has(worker) && askedWorker !== worker) emit("update-elsewhere");
         confirm(worker);
       }
       // A first install that failed; a failed update leaves the active worker and its release as they were.
       if (worker.state === "redundant" && active === null) emit("unavailable");
+      // A newer release that could not be stored. A waiting one that a still newer release replaces is not.
+      if (worker.state === "redundant" && active !== null && !stored) emit("update-failed");
     });
   };
 
@@ -81,6 +120,7 @@ export function startOfflineSupport<W extends WorkerLike>(
     if (registration.active !== null) {
       confirm(registration.active);
       if (registration.waiting !== null) {
+        noteWait(registration.waiting);
         emit("update-waiting");
         tellVersion(registration.waiting);
       }
@@ -94,9 +134,12 @@ export function startOfflineSupport<W extends WorkerLike>(
   };
 
   let stopListening: (() => void) | null = null;
-  void env.register().then(
+  let current: RegistrationLike<W> | null = null;
+  const registered = env.register();
+  void registered.then(
     (registration) => {
       if (stopped) return;
+      current = registration;
       watch(registration);
       stopListening = env.onReturn(() => {
         const nowMs = env.nowMs();
@@ -109,10 +152,73 @@ export function startOfflineSupport<W extends WorkerLike>(
     () => emit("unavailable"),
   );
 
-  return () => {
-    stopped = true;
-    stopListening?.();
+  const checkNow = async (): Promise<UpdateCheckOutcome> => {
+    const registration = await registered.catch(() => null);
+    if (registration === null) return "unavailable";
+    lastCheckMs = env.nowMs();
+    try {
+      await registration.update();
+    } catch {
+      // The browser does not tell a missing network from a server that did not answer.
+      return "unreachable";
+    }
+    const newer = registration.installing ?? registration.waiting;
+    if (registration.active === null) return newer === null ? "latest" : "saving";
+    return newer === null ? "latest" : "found";
   };
+
+  const installer = startInstaller(env, {
+    waiting: () => (stopped ? null : (current?.waiting ?? null)),
+    asked: (worker) => {
+      askedWorker = worker;
+    },
+  });
+
+  return {
+    stop: () => {
+      stopped = true;
+      stopListening?.();
+      installer.stop();
+    },
+    checkNow,
+    installNow: installer.installNow,
+    reloadNow: () => env.reload(),
+  };
+}
+
+/**
+ * The install the player asks for: asks the waiting release to take over and reloads the page once it has.
+ * `onFailed` is called when that release is dropped instead (a newer one replaced it); a later press can ask
+ * again. `stop` forgets the worker, so a stopped page never reloads.
+ */
+function startInstaller<W extends WorkerLike>(
+  env: Pick<OfflineEnvironment<W>, "askToTakeOver" | "reload">,
+  page: { waiting: () => W | null; asked: (worker: W) => void },
+): { installNow: (onFailed: () => void) => boolean; stop: () => void } {
+  let reloading = false;
+  let stopFollowing: (() => void) | null = null;
+  const installNow = (onFailed: () => void): boolean => {
+    const waiting = page.waiting();
+    if (waiting === null) return false;
+    stopFollowing?.();
+    page.asked(waiting);
+    // Followed by its own state, not by the page's controller: a page loaded past the worker (a forced
+    // reload) has no controller to change, and is reloaded all the same.
+    const onState = () => {
+      if (waiting.state === "redundant") onFailed();
+      if (waiting.state !== "activated" || reloading) return;
+      reloading = true;
+      env.reload();
+    };
+    waiting.addEventListener("statechange", onState);
+    stopFollowing = () => {
+      waiting.removeEventListener("statechange", onState);
+      stopFollowing = null;
+    };
+    env.askToTakeOver(waiting);
+    return true;
+  };
+  return { installNow, stop: () => stopFollowing?.() };
 }
 
 function saysComplete(data: unknown): boolean {
@@ -166,5 +272,8 @@ export function browserOfflineEnvironment(container: ServiceWorkerContainer): Of
       };
     },
     nowMs: () => performance.now(),
+    controlled: () => container.controller !== null,
+    askToTakeOver: (worker) => worker.postMessage({ type: PWA_CONFIG.TAKE_OVER_MESSAGE_TYPE }, []),
+    reload: () => window.location.reload(),
   };
 }

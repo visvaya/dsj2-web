@@ -322,6 +322,31 @@ export const UI_TEXT = {
     /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
     updateWaiting: (version: string | null) =>
       `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a na telefonie także aplikację w przełączniku aplikacji) i uruchom ją ponownie, żeby się zainstalowała.`,
+    /** The short form beside the button that installs it, in the main menu. */
+    updateFound: (version: string | null) =>
+      version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`,
+    /** The way to get it without the button, under it. */
+    slowWay: "Albo zamknij wszystkie okna gry i uruchom ją ponownie.",
+    /** The release has taken over from another window; this one still runs the version it started with. */
+    updatedElsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
+    reload: "Przeładuj",
+    /** Installs the waiting release in this window at once; the page loads again. Then what happens. */
+    installNow: "Zainstaluj teraz",
+    installing: "Instaluję...",
+    installFailed: "Nie udało się zainstalować: spróbuj ponownie.",
+    /** The check for a new release the player asks for in the main menu, and what it found. */
+    check: {
+      button: "Sprawdź aktualizację",
+      checking: "Sprawdzam...",
+      latest: "Masz najnowszą wersję.",
+      found: "Jest nowa wersja gry. Pobieram ją.",
+      /** The release found could not be stored; the running one stays. */
+      downloadFailed: "Nie udało się pobrać nowej wersji: spróbuj później.",
+      /** A first visit: the game is still being stored, so there is nothing to compare with yet. */
+      saving: "Gra jeszcze się zapisuje.",
+      unreachable: "Brak połączenia: nie można sprawdzić.",
+      unavailable: "Ta przeglądarka nie pozwala sprawdzić.",
+    },
   },
 
   jumpScreen: {

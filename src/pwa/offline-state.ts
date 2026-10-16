@@ -12,10 +12,16 @@ export interface OfflineState {
   updateWaiting: boolean;
   /** The version of the game in that release, once its worker has told it; null before, or from an older worker. */
   updateVersion: string | null;
+  /** A release has taken over from another window while this page still runs the code it started with. */
+  updatedElsewhere: boolean;
+  /** How many newer releases could not be stored while this page was open. */
+  updateFailures: number;
 }
 
 /**
- * "update-active": the release that was waiting has taken over, so there is nothing left to wait for. An
+ * "update-active": the release that was waiting has taken over, so there is nothing left to wait for.
+ * "update-elsewhere": it was installed from another window, and this page needs a reload to use it.
+ * "update-failed": a newer release could not be stored; the running one stays. An
  * "update-version" names the version of the waiting release.
  */
 export type OfflineEvent =
@@ -23,17 +29,23 @@ export type OfflineEvent =
   | "unavailable"
   | "update-waiting"
   | "update-active"
+  | "update-elsewhere"
+  | "update-failed"
   | { type: "update-version"; version: string };
 
 export const INITIAL_OFFLINE_STATE: OfflineState = {
   readiness: "preparing",
   updateWaiting: false,
   updateVersion: null,
+  updatedElsewhere: false,
+  updateFailures: 0,
 };
 
 export function reduceOffline(state: OfflineState, event: OfflineEvent): OfflineState {
   if (typeof event === "object") return { ...state, updateVersion: event.version };
   if (event === "update-waiting") return { ...state, updateWaiting: true };
+  if (event === "update-failed") return { ...state, updateFailures: state.updateFailures + 1 };
+  if (event === "update-elsewhere") return { ...state, updatedElsewhere: true };
   if (event === "update-active") return { ...state, updateWaiting: false, updateVersion: null };
   return { ...state, readiness: event };
 }
@@ -57,4 +69,19 @@ export function offlineSupportWanted(conditions: OfflineConditions): boolean {
 /** Whether enough time has passed since the last check for a new release. */
 export function updateCheckDue(nowMs: number, lastCheckMs: number): boolean {
   return nowMs - lastCheckMs >= PWA_CONFIG.UPDATE_CHECK_MIN_INTERVAL_S * 1000;
+}
+
+/**
+ * What a check for a new release on demand found: nothing newer, a newer release (being stored or waiting), the
+ * first release still being stored (nothing to compare with yet), no answer from the server, or no worker at all.
+ */
+export type UpdateCheckOutcome = "latest" | "found" | "saving" | "unreachable" | "unavailable";
+
+/** The check the player asked for: not asked yet, running, or what it found. */
+export type UpdateCheckState = "idle" | "checking" | UpdateCheckOutcome;
+
+/** A press while a check runs changes nothing, so repeated presses make one check; an answer ends a check. */
+export function reduceUpdateCheck(state: UpdateCheckState, event: "start" | UpdateCheckOutcome): UpdateCheckState {
+  if (event === "start") return "checking";
+  return state === "checking" ? event : state;
 }

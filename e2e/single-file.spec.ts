@@ -4,7 +4,7 @@ import { startStaticServer, type StaticServer } from "../scripts/lib/static-serv
 import { SINGLE_FILE_DIR, SINGLE_FILE_NAME } from "./releases/paths";
 import { builtInHill, button, jumpCanvas, TEXT } from "./support/app";
 import { expect, test } from "./support/fixtures";
-import { OFFLINE_NOTE } from "./support/pwa";
+import { OFFLINE_NOTE, UPDATE_CHECK } from "./support/pwa";
 
 // The game packed into one page, for hosts that take a single file. It has to work with nothing else to
 // fetch, also inside a frame, and must never register a service worker, even under a secure address.
@@ -45,6 +45,8 @@ test("the single-file page fetches nothing else, registers no worker and plays w
   );
   expect(registrations).toBe(0);
   for (const note of Object.values(OFFLINE_NOTE)) await expect(page.getByText(note)).toHaveCount(0);
+  // Without a worker there is no release to look for: the check is not offered.
+  await expect(button(page, UPDATE_CHECK.button)).toHaveCount(0);
   await expect(page.locator('link[rel="manifest"], link[rel="apple-touch-icon"]')).toHaveCount(0);
 
   running().setOffline(true);

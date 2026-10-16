@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { versionLabel } from "../game/version";
 import { readOriginalHills } from "../original/original-hills";
-import type { OfflineState } from "../pwa/offline-state";
 import type { GameFiles } from "../storage/game-files-store";
 import { UI_TEXT } from "../text/ui-text";
 import { gameFilesOutcome } from "./game-files-choice";
-import { OfflineNotice, UpdateNotice } from "./offline-notice";
+import { OfflineNotice, UpdateCheck, UpdateNotice, useLastingWait } from "./offline-notice";
 import { useEntryFocus } from "./use-entry-focus";
 import { INSTALLED_QUERY, TOUCH_QUERY, useMediaQuery } from "./use-media-query";
+import type { OfflineSupportView } from "./use-offline-state";
 
 /** Written by number: as characters in the source they could not be told from nothing and from a space. */
 const SOFT_HYPHEN = String.fromCodePoint(0xad);
@@ -32,8 +32,8 @@ interface Props {
   onGameFiles: (files: GameFiles) => void;
   onForgetFiles: () => void;
   persistent: boolean;
-  /** Whether the game can start without a network; null where it has no offline mode. */
-  offline: OfflineState | null;
+  /** Whether the game can start without a network, and the means to check for and install a new release. */
+  offline: OfflineSupportView;
   /** Opens another screen of the game. */
   onOpen: (screen: "hills" | "replays" | "outfit" | "settings" | "howto" | "install") => void;
   onOriginalHills: (hills: HillChoice[]) => void;
@@ -44,6 +44,28 @@ interface Props {
 async function bytesOf(files: FileList, name: string): Promise<Uint8Array | undefined> {
   const file = Array.from(files).find((f) => f.name.toLowerCase() === name);
   return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
+}
+
+/** The name of the game, its version with the check for a new one, and the note of a waiting release. */
+function MenuHeader({
+  headingRef,
+  offline: { state, updates },
+}: {
+  headingRef: RefObject<HTMLHeadingElement | null>;
+  offline: OfflineSupportView;
+}) {
+  // The same moment the note of a waiting release appears: from then on the note alone says it.
+  const noteShown = useLastingWait(state?.updateWaiting === true);
+  return (
+    <header>
+      <h1 className="title" tabIndex={-1} ref={headingRef}>
+        {UI_TEXT.appName}
+      </h1>
+      <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
+      {updates && <UpdateCheck updates={updates} noteShown={noteShown} failures={state?.updateFailures ?? 0} />}
+      <UpdateNotice state={state} updates={updates} />
+    </header>
+  );
 }
 
 export function MenuScreen({
@@ -95,13 +117,7 @@ export function MenuScreen({
 
   return (
     <main className="screen">
-      <header>
-        <h1 className="title" tabIndex={-1} ref={headingRef}>
-          {UI_TEXT.appName}
-        </h1>
-        <p className="note">{UI_TEXT.menu.subtitle(versionLabel())}</p>
-        <UpdateNotice state={offline} />
-      </header>
+      <MenuHeader headingRef={headingRef} offline={offline} />
       <hr className="rule" />
       <nav className="menu" aria-label={UI_TEXT.menu.navigation}>
         <h2>{UI_TEXT.menu.navigation}</h2>
@@ -170,7 +186,7 @@ export function MenuScreen({
           {message.text}
         </p>
       )}
-      <OfflineNotice state={offline} />
+      <OfflineNotice state={offline.state} />
     </main>
   );
 }
