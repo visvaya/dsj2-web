@@ -323,12 +323,15 @@ export const UI_TEXT = {
     },
     /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
     updateWaiting: (version: string | null) =>
-      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a na telefonie także aplikację w przełączniku aplikacji) i uruchom ją ponownie, żeby się zainstalowała.`,
+      `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a\u00a0na telefonie także aplikację w\u00a0przełączniku aplikacji) i\u00a0uruchom ją ponownie, żeby się zainstalowała.`,
     /** The short form beside the button that installs it, in the main menu. */
     updateFound: (version: string | null) =>
       version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`,
-    /** The way to get it without the button, under it. */
-    slowWay: "Albo zamknij wszystkie okna gry i uruchom ją ponownie.",
+    /**
+     * The way to get it without the button, under it. A one-letter word is bound to the next by a no-break space
+     * (\u00a0), so it never ends a line, as Polish typesetting wants.
+     */
+    slowWay: "Albo zamknij wszystkie okna gry i\u00a0uruchom ją ponownie.",
     /** The release has taken over from another window; this one still runs the version it started with. */
     updatedElsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
     reload: "Przeładuj",
