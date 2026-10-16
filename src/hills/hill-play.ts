@@ -18,15 +18,28 @@ export const PLAY_RULES = {
   botReliableMaxKPointM: 120,
   /** Takeoff aims within this distance of the best one count as hitting the takeoff. */
   windowToleranceM: 3,
-  /** No hill may require one exact frame of timing: at least this many aim frames reach the best distance. */
+  /**
+   * No hill may require one exact frame of timing: the median takeoff window over the sweep seeds has at least
+   * this many aim frames reaching the best distance. A 1-frame window appears now and then on any hill (the edge
+   * falls between two frames on that wind), so the rule judges the median and a share, not the worst seed.
+   */
   windowMinFrames: 2,
+  /** Share of the sweep seeds whose takeoff window has at least `windowMinFrames` frames. */
+  windowAtLeastMinMinShare: 0.75,
+  /** Every sweep seed has at least this many clean takeoff aims: no wind may leave no clean takeoff at all. */
+  windowCleanMinFrames: 1,
   /** The good player's median lands near the K point: not far short of it, not far past it. */
   goodMedianFromKMinM: -20,
   goodMedianFromKMaxM: 10,
   /** Skill must win: the good player beats the average one on at least this share of the same jumps. */
   goodBeatsAverageMinShare: 0.7,
-  /** A hill that throws practised players is unfair: falls (and disqualifications) of average and good players. */
-  fallRateMaxShare: 0.05,
+  /**
+   * A hill that throws practised players is unfair: falls (and disqualifications) of average and good players.
+   * The average bot lands with a 0.5 m spread of its landing height, so an occasional fall is the bot's mistake,
+   * not the hill's; a good player should almost never fall.
+   */
+  fallRateAverageMaxShare: 0.1,
+  fallRateGoodMaxShare: 0.03,
   /**
    * The best jump, as the median over the wind seeds, reaches near the K point; less means the hill cannot be
    * jumped to its size. The median and not the worst seed: one strong head wind must not fail a fair hill.
@@ -61,13 +74,17 @@ export const PLAY_RULES = {
 } as const;
 
 /** How many jumps the checks run, per hill. */
-const PLAY_SAMPLE = {
+export const PLAY_SAMPLE = {
   /** Jump seeds (wind) each player level jumps once on, paired between the levels. */
-  playerSeeds: 32,
+  playerSeeds: 64,
   /** Jump seeds of the takeoff aim sweep (41 jumps each). */
-  sweepSeeds: 4,
+  sweepSeeds: 16,
   /** Jumps with random inputs. */
-  randomJumps: 16,
+  randomJumps: 64,
+  /** First seed of each set; another start gives a disjoint sample of the same size. */
+  firstPlayerSeed: 1,
+  firstSweepSeed: 1,
+  firstRandomSeed: 1,
 } as const;
 
 /** Seeds of the player's own errors are offset from the jump seeds, so the two do not repeat each other. */
@@ -75,6 +92,10 @@ const NOISE_SEED_OFFSET = 1000;
 
 /** Plain numbers measured on a hill by the bots; no threshold is applied here. */
 export interface PlayMeasures {
+  /** Median takeoff window over the sweep seeds, in aim frames. */
+  windowMedianFrames: number;
+  /** Share of the sweep seeds with a takeoff window of at least `PLAY_RULES.windowMinFrames`. */
+  windowAtLeastMinShare: number;
   /** Smallest takeoff window over the sweep seeds, in aim frames. */
   windowMinFrames: number;
   /** Median and largest best distance of the sweep over its seeds. */
@@ -104,9 +125,12 @@ export interface PlaySample {
   playerSeeds: number;
   sweepSeeds: number;
   randomJumps: number;
+  firstPlayerSeed: number;
+  firstSweepSeed: number;
+  firstRandomSeed: number;
 }
 
-const seedsOf = (count: number): number[] => Array.from({ length: count }, (_, i) => i + 1);
+const seedsOf = (count: number, first: number): number[] => Array.from({ length: count }, (_, i) => first + i);
 
 function quantile(values: readonly number[], q: number): number {
   const sorted = values.toSorted((a, b) => a - b);
@@ -131,8 +155,9 @@ const distances = (outcomes: readonly JumpOutcome[]): number[] => outcomes.map((
 
 /** Runs the bots on a hill and measures how it plays. */
 export function playMeasures(hill: HillChoice, sample: PlaySample = PLAY_SAMPLE): PlayMeasures {
-  const seeds = seedsOf(sample.playerSeeds);
-  const sweep = bestTakeoffAim(hill, seedsOf(sample.sweepSeeds), PLAY_RULES.windowToleranceM);
+  const seeds = seedsOf(sample.playerSeeds, sample.firstPlayerSeed);
+  const sweep = bestTakeoffAim(hill, seedsOf(sample.sweepSeeds, sample.firstSweepSeed), PLAY_RULES.windowToleranceM);
+  const windows = sweep.map((s) => s.windowFrames);
   const aim = Math.round(median(sweep.map((s) => s.bestAimFrames)));
   const level = (player: (typeof PLAYER_LEVELS)[keyof typeof PLAYER_LEVELS]) =>
     seeds.map((seed) => playJump(hill, seed, player, seed + NOISE_SEED_OFFSET, aim));
@@ -142,9 +167,13 @@ export function playMeasures(hill: HillChoice, sample: PlaySample = PLAY_SAMPLE)
   const players = [...weak, ...average, ...good];
   const lifted = players.filter((o) => o.takeoffSpeedKmPerH > 0).map((o) => o.takeoffSpeedKmPerH);
   const windOnly = seeds.map((seed) => playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, aim));
-  const random = seedsOf(sample.randomJumps).map((seed) => randomJump(hill, seed, seed + NOISE_SEED_OFFSET));
+  const random = seedsOf(sample.randomJumps, sample.firstRandomSeed).map((seed) =>
+    randomJump(hill, seed, seed + NOISE_SEED_OFFSET),
+  );
   return {
-    windowMinFrames: Math.min(...sweep.map((s) => s.windowFrames)),
+    windowMedianFrames: median(windows),
+    windowAtLeastMinShare: windows.filter((w) => w >= PLAY_RULES.windowMinFrames).length / windows.length,
+    windowMinFrames: Math.min(...windows),
     bestMedianM: median(sweep.map((s) => s.bestDistanceM)),
     bestMaxM: Math.max(...sweep.map((s) => s.bestDistanceM)),
     medianWeakM: median(distances(weak)),
@@ -186,7 +215,21 @@ export function playProblems(spec: HillSpec, m: PlayMeasures): readonly HillProb
   }
   const { landingAreaEndM } = hillGeometry(buildHillProfile(spec.profile.inrun, spec.profile.landing), k);
   const checks: readonly [boolean, string, string][] = [
-    [!(m.windowMinFrames >= r.windowMinFrames), "takeoff-window", `takeoff window of ${m.windowMinFrames} frames`],
+    [
+      !(m.windowMedianFrames >= r.windowMinFrames),
+      "takeoff-window",
+      `median takeoff window of ${m.windowMedianFrames} frames`,
+    ],
+    [
+      !(m.windowAtLeastMinShare >= r.windowAtLeastMinMinShare),
+      "takeoff-window-share",
+      `takeoff window of at least ${r.windowMinFrames} frames on ${m.windowAtLeastMinShare} of the winds`,
+    ],
+    [
+      !(m.windowMinFrames >= r.windowCleanMinFrames),
+      "takeoff-clean",
+      `a wind with a takeoff window of ${m.windowMinFrames} frames`,
+    ],
     [
       outside(m.medianGoodM - k, r.goodMedianFromKMinM, r.goodMedianFromKMaxM),
       "good-median",
@@ -203,7 +246,7 @@ export function playProblems(spec: HillSpec, m: PlayMeasures): readonly HillProb
       `good beats average on ${m.goodBeatsAverageShare} of the jumps`,
     ],
     [
-      !(m.fallRateAverage <= r.fallRateMaxShare && m.fallRateGood <= r.fallRateMaxShare),
+      !(m.fallRateAverage <= r.fallRateAverageMaxShare && m.fallRateGood <= r.fallRateGoodMaxShare),
       "fall-rate",
       `fall rates average ${m.fallRateAverage}, good ${m.fallRateGood}`,
     ],

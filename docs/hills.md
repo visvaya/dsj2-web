@@ -127,15 +127,31 @@ Okno wybicia to liczba klatek celu (co 1/70 s), przy których skoczek bez błęd
 najlepszym skokiem, bez upadku i dyskwalifikacji. Jedna klatka wybicia jest warta kilka metrów: to cecha fizyki
 gry, a nie skoczni, więc okno liczy się w klatkach.
 
-Reguły (każda mierzona na zasianych skokach, liczby prób w `PLAY_SAMPLE`):
+Reguły są mierzone na zasianych skokach. Próba (`PLAY_SAMPLE`): 64 ziarna wiatru, na których skacze każdy poziom
+gracza i bot bez błędów (sam wiatr), 16 ziaren przeglądu celu wybicia (po 41 skoków) i 64 skoki z losowym
+sterowaniem. Ziarna zaczynają się od 1; `PlaySample` przyjmuje też pierwsze ziarno każdego zbioru, więc tę samą
+ocenę można powtórzyć na rozłącznej próbie.
+
+Reguły:
 
 - `bot-unreliable`: skocznia powyżej K120 nie przechodzi kontroli, bo proste sterowanie bota jest wiarygodne tylko
   do tej wielkości, a wyżej wynik zależy od bota, nie od skoczni; zniesie to dopiero lepszy bot;
-- `takeoff-window`: okno wybicia co najmniej 2 klatki na każdym ziarnie, żeby nie trzeba było trafić jednej klatki;
+- `takeoff-window`: mediana okna wybicia po ziarnach przeglądu co najmniej 2 klatki, żeby nie trzeba było trafić
+  jednej klatki;
+- `takeoff-window-share`: okno co najmniej 2 klatki na co najmniej 75% ziaren przeglądu. Okno 1 klatki zdarza się
+  od czasu do czasu na każdej skoczni (krawędź progu wypada przy danym wietrze między dwiema klatkami), więc
+  minimum z kilku ziaren przechodziło albo oblewało przypadkiem: na skoczni Ćwiczebna minimum z 4 ziaren wynosiło
+  3 klatki na pięciu rozłącznych zbiorach i 1 klatkę na szóstym;
+- `takeoff-clean`: każde ziarno przeglądu ma co najmniej jedno czyste wybicie (okno co najmniej 1 klatka), bo
+  wiatr, przy którym nie da się czysto wybić, byłby nieuczciwy;
 - `good-median`: mediana dobrego gracza od K-20 do K+10 m, żeby skocznia skakała się na swój rozmiar;
 - `levels-ordered`: mediany rosną od słabego przez średniego do dobrego, bo umiejętność ma się opłacać;
 - `skill-wins`: dobry skacze dalej od średniego w co najmniej 70% par skoków przy tym samym wietrze;
-- `fall-rate`: średni i dobry przewracają się (lub są dyskwalifikowani) najwyżej w 5% skoków;
+- `fall-rate`: średni gracz przewraca się (lub jest dyskwalifikowany) najwyżej w 10% skoków, dobry najwyżej w 3%.
+  Próg średniego jest luźniejszy niż wcześniejsze 5% (przy 32 skokach): bot średni ląduje z rozrzutem wysokości
+  lądowania 0,5 m, więc pojedynczy upadek to błąd bota, a nie skoczni, a przy 5% jeden upadek więcej odwracał
+  werdykt (na skoczni Ćwiczebna 0, 1 i 1 upadek na 32 w trzech rozłącznych zbiorach). Dobry gracz prawie nigdy
+  nie powinien upaść. Skocznia Ćwiczebna spełnia także dawne 5%;
 - `best-short`: mediana najlepszych skoków (po ziarnach wiatru) co najmniej K-10 m, inaczej skoczni nie da się
   doskoczyć do K; mediana, a nie najgorsze ziarno, żeby jeden silny wiatr czołowy nie oblał uczciwej skoczni;
 - `best-past-landing-area`: najdłuższy z najlepszych skoków, także przy najkorzystniejszym wietrze próby, najwyżej
@@ -150,13 +166,21 @@ Reguły (każda mierzona na zasianych skokach, liczby prób w `PLAY_SAMPLE`):
 - `random-within-scene`: skok z losowym sterowaniem zatrzymuje się przed 380 m, gdzie kończy się scena;
 - `random-below-terrain`: punkt skoczka schodzi najwyżej 0,5 m pod teren (na skoczni Ćwiczebna zmierzono 0 m).
 
+### Stabilność werdyktu
+
+Reguła liczona z próby musi dać ten sam werdykt na innej próbie, inaczej mierzy próbę, a nie skocznię. Test
+w `src/hills/hill-play.test.ts` ocenia każdą skocznię własną na trzech rozłącznych zbiorach ziaren (gracze 1-64,
+65-128, 129-192; przegląd 1-16, 17-32, 33-48; skoki losowe jak gracze) i wymaga tej samej listy reguł
+niespełnionych na każdym z nich.
+
 ### Równe szanse
 
 - Te same wejścia dają ten sam wynik na każdym urządzeniu: test sprawdza, że skok z tym samym ziarnem, graczem
   i szumem daje ten sam skrót stanu końcowego, a z innym ziarnem inny.
 - Umiejętność ma ważyć więcej niż wiatr: dobry gracz wygrywa ze średnim w większości par, a sam wiatr przesuwa
   skok o ograniczoną liczbę metrów.
-- Żadna skocznia nie może wymagać trafienia jednej klatki: okno wybicia ma co najmniej 2 klatki.
+- Żadna skocznia nie może wymagać trafienia jednej klatki: okno wybicia ma zwykle co najmniej 2 klatki, a przy
+  każdym wietrze da się wybić czysto.
 - Żadna skocznia nie może pozwolić dobremu skoczkowi wylądować za strefą lądowania.
 
 Jedna klatka wybicia (1/70 s) jest warta kilka metrów odległości. To cecha fizyki gry, wspólna dla wszystkich
