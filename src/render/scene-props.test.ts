@@ -185,6 +185,7 @@ describe("the birds", () => {
     const frame = Array.from({ length: 400 }, (_, f) => f).find(
       (f) => birdPixels(h, before, WIDTH_PX, f).length === birdPixels(h, after, WIDTH_PX, f).length,
     );
+    if (frame === undefined) throw new Error("every frame cuts a bird at an edge");
     const a = birdPixels(h, before, WIDTH_PX, frame);
     const b = birdPixels(h, after, WIDTH_PX, frame);
     const scroll = -(layerOffset(after, 7).x - layerOffset(before, 7).x) / SQUARE;
