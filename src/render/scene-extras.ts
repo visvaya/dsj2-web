@@ -1,4 +1,3 @@
-import { displayedWindMPerS } from "../game/wind-display";
 import { inrunYM, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
@@ -53,18 +52,30 @@ const SOCK_SLACK_WIDTH = 0.55;
 const SOCK_FULL_WIND_M_PER_S = 4.5;
 
 /**
- * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the way the indicator
- * box's arrow lies on the screen, blended with hanging straight down as the wind drops towards calm.
+ * How much of a sock's length across the hill shows on the screen, as rows up when it points away from the viewer
+ * (farther is higher in this scene) and down when it points towards the viewer. The indicator box squashes the
+ * cross wind to half; the scene is seen from much lower, across a landing hill that shows only a band of rows,
+ * so a sock streaming straight away or towards the viewer shows as a short stub at half of that again.
+ */
+const SOCK_DEPTH_ON_SCREEN = 0.25;
+
+/**
+ * The screen vector (y down, at most 1 long: the share of the sock's length that shows) a wind sock points along.
+ * The sock is a cone in the world: it lifts from hanging straight down towards level as the wind grows, and turns
+ * the way the wind blows, the direction the indicator box shows (turning with it at the same limited rate). Its
+ * part along the hill shows in full; its part across the hill is foreshortened and drawn up or down the screen.
+ * It never rises above level, so a cross wind gives a short sock, not one hanging down or standing up.
  */
 export function windSockDirection(s: JumpSimState): [number, number] {
-  const w = displayedWindMPerS(s.wind);
-  const length = Math.hypot(w.x, w.y);
-  if (!(length > 0)) return [0, 1];
-  const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
-  const dirX = (w.x / length) * k;
-  const dirY = (-w.y / length) * k + (1 - k);
-  const len = Math.hypot(dirX, dirY) || 1;
-  return [dirX / len, dirY / len];
+  const speed = s.wind.speedMPerS;
+  if (!(speed > 0)) return [0, 1];
+  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
+  // The share of the sock's axis that lies level and the share that hangs down, as a unit vector in the world.
+  const tilt = Math.hypot(k, 1 - k);
+  const level = k / tilt;
+  const down = (1 - k) / tilt;
+  const d = s.wind.indicatorDirectionRad;
+  return [level * Math.cos(d), down - level * Math.sin(d) * SOCK_DEPTH_ON_SCREEN];
 }
 
 /** World x of the far fence's visible stretch, from a little left of the view to a little right of it. */
@@ -97,6 +108,8 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
     const ux = ux0 - flutter * uy0;
     const uy = uy0 + flutter * ux0;
+    // Across the sock keeps its full width however short it shows.
+    const across = Math.hypot(ux, uy) || 1;
     // A cone from the ring at the top of the pole to the tail, filled across its width, in bands of red and white.
     const full = SOCK_SLACK_WIDTH + (1 - SOCK_SLACK_WIDTH) * k;
     for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.5) {
@@ -104,7 +117,7 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
       const half = (SOCK_MOUTH_HALF_PX + (SOCK_TAIL_HALF_PX - SOCK_MOUTH_HALF_PX) * share) * full;
       const c = Math.min(SOCK_BANDS - 1, Math.floor(share * SOCK_BANDS)) % 2 === 0 ? red : white;
       for (let w = -half; w <= half; w += 0.5) {
-        fb.put(sx + 0.5 + ux * t - uy * w, top + uy * t + ux * w, c);
+        fb.put(sx + 0.5 + ux * t - (uy / across) * w, top + uy * t + (ux / across) * w, c);
       }
     }
   }

@@ -13,16 +13,29 @@ function withWind(directionRad: number, speedMPerS: number): JumpSimState {
 }
 
 describe("wind on screen", () => {
-  it.each([0, 0.8, 1.6, 2.4, 3.2, 4.0, 4.8, 5.6])(
-    "points a sock in a strong wind where the box's arrow points (%s rad)",
-    (d) => {
-      // The box draws its arrow towards (cos d, sin d / 2) on screen, y down.
-      const [ux, uy] = windSockDirection(withWind(d, 5));
-      const length = Math.hypot(Math.cos(d), Math.sin(d) / 2);
-      expect(ux).toBeCloseTo(Math.cos(d) / length, 6);
-      expect(uy).toBeCloseTo(Math.sin(d) / 2 / length, 6);
-    },
-  );
+  it("streams a sock along the hill in a strong tail or head wind, as the box's arrow points", () => {
+    const [tx, ty] = windSockDirection(withWind(0, 5));
+    const [hx, hy] = windSockDirection(withWind(Math.PI, 5));
+    expect([tx, ty, hx, hy].map((v) => Math.round(v * 1e6) / 1e6 + 0)).toEqual([1, 0, -1, 0]);
+  });
+
+  const around = Array.from({ length: 72 }, (_, i) => (i * Math.PI) / 36);
+
+  it("never lifts a sock above level, whichever way a 4 m/s wind blows", () => {
+    const rows = around.map((d) => windSockDirection(withWind(d, 4))[1]);
+    // Up the screen only by the foreshortened share pointing away from the viewer, and never far.
+    expect(Math.min(...rows)).toBeGreaterThanOrEqual(-0.25);
+    expect(Math.min(...rows.filter((_, i) => Math.sin(around[i] ?? 0) <= 1e-9))).toBeGreaterThanOrEqual(0);
+  });
+
+  it("shows a sock in a pure cross wind short, neither hanging down nor standing up", () => {
+    for (const d of [Math.PI / 2, -Math.PI / 2]) {
+      const [ux, uy] = windSockDirection(withWind(d, 4));
+      expect(Math.abs(ux)).toBeLessThan(1e-9);
+      expect(Math.hypot(ux, uy)).toBeLessThan(0.5);
+      expect(Math.abs(uy)).toBeGreaterThan(0);
+    }
+  });
 
   it("lets a sock hang down in a calm and lift partly in a light wind", () => {
     expect(windSockDirection(withWind(0, 0))).toEqual([0, 1]);

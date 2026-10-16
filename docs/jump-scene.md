@@ -96,7 +96,11 @@ rysowane przez port (`jump-view-hud.ts`):
 - Strzałka (1cb6:1ee9): środek w (13, 8) ramki, ogon i grot w `±(11 cos a, 5,5 sin a)`, wąsy do
   `(8 cos(a ± 1,25), 4 sin(a ± 1,25))`, `a` to kierunek wskaźnika; najpierw cień kolorem 0x44 o wiersz niżej, potem
   0x47, linie pędzlem 2x2. Dodatni `sin a` to grot w dół: składowa poprzeczna wiatru (bez wpływu na skoczka) leży
-  w głąb sceny, ściśnięta o połowę. Rękawy wiatru i śnieg idą za tym samym wektorem (`game/wind-display.ts`).
+  w głąb sceny, ściśnięta o połowę. Śnieg idzie za tym samym wektorem (`game/wind-display.ts`). Rękawy wiatru biorą
+  ten sam kierunek wskaźnika i prędkość, ale jako stożek w świecie: z siłą wiatru podnoszą się od zwisu ku poziomowi
+  (pełny poziom przy 4,5 m/s), a część w poprzek skoczni jest skrócona do 0,25 i rysowana w górę ekranu, gdy rękaw
+  wskazuje od widza, w dół, gdy ku niemu. Przy czystym wietrze bocznym rękaw jest krótki, nie zwisa i nie staje
+  pionowo; nigdy nie wznosi się ponad poziom.
 - Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
   zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
 - Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki, wyrównany do prawej
