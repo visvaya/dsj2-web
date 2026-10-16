@@ -118,11 +118,6 @@ export function drawDistanceLines(
   }
 }
 
-/** The table index of the far edge where its fence starts, a little past the takeoff. */
-export function farFenceStart(h: HillProfile, marks: HillMarks): number {
-  return layerIndex(LAYER.farEdge, FENCE_AFTER_TAKEOFF_M + h.takeoffXM + marks.fenceStartM);
-}
-
 /** A fence along an edge: a band of rows above it, posts at regular table indices, from past the takeoff on. */
 function drawFence(c: SceneCanvas, h: HillProfile, view: SceneView, marks: HillMarks, pal: Uint32Array, near: boolean) {
   const t = hillLayerTables(h);

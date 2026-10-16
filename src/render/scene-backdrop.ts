@@ -15,6 +15,7 @@ import {
 } from "./hill-layer-tables";
 import type { HillLook } from "./hill-look";
 import { LAYER, layerOffset, layerRows, layerX, originalColumn, type SceneView } from "./scene-layers";
+import { mixPacked } from "./scene-floodlight";
 import { SKY_FIRST_INDEX } from "./scene-palette";
 import { colourSpan, type SceneCanvas } from "./scene-span";
 
@@ -207,84 +208,30 @@ export function drawBackgroundBands(
   }
 }
 
-/** How far above the landing hill's far edge the floodlights' light reaches, and how it fades. */
-export interface SpillShape {
-  /** Rows above the edge that the light reaches. */
-  rowsPx: number;
-  /** The share of the hill's own light just above the edge. */
-  atEdge: number;
-  /** Fading by smoothstep, which stays bright longer above the edge, instead of by the square of the distance. */
-  smooth: boolean;
-}
-
-/** The floodlights' light behind the hill where the far edge has its fence, and where it has none (by the inrun). */
-export interface FloodlightSpill {
-  fenced: SpillShape;
-  open: SpillShape;
-}
-
-const DUSK_SPILL: SpillShape = { rowsPx: 28, atEdge: 0.55, smooth: false };
+/** Rows above the landing hill's far edge that the floodlights reach, and the share of their light at the edge. */
+const SPILL_ROWS_PX = 28;
+const SPILL_AT_EDGE = 0.55;
 
 /**
- * At dusk the background is light enough for one shape. At night the fence hides the step where the lit snow
- * meets the light behind it; where there is no fence, the light starts almost as bright as the snow and reaches
- * farther, so the snow runs into it without a line.
+ * This project's addition at dusk: the floodlights' light reaches the snow and the trees just behind the landing
+ * hill, fading with the distance from its far edge, so the lit hill does not end in a hard line against the
+ * darker background. Drawn over the background before the hill; the sky is left alone. At night the light stays
+ * on the hill instead (`scene-floodlight.ts`).
  */
-export const FLOODLIGHT_SPILL = {
-  dusk: { fenced: DUSK_SPILL, open: DUSK_SPILL },
-  night: { fenced: DUSK_SPILL, open: { rowsPx: 36, atEdge: 0.95, smooth: true } },
-} as const satisfies Record<string, FloodlightSpill>;
-
-/** Table indices of the far edge over which the light goes from the open shape to the fenced one. */
-const SPILL_BLEND_INDICES = 120;
-
-/** The share of the light `rowsAbove` rows above the edge. */
-function spillShare(shape: SpillShape, rowsAbove: number): number {
-  if (rowsAbove >= shape.rowsPx) return 0;
-  const lit = 1 - rowsAbove / shape.rowsPx;
-  return shape.atEdge * (shape.smooth ? lit * lit * (3 - 2 * lit) : lit * lit);
-}
-
-/** A packed colour moved `share` (0..1) of the way towards another, alpha kept. */
-function mixPacked(from: number, to: number, share: number): number {
-  const channel = (shift: number) => {
-    const a = (from >>> shift) & 0xff;
-    return Math.round(a + (((to >>> shift) & 0xff) - a) * share) << shift;
-  };
-  return ((from & 0xff000000) | channel(0) | channel(8) | channel(16)) >>> 0;
-}
-
-/**
- * This project's addition while the floodlights are on: their light reaches the snow and the trees just behind
- * the landing hill, fading with the distance from its far edge, so the lit hill does not end in a hard line
- * against the night. Drawn over the background before the hill; the sky is left alone.
- */
-export function drawFloodlightSpill(
-  c: SceneCanvas,
-  h: HillProfile,
-  view: SceneView,
-  near: Uint32Array,
-  spill: FloodlightSpill,
-  fenceStart: number,
-): void {
+export function drawFloodlightSpill(c: SceneCanvas, h: HillProfile, view: SceneView, near: Uint32Array): void {
   const farEdge = hillLayerTables(h).farEdge;
   const edgeOff = layerOffset(view, LAYER.farEdge);
   const { fb, indices } = c;
   const pixels = fb.pixels;
-  const reach = Math.max(spill.fenced.rowsPx, spill.open.rowsPx);
   for (let sx = 0; sx < fb.width; sx++) {
-    const j = edgeOff.x + originalColumn(view, sx);
-    const edgeY = rowsAt(farEdge, j) + edgeOff.y;
-    // How far this column is from the fence, from 0 where it stands to 1 a blend's width before it.
-    const open = spill.open === spill.fenced ? 0 : Math.min(1, Math.max(0, (fenceStart - j) / SPILL_BLEND_INDICES));
+    const edgeY = rowsAt(farEdge, edgeOff.x + originalColumn(view, sx)) + edgeOff.y;
     const bottom = Math.min(edgeY, c.lastRow);
-    for (let y = Math.max(0, edgeY - reach); y <= bottom; y++) {
+    for (let y = Math.max(0, edgeY - SPILL_ROWS_PX); y <= bottom; y++) {
       const i = y * fb.width + sx;
       const index = indices[i] ?? 0;
       if (index >= SKY_FIRST_INDEX) continue;
-      const fenced = spillShare(spill.fenced, edgeY - y);
-      const share = open === 0 ? fenced : fenced + (spillShare(spill.open, edgeY - y) - fenced) * open;
-      if (share > 0) pixels[i] = mixPacked(pixels[i] ?? 0, near[index] ?? 0, share);
+      const lit = 1 - (edgeY - y) / SPILL_ROWS_PX;
+      pixels[i] = mixPacked(pixels[i] ?? 0, near[index] ?? 0, SPILL_AT_EDGE * lit * lit);
     }
   }
 }

@@ -36,7 +36,7 @@ export const LAYER = {
 export const ORIGINAL_PX_PER_M = 14;
 export const ORIGINAL_ROW_PX_PER_M = (14 * 200) / 240;
 /** The original's centre column (table index 160 is x = 0). */
-const ORIGINAL_CENTRE_COLUMN = 160;
+export const ORIGINAL_CENTRE_COLUMN = 160;
 /** Camera of 0baf:344c: the jumper sits 9 px left of the centre and 70 rows below the horizon line at scale 1. */
 const CAMERA_LEAD_PX = 9;
 const CAMERA_DROP_PX = 70;

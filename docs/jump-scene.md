@@ -170,13 +170,17 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
 - Zmierzch i noc (dodatki portu, `palette.ts`): tło ma paletę „daleką” (o zmierzchu cieplejszą i ciemniejszą,
   nocą w świetle księżyca), skocznia „bliską”. O zmierzchu obie mają ten sam ciepły odcień, a tło jest tylko
-  trochę ciemniejsze; słabszy odcień skoczni rysował ostrą granicę wzdłuż jej dalszej krawędzi. Gdy świecą
-  reflektory (zmierzch i noc), ich światło sięga 28 wierszy nad dalszą krawędź skoczni: piksele tła i drzew
-  przechodzą ku kolorom palety bliskiej, przy krawędzi o 55%, wyżej coraz mniej (z kwadratem odległości), niebo
-  zostaje bez zmian (`drawFloodlightSpill` w `scene-backdrop.ts`). Nocą tam, gdzie dalsza krawędź nie ma płotu
-  (przed progiem, widok z najazdu), światło sięga 36 wierszy, przy krawędzi o 95% i słabnie łagodniej
-  (smoothstep), żeby jasny śnieg przechodził w nie bez linii; między tym a odcinkiem z płotem siła przechodzi
-  płynnie na 120 indeksach tabeli krawędzi (`FLOODLIGHT_SPILL`).
+  trochę ciemniejsze; słabszy odcień skoczni rysował ostrą granicę wzdłuż jej dalszej krawędzi. O zmierzchu
+  światło reflektorów sięga 28 wierszy nad dalszą krawędź skoczni: piksele tła i drzew przechodzą ku kolorom
+  palety bliskiej, przy krawędzi o 55%, wyżej coraz mniej (z kwadratem odległości), niebo zostaje bez zmian
+  (`drawFloodlightSpill` w `scene-backdrop.ts`). Nocą tło zostaje w świetle księżyca, a światło reflektorów
+  leży na skoczni (`scene-floodlight.ts`): skocznia jest w pełni oświetlona od 15 m przed pierwszym masztem
+  (maszty co 30 m od 12 m za progiem, więc dalej zawsze w zasięgu któregoś) aż do końca wybiegu; wyżej, pod
+  najazdem, słabnie co 8 m o stopień: cztery stopnie przesuwają kolory o 20, 40, 55 i 70% ku palecie dalekiej,
+  schodkami jak pasma palety oryginału. Stopień piksela zależy od miejsca na świecie, które pokazuje: wiersze
+  między dalszą a bliższą krawędzią przechodzą głębią od warstwy 17 do 23, śnieg przed bliższą krawędzią dalej
+  o stałą głębię na wiersz, więc granice stopni leżą na skoczni jak linie odległości i nie jadą z kamerą.
+  Najazd ma własne lampy i zostaje oświetlony.
 - Podgląd stroju i ikona to ta sama scena bez interfejsu, wycięta wokół skoczka (`drawJumperPreview`).
 
 ## Weryfikacja

@@ -5,13 +5,12 @@ import { roundHalfEven } from "../sim/pascal-numeric";
 import type { FrameBuffer } from "./frame-buffer";
 import type { HillLook } from "./hill-look";
 import { drawFigure, drawShadow, type FigureAnchor } from "./jump-view-jumper";
-import { drawBackgroundBands, drawFloodlightSpill, drawSky, type FloodlightSpill } from "./scene-backdrop";
+import { drawBackgroundBands, drawFloodlightSpill, drawSky } from "./scene-backdrop";
 import {
   distanceLines,
   drawDistanceLines,
   drawFarFence,
   drawLandingHill,
-  farFenceStart,
   drawNearFence,
   drawNearGround,
   type HillMarks,
@@ -38,6 +37,7 @@ import {
 import { drawMountains } from "./scene-mountains";
 import { scenePalette } from "./scene-palette";
 import { putIndex, sceneCanvas, type SceneCanvas } from "./scene-span";
+import { floodlightPalettes, relightLandingHill, relightNearGround } from "./scene-floodlight";
 import { drawTrees } from "./scene-trees";
 
 /** The original draws the jumper's foot at column 148 and row 200 - 113, its shadow one column to the left. */
@@ -58,8 +58,11 @@ export interface HillSceneModel {
   recordM: number;
   /** Width of one picture column in the original's columns: 6/5 for square pixels, 1 for the original's screen. */
   pixelWidth: number;
-  /** While the floodlights are on (dusk and night): how their light reaches the background behind the hill. */
-  floodlightSpill?: FloodlightSpill;
+  /**
+   * The floodlights, when they are on: at dusk their light reaches the background behind the hill, at night it
+   * stays on the hill, weaker away from the masts.
+   */
+  floodlights?: "dusk" | "night";
   /** Drawn under the player's jumper, in the jumper's plane. */
   ghost?: JumpSimState;
   drawGhost?: (fb: FrameBuffer, ghost: JumpSimState, anchor: FigureAnchor) => void;
@@ -140,11 +143,11 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   drawTrees(c, h, m.look, view, far, 4, 6);
   drawBackgroundBands(c, h, m.look, view, far, 3, 4);
   drawTrees(c, h, m.look, view, far, 7, 16);
-  if (m.floodlightSpill !== undefined) {
-    drawFloodlightSpill(c, h, view, near, m.floodlightSpill, farFenceStart(h, marksOf(m)));
-  }
+  if (m.floodlights === "dusk") drawFloodlightSpill(c, h, view, near);
+  const nightLight = m.floodlights === "night" ? floodlightPalettes(near, far) : undefined;
   hooks.afterBackground?.(view);
   drawLandingHill(c, h, view, near);
+  if (nightLight !== undefined) relightLandingHill(c, h, view, nightLight);
   drawDistanceLines(c, h, view, distanceLines(marksOf(m), m.recordM), near);
   drawFarFence(c, h, view, marksOf(m), near);
   hooks.afterFarFence?.(view);
@@ -163,4 +166,5 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   drawInrunNearWall(c, h, walls, view, near);
   drawNearFence(c, h, view, marksOf(m), near);
   drawNearGround(c, h, view, near);
+  if (nightLight !== undefined) relightNearGround(c, h, view, nightLight);
 }

@@ -10,7 +10,6 @@ import { drawGhost } from "./jump-view-ghost";
 import { drawHillScene, jumperInPicture } from "./jump-view-scene";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
 import { drawBirds, drawFloodlights, drawInrunLamps, drawNightSky, drawWindSocks } from "./scene-extras";
-import { FLOODLIGHT_SPILL } from "./scene-backdrop";
 import { SQUARE_PIXEL_WIDTH } from "./scene-layers";
 import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model";
 import { color, withLook } from "./palette";
@@ -139,7 +138,7 @@ function drawScene(fb: FrameBuffer, m: JumpViewModel, scenery: Scenery): void {
       outfit: m.outfit ?? DEFAULT_OUTFIT,
       recordM: m.recordM ?? 0,
       pixelWidth: SQUARE_PIXEL_WIDTH,
-      ...(scenery.lighting === "day" ? {} : { floodlightSpill: FLOODLIGHT_SPILL[scenery.lighting] }),
+      ...(scenery.lighting === "day" ? {} : { floodlights: scenery.lighting }),
       ...(m.ghost === undefined ? {} : { ghost: m.ghost, drawGhost: (f, g, a) => drawGhost(f, h, g, a) }),
     },
     groundBottom - 1,

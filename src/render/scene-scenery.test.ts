@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
-import { inrunYM, landingYM } from "../sim/hill-profile";
+import { DEFAULT_OUTFIT } from "../game/outfit";
+import { startTrainingJump } from "../game/training-session";
+import { inrunYM, landingYM, type HillProfile } from "../sim/hill-profile";
+import { hillLayerTables, rowsAt } from "./hill-layer-tables";
+import { drawHillScene } from "./jump-view-scene";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
-import { backgroundWaves, drawFloodlightSpill, FLOODLIGHT_SPILL } from "./scene-backdrop";
+import { backgroundWaves, drawFloodlightSpill } from "./scene-backdrop";
+import { FLOODLIGHT, firstMastXM, floodlightPalettes, floodlightStep, relightLandingHill } from "./scene-floodlight";
 import { FrameBuffer } from "./frame-buffer";
-import { sceneView } from "./scene-layers";
+import { LAYER, layerOffset, originalColumn, sceneView } from "./scene-layers";
 import { sceneCanvas } from "./scene-span";
 import { BIRD_FRAMES, drawBirds } from "./scene-extras";
-import { color } from "./palette";
+import { color, withLook } from "./palette";
 import { LINE_COLOUR, distanceLines } from "./scene-hill";
 import { SKY_FIRST_INDEX, greyedMiddle, sceneDac } from "./scene-palette";
 import { placeTrees, sceneTrees } from "./scene-trees";
@@ -180,54 +185,148 @@ describe("this project's trees", () => {
   });
 });
 
-describe("the floodlights' light behind the hill", () => {
-  // Every column fenced, or every column far from the fence.
-  const cases = Object.entries(FLOODLIGHT_SPILL).flatMap(([lighting, spill]) => [
-    { lighting, where: "by the fence", spill, fenceStart: -Infinity, shape: spill.fenced },
-    { lighting, where: "without a fence", spill, fenceStart: Infinity, shape: spill.open },
-  ]);
+describe("the floodlights' light behind the hill at dusk", () => {
+  it("brightens the background towards the hill's far edge, a few rows above it only, and leaves the sky alone", () => {
+    if (!hill) throw new Error("no hill");
+    const fb = new FrameBuffer(64, 200);
+    const c = sceneCanvas(fb, 199);
+    const dark = 0xff000000;
+    fb.pixels.fill(dark);
+    c.indices.fill(20);
+    // The sky in the left half of the picture.
+    for (let y = 0; y < 200; y++) c.indices.fill(SKY_FIRST_INDEX, y * 64, y * 64 + 32);
+    const near = new Uint32Array(256).fill(0xffffffff);
+    drawFloodlightSpill(
+      c,
+      hill.profile,
+      sceneView(hill.profile.takeoffXM + 40, landingYM(hill.profile, hill.profile.takeoffXM + 40), 64, 1.2),
+      near,
+    );
+    const columns = Array.from({ length: 64 }, (_column, x) => {
+      const red = Array.from({ length: 200 }, (_row, y) => (fb.pixels[y * 64 + x] ?? 0) & 0xff);
+      const rows = red.flatMap((r, y) => (r > 0 ? [y] : []));
+      return { x, rows, run: rows.map((y) => red[y] ?? 0) };
+    });
+    expect(columns.filter((column) => column.x < 32 && column.rows.length > 0)).toEqual([]);
+    const lit = columns.filter((column) => column.rows.length > 0);
+    expect(lit.length).toBeGreaterThan(0);
+    for (const { rows, run } of lit) {
+      // One run of rows, getting lighter downwards, at most the reach of the light and never full light.
+      expect((rows.at(-1) ?? 0) - (rows[0] ?? 0) + 1).toBe(rows.length);
+      expect(rows.length).toBeLessThanOrEqual(28);
+      expect(run).toEqual(run.toSorted((a, b) => a - b));
+      expect(Math.max(...run)).toBeLessThan(160);
+    }
+  });
+});
 
-  it.each(cases)(
-    "at $lighting $where brightens the background towards the far edge, within its reach, and leaves the sky alone",
-    ({ spill, fenceStart, shape }) => {
-      if (!hill) throw new Error("no hill");
-      const fb = new FrameBuffer(64, 200);
-      const c = sceneCanvas(fb, 199);
-      fb.pixels.fill(0xff000000);
-      c.indices.fill(20);
-      // The sky in the left half of the picture.
-      for (let y = 0; y < 200; y++) c.indices.fill(SKY_FIRST_INDEX, y * 64, y * 64 + 32);
-      const near = new Uint32Array(256).fill(0xffffffff);
-      drawFloodlightSpill(
-        c,
-        hill.profile,
-        sceneView(hill.profile.takeoffXM + 40, landingYM(hill.profile, hill.profile.takeoffXM + 40), 64, 1.2),
-        near,
-        spill,
-        fenceStart,
+/** The colour of each far edge table index in a picture of the landing hill relit with the camera at x. */
+function farEdgeColours(h: HillProfile, cameraXM: number): Map<number, number> {
+  const fb = new FrameBuffer(160, 200);
+  const c = sceneCanvas(fb, 199);
+  c.indices.fill(20);
+  const near = new Uint32Array(256).fill(0xffffffff);
+  const far = new Uint32Array(256).fill(0xff000000);
+  const view = sceneView(cameraXM, inrunYM(h, cameraXM), 160, 1);
+  fb.pixels.fill(near[20] ?? 0);
+  relightLandingHill(c, h, view, floodlightPalettes(near, far));
+  const edge = layerOffset(view, LAYER.farEdge);
+  const table = hillLayerTables(h).farEdge;
+  const colours = new Map<number, number>();
+  for (let sx = 0; sx < 160; sx++) {
+    const j = edge.x + originalColumn(view, sx);
+    const y = rowsAt(table, j) + edge.y;
+    if (y >= 0 && y < 200) colours.set(j, fb.pixels[y * 160 + sx] ?? 0);
+  }
+  return colours;
+}
+
+/** Rows 170 to 179 of a picture 160 columns wide: the hill under the inrun in the test below. */
+function bottomRows(pixels: Uint32Array): number[] {
+  return Array.from(pixels.subarray(170 * 160, 180 * 160));
+}
+
+describe("the floodlights' light on the hill at night", () => {
+  const profiles = OWN_HILLS.map((choice) => choice.profile);
+
+  it("lights the hill fully from just before the first mast all the way down, landing area and outrun included", () => {
+    for (const h of profiles) {
+      const from = firstMastXM(h) - FLOODLIGHT.fullLightM;
+      expect(from).toBeLessThan(h.takeoffXM);
+      const xs = Array.from({ length: 200 }, (_x, k) => from + k * 1.5);
+      expect(xs.filter((x) => floodlightStep(h, x) !== 0)).toEqual([]);
+      expect(floodlightStep(h, h.outrunStartXM + 100)).toBe(0);
+    }
+  });
+
+  it("weakens in steps up the inrun, and the top of the inrun is the weakest", () => {
+    for (const h of profiles) {
+      const xs = Array.from({ length: 120 }, (_x, k) => h.takeoffXM - k);
+      const steps = xs.map((x) => floodlightStep(h, x));
+      expect(steps).toEqual(steps.toSorted((a, b) => a - b));
+      expect(new Set(steps).size).toBe(FLOODLIGHT.stepShares.length + 1);
+      expect(floodlightStep(h, h.startXM)).toBe(FLOODLIGHT.stepShares.length);
+    }
+    expect(FLOODLIGHT.stepShares).toEqual(FLOODLIGHT.stepShares.toSorted((a, b) => a - b));
+    expect(Math.max(...FLOODLIGHT.stepShares)).toBeLessThan(1);
+  });
+
+  it("builds each step's palette between the lit and the moonlit ones, the lit one first", () => {
+    const near = new Uint32Array(256).fill(0xffc8c8c8);
+    const far = new Uint32Array(256).fill(0xff141414);
+    const palettes = floodlightPalettes(near, far);
+    expect(palettes[0]).toBe(near);
+    expect(floodlightPalettes(near, far)).toBe(palettes);
+    const reds = palettes.map((pal) => (pal[7] ?? 0) & 0xff);
+    expect(reds).toEqual([200, ...FLOODLIGHT.stepShares.map((share) => Math.round(200 - 180 * share))]);
+  });
+
+  it("keeps the light of every place on the hill where it is while the camera moves", () => {
+    const h = hill?.profile;
+    if (h === undefined) throw new Error("no hill");
+    const a = farEdgeColours(h, h.takeoffXM - 20);
+    const b = farEdgeColours(h, h.takeoffXM - 14);
+    const shared = [...a.keys()].filter((j) => b.has(j));
+    expect(shared.length).toBeGreaterThan(40);
+    expect(shared.map((j) => b.get(j))).toEqual(shared.map((j) => a.get(j)));
+    // The picture shows more than one step, so the comparison sees the steps themselves.
+    expect(new Set(shared.map((j) => a.get(j))).size).toBeGreaterThan(1);
+  });
+
+  it("is drawn only at night: at dusk the hill under the inrun keeps the lit colours", () => {
+    const choice = OWN_HILLS[0];
+    if (choice === undefined) throw new Error("no hill");
+    const h = choice.profile;
+    // The jumper 10 m before the takeoff, with the hill under the inrun in the lower rows.
+    const start = startTrainingJump(choice, 3).state;
+    const xM = h.takeoffXM - 10;
+    const state = { ...start, jumper: { ...start.jumper, xM, yM: inrunYM(h, xM) } };
+    const draw = (floodlights: "dusk" | "night" | undefined) => {
+      const fb = new FrameBuffer(160, 200);
+      // The colours of the night, so that the lit and the moonlit palettes differ.
+      withLook({ lighting: "night", fog: false }, () =>
+        drawHillScene(
+          fb,
+          {
+            profile: h,
+            kPointM: choice.kPointM,
+            look: choice.look,
+            state,
+            outfit: DEFAULT_OUTFIT,
+            recordM: 0,
+            pixelWidth: 1,
+            ...(floodlights === undefined ? {} : { floodlights }),
+          },
+          180,
+        ),
       );
-      const columns = Array.from({ length: 64 }, (_column, x) => {
-        const red = Array.from({ length: 200 }, (_row, y) => (fb.pixels[y * 64 + x] ?? 0) & 0xff);
-        const rows = red.flatMap((r, y) => (r > 0 ? [y] : []));
-        return { x, rows, run: rows.map((y) => red[y] ?? 0) };
-      });
-      expect(columns.filter((column) => column.x < 32 && column.rows.length > 0)).toEqual([]);
-      const lit = columns.filter((column) => column.rows.length > 0);
-      expect(lit.length).toBeGreaterThan(0);
-      for (const { rows, run } of lit) {
-        // One run of rows, getting lighter downwards, within the reach of the light and its share at the edge.
-        expect((rows.at(-1) ?? 0) - (rows[0] ?? 0) + 1).toBe(rows.length);
-        expect(rows.length).toBeLessThanOrEqual(shape.rowsPx);
-        expect(run).toEqual(run.toSorted((a, b) => a - b));
-        expect(Math.max(...run)).toBeLessThanOrEqual(Math.round(255 * shape.atEdge));
-      }
-    },
-  );
-
-  it("keeps one shape at dusk, and at night is brighter only where the edge has no fence", () => {
-    expect(FLOODLIGHT_SPILL.dusk.open).toBe(FLOODLIGHT_SPILL.dusk.fenced);
-    expect(FLOODLIGHT_SPILL.night.fenced).toBe(FLOODLIGHT_SPILL.dusk.fenced);
-    expect(FLOODLIGHT_SPILL.night.open.atEdge).toBeGreaterThan(FLOODLIGHT_SPILL.night.fenced.atEdge);
-    expect(FLOODLIGHT_SPILL.night.open.atEdge).toBeLessThan(1);
+      return fb.pixels;
+    };
+    const plain = draw(undefined);
+    const dusk = draw("dusk");
+    const night = draw("night");
+    // Below the far edge the hill is drawn in the same colours at dusk as without the lights' changes.
+    expect(bottomRows(dusk)).toEqual(bottomRows(plain));
+    expect(bottomRows(night)).not.toEqual(bottomRows(plain));
   });
 });
