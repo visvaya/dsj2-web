@@ -43,6 +43,15 @@
   box-sizing: border-box;
 }
 
+/*
+ * The text keeps the size the page gives it: Safari on a phone in landscape would otherwise enlarge longer
+ * paragraphs on its own, so two notes side by side came out in two sizes. Zooming with fingers still works.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 html,
 body,
 #root {
@@ -1060,6 +1069,14 @@ h2 {
     text-align: justify;
     text-align-last: left;
   }
+}
+
+/*
+ * The note of a new release is two short sentences around a button: filled from edge to edge, a sentence broken
+ * in two lines would get wide gaps between its words, so it keeps to the left.
+ */
+.framed-note.install-note {
+  text-align: start;
 }
 
 /* What did not work is framed in red. */

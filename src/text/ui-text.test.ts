@@ -105,3 +105,14 @@ describe("interface texts", () => {
     expect(UI_TEXT.menu.filesRemembered(true)).toBe("Pliki (Dsj.exe, Dsj.dat) zapamiętane w tej przeglądarce.");
   });
 });
+
+/** A one-letter word followed by an ordinary space: Polish typesetting keeps such a word with the next one. */
+const LONE_LETTER_AT_LINE_END = /(?:^|\s)[aiouwzAIOUWZ] /u;
+
+describe("texts of the release notices", () => {
+  it("keep a one-letter word on the line of the word after it", () => {
+    const offline = UI_TEXT.offline;
+    const texts = [offline.slowWay, offline.updateWaiting("1.2.3"), offline.updateWaiting(null)];
+    expect(texts.filter((t) => LONE_LETTER_AT_LINE_END.test(t))).toEqual([]);
+  });
+});

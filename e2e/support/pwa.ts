@@ -23,7 +23,7 @@ export const UPDATE_CHECK = {
   found: "Jest nowa wersja gry. Pobieram ją.",
   unreachable: "Brak połączenia: nie można sprawdzić.",
   install: "Zainstaluj teraz",
-  slowWay: "Albo zamknij wszystkie okna gry i uruchom ją ponownie.",
+  slowWay: "Albo zamknij wszystkie okna gry i\u00a0uruchom ją ponownie.",
   elsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
   reload: "Przeładuj",
 } as const;
