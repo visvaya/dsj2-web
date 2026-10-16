@@ -23,12 +23,15 @@ function useScreenNote(touch: boolean, jumping: boolean, tiltNote: string): stri
   return touch && portrait && suggesting && jumping ? UI_TEXT.jumpScreen.turnLandscape : "";
 }
 
-/** The note over the jump screen, when there is one. */
-export function ScreenNote(p: { touch: boolean; jumping: boolean; tiltNote: string }) {
+/**
+ * The note over the jump screen. It stays mounted, so the suggestion is shown once per visit whatever the menu
+ * does, and the live region exists before its text (screen readers miss a region added with its text).
+ */
+export function ScreenNote(p: { touch: boolean; jumping: boolean; tiltNote: string; hidden: boolean }) {
   const note = useScreenNote(p.touch, p.jumping, p.tiltNote);
-  return note === "" ? null : (
+  return (
     <p className="screen-note" role="status">
-      {note}
+      {p.hidden ? "" : note}
     </p>
   );
 }

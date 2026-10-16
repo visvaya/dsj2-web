@@ -25,14 +25,36 @@ export interface TiltReading {
   follow: TiltState;
 }
 
-/** A phone that gives no reading soon after tilting is switched on has no sensor to tilt with. */
-function useSensorCheck(tiltOn: boolean, sensedRef: RefObject<boolean>, giveUp: (note: string) => void) {
+/** A ref that always holds the latest value, for callbacks that outlive a render. */
+function useLatest<T>(value: T): RefObject<T> {
+  const ref = useRef(value);
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref;
+}
+
+/** How often the check for the sensor's first reading looks. */
+const TILT_SENSOR_TICK_MS = 250;
+
+/**
+ * A phone that gives no reading for a while after tilting is switched on has no sensor to tilt with: the finger
+ * leans the jumper for this visit (a sensor may just have been slow to start, so tilting stays the choice). Only
+ * the time the page is seen counts, as a hidden page gets no readings.
+ */
+function useSensorCheck(tiltOn: boolean, sensedRef: RefObject<boolean>, giveUp: () => void) {
   useEffect(() => {
     if (!tiltOn) return undefined;
-    const timer = setTimeout(() => {
-      if (!sensedRef.current && !document.hidden) giveUp(UI_TEXT.jumpScreen.tiltNoSensor);
-    }, TILT_SENSOR_WAIT_MS);
-    return () => clearTimeout(timer);
+    let waitedMs = 0;
+    const timer = setInterval(() => {
+      if (!document.hidden) waitedMs += TILT_SENSOR_TICK_MS;
+      if (sensedRef.current) clearInterval(timer);
+      else if (waitedMs >= TILT_SENSOR_WAIT_MS) {
+        clearInterval(timer);
+        giveUp();
+      }
+    }, TILT_SENSOR_TICK_MS);
+    return () => clearInterval(timer);
   }, [tiltOn, sensedRef, giveUp]);
 }
 
@@ -52,10 +74,7 @@ export function useSteering(touch: boolean, settings: Settings, onSettings: (cha
   /** Whether the motion sensor has given a reading since the page opened. */
   const sensedRef = useRef(false);
   /** The latest way to change the settings, for the timers and promises that outlive a render. */
-  const onSettingsRef = useRef(onSettings);
-  useEffect(() => {
-    onSettingsRef.current = onSettings;
-  });
+  const onSettingsRef = useLatest(onSettings);
   const controls: ControlScheme = touch ? (tiltOn ? "tilt" : "touch") : "mouse";
 
   // Notes about the motion sensor go away on their own.
@@ -87,7 +106,7 @@ export function useSteering(touch: boolean, settings: Settings, onSettings: (cha
     return () => {
       cancelled = true;
     };
-  }, [touch, wantsTilt]);
+  }, [touch, wantsTilt, onSettingsRef]);
 
   useEffect(() => {
     const onOrientation = (e: DeviceOrientationEvent) => {
@@ -128,7 +147,7 @@ export function useSteering(touch: boolean, settings: Settings, onSettings: (cha
       setTiltNote(note);
       onSettingsRef.current({ leanControl: "drag" });
     },
-    [releaseTouch],
+    [releaseTouch, onSettingsRef],
   );
   /** Asks the browser for the sensor, from a tap; tilting from now on if it gives it. */
   const askForTilt = () => {
@@ -147,7 +166,13 @@ export function useSteering(touch: boolean, settings: Settings, onSettings: (cha
     });
   };
 
-  useSensorCheck(tiltOn, sensedRef, fingerFromNowOn);
+  const fingerForThisVisit = useCallback(() => {
+    tiltRef.current.on = false;
+    releaseTouch();
+    setTiltOn(false);
+    setTiltNote(UI_TEXT.jumpScreen.tiltNoSensor);
+  }, [releaseTouch]);
+  useSensorCheck(tiltOn, sensedRef, fingerForThisVisit);
 
   /** Switches between leaning with a finger and by tilting the phone, which the browser has to allow. */
   const toggleTilt = () => {

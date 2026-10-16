@@ -357,7 +357,7 @@ export const UI_TEXT = {
     tiltQuestion: "Pochylać skoczka, przechylając telefon? Przeglądarka zapyta o zgodę na czujnik ruchu.",
     tiltYes: "Tak, przechylaniem",
     tiltNo: "Nie, palcem",
-    tiltNoSensor: "Telefon nie podaje przechyłu: pochylanie palcem.",
+    tiltNoSensor: "Telefon nie podaje przechyłu: tym razem pochylanie palcem.",
     /** A suggestion over the jump screen held upright; the game plays either way. */
     turnLandscape: "Obróć telefon poziomo: więcej miejsca na skok.",
     padKey: { left: "L", right: "P" },

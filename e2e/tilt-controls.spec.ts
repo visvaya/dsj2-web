@@ -15,7 +15,7 @@ const START_TAP_LIMIT = 60;
 test.skip(({ traits }) => !traits.touch, "tilt steering exists only on touch screens");
 
 const TILT_REFUSED = "Brak zgody na czujnik ruchu: pochylanie palcem.";
-const NO_READINGS = "Telefon nie podaje przechyłu: pochylanie palcem.";
+const NO_READINGS = "Telefon nie podaje przechyłu: tym razem pochylanie palcem.";
 const QUESTION = /^Pochylać skoczka, przechylając telefon\?/;
 const TURN_PHONE = "Obróć telefon poziomo: więcej miejsca na skok.";
 
@@ -84,11 +84,14 @@ test.describe("with a motion sensor", () => {
 test.describe("with a sensor that gives no readings", () => {
   test.use({ motionSensor: "silent" });
 
-  test("the finger takes over after a moment and says why", async ({ page, traits }) => {
+  test("the finger takes over for the visit after a moment and says why; tilting stays the choice", async ({
+    page,
+    traits,
+  }) => {
     await openJumpFromStart(page, traits);
     await expect(page.getByRole("status").filter({ hasText: NO_READINGS })).toBeVisible();
     await expect(button(page, TEXT.leftPad)).toBeVisible();
-    await expectFingerSaved(page);
+    expect(JSON.stringify((await storedSave(page)) ?? {})).not.toContain('"leanControl":"drag"');
   });
 });
 

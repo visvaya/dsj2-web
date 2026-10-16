@@ -774,6 +774,11 @@ h2 {
   pointer-events: none;
 }
 
+/* Kept on the page while silent, so a screen reader hears what comes into it. */
+.screen-note:empty {
+  display: none;
+}
+
 /* During a replay the zones keep their place but are not there for the fingers. */
 .touch-pad-idle {
   visibility: hidden;
