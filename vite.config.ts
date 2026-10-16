@@ -30,14 +30,13 @@ export default defineConfig({
       include: ["src/sim/**", "src/storage/**", "src/hills/**"],
       exclude: ["src/**/*.test.ts", "src/**/test-support/**", "src/sim/data/**"],
       reporter: ["text-summary", "html"],
-      // Two points under the measured values, rounded down. src/sim: measured on 2026-10-12 without files of
-      // the original game, as in CI, where the golden tests are skipped: statements 93.8, branches 80.35,
-      // functions 95, lines 94.66. src/storage and src/hills:
-      // measured on 2026-10-16, storage statements 91.14, branches 89.28, functions 88.44, lines 93.18; hills
-      // statements 99.03, branches 93.45, functions 100, lines 99.44.
+      // Two points under the values measured on 2026-10-16 without files of the original game, as in CI, where
+      // the golden tests are skipped, rounded down: sim statements 96.41, branches 82.28, functions 98.75, lines
+      // 97.19; storage statements 91.14, branches 89.28, functions 88.44, lines 93.18; hills statements 99.03,
+      // branches 93.45, functions 100, lines 99.44.
       // Raise them when coverage improves; never lower them to make a run pass.
       thresholds: {
-        "src/sim/**": { statements: 91, branches: 78, functions: 93, lines: 92 },
+        "src/sim/**": { statements: 94, branches: 80, functions: 96, lines: 95 },
         "src/storage/**": { statements: 89, branches: 87, functions: 86, lines: 91 },
         "src/hills/**": { statements: 97, branches: 91, functions: 98, lines: 97 },
       },
