@@ -50,19 +50,24 @@ test("held sideways, a phone shows the preview right of the swatches and inside 
     await openMenu(page);
     await openOutfit(page, traits);
     const where = `${size.width} x ${size.height}`;
-    const { swatchesRight, preview } = await page.evaluate(() => {
+    const { swatchesRight, swatchesTop, preview } = await page.evaluate(() => {
       const right = Math.max(
         ...Array.from(document.querySelectorAll(".swatch"), (s) => s.getBoundingClientRect().right),
       );
       const box = document.querySelector(".outfit-preview")?.getBoundingClientRect();
       return {
         swatchesRight: right,
+        swatchesTop: document.querySelector(".swatch")?.getBoundingClientRect().top ?? 0,
         preview: box ? { left: box.left, top: box.top, right: box.right, bottom: box.bottom } : null,
       };
     });
     expect(preview, `preview at ${where}`).not.toBeNull();
     if (preview === null) continue;
     expect(preview.left, `preview right of the swatches at ${where}`).toBeGreaterThan(swatchesRight);
+    // It starts level with the first row of colours, not with the name above them.
+    expect(Math.abs(preview.top - swatchesTop), `preview level with the colours at ${where}`).toBeLessThanOrEqual(
+      LAYOUT_SLACK_PX,
+    );
     expect(preview.right, `preview inside the window at ${where}`).toBeLessThanOrEqual(size.width + LAYOUT_SLACK_PX);
     expect(preview.bottom, `preview inside the window at ${where}`).toBeLessThanOrEqual(size.height + LAYOUT_SLACK_PX);
     // Scrolled to the end, the preview is still in sight and the way back can be reached.

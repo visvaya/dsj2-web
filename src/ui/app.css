@@ -551,6 +551,11 @@ h2 {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   border: 3px solid var(--accent);
+  /*
+   * Beside the colours its top is level with the first row of them: below the line of the first part's name (the
+   * screens' item size at a line height of 1.5) and the gap under it.
+   */
+  margin-top: calc(var(--screen-item-px) * 1.5 + 6px);
   /* Beside the colours it stays in sight while they scroll, clear of the status bar. */
   position: sticky;
   top: calc(var(--safe-top) + 12px);
