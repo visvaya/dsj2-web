@@ -460,11 +460,31 @@ h2 {
   text-align: right;
 }
 
+/*
+ * The colours and the preview of the jumper side by side when the screen has room for both, which a phone held
+ * sideways has with the preview at a smaller scale; otherwise the preview goes under the colours.
+ */
 .outfit-editor {
+  /* Whole screen pixels per pixel of the preview (84 x 48), so its pixels stay even. */
+  --preview-scale: 4;
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  /* Beside the colours the preview starts level with the first of them, so a short screen shows it whole. */
+  align-items: flex-start;
   gap: 24px;
+}
+
+/* A short screen (a phone held sideways): a smaller preview fits beside the colours and in the height. */
+@media (max-height: 520px) {
+  .outfit-editor {
+    --preview-scale: 3;
+  }
+}
+
+@media (max-height: 520px) and (max-width: 760px) {
+  .outfit-editor {
+    --preview-scale: 2;
+  }
 }
 
 .outfit-rows {
@@ -486,16 +506,24 @@ h2 {
   color: var(--accent);
 }
 
-.swatches {
+/*
+ * Sized by the shorter side of the screen, so a phone held sideways keeps the swatches it has upright. Each half
+ * stays in one row: all the colours in one row, or two even rows, never a lone swatch in a row of its own.
+ */
+.swatches,
+.swatch-half {
   display: flex;
+  gap: clamp(3px, 0.8vmin, 5px);
+}
+
+.swatches {
   flex-wrap: wrap;
-  gap: clamp(3px, 0.8vw, 5px);
 }
 
 .swatch {
   box-sizing: border-box;
-  width: clamp(22px, 6.4vw, 30px);
-  height: clamp(22px, 6.4vw, 30px);
+  width: clamp(24px, 6.4vmin, 30px);
+  height: clamp(24px, 6.4vmin, 30px);
   border: 3px solid #000000;
   outline: 1px solid #484850;
   cursor: pointer;
@@ -512,8 +540,10 @@ h2 {
   outline-offset: 2px;
 }
 
-/* The width is set on the element; on a screen narrower than that the preview shrinks and keeps its shape. */
+/* On a screen narrower than its width the preview shrinks and keeps its shape. */
 .outfit-preview {
+  /* The frame is inside the width (border-box), so it is added to the picture. */
+  width: calc(84px * var(--preview-scale) + 6px);
   max-width: 100%;
   /* In the middle of the room it has, also when it goes under the colours on a narrow screen. */
   margin-inline: auto;
@@ -521,6 +551,9 @@ h2 {
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   border: 3px solid var(--accent);
+  /* Beside the colours it stays in sight while they scroll, clear of the status bar. */
+  position: sticky;
+  top: calc(var(--safe-top) + 12px);
 }
 
 .flag-icon {
@@ -808,13 +841,15 @@ h2 {
   align-items: center;
   justify-content: flex-start;
   gap: 10px;
-  padding: 16px;
   /*
-   * The cut-outs and the system bar of the phone stay outside the scrolling area: a transparent border as wide
-   * as each of them, so a button that is scrolled away is cut off at their edge and never shows under them.
+   * The status bar and the cut-outs stay outside the scrolling area: a transparent border as wide as each of
+   * them, so a button that is scrolled away is cut off at their edge and never shows under them. The bar of
+   * system gestures at the bottom does not: the list reaches the bottom edge and its last button comes to rest
+   * above the bar, passing under it while the list scrolls, as lists do on a phone.
    */
+  padding: 16px 16px calc(16px + var(--safe-bottom));
   border: solid transparent;
-  border-width: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+  border-width: var(--safe-top) var(--safe-right) 0 var(--safe-left);
   overflow-y: auto;
   overscroll-behavior: contain;
   touch-action: pan-y;

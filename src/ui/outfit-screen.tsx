@@ -18,7 +18,14 @@ interface Props {
 
 const PREVIEW_WIDTH_PX = 84;
 const PREVIEW_HEIGHT_PX = 48;
-const PREVIEW_SCALE = 4;
+
+/**
+ * The swatches in two halves that each stay in one row: the colours fill one row when it has room for all of
+ * them, and two even rows when not, never leaving a lone swatch in a row of its own.
+ */
+const SWATCH_HALF = Math.ceil(OUTFIT_SWATCHES.length / 2);
+const SWATCHES = OUTFIT_SWATCHES.map((rgb, i) => ({ rgb, i }));
+const SWATCH_HALVES = [SWATCHES.slice(0, SWATCH_HALF), SWATCHES.slice(SWATCH_HALF)];
 
 function css([r, g, b]: readonly [number, number, number]): string {
   return `rgb(${r} ${g} ${b})`;
@@ -51,17 +58,23 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
             <fieldset key={part} className="outfit-row">
               <legend>{UI_TEXT.outfit.part[part]}</legend>
               <div className="swatches">
-                {OUTFIT_SWATCHES.map((rgb, i) => (
-                  <label key={css(rgb)} className="swatch" style={{ background: css(rgb) }}>
-                    <input
-                      type="radio"
-                      className="sr-only"
-                      name={`outfit-${part}`}
-                      checked={outfit[part] === i}
-                      onChange={() => onChange({ ...outfit, [part]: i })}
-                    />
-                    <span className="sr-only">{UI_TEXT.outfit.swatch[i]}</span>
-                  </label>
+                {SWATCH_HALVES.map((half) => (
+                  <div key={half[0]?.i} className="swatch-half">
+                    {half.map(({ rgb, i }) => {
+                      return (
+                        <label key={css(rgb)} className="swatch" style={{ background: css(rgb) }}>
+                          <input
+                            type="radio"
+                            className="sr-only"
+                            name={`outfit-${part}`}
+                            checked={outfit[part] === i}
+                            onChange={() => onChange({ ...outfit, [part]: i })}
+                          />
+                          <span className="sr-only">{UI_TEXT.outfit.swatch[i]}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 ))}
               </div>
             </fieldset>
@@ -72,7 +85,6 @@ export function OutfitScreen({ outfit, onChange, onBack, focusOnEntry }: Props) 
           className="outfit-preview"
           width={PREVIEW_WIDTH_PX}
           height={PREVIEW_HEIGHT_PX}
-          style={{ width: PREVIEW_WIDTH_PX * PREVIEW_SCALE }}
           role="img"
           aria-label={UI_TEXT.outfit.preview}
         />

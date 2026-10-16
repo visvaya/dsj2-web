@@ -14,8 +14,8 @@ export function makePicture(width: number): JumpPicture {
 
 /** Game pixels between the pause button and the name of the hill beside it. */
 const TITLE_GAP_PX = 3;
-/** Rows of game pixels at the top of the picture that hold the name of the hill. */
-const TITLE_ROWS_PX = 12;
+/** Rows of game pixels at the top of the picture that hold the name of the hill, a mark under a letter included. */
+const TITLE_ROWS_PX = 14;
 
 /** Rows of a capital in the picture's font, by which the name of the hill is centred on the pause button. */
 const CAP_ROWS_PX = 6;
