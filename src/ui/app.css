@@ -597,7 +597,7 @@ h2 {
 .subtitle {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: baseline;
   column-gap: 2ch;
   overflow-x: clip;
   overflow-clip-margin: 4px;
