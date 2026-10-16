@@ -54,7 +54,7 @@ const TITLE_INK = 0xcb;
  * file name, as far from the top as from the left, so the mark over a capital stands level with the top of the
  * wind box's frame and not against the edge.
  */
-const TITLE_AT_PX = { x: 5, y: 5 } as const;
+export const TITLE_AT_PX = { x: 5, y: 5 } as const;
 const RECORD_INK = 0xcd;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;

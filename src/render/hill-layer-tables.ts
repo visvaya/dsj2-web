@@ -10,8 +10,12 @@ import { LAYER_SCALE, layerRows, layerX } from "./scene-layers";
 
 /** Indices computed on either side of the original's table (a 432-column view reaches about 100 past it). */
 const MARGIN_INDICES = 480;
-/** Length of the original's tables in metres of the jumper's plane: 5320 = 380 m at 14 px/m, plus 321 entries. */
-const TABLE_LENGTH_PX = 5320;
+/** Metres of the hill the original's tables cover: past it a hill has no scenery drawn under it. */
+export const LAYER_TABLE_LENGTH_M = 380;
+/** Columns per metre of the jumper's plane in the original's screen units. */
+const TABLE_PX_PER_M = 14;
+/** Length of the original's tables in the jumper's plane: 5320 = 380 m at 14 px/m, plus 321 entries. */
+const TABLE_LENGTH_PX = LAYER_TABLE_LENGTH_M * TABLE_PX_PER_M;
 const TABLE_EXTRA_ENTRIES = 0x141;
 
 /** Indices are computed in chunks of this many, when a frame first needs them. */

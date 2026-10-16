@@ -174,10 +174,10 @@ const COMBINING = /^\p{M}$/u;
 const DOTTED_I = /i̇/gu;
 const letters = (text: string) => Array.from(text.replace(DOTTED_I, "İ"));
 
-function bodyOf(ch: string): { rows: readonly string[]; top: number } {
+/** The body of a character with a glyph of its own; null for one the font has no glyph for. */
+function ownBodyOf(ch: string): { rows: readonly string[]; top: number } | null {
   const unit = UNIT_GLYPHS[ch];
   if (unit) return { rows: unit, top: 0 };
-  if (COMBINING.test(ch) || ch === UNIT_GAP) return { rows: [], top: 0 };
   // The sharp s keeps a glyph of its own: its capital is two letters.
   const up = ch === "ß" ? ch : ch.toUpperCase();
   const own = OWN[up];
@@ -189,7 +189,22 @@ function bodyOf(ch: string): { rows: readonly string[]; top: number } {
     const mark = MARKS[markName] ?? [];
     return BELOW.has(markName) ? { rows: [...rows, ...mark], top: 0 } : { rows: [...mark, ...rows], top: -MARK_ROWS };
   }
-  return { rows: GLYPHS[up] ?? GLYPHS["?"] ?? [], top: 0 };
+  const plain = GLYPHS[up];
+  return plain ? { rows: plain, top: 0 } : null;
+}
+
+function bodyOf(ch: string): { rows: readonly string[]; top: number } {
+  if (COMBINING.test(ch) || ch === UNIT_GAP) return { rows: [], top: 0 };
+  return ownBodyOf(ch) ?? { rows: GLYPHS["?"] ?? [], top: 0 };
+}
+
+/**
+ * Whether the font draws a character with a glyph of its own (lower case as its capital), rather than the question
+ * mark it puts for any other; marks that combine with the letter before and the thin space before units draw
+ * nothing, so they do not count.
+ */
+export function fontDraws(ch: string): boolean {
+  return !COMBINING.test(ch) && ch !== UNIT_GAP && ownBodyOf(ch) !== null;
 }
 
 function advanceOf(ch: string, rows: readonly string[]): number {

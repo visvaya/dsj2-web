@@ -17,6 +17,7 @@
 | `tools/re/test_tools.py` | narzędzia analizy (FPU, kodek powtórek, powtórka z planu, zapis śladów) | wszędzie |
 | `src/game/touch-landing.test.ts` | skok polami dotykowymi krokowany jak na ekranie skoku: w locie pole L tylko pochyla, pole P zaczyna telemark, nowe dotknięcie L kończy jego przygotowanie, a oba pola naraz lądują na dwie nogi; klawiatura i mysz bez zmian | wszędzie, także w CI |
 | `src/render/frame-time.budget.test.ts` | czas kroku symulacji i rysowania najszerszego obrazu wobec budżetu (opis w „Pomiar wydajności”) | wszędzie, także w CI |
+| `src/hills/*.test.ts` | format skoczni własnych (ścisła kontrola danych, każda skocznia własna po przejściu przez JSON), reguły geometrii (każda reguła na zmienionej kopii skoczni treningowej), odcisk geometrii przypięty dla każdej skoczni własnej; opis w [hills.md](hills.md) | wszędzie, także w CI |
 | `src/pwa/*.test.ts` | stan trybu offline i rejestracja service workera na atrapach przeglądarki; obrazek ikon | wszędzie, także w CI |
 | `scripts/**/*.test.mjs` (`pnpm test:scripts`) | reguły pakietu i wydania, plik nagłówków, serwer testów, kontrola wdrożenia, ikony i manifest, zgodność czcionki ekranów ze znakami obrazu skoku; service worker uruchamiany na atrapach cache i sieci (instalacja, odmowy, brak miejsca, aktywacja, obsługa żądań) | wszędzie, także w CI |
 | `e2e/*.spec.ts` | zbudowana gra w prawdziwych przeglądarkach (Playwright), opis niżej | CI: Chromium, Firefox, WebKit; lokalnie: Edge |
