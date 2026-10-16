@@ -27,7 +27,7 @@ export interface HillChoice {
 export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set(["own-1"]);
 
 /** A hill of this project, built from its data. */
-function hillChoiceOf(spec: HillSpec): HillChoice {
+export function hillChoiceOf(spec: HillSpec): HillChoice {
   return {
     id: spec.id,
     name: spec.name,

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { spreadOf } from "../game/frame-meter";
-import { OWN_HILLS } from "../game/hill-choice";
+import { OWN_HILLS, type HillChoice } from "../game/hill-choice";
 import {
   isJumpOver,
   presentationFrame,
@@ -34,15 +34,8 @@ const FRAME_LIMIT = 4000;
 /** The widest picture the game draws, in the weather that paints the most. */
 const SCENERY: Scenery = { lighting: "night", snowfall: true, fog: true };
 
-function builtInHill() {
-  const hill = OWN_HILLS[0];
-  if (!hill) throw new Error("no built-in hill");
-  return hill;
-}
-
-/** A jump on the built-in hill with a scripted player who takes off and lands. */
-function scriptedJump(seed: number): { jump: () => TrainingJump; step: () => void } {
-  const hill = builtInHill();
+/** A jump on a hill with a scripted player who takes off and lands. */
+function scriptedJump(hill: HillChoice, seed: number): { jump: () => TrainingJump; step: () => void } {
   let jump = startTrainingJump(hill, seed);
   const bot = makeBot(
     hill.profile,
@@ -59,11 +52,11 @@ function scriptedJump(seed: number): { jump: () => TrainingJump; step: () => voi
 }
 
 /** Time of each whole batch of simulation steps, over as many jumps as it takes; a batch a jump ends in is left out. */
-function simBatchTimesMs(): number[] {
+function simBatchTimesMs(hill: HillChoice): number[] {
   const batchesMs: number[] = [];
   for (let seed = 1; batchesMs.length * STEPS_PER_BATCH < MIN_SIM_STEPS; seed++) {
     if (seed > 50) throw new Error("the scripted jumps are too short to measure");
-    const { jump, step } = scriptedJump(seed);
+    const { jump, step } = scriptedJump(hill, seed);
     while (!isJumpOver(jump())) {
       const began = performance.now();
       for (let i = 0; i < STEPS_PER_BATCH; i++) step();
@@ -75,10 +68,9 @@ function simBatchTimesMs(): number[] {
 }
 
 /** Time of each drawing of the widest picture, through one jump and the notes after it. */
-function drawTimesMs(): number[] {
-  const hill = builtInHill();
+function drawTimesMs(hill: HillChoice): number[] {
   const fb = new FrameBuffer(VIEW_MAX_WIDTH_PX, VIEW_HEIGHT_PX);
-  const { jump, step } = scriptedJump(7);
+  const { jump, step } = scriptedJump(hill, 7);
   const timesMs: number[] = [];
   for (let f = 0; f < FRAME_LIMIT && jump().framesAfterEnd < FRAMES_AFTER_END; f++) {
     step();
@@ -88,6 +80,7 @@ function drawTimesMs(): number[] {
     drawJumpView(fb, {
       profile: hill.profile,
       kPointM: hill.kPointM,
+      look: hill.look,
       hillName: hill.name,
       playerName: "GRACZ 1",
       state: current.state,
@@ -104,15 +97,18 @@ function drawTimesMs(): number[] {
   return timesMs;
 }
 
-describe("time budgets of a frame", () => {
+/** Every own hill: each one's scenery is drawn within the budget. */
+const HILLS: readonly { id: string; hill: HillChoice }[] = OWN_HILLS.map((hill) => ({ id: hill.id, hill }));
+
+describe.each(HILLS)("time budgets of a frame on $id", ({ hill }) => {
   it("steps the simulation within its budget", () => {
-    const batchesMs = simBatchTimesMs();
+    const batchesMs = simBatchTimesMs(hill);
     expect(batchesMs.length * STEPS_PER_BATCH).toBeGreaterThanOrEqual(MIN_SIM_STEPS);
     expect(spreadOf(batchesMs).median / STEPS_PER_BATCH).toBeLessThanOrEqual(SIM_STEP_BUDGET_MS);
   }, 60_000);
 
   it("draws the widest picture within its budget", () => {
-    const timesMs = drawTimesMs();
+    const timesMs = drawTimesMs(hill);
     expect(timesMs.length).toBeGreaterThanOrEqual(MIN_DRAWN_FRAMES);
     expect(spreadOf(timesMs).median).toBeLessThanOrEqual(DRAW_BUDGET_MS);
   }, 60_000);

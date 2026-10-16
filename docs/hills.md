@@ -162,6 +162,36 @@ Reguły (każda mierzona na zasianych skokach, liczby prób w `PLAY_SAMPLE`):
 Jedna klatka wybicia (1/70 s) jest warta kilka metrów odległości. To cecha fizyki gry, wspólna dla wszystkich
 skoczni, a nie wada konkretnej skoczni.
 
+## Kontrole obrazu
+
+Testy obrazu (`src/render`), które mówią coś o rysowaniu skoczni, przechodzą przez wszystkie skocznie własne
+(`OWN_HILLS`). Liczby biorą z danych skoczni: punkt K z `kPointM`, chwile wybicia jako udział klatek od startu
+rozbiegu do progu, miejsca z profilu. Nowa skocznia dostaje je bez zmian w testach.
+
+- ruch obrazu (`scene-motion.test.ts`): rekwizyty, końce linii odległości, ptaki i księżyc trzymają się swoich
+  miejsc przez cały skok bota, bo każda skocznia ma inne miejsca tych rzeczy;
+- rekwizyty i linie (`scene-props.test.ts`, `scene-layers.test.ts`): rękawy, maszty, lampy rozbiegu i linia K
+  stoją na swoich powierzchniach i w swojej odległości, liczone z profilu tej skoczni;
+- sceneria (`scene-scenery.test.ts`): drzewa, ptaki, księżyc i światło reflektorów na danych tej skoczni, bo ziarno
+  drzew i profil zmieniają ich miejsca;
+- sceneria z dala od toru: żadne drzewo nie stoi na płaszczyźnie skoczka ani przed nią (drzewa są tylko na
+  warstwach za dalszą krawędzią zeskoku, z samej konstrukcji), a podpory rozbiegu kończą się najdalej na progu,
+  bo za nim stałyby w zeskoku;
+- figura skoczka (`jump-view.test.ts`): każda faza skoku rysowana bez pustych pikseli, figura na śniegu i w korycie
+  rozbiegu przy wybiciu za wcześnie, wcześnie, tuż przed progiem i bez wybicia, bo te przypadki zależą od długości
+  rozbiegu;
+- tytuł (`jump-view.test.ts`): w najwęższym obrazie (256 px) i przy przycisku pauzy przesuwającym tytuł najdalej
+  w prawo cały napis jest w obrazie i żaden jego piksel nie leży w kolumnach okna wiatru i światła startu;
+  sprawdza to rysunek, a nie tylko szerokość liczoną przy kontroli formatu;
+- budżet czasu klatki (`frame-time.budget.test.ts`): rysowanie najszerszego obrazu tej skoczni mieści się
+  w budżecie, bo sceneria każdej skoczni rysuje się inaczej;
+- migawka pikseli (`jump-view.pixels.test.ts`): pierwsza skocznia ma pełny zestaw, każda następna własne klucze
+  (momenty skoku z telemarkiem, 356 px, dzień, zmierzch i noc, bez śniegu i mgły); test na kopii skoczni z innym
+  niebem i drzewami sprawdza, że inny wygląd daje inne klatki.
+
+Testy, którym wystarcza dowolna skocznia (pasek, podpowiedzi, teksty, menu, dźwięk, powtórki, zapis), zostają na
+pierwszej skoczni własnej, żeby nie mnożyć czasu testów.
+
 ## Odcisk geometrii i identyfikator
 
 `hillFingerprint` (`src/hills/hill-fingerprint.ts`) to skrót FNV-1a (32 bity, 8 cyfr szesnastkowych) z punktu K
@@ -174,7 +204,9 @@ kształcie i nigdy nie spotykają nowego.
 
 1. Skopiować dane istniejącej skoczni w `src/hills/own-hills.ts`, nadać nowy `id` i nazwę, zmienić liczby.
 2. `corepack pnpm test src/hills`: format, reguły geometrii, kontrole symulacją i odcisk (nowy odcisk dopisać do tabeli w teście).
-3. Przejrzeć migawkę pikseli i testy przeglądarkowe, które wskazują skocznię wbudowaną (`e2e/support/app.ts`;
+3. `corepack pnpm test src/render`: kontrole obrazu; nowe klucze migawki pikseli dla nowej skoczni zapisuje
+   `corepack pnpm test -u src/render/jump-view.pixels.test.ts`, a w diffie mają się pojawić tylko one.
+4. Przejrzeć migawkę pikseli i testy przeglądarkowe, które wskazują skocznię wbudowaną (`e2e/support/app.ts`;
    czasy naciśnięć w `e2e/support/jump.ts` zmierzono na tej skoczni).
-4. Skoczyć na komputerze i na telefonie.
-5. Podnieść wersję jak przy każdej zmianie gry.
+5. Skoczyć na komputerze i na telefonie.
+6. Podnieść wersję jak przy każdej zmianie gry.

@@ -16,8 +16,6 @@ import {
 import { landingXAtArcLength, rowRunLine } from "./scene-lines";
 import { colourSpan, sceneCanvas } from "./scene-span";
 
-const hill = OWN_HILLS[0];
-
 describe("layers of the scene", () => {
   it("puts the jumper's plane under the jumper, near the middle of the picture", () => {
     const view = sceneView(50, 100, 320, 1);
@@ -67,10 +65,14 @@ describe("lines across the landing hill", () => {
     expect(rows[2]?.[0]).toBe(rows[1]?.at(-1));
   });
 
-  it("stand at their distance measured along the slope from the takeoff", () => {
-    if (!hill) throw new Error("no hill");
-    const h = hill.profile;
-    const x = landingXAtArcLength(h, h.takeoffXM, 90.15, 1);
-    expect(landingArcLengthM(h, h.takeoffXM, x, 0.01)).toBeCloseTo(90.15, 1);
-  });
+  it.each(OWN_HILLS.map((hill) => ({ id: hill.id, hill })))(
+    "stand at their distance measured along the slope from the takeoff ($id)",
+    ({ hill }) => {
+      const h = hill.profile;
+      // The K point's line, where the original draws it: 0.15 m past the K point.
+      const distanceM = hill.kPointM + 0.15;
+      const x = landingXAtArcLength(h, h.takeoffXM, distanceM, 1);
+      expect(landingArcLengthM(h, h.takeoffXM, x, 0.01)).toBeCloseTo(distanceM, 1);
+    },
+  );
 });
