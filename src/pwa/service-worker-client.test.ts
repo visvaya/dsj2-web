@@ -3,6 +3,7 @@ import type { OfflineEvent } from "./offline-state";
 import { PWA_CONFIG } from "./pwa-config";
 import {
   startOfflineSupport,
+  type OfflineSupport,
   versionIn,
   type OfflineEnvironment,
   type RegistrationLike,
@@ -38,6 +39,8 @@ interface FakeRegistration extends RegistrationLike<FakeWorker> {
   waiting: FakeWorker | null;
   active: FakeWorker | null;
   updates: number;
+  /** What the next check for a new release does; the network refuses it unless a test says otherwise. */
+  onUpdate: () => Promise<unknown>;
   /** The browser has found a new worker and started to install it. */
   find(worker: FakeWorker): void;
   /** Moves a worker that is being installed up to the given state, as the browser does. */
@@ -52,10 +55,11 @@ function fakeRegistration(workers: Partial<Pick<FakeRegistration, "installing" |
     active: null,
     ...workers,
     updates: 0,
+    onUpdate: () => Promise.reject(new TypeError("no network")),
     addEventListener: (_type, listener) => listeners.push(listener),
     update() {
       registration.updates += 1;
-      return Promise.reject(new TypeError("no network"));
+      return registration.onUpdate();
     },
     find(worker) {
       registration.installing = worker;
@@ -77,7 +81,12 @@ function fakeRegistration(workers: Partial<Pick<FakeRegistration, "installing" |
 
 interface Setup {
   events: OfflineEvent[];
+  support: OfflineSupport;
   stop: () => void;
+  /** The workers the page asked to take over, in order. */
+  askedToTakeOver: FakeWorker[];
+  /** How many times the page reloaded itself. */
+  reloads: () => number;
   /** The player comes back to the game. */
   comeBack: () => void;
   clock: { nowMs: number };
@@ -88,6 +97,8 @@ function start(register: () => Promise<FakeRegistration>): Setup {
   const events: OfflineEvent[] = [];
   const clock = { nowMs: 0 };
   let returnListener: (() => void) | null = null;
+  const askedToTakeOver: FakeWorker[] = [];
+  let reloads = 0;
   const env: OfflineEnvironment<FakeWorker> = {
     register,
     holdsWholeRelease: (worker) => Promise.resolve(worker.whole),
@@ -99,9 +110,22 @@ function start(register: () => Promise<FakeRegistration>): Setup {
       };
     },
     nowMs: () => clock.nowMs,
+    askToTakeOver: (worker) => askedToTakeOver.push(worker),
+    reload: () => {
+      reloads += 1;
+    },
   };
-  const stop = startOfflineSupport(env, (event) => events.push(event));
-  return { events, stop, comeBack: () => returnListener?.(), clock, listening: () => returnListener !== null };
+  const support = startOfflineSupport(env, (event) => events.push(event));
+  return {
+    events,
+    support,
+    stop: support.stop,
+    askedToTakeOver,
+    reloads: () => reloads,
+    comeBack: () => returnListener?.(),
+    clock,
+    listening: () => returnListener !== null,
+  };
 }
 
 /** Lets the promises settled so far run their reactions. */
@@ -262,6 +286,117 @@ describe("startOfflineSupport", () => {
     await settle();
     expect(events).toEqual([]);
     expect(listening()).toBe(false);
+  });
+});
+
+describe("checking for a new release on demand", () => {
+  it("says the running release is the latest when the server has nothing new", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    registration.onUpdate = () => Promise.resolve(registration);
+    const { support } = start(() => Promise.resolve(registration));
+    expect(await support.checkNow()).toBe("latest");
+    expect(registration.updates).toBe(1);
+  });
+
+  it("says a new release was found when the check starts storing one", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    registration.onUpdate = () => {
+      registration.find(fakeWorker("installing"));
+      return Promise.resolve(registration);
+    };
+    const { support } = start(() => Promise.resolve(registration));
+    expect(await support.checkNow()).toBe("found");
+  });
+
+  it("says a new release was found when one is already waiting", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting: fakeWorker("installed") });
+    registration.onUpdate = () => Promise.resolve(registration);
+    const { support } = start(() => Promise.resolve(registration));
+    expect(await support.checkNow()).toBe("found");
+  });
+
+  it("says the server could not be reached when the check is refused", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    const { support } = start(() => Promise.resolve(registration));
+    expect(await support.checkNow()).toBe("unreachable");
+  });
+
+  it("cannot check where the worker could not be registered", async () => {
+    const { support } = start(() => Promise.reject(new Error("blocked")));
+    expect(await support.checkNow()).toBe("unavailable");
+  });
+
+  it("counts a check on demand as the latest check, so coming back right after does not check again", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    registration.onUpdate = () => Promise.resolve(registration);
+    const { support, comeBack, clock } = start(() => Promise.resolve(registration));
+    clock.nowMs = PWA_CONFIG.UPDATE_CHECK_MIN_INTERVAL_S * 1000;
+    await support.checkNow();
+    comeBack();
+    expect(registration.updates).toBe(1);
+  });
+});
+
+describe("installing a waiting release on demand", () => {
+  it("asks the waiting worker to take over and reloads the page once it is active", async () => {
+    const active = fakeWorker("activated");
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active, waiting });
+    const { support, askedToTakeOver, reloads } = start(() => Promise.resolve(registration));
+    await settle();
+
+    expect(support.installNow()).toBe(true);
+    expect(askedToTakeOver).toEqual([waiting]);
+    expect(reloads()).toBe(0);
+    waiting.become("activating");
+    expect(reloads()).toBe(0);
+    waiting.become("activated");
+    expect(reloads()).toBe(1);
+  });
+
+  it("reloads only once, however often the player presses", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { support, askedToTakeOver, reloads } = start(() => Promise.resolve(registration));
+    await settle();
+    support.installNow();
+    support.installNow();
+    expect(askedToTakeOver).toHaveLength(2);
+    waiting.become("activated");
+    waiting.become("activated");
+    expect(reloads()).toBe(1);
+  });
+
+  it("does nothing when no release waits", async () => {
+    const registration = fakeRegistration({ active: fakeWorker("activated") });
+    const { support, askedToTakeOver } = start(() => Promise.resolve(registration));
+    await settle();
+    expect(support.installNow()).toBe(false);
+    expect(askedToTakeOver).toEqual([]);
+  });
+
+  it("never reloads a page whose player did not ask, when another window installs the release", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { reloads, events } = start(() => Promise.resolve(registration));
+    await settle();
+    registration.waiting = null;
+    registration.active = waiting;
+    waiting.become("activating");
+    waiting.become("activated");
+    await settle();
+    expect(reloads()).toBe(0);
+    expect(events).toContain("update-active");
+  });
+
+  it("does nothing after it is stopped", async () => {
+    const waiting = fakeWorker("installed");
+    const registration = fakeRegistration({ active: fakeWorker("activated"), waiting });
+    const { support, askedToTakeOver, stop } = start(() => Promise.resolve(registration));
+    await settle();
+    stop();
+    expect(support.installNow()).toBe(false);
+    expect(askedToTakeOver).toEqual([]);
   });
 });
 

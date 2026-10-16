@@ -58,14 +58,27 @@ nimi, bez plików oryginalnej gry, w budżetach rozmiaru (paczki, worker, ikony)
 - **Instalacja** pobiera każdy plik wydania, porównuje jego SHA-256 z listą i dopiero potem zapisuje wszystko do
   własnego cache (`telemark-shell-<id>`). Brak pliku, inna treść, przekierowanie albo brak miejsca kończy
   instalację błędem i nie zostawia żadnej części wydania; działające wcześniej wydanie zostaje nietknięte.
-- **Nowe wydanie czeka.** Worker nie woła `skipWaiting()` ani `clients.claim()`, a strona nigdy sama się nie
-  przeładowuje. Strona dostaje dokument i skrypty zawsze z jednego wydania, a skok nie jest przerywany. Nowe
+- **Nowe wydanie czeka.** Worker nie woła sam `skipWaiting()` ani nigdy `clients.claim()`, a strona nie
+  przeładowuje się bez prośby gracza. Strona dostaje dokument i skrypty zawsze z jednego wydania, a skok nie jest przerywany. Nowe
   wydanie przejmuje stronę przy kolejnym uruchomieniu po zamknięciu wszystkich okien gry. Menu główne (u góry)
   i menu skoku pokazują wtedy w ramce „Jest nowa wersja gry: <numer>. Zamknij grę całkowicie [...] i uruchom ją
   ponownie”; numer podaje czekający worker (`version` w danych wydania i w odpowiedzi na pytanie strony
   o wydanie), worker sprzed 0.10 go nie zna i wtedy komunikat jest bez numeru. Komunikat pojawia się dopiero po
   1,5 s oczekiwania: przy pierwszym uruchomieniu po aktualizacji przeglądarka potrafi przez chwilę zgłaszać nowe
   wydanie jako czekające, zanim przejmie ono stronę, a komunikat na tę chwilę migałby.
+- **Sprawdzenie i instalacja na żądanie.** Menu główne ma pod numerem wersji przycisk „Sprawdź aktualizację”
+  (`registration.update()`); wynik pojawia się obok w regionie `role="status"`: „Sprawdzam...”, „Masz najnowszą
+  wersję.”, „Jest nowa wersja gry. Pobieram ją.” albo „Brak połączenia: nie można sprawdzić.” (przeglądarka nie
+  odróżnia braku sieci od braku odpowiedzi serwera). Kolejne naciśnięcia w trakcie sprawdzania nic nie robią.
+  Bez workera (podgląd jednoplikowy, serwer deweloperski, niebezpieczny adres) przycisku nie ma: nie ma czego
+  sprawdzać. W menu głównym ramka czekającego wydania ma przycisk „Zainstaluj teraz”: strona wysyła do
+  czekającego workera komunikat `telemark:take-over`, worker woła `skipWaiting()`, a strona przeładowuje się raz,
+  gdy ten worker jest aktywny (śledzony po własnym stanie, nie po zmianie kontrolera strony, więc działa też na
+  stronie wczytanej z pominięciem workera, np. po Ctrl+Shift+R). Menu skoku przycisku nie ma: przeładowanie
+  przerwałoby skok. Inne otwarte okna gry nie są przeładowywane: przechodzą pod nowego workera, dalej działają
+  na kodzie, z którym wystartowały, i tracą ramkę czekającego wydania (ono już przejęło). Strona startowa nowego
+  wydania usuwa przy tym cache poprzedniego; okno starego wydania ma cały kod wczytany (gra nie doczytuje
+  modułów), a plik, którego nowe wydanie nie ma, dostałoby z sieci.
 - **Poprzednie wydanie zostaje zapisane, dopóki nie wystartuje strona nowego.** Przejęcie przez nowego workera
   niczego nie usuwa. Cache innych wydań (tylko z prefiksem gry) znika, gdy worker poda własną stronę startową
   z własnego cache, o ile żadne nowsze wydanie właśnie się nie zapisuje ani nie czeka: jego cache musi zostać.

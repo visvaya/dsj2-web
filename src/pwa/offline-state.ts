@@ -58,3 +58,18 @@ export function offlineSupportWanted(conditions: OfflineConditions): boolean {
 export function updateCheckDue(nowMs: number, lastCheckMs: number): boolean {
   return nowMs - lastCheckMs >= PWA_CONFIG.UPDATE_CHECK_MIN_INTERVAL_S * 1000;
 }
+
+/**
+ * What a check for a new release on demand found: nothing newer, a newer release (being stored or waiting), no
+ * answer from the server, or no worker to ask at all.
+ */
+export type UpdateCheckOutcome = "latest" | "found" | "unreachable" | "unavailable";
+
+/** The check the player asked for: not asked yet, running, or what it found. */
+export type UpdateCheckState = "idle" | "checking" | UpdateCheckOutcome;
+
+/** A press while a check runs changes nothing, so repeated presses make one check; an answer ends a check. */
+export function reduceUpdateCheck(state: UpdateCheckState, event: "start" | UpdateCheckOutcome): UpdateCheckState {
+  if (event === "start") return "checking";
+  return state === "checking" ? event : state;
+}

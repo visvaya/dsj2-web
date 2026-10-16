@@ -9,7 +9,10 @@
 //   part of the release behind; the worker that was active before keeps serving its own release.
 // - the new worker then waits. It never takes over a page that an older worker serves (no skipWaiting, no
 //   clients.claim): a page always gets its document and its scripts from one release, and a jump is never
-//   interrupted. The browser activates the new worker once every window of the game is closed.
+//   interrupted. The browser activates the new worker once every window of the game is closed, or sooner
+//   when the player asks for it from a menu: the page then sends the one message that makes this worker take
+//   over (skipWaiting) and reloads itself once it has. Other open windows are switched to this worker
+//   without a reload; they keep running the code they started with.
 // - the release before stays stored until a page of this release starts. The browser may answer one more
 //   launch with the page of the outgoing release and switch workers under it; that page then asks this worker
 //   for its script, which the server no longer has, and gets it from the release it belongs to.
@@ -26,6 +29,8 @@ const START_PATHS = new Set(["/", "/index.html"]);
 const KEPT_URLS = new Set(RELEASE.precache.map((entry) => entry.url));
 const STORED_COPY = { ignoreSearch: true, ignoreVary: true };
 const RELEASE_MESSAGE = "telemark:release";
+// Sent by a page whose player asked to install a waiting release now.
+const TAKE_OVER_MESSAGE = "telemark:take-over";
 // Left out of a stored copy: the body is kept decoded, so these would describe bytes that are not there.
 const TRANSPORT_HEADERS = ["content-encoding", "content-length", "vary"];
 
@@ -157,8 +162,13 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fromOtherRelease(path).then((kept) => kept ?? fetch(request)));
 });
 
-// A page asks which release this worker holds and whether all of it is stored.
+// A page asks which release this worker holds and whether all of it is stored, or asks a waiting worker to
+// take over now. For an active worker the request to take over changes nothing.
 self.addEventListener("message", (event) => {
+  if (event.data?.type === TAKE_OVER_MESSAGE) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
   const port = event.ports.at(0);
   if (port === undefined || event.data?.type !== RELEASE_MESSAGE) return;
   event.waitUntil(

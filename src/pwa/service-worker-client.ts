@@ -1,4 +1,4 @@
-import { updateCheckDue, type OfflineEvent } from "./offline-state";
+import { updateCheckDue, type OfflineEvent, type UpdateCheckOutcome } from "./offline-state";
 import { PWA_CONFIG } from "./pwa-config";
 
 /** The parts of a service worker, its registration and the browser that the page uses. */
@@ -24,19 +24,37 @@ export interface OfflineEnvironment<W extends WorkerLike> {
   /** Calls the listener when the player comes back: the network returns or the page is shown again. */
   onReturn(listener: () => void): () => void;
   nowMs(): number;
+  /** Asks a waiting worker to take over now. */
+  askToTakeOver(worker: W): void;
+  /** Loads the page again. */
+  reload(): void;
+}
+
+/** What the page can do with the service worker once it has started following it. */
+export interface OfflineSupport {
+  /** Stops the reports. */
+  stop: () => void;
+  /** Looks for a new release now and says what was found. */
+  checkNow: () => Promise<UpdateCheckOutcome>;
+  /**
+   * Asks the waiting release to take over and reloads this page once it has; false when no release waits.
+   * Only the page whose player asked reloads; other windows of the game are switched to the new worker and
+   * keep running the code they started with.
+   */
+  installNow: () => boolean;
 }
 
 /**
- * Registers the service worker and reports what follows, as events for `reduceOffline`. Returns a function
- * that stops the reports.
+ * Registers the service worker and reports what follows, as events for `reduceOffline`.
  *
- * The page never makes a waiting worker take over and never reloads itself: a newer release starts with the
- * next launch after every window of the game has been closed, so a jump is never interrupted.
+ * On its own the page never makes a waiting worker take over and never reloads itself: a newer release starts
+ * with the next launch after every window of the game has been closed, so a jump is never interrupted. Only
+ * `installNow`, which the menus offer, makes it take over sooner.
  */
 export function startOfflineSupport<W extends WorkerLike>(
   env: OfflineEnvironment<W>,
   report: (event: OfflineEvent) => void,
-): () => void {
+): OfflineSupport {
   let stopped = false;
   let lastCheckMs = env.nowMs();
   const emit = (event: OfflineEvent) => {
@@ -94,9 +112,12 @@ export function startOfflineSupport<W extends WorkerLike>(
   };
 
   let stopListening: (() => void) | null = null;
-  void env.register().then(
+  let current: RegistrationLike<W> | null = null;
+  const registered = env.register();
+  void registered.then(
     (registration) => {
       if (stopped) return;
+      current = registration;
       watch(registration);
       stopListening = env.onReturn(() => {
         const nowMs = env.nowMs();
@@ -109,9 +130,46 @@ export function startOfflineSupport<W extends WorkerLike>(
     () => emit("unavailable"),
   );
 
-  return () => {
-    stopped = true;
-    stopListening?.();
+  const checkNow = async (): Promise<UpdateCheckOutcome> => {
+    const registration = await registered.catch(() => null);
+    if (registration === null) return "unavailable";
+    lastCheckMs = env.nowMs();
+    try {
+      await registration.update();
+    } catch {
+      // The browser does not tell a missing network from a server that did not answer.
+      return "unreachable";
+    }
+    const newer = registration.installing ?? registration.waiting;
+    return registration.active !== null && newer !== null ? "found" : "latest";
+  };
+
+  let askedWorker: W | null = null;
+  let reloading = false;
+  const installNow = (): boolean => {
+    const waiting = current?.waiting ?? null;
+    if (stopped || waiting === null) return false;
+    if (askedWorker !== waiting) {
+      askedWorker = waiting;
+      // Followed by its own state, not by the page's controller: a page loaded past the worker (a forced
+      // reload) has no controller to change, and is reloaded all the same.
+      waiting.addEventListener("statechange", () => {
+        if (waiting.state !== "activated" || reloading) return;
+        reloading = true;
+        env.reload();
+      });
+    }
+    env.askToTakeOver(waiting);
+    return true;
+  };
+
+  return {
+    stop: () => {
+      stopped = true;
+      stopListening?.();
+    },
+    checkNow,
+    installNow,
   };
 }
 
@@ -166,5 +224,7 @@ export function browserOfflineEnvironment(container: ServiceWorkerContainer): Of
       };
     },
     nowMs: () => performance.now(),
+    askToTakeOver: (worker) => worker.postMessage({ type: PWA_CONFIG.TAKE_OVER_MESSAGE_TYPE }, []),
+    reload: () => window.location.reload(),
   };
 }

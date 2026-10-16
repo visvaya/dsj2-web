@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_OFFLINE_STATE, offlineSupportWanted, reduceOffline, updateCheckDue } from "./offline-state";
+import {
+  INITIAL_OFFLINE_STATE,
+  offlineSupportWanted,
+  reduceOffline,
+  reduceUpdateCheck,
+  updateCheckDue,
+} from "./offline-state";
 import { PWA_CONFIG } from "./pwa-config";
 
 describe("reduceOffline", () => {
@@ -56,5 +62,26 @@ describe("updateCheckDue", () => {
   it("is due once the interval has passed, not before", () => {
     expect(updateCheckDue(1000 + intervalMs - 1, 1000)).toBe(false);
     expect(updateCheckDue(1000 + intervalMs, 1000)).toBe(true);
+  });
+});
+
+describe("reduceUpdateCheck", () => {
+  it("checks, then says what the check found", () => {
+    const checking = reduceUpdateCheck("idle", "start");
+    expect(checking).toBe("checking");
+    expect(reduceUpdateCheck(checking, "latest")).toBe("latest");
+    expect(reduceUpdateCheck(checking, "found")).toBe("found");
+    expect(reduceUpdateCheck(checking, "unreachable")).toBe("unreachable");
+  });
+
+  it("starts again after an answer", () => {
+    expect(reduceUpdateCheck("latest", "start")).toBe("checking");
+    expect(reduceUpdateCheck("unreachable", "start")).toBe("checking");
+  });
+
+  it("ignores a press while a check runs, and an answer nobody waits for", () => {
+    expect(reduceUpdateCheck("checking", "start")).toBe("checking");
+    expect(reduceUpdateCheck("idle", "found")).toBe("idle");
+    expect(reduceUpdateCheck("latest", "found")).toBe("latest");
   });
 });

@@ -322,6 +322,17 @@ export const UI_TEXT = {
     /** A newer release is stored: what the player does to get it, with its version when the worker told it. */
     updateWaiting: (version: string | null) =>
       `${version === null ? "Jest nowa wersja gry." : `Jest nowa wersja gry: ${version}.`} Zamknij grę całkowicie (wszystkie okna, a na telefonie także aplikację w przełączniku aplikacji) i uruchom ją ponownie, żeby się zainstalowała.`,
+    /** Installs the waiting release in this window at once; the page loads again. */
+    installNow: "Zainstaluj teraz",
+    /** The check for a new release the player asks for in the main menu, and what it found. */
+    check: {
+      button: "Sprawdź aktualizację",
+      checking: "Sprawdzam...",
+      latest: "Masz najnowszą wersję.",
+      found: "Jest nowa wersja gry. Pobieram ją.",
+      unreachable: "Brak połączenia: nie można sprawdzić.",
+      unavailable: "Ta przeglądarka nie pozwala sprawdzić.",
+    },
   },
 
   jumpScreen: {
