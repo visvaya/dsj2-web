@@ -50,8 +50,12 @@ export function viewWidthFor(areaWidth: number, areaHeight: number): number {
 const SKY_ROWS = 48;
 /** The hill's name in the colour the original gives a replay's file name there (0xCB), a new record in 0xCD. */
 const TITLE_INK = 0xcb;
-/** Where the hill's name starts: where the original writes the replay's file name in the corner. */
-const TITLE_AT_PX = { x: 5, y: 3 } as const;
+/**
+ * Where the hill's name starts (the top of its capitals): in the corner where the original writes the replay's
+ * file name, as far from the top as from the left, so the mark over a capital stands level with the top of the
+ * wind box's frame and not against the edge.
+ */
+const TITLE_AT_PX = { x: 5, y: 5 } as const;
 const RECORD_INK = 0xcd;
 /** Frames per blink phase of the line about a new record (half a second). */
 const BLINK_FRAMES = 35;

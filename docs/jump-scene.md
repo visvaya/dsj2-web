@@ -146,7 +146,7 @@ ze świeżym eksportem, więc zmiana znaków bez przebudowania czcionki zatrzymu
 są w nagłówku `make_screen_font.py` (potrzebne pakiety: `tools/font/requirements.txt`). Rozmiary na ekranach są
 wielokrotnościami 8 px, żeby piksele zostały ostre.
 
-Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 3), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
+Dodatki portu: nazwa skoczni w lewym górnym rogu od (5, 5) (górna krawędź wielkich liter; znak nad wielką literą leży w wierszu 3, na wysokości górnej ramki okna wiatru), gdzie oryginał pisze nazwę pliku powtórki, w kolorze,
 którym ją pisze (0xCB), i jak ona bez cienia (czytelna nad niebem i rozbiegiem); gdy w tym rogu leży przycisk pauzy
 (sterowanie przechyłem w poziomie), nazwa stoi na prawo od niego, wyśrodkowana w pionie względem przycisku. Na
 pasku etykieta fazy (rampa 0x58) i prędkość, biała z ciemniejszym cieniem: w szarej rampie 0x3C cień pięć stopni
