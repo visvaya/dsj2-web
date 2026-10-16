@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 /** The version of the game has one source, package.json; the build writes it into the game (src/game/version.ts). */
 function packageVersion(): string {
@@ -21,6 +21,12 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.ts"],
+    // The slow tier of the hill checks (the same verdict on three disjoint seed sets) runs only through
+    // `pnpm test:hills-stability`, which sets this variable; every other run leaves it out.
+    exclude: [
+      ...configDefaults.exclude,
+      ...(process.env["HILL_STABILITY"] === "1" ? [] : ["src/hills/hill-play.stability.test.ts"]),
+    ],
     globals: false,
     // Coverage is measured where a wrong value does not crash anything but silently gives wrong results: the
     // simulation, the save with records and replays, and the hill format with its checks. Each directory keeps
