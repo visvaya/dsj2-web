@@ -74,6 +74,20 @@ export function viewColumn(view: SceneView, column: number): number {
   return Math.round((column - ORIGINAL_CENTRE_COLUMN) / view.pixelWidth + view.widthPx / 2);
 }
 
+/**
+ * The view column whose original column (as `originalColumn` samples it) is nearest to `column`, the left one of
+ * two equally near: where the view skips an original column, what stands on it is drawn on a column that shows a
+ * neighbour of it, and must take its height from that neighbour too.
+ */
+export function nearestViewColumn(view: SceneView, column: number): number {
+  const guess = viewColumn(view, column);
+  let best = guess - 1;
+  for (const sx of [guess, guess + 1]) {
+    if (Math.abs(originalColumn(view, sx) - column) < Math.abs(originalColumn(view, best) - column)) best = sx;
+  }
+  return best;
+}
+
 /** Width of a square pixel in the original's columns: its 320 columns span the width of 4:3 at 200 rows. */
 export const SQUARE_PIXEL_WIDTH = 6 / 5;
 

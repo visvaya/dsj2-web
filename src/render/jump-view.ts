@@ -15,6 +15,7 @@ import { DAY_SCENERY, type JumpViewModel, type Scenery } from "./jump-view-model
 import { color, withLook } from "./palette";
 import { drawText, textWidth } from "./pixel-font";
 import { UI_TEXT } from "../text/ui-text";
+import { VIEW_HEIGHT_PX, VIEW_MAX_WIDTH_PX, VIEW_MIN_WIDTH_PX } from "./view-size";
 
 export {
   FALLEN_MAX_HEIGHT_M,
@@ -27,9 +28,7 @@ export { windSockDirection } from "./scene-extras";
 export { type ControlScheme, type JumpViewModel, type Scenery } from "./jump-view-model";
 
 /** Logical height of the original; the width follows the screen's proportions (variant B). */
-export const VIEW_HEIGHT_PX = 200;
-export const VIEW_MIN_WIDTH_PX = 256;
-export const VIEW_MAX_WIDTH_PX = 432;
+export { VIEW_HEIGHT_PX, VIEW_MAX_WIDTH_PX, VIEW_MIN_WIDTH_PX } from "./view-size";
 
 /** Logical width for a display area, keeping square pixels and the original height. */
 /**

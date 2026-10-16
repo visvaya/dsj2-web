@@ -1,7 +1,15 @@
 import { landingYM, type HillProfile } from "../sim/hill-profile";
-import { colourAt, hillLayerTables, rowsAt } from "./hill-layer-tables";
+import { colourAt, hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
 import { colourSpan, putIndex, type SceneCanvas } from "./scene-span";
-import { LAYER, layerIndex, layerOffset, layerRows, originalColumn, viewColumn, type SceneView } from "./scene-layers";
+import {
+  LAYER,
+  layerIndex,
+  layerOffset,
+  layerRows,
+  nearestViewColumn,
+  originalColumn,
+  type SceneView,
+} from "./scene-layers";
 import { landingXAtArcLength, rowRunLine } from "./scene-lines";
 
 /** Palette index of the snow far below the near edge (0x3E). */
@@ -97,6 +105,25 @@ function linePoint(h: HillProfile, distanceM: number): readonly [number, number]
   return point;
 }
 
+/**
+ * Where a line at an arc distance from the takeoff is drawn: its far end's column and row, then its near end's.
+ * Each end keeps the original's height against its edge where the original's column is shown; where the view
+ * skips it, the end moves to the nearest column shown and up or down by as much as the edge does there, so it
+ * keeps its place on the edge as the picture scrolls.
+ */
+export function distanceLineEnds(h: HillProfile, view: SceneView, distanceM: number): [number, number, number, number] {
+  const t = hillLayerTables(h);
+  const [x, y] = linePoint(h, distanceM);
+  const end = (layer: number, table: LayerTable): [number, number] => {
+    const off = layerOffset(view, layer);
+    const j = layerIndex(layer, x);
+    const sx = nearestViewColumn(view, j - off.x);
+    const shown = off.x + originalColumn(view, sx);
+    return [sx, layerRows(layer, y) + off.y + rowsAt(table, shown) - rowsAt(table, j)];
+  };
+  return [...end(LAYER.farEdge, t.farEdge), ...end(LAYER.nearEdge, t.nearEdge)];
+}
+
 /** Lines across the landing hill, each from its point on the far edge to the same point on the near edge. */
 export function drawDistanceLines(
   c: SceneCanvas,
@@ -105,14 +132,8 @@ export function drawDistanceLines(
   lines: readonly DistanceLine[],
   pal: Uint32Array,
 ): void {
-  const far = layerOffset(view, LAYER.farEdge);
-  const near = layerOffset(view, LAYER.nearEdge);
   for (const line of lines) {
-    const [x, y] = linePoint(h, line.distanceM);
-    const x0 = viewColumn(view, layerIndex(LAYER.farEdge, x) - far.x);
-    const y0 = layerRows(LAYER.farEdge, y) + far.y;
-    const x1 = viewColumn(view, layerIndex(LAYER.nearEdge, x) - near.x);
-    const y1 = layerRows(LAYER.nearEdge, y) + near.y;
+    const [x0, y0, x1, y1] = distanceLineEnds(h, view, line.distanceM);
     if (Math.max(x0, x1) < 0 || Math.min(x0, x1) >= c.fb.width) continue;
     rowRunLine(x0, y0, x1, y1, (px, py) => putIndex(c, pal, px, py, line.colour));
   }

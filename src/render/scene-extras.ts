@@ -1,18 +1,17 @@
-import { displayedWindMPerS } from "../game/wind-display";
-import { inrunYM, landingYM, type HillProfile } from "../sim/hill-profile";
+import { inrunYM, type HillProfile } from "../sim/hill-profile";
 import type { JumpSimState } from "../sim/jump-sim";
 import type { FrameBuffer } from "./frame-buffer";
 import { fastSin, hash } from "./jump-view-camera";
 import type { HillLook } from "./hill-look";
+import { hillLayerTables, rowsAt, type LayerTable } from "./hill-layer-tables";
 import {
   LAYER,
   layerIndex,
   layerOffset,
-  layerRows,
   layerX,
+  nearestViewColumn,
   originalColumn,
   sceneView,
-  viewColumn,
   type SceneView,
 } from "./scene-layers";
 import { color } from "./palette";
@@ -20,16 +19,22 @@ import { FLOODLIGHT, firstMastXM } from "./scene-floodlight";
 import { skyRowsAbove } from "./scene-mountains";
 import { SKY_FIRST_INDEX } from "./scene-palette";
 import type { SceneCanvas } from "./scene-span";
+import { VIEW_MAX_WIDTH_PX } from "./view-size";
 
 /**
  * This project's additions to the original's scene (wind socks, floodlights at dusk and night, stars, the moon,
  * birds; the mountains are in `scene-mountains.ts`), placed on the original's layers so they move with the hill.
  */
 
-/** Where world x stands on a layer's ground: screen column and row. */
-function onLayer(view: SceneView, layer: number, xM: number, yM: number): [number, number] {
+/**
+ * Where a prop at world x stands on what is drawn of a layer: the view column nearest to its table index, and the
+ * row of the table at the index that column shows, so it stays on the fence or the rail under it as the picture
+ * scrolls instead of moving a row against it where the view skips its own index.
+ */
+function onLayer(view: SceneView, layer: number, table: LayerTable, xM: number): [number, number] {
   const off = layerOffset(view, layer);
-  return [viewColumn(view, layerIndex(layer, xM) - off.x), layerRows(layer, yM) + off.y];
+  const sx = nearestViewColumn(view, layerIndex(layer, xM) - off.x);
+  return [sx, rowsAt(table, off.x + originalColumn(view, sx)) + off.y];
 }
 
 /** Rows of the far fence; masts and socks stand on its top. */
@@ -44,22 +49,47 @@ const SOCK_TAIL_HALF_PX = 0.5;
 const SOCK_BANDS = 5;
 /** A slack sock is narrower: this share of its full width in a calm. */
 const SOCK_SLACK_WIDTH = 0.55;
+/** Below this share of a full wind the sock goes limp and its tail narrows to a point, fully so in a calm. */
+const SOCK_LIMP_BELOW = 0.5;
 /** Wind at which a sock flies straight out. */
 const SOCK_FULL_WIND_M_PER_S = 4.5;
 
 /**
- * Screen direction (unit vector, y down) a wind sock points in: along the displayed wind, the way the indicator
- * box's arrow lies on the screen, blended with hanging straight down as the wind drops towards calm.
+ * How much of a sock's length across the hill shows on the screen, as rows up when it points away from the viewer
+ * (farther is higher in this scene) and down when it points towards the viewer: a small share, since the scene is
+ * seen from low over the hill and the box itself squashes the cross wind to half.
+ */
+const SOCK_DEPTH_ON_SCREEN = 0.15;
+/**
+ * Cloth sags: even a full sock droops below level by this share of its level length. It is more than the rise of
+ * a sock pointing straight away, so a sock never shows above its ring and never turns from down to up.
+ */
+const SOCK_SAG = 0.25;
+/** The shortest share of its length a sock shows, so one seen end on still shows as a stub with a direction; a
+ * little longer than it would be seen, so the stub reads as a sock. */
+const SOCK_MIN_SHOWN = 0.5;
+
+/**
+ * The screen vector (y down, from 0.5 to 1 long: the share of the sock's length that shows) a wind sock points
+ * along. The sock is a cone in the world: it lifts from hanging straight down towards level as the wind grows,
+ * sagging a little, and turns the way the wind blows, the direction the indicator box shows (turning with it at
+ * the same limited rate). Its part along the hill shows in full; its part across the hill is foreshortened and
+ * drawn up or down the screen. A cross wind gives a short, drooping sock, not one hanging down or standing up.
  */
 export function windSockDirection(s: JumpSimState): [number, number] {
-  const w = displayedWindMPerS(s.wind);
-  const length = Math.hypot(w.x, w.y);
-  if (!(length > 0)) return [0, 1];
-  const k = Math.min(1, s.wind.speedMPerS / SOCK_FULL_WIND_M_PER_S);
-  const dirX = (w.x / length) * k;
-  const dirY = (-w.y / length) * k + (1 - k);
-  const len = Math.hypot(dirX, dirY) || 1;
-  return [dirX / len, dirY / len];
+  const speed = s.wind.speedMPerS;
+  if (!(speed > 0)) return [0, 1];
+  const k = Math.min(1, speed / SOCK_FULL_WIND_M_PER_S);
+  // The share of the sock's axis that lies level and the share that hangs down, as a unit vector in the world.
+  const tilt = Math.hypot(k, 1 - k);
+  const level = k / tilt;
+  const down = (1 - k) / tilt;
+  const d = s.wind.indicatorDirectionRad;
+  const x = level * Math.cos(d);
+  const y = down + level * (SOCK_SAG - Math.sin(d) * SOCK_DEPTH_ON_SCREEN);
+  const shown = Math.hypot(x, y);
+  const scale = Math.min(1, Math.max(SOCK_MIN_SHOWN, shown)) / shown;
+  return [x * scale, y * scale];
 }
 
 /** World x of the far fence's visible stretch, from a little left of the view to a little right of it. */
@@ -86,20 +116,23 @@ export function drawWindSocks(fb: FrameBuffer, h: HillProfile, view: SceneView, 
   const [from, to] = farRange(view, 20);
   const start = first + Math.max(0, Math.ceil((from - first) / SOCK_SPACING_M)) * SOCK_SPACING_M;
   for (let x = start; x <= Math.min(to, h.outrunStartXM); x += SOCK_SPACING_M) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
+    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - SOCK_POLE_PX;
     fb.rect(sx, top, 1, SOCK_POLE_PX, pole);
     const flutter = 0.12 * k * fastSin(frame / 4 + x);
     const ux = ux0 - flutter * uy0;
     const uy = uy0 + flutter * ux0;
+    // Across the sock keeps its full width however short it shows.
+    const across = Math.hypot(ux, uy) || 1;
     // A cone from the ring at the top of the pole to the tail, filled across its width, in bands of red and white.
     const full = SOCK_SLACK_WIDTH + (1 - SOCK_SLACK_WIDTH) * k;
-    for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.5) {
+    const tailHalf = SOCK_TAIL_HALF_PX * Math.min(1, k / SOCK_LIMP_BELOW);
+    for (let t = 0; t <= SOCK_LENGTH_PX; t += 0.25) {
       const share = t / SOCK_LENGTH_PX;
-      const half = (SOCK_MOUTH_HALF_PX + (SOCK_TAIL_HALF_PX - SOCK_MOUTH_HALF_PX) * share) * full;
+      const half = (SOCK_MOUTH_HALF_PX + (tailHalf - SOCK_MOUTH_HALF_PX) * share) * full;
       const c = Math.min(SOCK_BANDS - 1, Math.floor(share * SOCK_BANDS)) % 2 === 0 ? red : white;
-      for (let w = -half; w <= half; w += 0.5) {
-        fb.put(sx + 0.5 + ux * t - uy * w, top + uy * t + ux * w, c);
+      for (let w = -half; w <= half; w += 0.25) {
+        fb.put(sx + 0.5 + ux * t - (uy / across) * w, top + uy * t + (ux / across) * w, c);
       }
     }
   }
@@ -129,7 +162,7 @@ export function drawFloodlights(fb: FrameBuffer, h: HillProfile, view: SceneView
   const [from, to] = farRange(view, headW + FLOODLIGHT_RAY_PX);
   const start = first + Math.max(0, Math.ceil((from - first) / FLOODLIGHT.mastSpacingM)) * FLOODLIGHT.mastSpacingM;
   for (let x = start; x <= to; x += FLOODLIGHT.mastSpacingM) {
-    const [sx, ground] = onLayer(view, LAYER.farEdge, x, landingYM(h, x));
+    const [sx, ground] = onLayer(view, LAYER.farEdge, hillLayerTables(h).farEdge, x);
     const top = ground - FAR_FENCE_ROWS - MAST_HEIGHT_PX;
     fb.rect(sx, top, 1, MAST_HEIGHT_PX, pole);
     drawSoftGlow(fb, sx, top - 3, FLOODLIGHT_GLOW, glow);
@@ -178,7 +211,7 @@ export function drawInrunLamps(fb: FrameBuffer, h: HillProfile, view: SceneView,
   const glow = color("lampGlow");
   const pole = color("post");
   for (let x = h.startXM; x < h.takeoffXM; x += INRUN_LAMP_SPACING_M) {
-    const [sx, track] = onLayer(view, LAYER.inrunFar, x, inrunYM(h, x));
+    const [sx, track] = onLayer(view, LAYER.inrunFar, hillLayerTables(h).inrunFar, x);
     if (sx < -2 || sx >= fb.width + 2) continue;
     const top = track - railPx - INRUN_LAMP_POST_PX;
     fb.rect(sx, top, 1, INRUN_LAMP_POST_PX, pole);
@@ -335,11 +368,18 @@ const BIRD_COUNT = 4;
  * picture leaves them behind as the camera follows the jumper down.
  */
 const BIRD_LAYER = 7;
+/**
+ * Columns the birds' flight wraps around, centred on the middle of the picture: the widest picture and a bird's
+ * margin either side, the same for every width, so a narrower picture shows the middle of the same flock.
+ */
+const BIRD_MARGIN_PX = 30;
+const BIRD_SPAN_PX = VIEW_MAX_WIDTH_PX + 2 * BIRD_MARGIN_PX;
 
 /** A few birds crossing high above the background, beating their wings in bursts and gliding between them. */
 export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, frame: number) {
-  const span = fb.width + 60;
-  const origin = view.camX * 0.05;
+  const span = BIRD_SPAN_PX;
+  // The layer's scroll in the picture's columns: the birds move across the picture as the trees under them do.
+  const origin = layerOffset(view, BIRD_LAYER).x / view.pixelWidth;
   // Rows the picture has moved since the jumper stood at the start, in the birds' layer.
   const atStart = sceneView(h.startXM, inrunYM(h, h.startXM), view.widthPx, view.pixelWidth);
   const drop = layerOffset(view, BIRD_LAYER).y - layerOffset(atStart, BIRD_LAYER).y;
@@ -348,7 +388,7 @@ export function drawBirds(fb: FrameBuffer, h: HillProfile, view: SceneView, fram
   for (let i = 0; i < BIRD_COUNT; i++) {
     const far = i % 2 === 1;
     const worldX = frame * (far ? 0.09 : 0.14 + i * 0.02) + i * 131;
-    const sx = Math.round((((worldX - origin) % span) + span) % span) - 30;
+    const sx = Math.round(((((worldX - origin) % span) + span) % span) + (fb.width - span) / 2);
     const sy = Math.round(12 + i * 6 + 2 * Math.sin(frame / 37 + i * 2)) + drop;
     const beat = Math.floor(frame / BIRD_BEAT_FRAMES) + i * 5;
     const gliding = beat % (BIRD_BEATS + BIRD_GLIDE_BEATS) >= BIRD_BEATS;

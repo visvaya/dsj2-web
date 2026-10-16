@@ -96,7 +96,13 @@ rysowane przez port (`jump-view-hud.ts`):
 - Strzałka (1cb6:1ee9): środek w (13, 8) ramki, ogon i grot w `±(11 cos a, 5,5 sin a)`, wąsy do
   `(8 cos(a ± 1,25), 4 sin(a ± 1,25))`, `a` to kierunek wskaźnika; najpierw cień kolorem 0x44 o wiersz niżej, potem
   0x47, linie pędzlem 2x2. Dodatni `sin a` to grot w dół: składowa poprzeczna wiatru (bez wpływu na skoczka) leży
-  w głąb sceny, ściśnięta o połowę. Rękawy wiatru i śnieg idą za tym samym wektorem (`game/wind-display.ts`).
+  w głąb sceny, ściśnięta o połowę. Śnieg idzie za tym samym wektorem (`game/wind-display.ts`).
+- Rękawy wiatru (dodatek portu) biorą ten sam kierunek wskaźnika i prędkość, ale jako stożek w świecie: z siłą
+  wiatru podnoszą się od zwisu ku poziomowi (pełny przy 4,5 m/s), zawsze z lekkim opadaniem materiału (0,25 długości
+  poziomej). Część w poprzek skoczni jest skrócona do 0,15 i rysowana w górę ekranu, gdy rękaw wskazuje od widza,
+  w dół, gdy ku niemu; opadanie jest większe od tego wzniesienia, więc rękaw nigdy nie staje ponad poziom i nie
+  przeskakuje z dołu do góry. Widoczna długość ma dolną granicę 0,4, więc rękaw oglądany od czoła jest krótkim
+  kikutem z kierunkiem, a przy czystym wietrze bocznym nie zwisa jak w ciszy.
 - Sygnalizator (0baf:5581), póki skoczek stoi na belce: czerwone, gdy odliczanie jeszcze nie ruszyło (16 s);
   zielone od 15 s; od 10 s zielone miga (zapalone, gdy klatka mod 70 < 25); po przekroczeniu czasu znów czerwone.
 - Noty: ramki 27x11 od wiersza 57 co 12 wierszy, tekst 2 piksele od lewego brzegu ramki, wyrównany do prawej
@@ -166,8 +172,15 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   płocie, lampki na słupkach wzdłuż najazdu, gwiazdy i księżyc (rysowane po górach, tylko na niebie; miejsce
   księżyca wybierane raz na skok, dla kamery na starcie, tam, gdzie widać najwięcej nieba; dalej przesuwa się
   tylko z gwiazdami, a góry wchodzą przed niego; tarcza o promieniu 4 z dokładnością do pół piksela), ptaki (w żadnej fazie lotu nie są płaską kreską; latają
-  w warstwie 7 tła nad szczytem najazdu, więc obraz zostawia je w górze, gdy kamera zjeżdża za skoczkiem), duch rekordu
-  (`scene-extras.ts`, `jump-view-ghost.ts`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
+  w warstwie 7 tła nad szczytem najazdu i przesuwają się z nią w poziomie i w pionie, więc obraz zostawia je w górze,
+  gdy kamera zjeżdża za skoczkiem; ich miejsca liczone od środka obrazu nie zależą od jego szerokości), duch rekordu
+  (`scene-extras.ts`, `jump-view-ghost.ts`).
+- Kolumny obrazu w kwadratowych pikselach pomijają co szósty indeks tablicy warstwy (6 kolumn
+  oryginału na 5 obrazu), więc płot i krawędź pod danym miejscem biorą wysokość z indeksu, który kolumna akurat
+  pokazuje. Rękaw, maszt i lampka najazdu stają w kolumnie, której indeks leży najbliżej ich własnego (przy remisie
+  lewej), na wierszu tablicy dla tego indeksu, więc nie skaczą o wiersz względem płotu ani poręczy przy
+  przewijaniu. Końce linii odległości zachowują wysokość oryginału, gdy ich kolumna jest pokazana, a w przeciwnym
+  razie przechodzą do najbliższej pokazanej i zmieniają wiersz o tyle, o ile krawędź (`nearestViewColumn`). Śnieg oryginału (pojedyncze piksele na warstwach, natężenie losowane
   przy wejściu na skocznię i zapisywane w powtórce) port zastępuje własnym.
 - Zmierzch i noc (dodatki portu, `palette.ts`): tło ma paletę „daleką” (o zmierzchu cieplejszą i ciemniejszą,
   nocą w świetle księżyca), skocznia „bliską”. O zmierzchu obie mają ten sam ciepły odcień, a tło jest tylko
