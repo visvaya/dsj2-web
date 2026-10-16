@@ -1,25 +1,45 @@
 import { idbRecord, type IdbRecord } from "./idb-record";
-import { parseShelf, readShelf, shelfRecord, type Shelf } from "./replay-shelf";
+import { readShelf, shelfRecord, type Shelf } from "./replay-shelf";
+import { mergedShelf, type ShelfJournal } from "./shelf-merge";
+
+/** What a write gave back: the shelf as merged with what was stored, and whether it is stored for later visits. */
+interface SavedShelf {
+  shelf: Shelf;
+  /**
+   * False when the browser store failed: the shelf lives on in this window, and the next write, with the journal
+   * unchanged, puts in what this one could not. When true, the journal goes on as journalAfterWrite makes it.
+   */
+  durable: boolean;
+}
 
 /** Keeps the shelf of replays between visits. */
 export interface ReplayStore {
-  /** "indexedDB" or "memory" (gone on reload). */
+  /** "indexedDB", or "memory" where the replays last only for the visit (no store, or it keeps failing). */
   readonly name: string;
   load: () => Promise<Shelf>;
-  save: (shelf: Shelf) => Promise<void>;
+  /**
+   * Merges the window's shelf with the stored one (see mergedShelf) and stores the result, so a window holding an
+   * older shelf never writes over what another window stored.
+   */
+  save: (shelf: Shelf, journal: ShelfJournal) => Promise<SavedShelf>;
 }
+
+export const REPLAY_STORE = {
+  /** Failed operations in a row before the player is told the replays may not outlast the visit. */
+  FAILURES_BEFORE_NOTICE: 2,
+} as const;
 
 /** A database of its own, so the replays never need an upgrade of the database of the game files. */
 const REPLAYS_PLACE = { db: "telemark-replays", store: "replays", key: "shelf" } as const;
 
 export function memoryReplayStore(): ReplayStore {
-  let stored: object | null = null;
+  let stored: Shelf = [];
   return {
     name: "memory",
-    load: () => Promise.resolve(parseShelf(stored)),
-    save: (shelf) => {
-      stored = shelfRecord(shelf);
-      return Promise.resolve();
+    load: () => Promise.resolve(stored),
+    save: (shelf, journal) => {
+      stored = mergedShelf(stored, shelf, journal);
+      return Promise.resolve({ shelf: stored, durable: false });
     },
   };
 }
@@ -34,42 +54,61 @@ class ForeignShelfError extends Error {
 
 /** The shelf kept in one stored record (IndexedDB in the game, a stand-in in tests). */
 export function recordReplayStore(stored: IdbRecord): ReplayStore {
-  // What the last load could not read, to be stored back as it was; and whether the record is a foreign one.
-  let unreadable: readonly unknown[] = [];
-  let foreign = false;
   return {
     name: "indexedDB",
-    load: async () => {
-      const read = readShelf(await stored.get());
-      unreadable = read.unreadable;
-      foreign = read.foreign;
-      return read.shelf;
-    },
-    save: (shelf) => {
-      // Failing here moves the store to memory (replayStoreWithFallback) and leaves the record as it is.
-      if (foreign) return Promise.reject(new ForeignShelfError());
-      return stored.put(shelfRecord(shelf, unreadable));
+    load: async () => readShelf(await stored.get()).shelf,
+    save: async (shelf, journal) => {
+      let merged: Shelf = shelf;
+      // Read, merged and written in one transaction: no other window writes between.
+      await stored.update((current) => {
+        const read = readShelf(current);
+        // Failing here leaves the record as it is (replayStoreWithFallback keeps the shelf for the visit).
+        if (read.foreign) throw new ForeignShelfError();
+        merged = mergedShelf(read.shelf, shelf, journal);
+        // What could not be read is stored back as it was.
+        return shelfRecord(merged, read.unreadable);
+      });
+      return { shelf: merged, durable: true };
     },
   };
 }
 
-/** Uses `primary` until it fails once, then keeps the replays in memory for the rest of the visit. */
+/**
+ * Uses `primary`, and keeps the shelf in memory for any operation it fails, so nothing of the visit is lost; every
+ * operation tries `primary` again, so one failed write (a store busy in another tab, a full disk freed since)
+ * costs nothing once the next one succeeds. After repeated failures in a row the store reports itself as memory,
+ * for the game to tell the player, until an operation succeeds again.
+ */
 export function replayStoreWithFallback(primary: ReplayStore): ReplayStore {
-  let active = primary;
-  const run = async <T>(op: (store: ReplayStore) => Promise<T>): Promise<T> => {
-    try {
-      return await op(active);
-    } catch {
-      active = memoryReplayStore();
-      return op(active);
-    }
-  };
+  // The last shelf the store read or wrote, or kept when it could not: what a failed operation gives back.
+  let mirror: Shelf = [];
+  let failures = 0;
   return {
     get name() {
-      return active.name;
+      return failures >= REPLAY_STORE.FAILURES_BEFORE_NOTICE ? "memory" : primary.name;
     },
-    load: () => run((s) => s.load()),
-    save: (shelf) => run((s) => s.save(shelf)),
+    load: async () => {
+      try {
+        mirror = await primary.load();
+        failures = 0;
+      } catch {
+        failures += 1;
+      }
+      return mirror;
+    },
+    save: async (shelf, journal) => {
+      try {
+        const saved = await primary.save(shelf, journal);
+        failures = 0;
+        mirror = saved.shelf;
+        return saved;
+      } catch {
+        failures += 1;
+        // Not stored: the journal stays as it was, so the next write puts in what this one could not.
+        mirror = mergedShelf(mirror, shelf, journal);
+        return { shelf: mirror, durable: false };
+      }
+    },
   };
 }
 

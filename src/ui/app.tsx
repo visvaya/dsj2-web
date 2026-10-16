@@ -2,7 +2,15 @@ import { useEffect, useLayoutEffect, useState } from "react";
 import { OWN_HILLS, originalHillChoices, type HillChoice } from "../game/hill-choice";
 import { MARK_FIRST_SCREEN, markOnce } from "../game/performance-marks";
 import { tiltSupported } from "../game/tilt-input";
-import { beatsRecord, emptySave, withJump, withSettings, type SaveData, type Settings } from "../storage/save-data";
+import {
+  beatsRecord,
+  emptySave,
+  mergedSave,
+  withJump,
+  withSettings,
+  type SaveData,
+  type Settings,
+} from "../storage/save-data";
 import { detectGameFilesStore, type GameFiles, type GameFilesStore } from "../storage/game-files-store";
 import { detectBackend, loadSave, saveSave, type StorageBackend } from "../storage/save-store";
 import { readOriginalHills } from "../original/original-hills";
@@ -120,20 +128,14 @@ function useGameFiles() {
   return { originalHills, setOriginalHills, gameFiles, filesStoreName, onGameFiles, onForgetFiles };
 }
 
-interface AppProps {
-  /** Whether the address of the page asked for the diagnostics of the jump loop. */
-  diagnostics: boolean;
-}
-
-export function App({ diagnostics }: AppProps) {
-  const { screen, navigated, show } = useScreens();
-  useFirstScreenMark();
-  const offline = useOfflineState();
-  const { originalHills, setOriginalHills, gameFiles, filesStoreName, onGameFiles, onForgetFiles } = useGameFiles();
+/**
+ * The save: read once, then changed through `update`, which stores every change. A write is merged with what
+ * another window stored meanwhile (see mergedSave), and what it stored comes back into this window.
+ */
+function useStoredSave() {
   const [save, setSave] = useState<SaveData>(emptySave);
   const [backend] = useState<StorageBackend>(detectBackend);
   const [saveFailed, setSaveFailed] = useState(false);
-  const persistent = backend.name !== "memory" && !saveFailed;
 
   useEffect(() => {
     let cancelled = false;
@@ -145,23 +147,40 @@ export function App({ diagnostics }: AppProps) {
     };
   }, [backend]);
 
+  const update = (next: (current: SaveData) => SaveData) =>
+    setSave((prev) => {
+      const changed = next(prev);
+      if (changed !== prev) {
+        saveSave(backend, changed).then(
+          (stored) => setSave((current) => mergedSave(stored, current)),
+          () => setSaveFailed(true),
+        );
+      }
+      return changed;
+    });
+  return { save, persistent: backend.name !== "memory" && !saveFailed, update };
+}
+
+interface AppProps {
+  /** Whether the address of the page asked for the diagnostics of the jump loop. */
+  diagnostics: boolean;
+}
+
+export function App({ diagnostics }: AppProps) {
+  const { screen, navigated, show } = useScreens();
+  useFirstScreenMark();
+  const offline = useOfflineState();
+  const { originalHills, setOriginalHills, gameFiles, filesStoreName, onGameFiles, onForgetFiles } = useGameFiles();
+  const { save, persistent, update } = useStoredSave();
   const replays = useReplayShelf(save.settings.replays);
   const ghost = useRecordGhost(replays.shelf, screen.kind === "jump" ? screen.hill : null, save.settings.recordGhost);
   const onFinished = (hill: HillChoice, result: JumpResult, recording: JumpRecording) => {
     replays.onJumpFinished(hill, { recording, result }, beatsRecord(result, save.records[hill.id]));
-    setSave((prev) => {
-      const next = withJump(prev, hill.id, result, new Date());
-      if (next !== prev) saveSave(backend, next).catch(() => setSaveFailed(true));
-      return next;
-    });
+    update((prev) => withJump(prev, hill.id, result, new Date()));
   };
 
   const onSettings = (change: Partial<Settings>) => {
-    setSave((prev) => {
-      const next = withSettings(prev, change);
-      saveSave(backend, next).catch(() => setSaveFailed(true));
-      return next;
-    });
+    update((prev) => withSettings(prev, change));
   };
 
   if (screen.kind === "jump") {
@@ -243,6 +262,7 @@ export function App({ diagnostics }: AppProps) {
       onGameFiles={onGameFiles}
       onForgetFiles={onForgetFiles}
       persistent={persistent}
+      replaysNotStored={replays.notStored}
       offline={offline}
       onOpen={(kind) => show({ kind })}
       focusOnEntry={navigated}

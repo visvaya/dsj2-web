@@ -1,4 +1,4 @@
-import { field, parseSave, type SaveData } from "./save-data";
+import { field, mergedSave, parseSave, type SaveData } from "./save-data";
 
 /** Where saves live; chosen at run time by `detectBackend`. */
 export interface StorageBackend {
@@ -84,6 +84,12 @@ export async function loadSave(backend: StorageBackend): Promise<SaveData> {
   }
 }
 
-export async function saveSave(backend: StorageBackend, data: SaveData): Promise<void> {
-  await backend.set(SAVE_KEY, JSON.stringify(data));
+/**
+ * Stores the save merged with the stored one (see mergedSave), so a window holding an older save never writes over
+ * a record another window stored; gives back what was stored, for the window to go on from.
+ */
+export async function saveSave(backend: StorageBackend, data: SaveData): Promise<SaveData> {
+  const merged = mergedSave(await loadSave(backend), data);
+  await backend.set(SAVE_KEY, JSON.stringify(merged));
+  return merged;
 }

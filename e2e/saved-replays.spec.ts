@@ -1,4 +1,3 @@
-import type { Page } from "@playwright/test";
 import {
   TEXT,
   announcement,
@@ -7,18 +6,12 @@ import {
   openJumpControls,
   openJumpFromStart,
   openMenu,
+  openReplays,
   press,
+  replayRows,
 } from "./support/app";
-import { expect, test, type DeviceTraits } from "./support/fixtures";
+import { expect, test } from "./support/fixtures";
 import { playUntilLanded } from "./support/jump";
-
-const replayRows = (page: Page, group: string) => page.getByRole("region", { name: group }).getByRole("listitem");
-
-async function openReplays(page: Page, traits: DeviceTraits): Promise<void> {
-  await openMenu(page);
-  await press(button(page, TEXT.replays), traits);
-  await expect(page.getByRole("heading", { name: TEXT.replays })).toBeVisible();
-}
 
 test("a record keeps its replay, a jump can be kept by hand, and both stay after a reload", async ({
   page,

@@ -196,3 +196,17 @@ export function withJump(
     },
   };
 }
+
+/**
+ * The save to store when a window writes `mine` over `stored` (another window may have stored since): per hill the
+ * better record of the two (the one `beatsRecord` would keep: the longer jump; this window's on a tie), and this
+ * window's settings, as the last written.
+ */
+export function mergedSave(stored: SaveData, mine: SaveData): SaveData {
+  const records: Record<string, HillRecord> = { ...stored.records };
+  for (const [hillId, record] of Object.entries(mine.records)) {
+    const held = records[hillId];
+    if (held === undefined || record.distanceM >= held.distanceM) records[hillId] = record;
+  }
+  return { ...mine, records };
+}

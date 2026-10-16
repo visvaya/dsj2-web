@@ -10,10 +10,12 @@ import {
   type ShelfRefusal,
 } from "../storage/replay-shelf";
 import { detectReplayStore, type ReplayStore } from "../storage/replay-store";
+import { mergedShelf } from "../storage/shelf-merge";
 import type { ReplaySettings } from "../storage/save-data";
 import type { ReplaySource } from "./jump-replay";
 import type { FinishedJump } from "./jump-runs";
 import { ownEntry, recordReplayOf, slimRecording } from "./shelf-replays";
+import { shelfSync } from "./shelf-sync";
 
 const BYTES_PER_KB = 1000;
 
@@ -26,41 +28,64 @@ function cleanupOf(settings: Pick<ReplaySettings, "maxAgeDays" | "maxSizeKb">): 
 }
 
 /**
- * The player's replays: read once from the store, then changed through `change`, which applies the clean-up of
- * the settings and stores the result. Changes made before the stored shelf has arrived are applied to it.
+ * The player's replays: read from the store, then changed through `change`, which applies the clean-up of the
+ * settings and stores the result. Changes made before the stored shelf has arrived are applied to it. The shelf is
+ * kept in step with the other windows of the game (see shelfSync).
  */
 export function useReplayShelf(settings: ReplaySettings) {
   const [store] = useState<ReplayStore>(detectReplayStore);
   const [shelf, setShelf] = useState<Shelf>([]);
   const [loaded, setLoaded] = useState(false);
+  const [storeName, setStoreName] = useState(store.name);
+  // Whether the browser offers a store at all; where it does not, the replays screen says so on its own.
+  const [offered] = useState(() => store.name !== "memory");
+  const [sync] = useState(() => shelfSync(store, { setShelf, setStoreName }));
   const { maxAgeDays, maxSizeKb } = settings;
   const cleanup = useRef(cleanupOf(settings));
+
+  /** Changes the shelf; the clean-up of the settings follows every change. */
+  const change = (next: (current: Shelf) => Shelf) =>
+    setShelf((current) => {
+      const after = cleanedShelf(next(current), cleanup.current, new Date());
+      sync.changed(current, after);
+      return after;
+    });
+
   // A clean-up switched on or tightened applies to the shelf at once.
   useEffect(() => {
     cleanup.current = cleanupOf({ maxAgeDays, maxSizeKb });
-    setShelf((current) => cleanedShelf(current, cleanup.current, new Date()));
-  }, [maxAgeDays, maxSizeKb]);
+    setShelf((current) => {
+      const after = cleanedShelf(current, cleanup.current, new Date());
+      sync.changed(current, after);
+      return after;
+    });
+  }, [maxAgeDays, maxSizeKb, sync]);
 
   useEffect(() => {
     let cancelled = false;
     void store.load().then((stored) => {
       if (cancelled) return;
-      setShelf((early) => cleanedShelf([...stored, ...early], cleanup.current, new Date()));
+      setShelf((early) => {
+        // What came from the store is not this window's addition: from the merged shelf only the clean-up counts.
+        const merged = mergedShelf(stored, early, sync.journal());
+        const after = cleanedShelf(merged, cleanup.current, new Date());
+        sync.changed(merged, after);
+        return after;
+      });
+      setStoreName(store.name);
       setLoaded(true);
     });
     return () => {
       cancelled = true;
     };
-  }, [store]);
+  }, [store, sync]);
+
+  useEffect(() => (loaded ? sync.connect() : undefined), [loaded, sync]);
 
   // Stored after every change once the stored shelf is in, so nothing older is written over it.
   useEffect(() => {
-    if (loaded) void store.save(shelf);
-  }, [loaded, shelf, store]);
-
-  /** Changes the shelf; the clean-up of the settings follows every change. */
-  const change = (next: (current: Shelf) => Shelf) =>
-    setShelf((current) => cleanedShelf(next(current), cleanup.current, new Date()));
+    if (loaded) sync.shown(shelf);
+  }, [loaded, shelf, sync]);
 
   /**
    * A training jump is over: the replay of a new record replaces the hill's last, and the last jumps follow. The
@@ -96,7 +121,9 @@ export function useReplayShelf(settings: ReplaySettings) {
     change,
     onJumpFinished,
     keepJump,
-    storeName: store.name,
+    storeName,
+    /** The browser offers a store, but writes to it keep failing: the replays of this visit may not outlast it. */
+    notStored: offered && storeName === "memory",
     recordHillIds,
     recordReplay: (hill: HillChoice) => recordReplayOf(shelf, hill),
   };
