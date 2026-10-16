@@ -173,7 +173,10 @@ sekundy, licząc od klatki lądowania, więc zawsze zaczyna od pełnego pół se
   trochę ciemniejsze; słabszy odcień skoczni rysował ostrą granicę wzdłuż jej dalszej krawędzi. Gdy świecą
   reflektory (zmierzch i noc), ich światło sięga 28 wierszy nad dalszą krawędź skoczni: piksele tła i drzew
   przechodzą ku kolorom palety bliskiej, przy krawędzi o 55%, wyżej coraz mniej (z kwadratem odległości), niebo
-  zostaje bez zmian (`drawFloodlightSpill` w `scene-backdrop.ts`).
+  zostaje bez zmian (`drawFloodlightSpill` w `scene-backdrop.ts`). Nocą tam, gdzie dalsza krawędź nie ma płotu
+  (przed progiem, widok z najazdu), światło sięga 36 wierszy, przy krawędzi o 95% i słabnie łagodniej
+  (smoothstep), żeby jasny śnieg przechodził w nie bez linii; między tym a odcinkiem z płotem siła przechodzi
+  płynnie na 120 indeksach tabeli krawędzi (`FLOODLIGHT_SPILL`).
 - Podgląd stroju i ikona to ta sama scena bez interfejsu, wycięta wokół skoczka (`drawJumperPreview`).
 
 ## Weryfikacja

@@ -5,12 +5,13 @@ import { roundHalfEven } from "../sim/pascal-numeric";
 import type { FrameBuffer } from "./frame-buffer";
 import type { HillLook } from "./hill-look";
 import { drawFigure, drawShadow, type FigureAnchor } from "./jump-view-jumper";
-import { drawBackgroundBands, drawFloodlightSpill, drawSky } from "./scene-backdrop";
+import { drawBackgroundBands, drawFloodlightSpill, drawSky, type FloodlightSpill } from "./scene-backdrop";
 import {
   distanceLines,
   drawDistanceLines,
   drawFarFence,
   drawLandingHill,
+  farFenceStart,
   drawNearFence,
   drawNearGround,
   type HillMarks,
@@ -57,8 +58,8 @@ export interface HillSceneModel {
   recordM: number;
   /** Width of one picture column in the original's columns: 6/5 for square pixels, 1 for the original's screen. */
   pixelWidth: number;
-  /** Whether the floodlights are on (dusk and night): their light then reaches the background behind the hill. */
-  floodlit?: boolean;
+  /** While the floodlights are on (dusk and night): how their light reaches the background behind the hill. */
+  floodlightSpill?: FloodlightSpill;
   /** Drawn under the player's jumper, in the jumper's plane. */
   ghost?: JumpSimState;
   drawGhost?: (fb: FrameBuffer, ghost: JumpSimState, anchor: FigureAnchor) => void;
@@ -139,7 +140,9 @@ export function drawHillScene(fb: FrameBuffer, m: HillSceneModel, lastRow: numbe
   drawTrees(c, h, m.look, view, far, 4, 6);
   drawBackgroundBands(c, h, m.look, view, far, 3, 4);
   drawTrees(c, h, m.look, view, far, 7, 16);
-  if (m.floodlit === true) drawFloodlightSpill(c, h, view, near);
+  if (m.floodlightSpill !== undefined) {
+    drawFloodlightSpill(c, h, view, near, m.floodlightSpill, farFenceStart(h, marksOf(m)));
+  }
   hooks.afterBackground?.(view);
   drawLandingHill(c, h, view, near);
   drawDistanceLines(c, h, view, distanceLines(marksOf(m), m.recordM), near);

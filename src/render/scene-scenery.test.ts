@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { inrunYM, landingYM } from "../sim/hill-profile";
 import { DEFAULT_HILL_LOOK, type HillLook } from "./hill-look";
-import { backgroundWaves, drawFloodlightSpill } from "./scene-backdrop";
+import { backgroundWaves, drawFloodlightSpill, FLOODLIGHT_SPILL } from "./scene-backdrop";
 import { FrameBuffer } from "./frame-buffer";
 import { sceneView } from "./scene-layers";
 import { sceneCanvas } from "./scene-span";
@@ -181,36 +181,53 @@ describe("this project's trees", () => {
 });
 
 describe("the floodlights' light behind the hill", () => {
-  it("brightens the background towards the hill's far edge, a few rows above it only, and leaves the sky alone", () => {
-    if (!hill) throw new Error("no hill");
-    const fb = new FrameBuffer(64, 200);
-    const c = sceneCanvas(fb, 199);
-    const dark = 0xff000000;
-    fb.pixels.fill(dark);
-    c.indices.fill(20);
-    // The sky in the left half of the picture.
-    for (let y = 0; y < 200; y++) c.indices.fill(SKY_FIRST_INDEX, y * 64, y * 64 + 32);
-    const near = new Uint32Array(256).fill(0xffffffff);
-    drawFloodlightSpill(
-      c,
-      hill.profile,
-      sceneView(hill.profile.takeoffXM + 40, landingYM(hill.profile, hill.profile.takeoffXM + 40), 64, 1.2),
-      near,
-    );
-    const columns = Array.from({ length: 64 }, (_column, x) => {
-      const red = Array.from({ length: 200 }, (_row, y) => (fb.pixels[y * 64 + x] ?? 0) & 0xff);
-      const rows = red.flatMap((r, y) => (r > 0 ? [y] : []));
-      return { x, rows, run: rows.map((y) => red[y] ?? 0) };
-    });
-    expect(columns.filter((column) => column.x < 32 && column.rows.length > 0)).toEqual([]);
-    const lit = columns.filter((column) => column.rows.length > 0);
-    expect(lit.length).toBeGreaterThan(0);
-    for (const { rows, run } of lit) {
-      // One run of rows, getting lighter downwards, at most the reach of the light and never full light.
-      expect((rows.at(-1) ?? 0) - (rows[0] ?? 0) + 1).toBe(rows.length);
-      expect(rows.length).toBeLessThanOrEqual(28);
-      expect(run).toEqual(run.toSorted((a, b) => a - b));
-      expect(Math.max(...run)).toBeLessThan(160);
-    }
+  // Every column fenced, or every column far from the fence.
+  const cases = Object.entries(FLOODLIGHT_SPILL).flatMap(([lighting, spill]) => [
+    { lighting, where: "by the fence", spill, fenceStart: -Infinity, shape: spill.fenced },
+    { lighting, where: "without a fence", spill, fenceStart: Infinity, shape: spill.open },
+  ]);
+
+  it.each(cases)(
+    "at $lighting $where brightens the background towards the far edge, within its reach, and leaves the sky alone",
+    ({ spill, fenceStart, shape }) => {
+      if (!hill) throw new Error("no hill");
+      const fb = new FrameBuffer(64, 200);
+      const c = sceneCanvas(fb, 199);
+      fb.pixels.fill(0xff000000);
+      c.indices.fill(20);
+      // The sky in the left half of the picture.
+      for (let y = 0; y < 200; y++) c.indices.fill(SKY_FIRST_INDEX, y * 64, y * 64 + 32);
+      const near = new Uint32Array(256).fill(0xffffffff);
+      drawFloodlightSpill(
+        c,
+        hill.profile,
+        sceneView(hill.profile.takeoffXM + 40, landingYM(hill.profile, hill.profile.takeoffXM + 40), 64, 1.2),
+        near,
+        spill,
+        fenceStart,
+      );
+      const columns = Array.from({ length: 64 }, (_column, x) => {
+        const red = Array.from({ length: 200 }, (_row, y) => (fb.pixels[y * 64 + x] ?? 0) & 0xff);
+        const rows = red.flatMap((r, y) => (r > 0 ? [y] : []));
+        return { x, rows, run: rows.map((y) => red[y] ?? 0) };
+      });
+      expect(columns.filter((column) => column.x < 32 && column.rows.length > 0)).toEqual([]);
+      const lit = columns.filter((column) => column.rows.length > 0);
+      expect(lit.length).toBeGreaterThan(0);
+      for (const { rows, run } of lit) {
+        // One run of rows, getting lighter downwards, within the reach of the light and its share at the edge.
+        expect((rows.at(-1) ?? 0) - (rows[0] ?? 0) + 1).toBe(rows.length);
+        expect(rows.length).toBeLessThanOrEqual(shape.rowsPx);
+        expect(run).toEqual(run.toSorted((a, b) => a - b));
+        expect(Math.max(...run)).toBeLessThanOrEqual(Math.round(255 * shape.atEdge));
+      }
+    },
+  );
+
+  it("keeps one shape at dusk, and at night is brighter only where the edge has no fence", () => {
+    expect(FLOODLIGHT_SPILL.dusk.open).toBe(FLOODLIGHT_SPILL.dusk.fenced);
+    expect(FLOODLIGHT_SPILL.night.fenced).toBe(FLOODLIGHT_SPILL.dusk.fenced);
+    expect(FLOODLIGHT_SPILL.night.open.atEdge).toBeGreaterThan(FLOODLIGHT_SPILL.night.fenced.atEdge);
+    expect(FLOODLIGHT_SPILL.night.open.atEdge).toBeLessThan(1);
   });
 });
