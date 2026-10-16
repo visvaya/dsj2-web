@@ -397,9 +397,14 @@ export const UI_TEXT = {
     playerName: "GRACZ 1",
     newRecord: "NOWY REKORD SKOCZNI!",
     disqualified: "DYSKWALIFIKACJA",
-    /** The small "m" of the original after a distance is a sign of its own in the picture's font (U+FF4D). */
-    distance: (distance: string) => `${distance}ｍ`,
-    speed: (speed: string) => `${speed} KM/H`,
+    /**
+     * Units in small letters, signs of their own in the picture's font (full-width forms): the original's small
+     * "m" after a distance, and in its style "km/h" and "pkt"; a thin space (U+2009) parts each from its number.
+     */
+    distance: (distance: string) => `${distance}\u2009ｍ`,
+    speed: (speed: string) => `${speed}\u2009ｋｍ／ｈ`,
+    /** Points after a jump, named so the number in the bar is not taken for another distance. */
+    points: (points: string) => `${points}\u2009ｐｋｔ`,
     /** A replay, with its tempo (1, 1/2, 1/4); the second while it is paused. */
     replay: (speed: string) => `POWTÓRKA ${speed}`,
     replayPaused: (speed: string) => `POWTÓRKA ${speed}: PAUZA`,

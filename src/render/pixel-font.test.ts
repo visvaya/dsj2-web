@@ -23,6 +23,21 @@ function render(text: string): string[] {
   return rows;
 }
 
+/** The last row of a glyph's body in the glyph frame. */
+function lastBodyRow(ch: string): number {
+  return glyphPixels(ch).findLastIndex((row) => row.includes("#"));
+}
+
+/** The first column right of a number's digit "0" where a unit after the thin gap has a body pixel. */
+function firstBodyAfterNumber(unit: string): number {
+  const fb = new FrameBuffer(64, 14);
+  drawText(fb, 0, 3, "0\u2009" + unit, INK);
+  for (let x = 5; x < fb.width; x++) {
+    for (let y = 0; y < fb.height; y++) if (fb.pixels[y * fb.width + x] === INK) return x;
+  }
+  return -1;
+}
+
 const LATIN_EXTENDED = "ÀÁÂÃÄÅĄĂĆČÇĎĐÈÉÊËĚĘĖĞÌÍÎÏİĮĹĽŁŃŇÑÒÓÔÕÖŐØŔŘŚŠŞȘŤŢȚÙÚÛÜŮŰŲÝŸŹŽŻÆ";
 const SIGNS = ".,:;/+-=!()'\"%·";
 
@@ -93,6 +108,25 @@ describe("pixel font", () => {
   it("writes the metres after a distance with a small m of its own, and a name's m as a capital", () => {
     expect(render("ｍ")).not.toEqual(render("M"));
     expect(render("m")).toEqual(render("M"));
+  });
+
+  it("writes the units km/h and pkt in small letters of their own, with the p reaching under the line", () => {
+    for (const [small, capital] of [
+      ["ｋ", "K"],
+      ["ｐ", "P"],
+      ["ｔ", "T"],
+      ["ｈ", "H"],
+    ] as const) {
+      expect(render(small)).not.toEqual(render(capital));
+    }
+    expect(lastBodyRow("ｐ")).toBe(lastBodyRow("H") + 2);
+  });
+
+  it("parts every unit from its number by the same thin gap, and sets units tighter than capitals", () => {
+    expect(firstBodyAfterNumber("ｍ")).toBe(8);
+    expect(firstBodyAfterNumber("ｋｍ／ｈ")).toBe(8);
+    expect(firstBodyAfterNumber("ｐｋｔ")).toBe(8);
+    expect(textWidth("ｐｋｔ")).toBeLessThan(textWidth("PKT"));
   });
 
   it("colours a flat ink's shadow in a darker tone of it", () => {

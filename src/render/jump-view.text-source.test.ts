@@ -57,7 +57,7 @@ vi.mock("./pixel-font", async (importOriginal) => {
 });
 
 const FROM_MODULE = /^\[.*\]$/s;
-const NUMBER = /^-?\d+(\.\d+)?$/;
+const NUMBER = /^-?\d+(,\d+)?$/;
 /**
  * A frame is drawn whenever what the HUD says may change: the phase, the scoring, the notes, the prompts. Drawing
  * every frame would take minutes under coverage; the numbers (speed, distance) are sampled now and then.

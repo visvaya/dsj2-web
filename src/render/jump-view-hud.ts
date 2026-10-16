@@ -7,6 +7,7 @@ import { color } from "./palette";
 import { hudColour } from "./scene-palette";
 import { rowRunLine } from "./scene-lines";
 import { drawText, textWidth } from "./pixel-font";
+import { formatDecimal } from "../text/decimal";
 import { UI_TEXT } from "../text/ui-text";
 
 const PHASE_LABEL = UI_TEXT.hud.phase;
@@ -110,7 +111,7 @@ export function drawWindBox(fb: FrameBuffer, s: JumpSimState): void {
     brushedLine(fb, down(tail), down(tip), hudColour(colour));
     for (const barb of barbs) brushedLine(fb, down(tip), down(barb), hudColour(colour));
   }
-  const label = s.wind.speedMPerS.toFixed(1);
+  const label = formatDecimal(s.wind.speedMPerS, 1);
   drawText(fb, x + WIND_SPEED_AT.x, y + WIND_SPEED_AT.y, label, { ramp: INK.wind });
 }
 
@@ -176,7 +177,7 @@ export function drawNotes(fb: FrameBuffer, s: JumpSimState, frame: number): void
   for (const judge of s.logic.judges) {
     if (frame < judge.showFrame) continue;
     hudBox(fb, x, y, NOTE_BOX.width, NOTE_BOX.height);
-    const label = judge.note.toFixed(1);
+    const label = formatDecimal(judge.note, 1);
     // Right-aligned in a field of four characters, as the original writes Str(note:4:1).
     drawText(fb, x + NOTE_BOX.inset + fieldInsetPx(label, NOTE_CHARS), y + NOTE_BOX.inset, label, {
       ramp: settled && judge.counted ? INK.note : INK.noteDim,
@@ -262,11 +263,11 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
     return;
   }
   if (L.finished) {
-    const distance = L.distanceHalfM.toFixed(1);
+    const distance = formatDecimal(L.distanceHalfM, 1);
     const distanceAt = middle + fieldInsetPx(distance, BAR_DISTANCE_CHARS);
     drawText(fb, distanceAt, top + BAR_TEXT_TOP_PX, UI_TEXT.hud.distance(distance), { ramp: INK.bar });
     if (notesShown) {
-      const points = L.points.toFixed(1);
+      const points = UI_TEXT.hud.points(formatDecimal(L.points, 1));
       // The original writes them from column 248 of its 320; here they end at the right edge where the speed did,
       // so on a wider picture they do not hang in the middle of the bar.
       const pointsAt = fb.width - BAR_TEXT_SIDE_PX - textWidth(points);
@@ -279,6 +280,6 @@ export function drawBar(fb: FrameBuffer, m: JumpViewModel, top: number, notesSho
   });
   // The simulation keeps `speedMPerS` for the ground; in the air the velocity vector is shown.
   const v = s.jumper.airborne ? Math.hypot(s.jumper.vxMPerS, s.jumper.vyMPerS) : s.jumper.speedMPerS;
-  const speed = UI_TEXT.hud.speed((v * MS_TO_KMH).toFixed(1));
+  const speed = UI_TEXT.hud.speed(formatDecimal(v * MS_TO_KMH, 1));
   drawText(fb, fb.width - BAR_TEXT_SIDE_PX - textWidth(speed), top + BAR_TEXT_TOP_PX, speed, color("white"));
 }
