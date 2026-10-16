@@ -7,6 +7,8 @@ import { drawGhost } from "./jump-view-ghost";
 import { color } from "./palette";
 
 const hill = OWN_HILLS[0];
+/** Steps a jump and draws whole frames: seconds on a loaded machine, past vitest's default of 5 s. */
+const GHOST_TIMEOUT_MS = 30_000;
 
 /** A jump some frames down the inrun: pressed off the gate at once, then no hands. */
 function jumpAt(frames: number): TrainingJump {
@@ -19,7 +21,7 @@ function jumpAt(frames: number): TrainingJump {
 const red = (pixel: number) => pixel & 0xff;
 const blue = (pixel: number) => (pixel >>> 16) & 0xff;
 
-describe("the ghost of the record", () => {
+describe("the ghost of the record", { timeout: GHOST_TIMEOUT_MS }, () => {
   it("tints the snow it covers bluish white", () => {
     if (!hill) throw new Error("no hill");
     const ghost = jumpAt(160).state;

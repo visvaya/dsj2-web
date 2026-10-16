@@ -8,6 +8,8 @@
 | `src/sim/jump-sim.regression.test.ts` | pełny skok na syntetycznej skoczni ze skryptowanym wejściem; wyniki i skrót stanu z każdej klatki w migawce; sprawdza też, że krok symulacji nie zmienia stanu, który dostał | wszędzie, także w CI |
 | `src/sim/*.golden.test.ts` | porównanie z oryginalną grą klatka po klatce | tylko z plikami gry i śladami |
 | `src/render/jump-view.pixels.test.ts` | skróty wszystkich pikseli całych klatek (14 momentów skoku, pory dnia, pogoda, szerokości widoku) w migawce | wszędzie, także w CI |
+| `src/render/scene-motion.test.ts` | niezmienniki ruchu obrazu przez cały skok bota na skoczni treningowej, w dzień i w nocy, przy szerokości 432 i 356 w kwadratowych pikselach i 320 w pikselach oryginału: rekwizyty i końce linii stoją na swojej powierzchni, przesuwają się tylko z przewijaniem swojej warstwy (ptaki z warstwą 7, księżyc tylko z dryfem gwiazd, okno wiatru wcale), nie cofają się, gdy kamera jedzie w jedną stronę, i nie zależą od szerokości obrazu poza jego przesunięciem; miejsca liczone przez `scene-anchor.ts`, bez czytania pikseli | wszędzie, także w CI |
+| `src/render/scene-anchor.guard.test.ts` | pliki `src/render` poza modułem miejsc (`scene-anchor.ts`) i prymitywami warstw nie wołają niskopoziomowego rzutu (`viewColumn`, `nearestViewColumn`, `layerRows`, `.camX`/`.camY`, `sceneView`, przewijania warstwy dzielonego ręcznie); wyjątki z uzasadnieniem w teście | wszędzie, także w CI |
 | `src/original/test-support/scripted-jump.test.ts` | plan powtórki: wejście skryptowanego gracza na syntetycznej skoczni wraca z planu klatka w klatkę | wszędzie, także w CI |
 | `src/storage/original-replay-file.test.ts` | zapis pliku `.rpl`: pola planu pod opisanymi przesunięciami, nagłówek, szyfr i suma kontrolna odczytane z powrotem przez dekoder | wszędzie, także w CI |
 | `src/original/test-support/fall-search.test.ts` | wyszukiwanie upadków na syntetycznej skoczni: każdy znaleziony plan odtworzony w porcie daje swój typ upadku | wszędzie, także w CI |
@@ -23,6 +25,9 @@
 Testy porównawcze („golden”) są pomijane tylko wtedy, gdy nie ustawiono żadnej ze zmiennych opisanych niżej (tak
 działa CI). Po ustawieniu zmiennej brak pliku, który ona zapowiada, kończy test błędem z nazwą brakującego pliku.
 Ślady i pliki gry nie trafiają do repozytorium.
+
+Testy, które rysują wiele całych klatek albo krokują cały skok, mają jawny limit czasu (30 s albo 60 s zamiast
+domyślnych 5 s Vitest), bo na obciążonej maszynie pod `test:coverage` trwają po kilka sekund.
 
 Celowa zmiana wyglądu wymaga odświeżenia migawki pikseli: `pnpm test -u src/render/jump-view.pixels.test.ts`.
 Diff migawki pokazuje, które sceny się zmieniły; zmiana w scenie, której nie dotyczyła praca, to błąd.

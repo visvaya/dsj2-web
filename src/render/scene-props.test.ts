@@ -16,6 +16,8 @@ import { landingXAtArcLength } from "./scene-lines";
 const hill = OWN_HILLS[0];
 const WIDTH_PX = 432;
 const SQUARE = 6 / 5;
+/** Each test draws hundreds of frames of props: seconds on a loaded machine, past vitest's default of 5 s. */
+const PROPS_TIMEOUT_MS = 30_000;
 
 function choice(): NonNullable<typeof hill> {
   if (!hill) throw new Error("no hill");
@@ -77,7 +79,7 @@ function footGaps(
   return gaps;
 }
 
-describe("props on the far fence and the inrun's rail", () => {
+describe("props on the far fence and the inrun's rail", { timeout: PROPS_TIMEOUT_MS }, () => {
   it("wind socks stand on the fence top under their pole in every frame as the picture scrolls", () => {
     const h = profile();
     const state = startTrainingJump(choice(), 3).state;
@@ -142,7 +144,7 @@ describe("props on the far fence and the inrun's rail", () => {
   });
 });
 
-describe("the distance lines", () => {
+describe("the distance lines", { timeout: PROPS_TIMEOUT_MS }, () => {
   it("keep their far and near ends at the same rows against the hill's edges as the picture scrolls", () => {
     const h = profile();
     const t = hillLayerTables(h);
@@ -175,7 +177,7 @@ const birdPixels = (h: HillProfile, view: SceneView, width: number, frame = 0) =
 /** Mean column of pixels given as (x, y) pairs. */
 const meanX = (ps: [number, number][]) => ps.reduce((sum, [x]) => sum + x, 0) / ps.length;
 
-describe("the birds", () => {
+describe("the birds", { timeout: PROPS_TIMEOUT_MS }, () => {
   it("move across the picture with the layer they fly in", () => {
     const h = profile();
     const y = inrunYM(h, h.startXM);
