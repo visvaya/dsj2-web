@@ -379,15 +379,18 @@ describe.each(HILLS)("jump view on $id", { timeout: WHOLE_JUMP_TIMEOUT_MS }, ({ 
     ["early", TAKEOFF_SHARE.early],
     ["just before the edge", TAKEOFF_SHARE.justBeforeEdge],
     ["never", null],
-  ] as const)("keeps the figure on the track or the snow and within the width: takeoff %s", (_, takeoffAfter) => {
+  ] as const)("keeps the figure on the track or the snow and within the width: takeoff %s", (_, share) => {
+    const takeoffAfter = share === null ? null : Math.round(share * framesToEdge);
     let jump = startTrainingJump(hill, 7);
     let start = -1;
+    let tookOffAt: number | null = null;
     for (let f = 0; f < 4000 && !isJumpOver(jump); f++) {
       if (start < 0 && jump.state.logic.phase === PHASE.inrun) start = f;
       const t = start < 0 ? -1 : f - start;
       const take = takeoffAfter !== null && t >= takeoffAfter && t < takeoffAfter + 4;
       jump = stepTrainingJump(jump, { left: (start < 0 && f === 70) || take, right: take, dy: 0 });
       const s = jump.state;
+      if (tookOffAt === null && s.logic.phase === PHASE.takeoff) tookOffAt = t;
       const limit = figureHalfWidthM(hill.profile, s.jumper.xM);
       for (const p of figurePoints(hill.profile, s)) {
         expect(Number.isFinite(p.x + p.y + p.z)).toBe(true);
@@ -398,5 +401,7 @@ describe.each(HILLS)("jump view on $id", { timeout: WHOLE_JUMP_TIMEOUT_MS }, ({ 
         expect(s.jumper.yM + p.y).toBeGreaterThanOrEqual(floor - 0.25);
       }
     }
+    // The press is what starts the takeoff, at the frame meant, so each case jumps from its own place on the inrun.
+    expect(tookOffAt).toBe(takeoffAfter);
   });
 });
