@@ -1,3 +1,5 @@
+import type { HillSpec } from "../hills/hill-spec";
+import { OWN_HILL_SPECS } from "../hills/own-hills";
 import type { HillProfile } from "../sim/hill-profile";
 import { buildHillProfile } from "../sim/hill-setup";
 import type { OriginalHill } from "../original/original-hills";
@@ -24,39 +26,21 @@ export interface HillChoice {
  */
 export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set(["own-1"]);
 
-/** Hills made for this project (not taken from the original game). */
-export const OWN_HILLS: readonly HillChoice[] = [
-  {
-    // "own-1" was the first profile of this hill, outside the original's ranges at its K point; records and
-    // replays made on it stay under that id, so they never meet the present profile.
-    id: "own-2",
-    name: "Ćwiczebna",
-    kPointM: 90,
+/** A hill of this project, built from its data. */
+function hillChoiceOf(spec: HillSpec): HillChoice {
+  return {
+    id: spec.id,
+    name: spec.name,
+    kPointM: spec.kPointM,
     source: "own",
     country: null,
-    look: DEFAULT_HILL_LOOK,
-    profile: buildHillProfile(
-      {
-        startXM: 11.4,
-        flatEndXM: 10,
-        lineEndXM: 25.3,
-        takeoffXM: 46,
-        lineSlope: -1,
-        lineInterceptM: 230,
-        curveA: 0.02,
-      },
-      {
-        centerXM: 115,
-        centerYM: 150.9,
-        amplitudeM: 45,
-        widthM: 50,
-        outrunStartXM: 170,
-        outrunCurveA: 0.01,
-        knollBlend: 0.3,
-      },
-    ),
-  },
-];
+    look: spec.look,
+    profile: buildHillProfile(spec.profile.inrun, spec.profile.landing),
+  };
+}
+
+/** Hills made for this project (not taken from the original game). */
+export const OWN_HILLS: readonly HillChoice[] = OWN_HILL_SPECS.map(hillChoiceOf);
 
 /**
  * Country of each hill of v2.10P by its number: 1-32 are named after countries (in this order in Dsj.dat),

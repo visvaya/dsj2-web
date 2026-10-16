@@ -13,8 +13,9 @@ const SRC = fileURLToPath(new URL("..", import.meta.url));
 const SKIPPED = [/^text\//, /^sim\//, /^original\//, /^render\/pixel-font\.ts$/, /\.test\.tsx?$/];
 
 const ALLOWED = {
-  // The names of hills are data: the game's own hill and the original's Polish hills, as v2.10P names them.
+  // The names of hills are data: the original's Polish hills, as v2.10P names them, and the game's own hills.
   "game/hill-choice.ts": "hill names",
+  "hills/own-hills.ts": "hill names",
   // The comments quote the part names of the original's colour editor from Dsj.dat.
   "game/outfit.ts": "original texts quoted in comments",
   // A character the Polish font face declares, so that the face is loaded; not a text for the player.

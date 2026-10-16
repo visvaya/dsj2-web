@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FrameBuffer } from "./frame-buffer";
-import { drawText, fontCharacters, GLYPH_FRAME, glyphPixels, textWidth } from "./pixel-font";
+import { drawText, fontCharacters, fontDraws, GLYPH_FRAME, glyphPixels, textWidth } from "./pixel-font";
 import { hudColour } from "./scene-palette";
 
 const INK = 0xff00c8f0;
@@ -178,5 +178,16 @@ describe("pixel font for other fonts", () => {
     expect(new Set(chars).size).toBe(chars.length);
     for (const ch of "AZ09ĄĆĘŁŃÓŚŹŻ.?·") expect(chars).toContain(ch);
     expect(chars.every((ch) => glyphPixels(ch).length === GLYPH_FRAME.rows)).toBe(true);
+  });
+});
+
+describe("characters the font draws", () => {
+  it("says which characters have a glyph of their own", () => {
+    for (const ch of ["A", "z", "Ć", "ł", "ß", "7", " ", "?", "-", "ｍ"]) expect(fontDraws(ch)).toBe(true);
+    for (const ch of ["\u2603", "\u0301", "\u4e00", "@", "\u2009"]) expect(fontDraws(ch)).toBe(false);
+  });
+
+  it("agrees with the pictures drawn: a character it rejects looks like the question mark", () => {
+    for (const ch of ["\u2603", "@", "\u4e00"]) expect(glyphPixels(ch)).toEqual(glyphPixels("?"));
   });
 });

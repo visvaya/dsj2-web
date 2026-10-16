@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+import { hillFingerprint } from "./hill-fingerprint";
+import { OWN_HILL_SPECS } from "./own-hills";
+
+/**
+ * The geometry of every own hill, pinned. A failing pin means the hill's geometry (its profile or its K point)
+ * changed: records and replays made on the old shape would then be scored on the new one. Give the hill a new id
+ * and add the old id to RETIRED_OWN_HILL_IDS, then pin the new id here.
+ */
+const PINNED: Readonly<Record<string, string>> = {
+  "own-2": "0676e9fd",
+};
+
+describe("hill fingerprint", () => {
+  it.each(OWN_HILL_SPECS.map((spec) => [spec.id, spec] as const))("pins the geometry of %s", (id, spec) => {
+    expect(hillFingerprint(spec)).toBe(PINNED[id]);
+  });
+
+  it("is eight hex digits that ignore the look and follow the K point and the profile", () => {
+    const [spec] = OWN_HILL_SPECS;
+    if (spec === undefined) throw new Error("no own hill");
+    const print = hillFingerprint(spec);
+    expect(print).toMatch(/^[0-9a-f]{8}$/);
+    expect(hillFingerprint({ ...spec, name: "Inna", look: { ...spec.look, skyRgb6: [0, 0, 0] } })).toBe(print);
+    expect(hillFingerprint({ ...spec, kPointM: 91 })).not.toBe(print);
+    const inrun = { ...spec.profile.inrun, curveA: 0.0201 };
+    expect(hillFingerprint({ ...spec, profile: { ...spec.profile, inrun } })).not.toBe(print);
+  });
+});

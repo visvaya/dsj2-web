@@ -4,6 +4,8 @@ Geometria skoczni nie jest w `Dsj.dat`, tylko w kodzie `Dsj.exe`, jako stałe pr
 ustawiających profil i scenerię. `Dsj.dat` dostarcza nazwy (oraz grafikę i dźwięki). Odczyt: `src/original/`
 (profil: `hill-table.ts`, wygląd: `hill-look-reader.ts`). Jak oryginał rysuje z tych danych scenę: `jump-scene.md`.
 
+Skocznie własne gry mają osobny format, opisany w [hills.md](hills.md).
+
 ## Tabela skoczni w `Dsj.exe`
 
 Procedura 0baf:631c (argument: numer skoczni 1..37) porównuje numer z kolejnymi wartościami:
