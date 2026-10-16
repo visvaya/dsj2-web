@@ -224,6 +224,10 @@ test("a check with nothing new on the server says the game is up to date", async
   await page.close();
   const running = await relaunchUntil(context, server.origin, RELEASE_A);
 
+  // Yellow as every other choice of the screens, before it is pressed or pointed at.
+  const colourOf = (name: string) => button(running, name).evaluate((element) => getComputedStyle(element).color);
+  await running.mouse.move(0, 0);
+  expect(await colourOf(UPDATE_CHECK.button)).toBe(await colourOf(TEXT.training));
   await button(running, UPDATE_CHECK.button).click();
   await expect(running.getByText(UPDATE_CHECK.latest)).toBeVisible();
   await expect(running.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
@@ -256,6 +260,9 @@ test("a release found on demand installs at once in the window that asks, and ot
   await button(first, UPDATE_CHECK.button).click();
   await expect(first.getByText(UPDATE_CHECK.found)).toBeVisible();
   await expect(first.getByText(OFFLINE_NOTE.updateWaiting)).toBeVisible();
+  await expect(first.getByText(UPDATE_CHECK.slowWay)).toBeVisible();
+  // Said once: the note says it now, the line beside the button no more.
+  await expect(first.getByText(UPDATE_CHECK.found)).toHaveCount(0);
   expect(await workerStates(first)).toEqual({ installing: false, waiting: true, active: true });
 
   // The menu of a jump says a release waits, but offers no install there: a reload would end the jump.
@@ -278,13 +285,25 @@ test("a release found on demand installs at once in the window that asks, and ot
   expect(await playerData(first)).toEqual(PLANTED_DATA);
 
   // The other window was not reloaded: it still runs the release it started with, now under the new worker,
-  // and its jump screen still works. The note of the waiting release is gone, as that release took over.
+  // and its jump screen still works. Instead of the waiting release it is told the game was updated elsewhere;
+  // the menu of the jump offers no reload, the main menu does.
   expect(await second.evaluate(() => document.documentElement.dataset["untouched"])).toBe("yes");
   expect(await scriptOf(second)).toBe(scriptPathOf(RELEASE_A));
   await expect(second.getByText(OFFLINE_NOTE.updateWaiting)).toHaveCount(0);
+  await expect(second.getByText(UPDATE_CHECK.elsewhere)).toBeVisible();
+  await expect(button(second, UPDATE_CHECK.reload)).toHaveCount(0);
   await second.getByRole("button", { name: TEXT.toHills }).click();
   await expect(second.getByRole("heading", { name: TEXT.hillListTitle })).toBeVisible();
   await openJump(second, traits);
+  await openJumpControls(second, traits);
+  await button(second, TEXT.toMainMenu).click();
+  await expect(second.getByRole("heading", { name: TEXT.menuHeading })).toBeVisible();
+  await expect(second.getByText(UPDATE_CHECK.elsewhere)).toBeVisible();
+  const secondReloaded = second.waitForEvent("load");
+  await button(second, UPDATE_CHECK.reload).click();
+  await secondReloaded;
+  expect(await scriptOf(second)).toBe(scriptPathOf(RELEASE_B));
+  await expect(second.getByText(UPDATE_CHECK.elsewhere)).toHaveCount(0);
 });
 
 test.describe("when the next release is damaged on the server", () => {

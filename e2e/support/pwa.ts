@@ -9,8 +9,11 @@ import { expect, test } from "./fixtures";
 export const OFFLINE_NOTE = {
   ready: "Gotowe do gry bez internetu.",
   unavailable: "Gra bez internetu nie jest jeszcze gotowa.",
-  /** With the version the waiting worker names: both test releases are built with one. */
-  updateWaiting: /^Jest nowa wersja gry: \d+\.\d+\.\d+\. Zamknij grę całkowicie/,
+  /**
+   * With the version the waiting worker names: both test releases are built with one. The main menu says it
+   * short, beside its install button; the menu of a jump says it with the way to get it.
+   */
+  updateWaiting: /^Jest nowa wersja gry: \d+\.\d+\.\d+\.(?: Zamknij grę całkowicie|$)/,
 } as const;
 
 /** The check for a new release in the main menu, what it says, and the button that installs a waiting one. */
@@ -20,6 +23,9 @@ export const UPDATE_CHECK = {
   found: "Jest nowa wersja gry. Pobieram ją.",
   unreachable: "Brak połączenia: nie można sprawdzić.",
   install: "Zainstaluj teraz",
+  slowWay: "Albo zamknij wszystkie okna gry i uruchom ją ponownie.",
+  elsewhere: "Gra zaktualizowała się w innym oknie: przeładuj, żeby jej używać.",
+  reload: "Przeładuj",
 } as const;
 
 const SAVE_KEY = "telemark.save";
