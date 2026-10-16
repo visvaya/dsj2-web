@@ -282,13 +282,16 @@ Przy odbiorze zapisz model urządzenia, wersję systemu, przeglądarkę z wersj�
 orientację, czy strona była otwarta z ekranu głównego, co było widać albo słychać (zrzut ekranu lub nagranie) oraz czy błąd
 powtarza się po przeładowaniu strony.
 
-## Pokrycie kodu symulacji
+## Pokrycie kodu
 
-`pnpm test:coverage` uruchamia te same testy z pomiarem pokrycia (v8) i tak są uruchamiane w CI. Mierzone jest tylko
-`src/sim`, bez testów, `src/sim/test-support` i `src/sim/data`. Progi (instrukcje, gałęzie, funkcje, linie) są
-w `vite.config.ts`, ustawione dwa punkty poniżej wartości zmierzonych bez plików gry, bo tak działa CI; ze śladami
-pokrycie jest wyższe. Progi są tylko podnoszone, gdy pokrycie rośnie, nigdy obniżane. Raport HTML trafia do
-`coverage/`.
+`pnpm test:coverage` uruchamia te same testy z pomiarem pokrycia (v8) i tak są uruchamiane w CI. Mierzone są
+`src/sim` (bez `src/sim/data`), `src/storage` i `src/hills`, bez testów i katalogów `test-support`. Każdy katalog ma
+własne progi (instrukcje, gałęzie, funkcje, linie) w `vite.config.ts`, ustawione dwa punkty poniżej wartości
+zmierzonych bez plików gry, bo tak działa CI; ze śladami pokrycie `src/sim` jest wyższe. Progi są tylko podnoszone,
+gdy pokrycie rośnie, nigdy obniżane. Raport HTML trafia do `coverage/`.
+
+Plik nazwany jak test (`*.test.*`, `*.spec.*`, `test_*.py`), którego nie uruchamia żaden program testowy, oblewa
+`pnpm test:scripts` (`scripts/lib/test-location-rules.mjs`).
 
 ## Testy porównawcze z oryginałem
 
