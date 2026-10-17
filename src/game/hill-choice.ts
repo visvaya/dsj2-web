@@ -21,10 +21,23 @@ export interface HillChoice {
 }
 
 /**
- * Ids of this project's hills whose profile was replaced under a new id: replays and records made on them belong to
- * a hill the game no longer has.
+ * Ids of this project's hills whose profile was replaced under a new id, or that were replaced by other hills:
+ * replays and records made on them belong to a hill the game no longer has.
  */
-export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set(["own-1", "own-2"]);
+export const RETIRED_OWN_HILL_IDS: ReadonlySet<string> = new Set([
+  "own-1",
+  "own-2",
+  "own-4",
+  "own-5",
+  "own-6",
+  "own-7",
+  "own-8",
+  "own-9",
+  "own-10",
+  "own-11",
+  "own-12",
+  "own-13",
+]);
 
 /** A hill of this project, built from its data. */
 export function hillChoiceOf(spec: HillSpec): HillChoice {

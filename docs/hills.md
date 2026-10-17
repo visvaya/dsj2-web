@@ -205,7 +205,7 @@ ocen; wszystkie liczby naraz, rozrzut w krokach zgrubnych, szerszy po zysku, wę
 po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: gracz odniesienia lądujący na dwie nogi
 upadał tak często, że jego średnia spadała z 128 do 82 punktów.
 
-Wynik: 137,21 punktu na zbiorze treningowym (gracz odniesienia 131,34), 118,06 na skoczniach własnych spoza zbioru
+Wynik: 137,35 punktu na zbiorze treningowym (gracz odniesienia 131,36), 118,06 na skoczniach własnych spoza zbioru
 (dziś sama Ćwiczebna), po 293
 ocenach, około 35 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
 pochylenia; zostały pochylenie 0,24 rad rosnące o 0,016 rad na metr wysokości, wybicie 0,2 s przed krawędzią
@@ -451,8 +451,11 @@ K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkośc
 
 `generateHill(character, seed)` (`src/hills/hill-generator.ts`) robi skocznię z kilku wartości zrozumiałych dla
 człowieka zamiast czternastu liczb profilu. Służy do treningu gracza i do testów; jest też podstawą przyszłego
-edytora skoczni dla graczy. Dziesięć skoczni zbioru do K120 jest w grze (`own-4` do `own-13`): ich dane są
-skopiowane do `own-hills.ts` z własnym ziarnem scenerii, a `SET_HILLS_IN_GAME`
+edytora skoczni dla graczy. Dziesięć skoczni zbioru do K120 jest w grze (`own-14` do `own-23`, każda o innym
+położeniu belki, płaskiej części, wysokości progu, stromości rozbiegu i celu najlepszego skoku; wcześniejsze
+`own-4` do `own-13` miały jedno ustawienie belki, jeden wygląd rozbiegu i jeden cel dla wszystkich, więc zastąpiły
+je nowe pod nowymi identyfikatorami, a stare są wycofane): ich dane są skopiowane do `own-hills.ts` z własnym
+ziarnem scenerii, a `SET_HILLS_IN_GAME`
 (`src/hills/test-support/generated-hills.ts`) wiąże charaktery zbioru z tymi skoczniami. Zbiór bierze je takie,
 jakie są w grze (`keptHill`: pomiar najlepszego skoku i te same kontrole co przy generowaniu, bez wyszukiwania),
 zamiast generować je na nowo, bo późniejsza zmiana konstrukcji nie może zmienić skoczni, którą gra już ma
@@ -481,8 +484,10 @@ na urządzeniu).
   z tych wartości ma identyfikator ze skrótem FNV-1a wszystkich liczb charakteru (`gen-k<K>-<skrót>-<motyw><ziarno>`),
   bo pełny zapis przekroczyłby 40 znaków formatu; charaktery bez nich zachowują dotychczasowy zapis.
 
-`seed` ustala teren, drzewa, kolory (ściany najazdu z 7 ramp palety sceny, belka startowa z 6, bandy z 8;
-`LOOK_COLOURS`, listy różnej długości dają sąsiednim ziarnom różne zestawienia) oraz końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
+`seed` ustala kolory (ściany najazdu z 7 ramp palety sceny, belka startowa z 6, bandy z 8; `LOOK_COLOURS`, listy
+różnej długości dają sąsiednim ziarnom różne zestawienia), losuje z `LOOK_RANGES` podpory (jedna pod pomostem
+i od jednej do czterech wzdłuż rozbiegu, cienkie albo szerokie), wysokości ścian nad torem i pod nim, długość
+pomostu, wysokość terenu, liczbę drzew i początek band, a także końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
 (`generatedHillId`) jest zapisem charakteru, więc ten sam charakter daje ten sam identyfikator.
 
 ### Konstrukcja
@@ -552,19 +557,19 @@ najlepszy skok w ciszy minus K (m), uruchomienia wyroczni, odległość podobie�
 | K | zeskok | strefa za K | garb | rozbieg | próg | belka | płaskie | cel skoku | wys. progu | prosta | najlepszy - K | wyrocznia | podobieństwo |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | 45 | 37° | 0,25 (0,25) | medium | 46° | 10° | 7,0 | 0,8 | 4..8 | 1,6 | 5,4 | 7,2 | 6 | 2,52 |
-| 50 | 39° | 0,30 (0,30) | long | 35° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 20,2 | 6,1 | 0 | 0,74 |
-| 50 | 36° | 0,22 (0,22) | medium | 30° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 27,8 | 5,9 | 0 | 0,56 |
-| 60 | 38° | 0,26 (0,26) | long | 50° | 11° | 12,0 | 2,5 | 5..9 | 2,4 | 7,6 | 6,2 | 5 | 0,82 |
-| 65 | 37° | 0,20 (0,20) | medium | 33° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 32,5 | 4,7 | 0 | 0,78 |
-| 75 | 37° | 0,22 (0,22) | long | 30° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 56,5 | 7,5 | 0 | 1,19 |
-| 75 | 39° | 0,30 (0,30) | short | 38° | 9° | 10,0 | 1,4 | 3..8 | 2,0 | 21,9 | 7,7 | 0 | 0,87 |
-| 90 | 37° | 0,32 (0,32) | medium | 40° | 8° | 10,0 | 1,4 | 3..8 | 2,0 | 34,5 | 5,5 | 0 | 1,68 |
-| 95 | 39° | 0,24 (0,24) | short | 53° | 10° | 15,0 | 3,5 | 7..11 | 1,3 | 8,6 | 9,7 | 7 | 1,36 |
-| 105 | 38° | 0,22 (0,22) | medium | 36° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 50,8 | 7,6 | 0 | 1,32 |
-| 105 | 40° | 0,28 (0,28) | short | 42° | 9° | 10,0 | 1,4 | 3..8 | 2,0 | 23,8 | 7,0 | 0 | 0,95 |
-| 120 | 39° | 0,20 (0,28) | short | 40° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 39,1 | 6,1 | 0 | 1,21 |
-| 120 | 38° | 0,30 (0,30) | short | 38° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 50,8 | 3,5 | 0 | 0,65 |
-| 135 | 38° | 0,20 (0,20) | medium | 50° | 10° | 20,0 | 5,0 | 10..14 | 2,2 | 33,1 | 10,3 | 7 | 1,95 |
+| 50 | 39° | 0,30 (0,30) | long | 44° | 11° | 8,0 | 2,5 | 3..7 | 1,6 | 8,9 | 6,3 | 0 | 0,64 |
+| 60 | 38° | 0,26 (0,26) | long | 50° | 11° | 12,0 | 2,5 | 5..9 | 2,4 | 7,6 | 6,2 | 5 | 0,99 |
+| 60 | 36° | 0,24 (0,24) | medium | 52° | 10° | 18,0 | 0,8 | 3..6 | 2,4 | 5,5 | 5,5 | 0 | 0,47 |
+| 70 | 38° | 0,26 (0,26) | medium | 38° | 9° | 11,0 | 5,0 | 3..7 | 2,0 | 24,3 | 7,0 | 0 | 0,79 |
+| 75 | 37° | 0,28 (0,28) | short | 55° | 9° | 20,0 | 1,5 | 3..7 | 1,3 | 5,0 | 6,6 | 0 | 0,65 |
+| 85 | 41° | 0,20 (0,20) | medium | 47° | 8° | 9,0 | 6,0 | 3..7 | 2,2 | 11,1 | 4,3 | 0 | 1,05 |
+| 95 | 39° | 0,24 (0,24) | short | 53° | 10° | 15,0 | 3,5 | 7..11 | 1,3 | 8,6 | 9,7 | 7 | 1,13 |
+| 95 | 38° | 0,25 (0,25) | short | 42° | 11° | 14,0 | 2,0 | 7..11 | 1,8 | 29,0 | 9,8 | 0 | 0,66 |
+| 100 | 39° | 0,26 (0,26) | medium | 50° | 10° | 28,0 | 3,5 | 6..9 | 2,5 | 15,9 | 6,5 | 0 | 0,76 |
+| 105 | 42° | 0,18 (0,21) | medium | 45° | 9° | 7,0 | 1,0 | 4..8 | 1,5 | 18,6 | 5,7 | 0 | 0,71 |
+| 115 | 37° | 0,28 (0,28) | short | 53° | 10° | 20,0 | 4,5 | 5..8 | 2,1 | 17,2 | 7,7 | 0 | 1,18 |
+| 120 | 39° | 0,26 (0,26) | short | 48° | 9° | 12,0 | 2,8 | 4..8 | 2,0 | 22,1 | 7,0 | 0 | 0,76 |
+| 135 | 38° | 0,20 (0,20) | medium | 50° | 10° | 20,0 | 5,0 | 10..14 | 2,2 | 33,1 | 10,3 | 7 | 1,76 |
 | 140 | 36° | 0,30 (0,30) | long | 43° | 8° | 8,0 | 6,0 | 10..13 | 1,8 | 98,8 | 11,4 | 5 | 3,86 |
 | 150 | 40° | 0,25 (0,25) | short | 45° | 9° | 25,0 | 1,0 | 6..10 | 2,6 | 37,1 | 8,0 | 7 | 1,57 |
 | 160 | 37° | 0,18 (0,18) | long | 42° | 11° | 14,0 | 4,5 | 9..12 | 1,4 | 130,7 | 9,7 | 2 | 2,82 |
