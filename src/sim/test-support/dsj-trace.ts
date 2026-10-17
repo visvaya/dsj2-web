@@ -4,6 +4,7 @@ import type { HillProfile } from "../hill-profile";
 import type { JumperControls, JumperState } from "../jumper-step";
 import type { FrameInput, JumpLogicState } from "../jump-logic";
 import type { LegPose, PoseState } from "../pose";
+import type { CpuJumperRecord, CpuPilotState, CpuPilotView } from "../cpu-pilot";
 import type { WindState } from "../wind";
 
 /**
@@ -12,7 +13,20 @@ import type { WindState } from "../wind";
  * and stays outside the repository (golden-files.ts finds it). A name that
  * ends in .gz is a gzip-compressed trace.
  */
-export const TRACE_POINT = { windUpdate: 0, jumperStep: 1, readInput: 2, frameLogic: 3, hillSetup: 4 } as const;
+export const TRACE_POINT = {
+  windUpdate: 0,
+  jumperStep: 1,
+  readInput: 2,
+  frameLogic: 3,
+  hillSetup: 4,
+  cpuSetupEntry: 5,
+  cpuSetupExit: 6,
+  cupStart: 7,
+  cupEnd: 8,
+  competitionStart: 9,
+  competitionEnd: 10,
+  jumpEnd: 11,
+} as const;
 
 export interface TraceSnapshot {
   frame: number;
@@ -204,6 +218,70 @@ export function decodeInput(v: DataView): FrameInput {
 }
 
 export const decodeKPoint = (v: DataView): number => v.getInt16(0x464c, true);
+
+/** Index of the current jumper in the jumper list (58ae; 9..16 are the computer opponents). */
+export const decodeJumperIndex = (v: DataView): number => v.getUint8(0x58ae);
+/** 29be: the jump is computed without drawing (a computer jump that is not watched). */
+export const decodeNoDraw = (v: DataView): boolean => b(v, 0x29be);
+
+const CPU_RECORD_BASE = 0x5cbf;
+const CPU_RECORD_BYTES = 17;
+const JUMPER_LIST_BASE = 0x5906;
+const JUMPER_LIST_BYTES = 26;
+
+/** The computer jumper record of jumper `index` (DS:5cbf + 17 * index). */
+export function decodeCpuRecord(v: DataView, index: number): CpuJumperRecord {
+  const base = CPU_RECORD_BASE + CPU_RECORD_BYTES * index;
+  return {
+    form1: f(v, base),
+    form2: f(v, base + 4),
+    talent1: f(v, base + 8),
+    talent2: f(v, base + 12),
+    level: v.getUint8(base + 16),
+  };
+}
+
+/** Entry `index` (1..16) of the jumper list: computer control, taking part, level setting. */
+export function decodeJumperListEntry(v: DataView, index: number): { cpu: boolean; takesPart: boolean; level: number } {
+  const base = JUMPER_LIST_BASE + JUMPER_LIST_BYTES * index;
+  return { cpu: b(v, base + 0x11), takesPart: b(v, base + 0x12), level: v.getUint8(base + 0x19) };
+}
+
+/** 5c60: the level drawn for the last jumper set to a random level. */
+export const decodeRandomLevel = (v: DataView): number => v.getUint8(0x5c60);
+
+export function decodeCpuPilot(v: DataView): CpuPilotState {
+  return {
+    impactPending: b(v, 0x3f56),
+    blunder: b(v, 0x3f57),
+    takeoffLeadS: f(v, 0x3f5c),
+    secondLeadS: f(v, 0x3f60),
+    flightHoldS: f(v, 0x3f64),
+    reactionS: f(v, 0x3f68),
+    reactionLeftS: f(v, 0x3f6c),
+    targetBodyRad: f(v, 0x3f70),
+    landingLeadS: f(v, 0x3f74),
+    telemarkDelayS: f(v, 0x3f78),
+    inrunDropHm: f(v, 0x3f7c),
+  };
+}
+
+/** What the pilot reads, from a snapshot at the entry of read_input. */
+export function decodeCpuPilotView(v: DataView): CpuPilotView {
+  return {
+    frame: v.getUint32(0x4ca0, true),
+    phase: v.getUint8(0x4cbb),
+    xM: f(v, 0x5298),
+    yM: f(v, 0x52a0),
+    vxMPerS: f(v, 0x52a4),
+    vyMPerS: f(v, 0x52a8),
+    speedMPerS: f(v, 0x52ac),
+    slopeAngleRad: f(v, 0x52f2),
+    bodyAngleRad: f(v, 0x4cbc),
+    landingPrepS: f(v, 0x4cde),
+    randomSeed: v.getUint32(0x1942, true),
+  };
+}
 
 /** Flattens nested numbers and booleans into path/value pairs for comparisons. */
 function flatten(value: unknown, path = "", out: [string, number | boolean][] = []): [string, number | boolean][] {

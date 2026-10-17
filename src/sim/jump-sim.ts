@@ -43,8 +43,12 @@ export interface JumpSetup {
   presentation: boolean;
 }
 
-/** 1c06:0010 followed by 0baf:c9e6 (replay variant: seed and wind come from the setup). */
-export function createJump(setup: JumpSetup): JumpSimState {
+/**
+ * 1c06:0010 followed by 0baf:c9e6 (replay variant: seed and wind come from the setup). The original clears
+ * only part of the jump state; the rest keeps what the jump before left in memory, which `previous` supplies
+ * (fields listed in carriedFrom). Without it the state starts as after loading the game.
+ */
+export function createJump(setup: JumpSetup, previous?: JumpSimState): JumpSimState {
   const h = setup.hill;
   const x = h.startXM;
   const y = inrunYM(h, x);
@@ -110,12 +114,71 @@ export function createJump(setup: JumpSetup): JumpSimState {
     endFrame: 0,
     landedFrame: 0,
   };
-  const pose = emptyPose();
+  const carried = previous === undefined ? undefined : carriedFrom(previous);
+  // 1cb6:0d15 sets the pose over what is in memory: a joint that moves keeps its old target.
+  const pose = carried?.pose ?? emptyPose();
   setPose(pose, 1, jumper.slopeAngleRad, setup.poses);
-  return { logic, jumper, pose, wind: { ...setup.wind }, randomSeed: setup.randomSeed >>> 0 };
+  return {
+    logic: { ...logic, ...carried?.logic },
+    jumper: { ...jumper, ...carried?.jumper },
+    pose,
+    wind: { ...setup.wind },
+    randomSeed: setup.randomSeed >>> 0,
+  };
 }
 
-export type InputSource = (frame: number) => FrameInput;
+/**
+ * The part of the jump state that the start of the next jump leaves as it is. Found by comparing the state at
+ * the start of consecutive computer jumps in traces of the original with a fresh one; the routines that set
+ * up a jump (1c06:0010, 0baf:c9e6, 1cb6:0d15) do not write these fields, and the first pose sets only the
+ * targets of the joints it moves. In the traces these leftovers never changed how a jump ended; the state at
+ * the start of a jump matches the original only with them.
+ */
+function carriedFrom(previous: JumpSimState): {
+  logic: Partial<JumpLogicState>;
+  jumper: Partial<JumperState>;
+  pose: PoseState;
+} {
+  const l = previous.logic;
+  const j = previous.jumper;
+  return {
+    logic: {
+      armWobbleRad: [l.armWobbleRad[0], l.armWobbleRad[1]],
+      takeoffForceNs: l.takeoffForceNs,
+      impact: [...l.impact],
+      legSpreadRad: [...l.legSpreadRad],
+      groundProximity: l.groundProximity,
+      distanceM: l.distanceM,
+      distanceHalfM: l.distanceHalfM,
+    },
+    jumper: {
+      vxMPerS: j.vxMPerS,
+      vyMPerS: j.vyMPerS,
+      trackAngleRad: j.trackAngleRad,
+      prevXM: j.prevXM,
+      prevYM: j.prevYM,
+      xBeforeMoveM: j.xBeforeMoveM,
+      flowAngleRad: j.flowAngleRad,
+      relativeSpeedMPerS: j.relativeSpeedMPerS,
+      forceBodyN: j.forceBodyN,
+      forceSki1N: j.forceSki1N,
+      forceSki2N: j.forceSki2N,
+      forceYN: j.forceYN,
+      forceXN: j.forceXN,
+    },
+    pose: clonePose(previous.pose),
+  };
+}
+
+/** The jump as read_input (0baf:9a3c) sees it: after this frame's wind update and jumper step. */
+export interface InputContext {
+  logic: Readonly<JumpLogicState>;
+  jumper: Readonly<JumperState>;
+  /** Generator seed at the entry of read_input; the original restores it when read_input returns. */
+  randomSeed: number;
+}
+
+export type InputSource = (frame: number, at: InputContext) => FrameInput;
 
 function cloneState(s: JumpSimState): JumpSimState {
   return {
@@ -173,7 +236,7 @@ export function stepFrame(prev: JumpSimState, setup: JumpSetup, input: InputSour
       windSpeedMPerS: s.wind.speedMPerS,
       windDirectionRad: s.wind.directionRad,
     },
-    input(s.logic.frame),
+    input(s.logic.frame, { logic: s.logic, jumper: s.jumper, randomSeed: rng.seed }),
     ctx,
     rng,
   );

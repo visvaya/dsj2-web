@@ -154,6 +154,55 @@ do lądowania, 9 i 11 lądowanie, 12 upadek **[kod; nazwy faz 3, 5, 9, 11: hipot
 Ziarno generatora jest zapamiętywane przed odczytem wejścia i odtwarzane po nim (0baf:9a3c),
 więc odczyt wejścia nie zmienia sekwencji losowej **[kod]**.
 
+## Skoczkowie komputerowi (0baf:8aeb, 0baf:8ee4)
+
+Port: `src/sim/cpu-pilot.ts` (ustawienie, pilot, losowanie talentów i formy) i `src/sim/cpu-jump.ts` (klatka skoku
+z pilotem). Skok komputerowy to zwykła fizyka i logika skoku; zamiast myszy wejście daje pilot.
+
+- Rekord zawodnika `5CBF + 17 * nr` (nr 9..16 to przeciwnicy 1..8): forma 1 i 2, talent 1 i 2 (Single) oraz
+  poziom 0..4. Na liście zawodników `5906 + 26 * nr`: `+11h` sterowanie komputerowe, `+12h` udział, `+19h`
+  ustawienie poziomu (0..4, większe = losowy) **[kod]**.
+- Start pucharu (003f:4dda..4fb1), dla każdego komputerowego uczestnika: poziom = ustawienie albo `Random(5)`;
+  `w` = rozrzut poziomu (`1894`: 4, 3, 2, 1, 0,2); każdy z dwóch talentów
+  `(Random(2)*2 - 1) * w * 0.3 + rc(6) * (w/10 + 0.3)`, gdzie `rc(n)` to średnia `n` losowań `Random(65535)`
+  przeskalowana do [-1, 1] (1980:009c). Start zawodów (003f:51c2..51dd): forma 1 = `rc(6)`, forma 2 = `rc(6)`
+  **[kod, pomiar]**.
+- Ustawienie przed skokiem (0baf:8aeb, z sesji skoku po `Randomize`, przed zapisem ziarna do nagłówka powtórki):
+  czas do progu dla pierwszego przycisku `((t1/12)*0.8 + 0.18 + (f1/20)*0.8) + rc(6)/25 + (250 - K)/10000`,
+  poniżej 0,108 s zastąpiony przez `(0.65 - Random(15)/100)*0.18`, powyżej 0,252 s przez
+  `(1.35 + Random(15)/100)*0.18`; drugi przycisk `(5 - poziom)/70 * rc(4)*0.5 + pierwszy - 0.01`, nie wcześniej
+  niż pierwszy; przetrzymanie pozycji w locie `Random(10)/100 + 0.05` s; czas reakcji `Random(30)/100 + 0.5` s;
+  docelowy kąt sylwetki `((t2/12)*1.3 + f2/10 + rc(6)/15)/1.7 - 0.38`; wyprzedzenie lądowania
+  `rc(3)*0.3 + 0.6 + (5 - poziom) * |rc(3) + 0.7| * 0.15` s; opóźnienie telemarku `rc(3)*0.4 + 0.35 + rc(2)*0.1`
+  ograniczone do 0..0,42 s. Gdy `Random(40) = 1`, skok jest „nieudany”: przy `Random(2) = 1` telemark
+  `rc(3)*0.2 + 0.7` i wyprzedzenie lądowania + 0,7 s, w przeciwnym razie wyprzedzenie `rc(2)*0.3`. Zapis do
+  Single tylko przy każdym `fstp`; kolejność losowań jak w zapisie **[kod, pomiar]**.
+- Pilot (0baf:8ee4) w każdej klatce, wywołany z odczytu wejścia (0baf:9a3c) zamiast myszy; ziarno jest odtwarzane
+  po odczycie wejścia, więc losowania pilota nie zmieniają sekwencji skoku **[kod, pomiar]**:
+  - klatka 70: lewy przycisk (start z belki);
+  - fazy 3–4: czas do progu `(takeoff_x - x)/cos(nachylenie)/prędkość` krótszy od pierwszego wyprzedzenia: lewy,
+    od drugiego: prawy;
+  - fazy 6–7: najpierw odliczanie przetrzymania; potem co klatkę `reakcja_pozostała -= dt` i, gdy
+    `(reakcja - pozostała)/reakcja > |sylwetka / cel|` albo pozostała < 0: `dy = +1`, gdy
+    `sylwetka - 0.05 - Random(30)/100 > cel`, oraz `dy = -1`, gdy `sylwetka + 0.05 + Random(30)/100 < cel`
+    (oba losowania zawsze, w tej kolejności);
+  - fazy 6–8: wysokość nad zeskokiem `h` i czas do zetknięcia `t = h/(vy/vx + nachylenie_zeskoku) * vy/vx / vy`
+    (ujemny = 10 s). Przy `vy > 0`: `t` krótszy od wyprzedzenia lądowania daje prawy przycisk; przy pierwszym takim
+    naciśnięciu (poza skokiem nieudanym) szacunek uderzenia `sqrt(|sin(a) * |v||)`, gdzie `a` to kąt toru względem
+    terenu 5 m dalej, powyżej 2 skraca opóźnienie telemarku o `(uderzenie - 2) * 1.75`; lewy przycisk, gdy czas
+    przygotowania do lądowania (`4CDE`) przekroczy opóźnienie telemarku. Niezależnie od `vy`: `h < 1.3 - nieudany`
+    daje prawy, `h > 3 + nieudany` zwalnia oba przyciski.
+  - Pilot nie czyta wiatru.
+- Skok liczony bez rysowania (`29BE = 1`: skok przeciwnika, gdy nie zaznaczono oglądania) kończy pętlę w klatce,
+  w której wynik jest gotowy (0baf:d1cd..d1f6), czyli w klatce przyziemienia, bez wybiegu. Oglądany skok trwa do
+  zatrzymania na wybiegu, a potem pętla pokazuje wynik w klatkach bez kroku symulacji, aż gracz przejdzie dalej
+  (0baf:d16a..d1ba) **[kod, pomiar]**.
+- Między skokami oryginał zeruje tylko część stanu (1c06:0010, 0baf:c9e6, 1cb6:0d15). Pozostałe pola zostają po
+  poprzednim skoku: drgania rąk, siła wybicia, składowe uderzenia, rozstaw nart, bliskość ziemi, odległość,
+  prędkości i siły lotu, poprzednie położenie oraz cele stawów, których pierwsza poza nie ustawia od razu
+  (`createJump(setup, previous)`). Lista pochodzi z porównania śladów kolejnych skoków; testy porównawcze
+  sprawdzają, że stan na starcie skoku jest dokładnie taki jak w oryginale **[pomiar]**.
+
 ## Szkielet skoczka (moduł 1cb6)
 
 Dwie nogi, każda z dwoma długościami odcinków (górny do 1,08 m, dolny do 0,74 m) i dziewięcioma kątami stawów.
@@ -193,10 +242,16 @@ i długość górnego odcinka pierwszej nogi („kolano”, siła wybicia). Pozo
   oraz telemark z dwoma przyciskami; port odtwarza każdą ich klatkę i odległość zmierzoną przez oryginał.
 - Ślady FALL1..FALL5 (plany z wyszukiwania upadków, `docs/testing.md`, „Wyszukiwanie upadków”) pokrywają każdy
   z pięciu typów upadku po jednym skoku; port odtwarza każdą ich klatkę i odległość zmierzoną przez oryginał.
-- Niesprawdzone śladem: dotknięcie zeskoku przed progiem.
+- Skoki komputerowe (52 ślady z Pucharu Świata rozegranego przez oryginał: K70, K105, K170, wszystkie poziomy,
+  dwa skoki oglądane, rzadkie gałęzie naturalne i wymuszone, `docs/testing.md`, „Skoki komputerowe”): ustawienie
+  pilota, wejście i stan pilota w każdej klatce oraz losowanie talentów i formy bit w bit; cały skok od ziarna po
+  ustawieniu zgodny w każdej klatce, z odległością, notami i punktami, także przy upadkach.
+- Niesprawdzone śladem: dotknięcie zeskoku przed progiem; tryb drużynowy.
 
 ## Do ustalenia
 
 Dane skoczni i format `Dsj.dat`: `docs/hill-format.md`.
 
-- Sterowanie komputerowych zawodników (0baf:8ee4) i tryb zawodów.
+- Tryb zawodów: kolejność skoków (druga seria w innej kolejności), drużyny (`5C7C`, `5CCF`), rekordy skoczni
+  przy skokach komputerowych (odczyty `5C73` w 0baf:b44a i c865). Sterowanie komputerowych zawodników:
+  sekcja „Skoczkowie komputerowi”.

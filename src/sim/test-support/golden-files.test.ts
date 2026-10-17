@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { goldenTraces, hillGoldenFiles, replayCases } from "./golden-files";
+import { cpuGoldenTraces, goldenTraces, hillGoldenFiles, replayCases } from "./golden-files";
 
 /** Golden files are only looked up here, never read: a few bytes stand in for each of them. */
 function touch(dir: string, ...names: string[]): void {
@@ -171,6 +171,47 @@ describe("files of the golden tests", () => {
       expect(hillGoldenFiles({ DSJ2_TRACE_DIR: traceDir }).problems).toEqual([
         "no Dsj.exe in DSJ2_GAME_DIR (not set)",
         "no Dsj.dat in DSJ2_GAME_DIR (not set)",
+      ]);
+    });
+  });
+
+  describe("computer jump traces", () => {
+    it("asks for nothing without a trace directory", () => {
+      expect(cpuGoldenTraces({ DSJ2_TRACE: join(traceDir, "one.trace") })).toEqual({
+        requested: false,
+        jumps: [],
+        cups: [],
+        problems: [],
+      });
+    });
+
+    it("lists the jumps and the cup starts apart from the replay traces", () => {
+      touch(traceDir, "CPUA-02.cputrace.gz", "CPUA-01.cputrace", "CPUA.cuptrace.gz", "Karpacz.trace");
+      expect(cpuGoldenTraces({ DSJ2_TRACE_DIR: traceDir })).toEqual({
+        requested: true,
+        jumps: [
+          { name: "CPUA-01", path: join(traceDir, "CPUA-01.cputrace") },
+          { name: "CPUA-02", path: join(traceDir, "CPUA-02.cputrace.gz") },
+        ],
+        cups: [{ name: "CPUA", path: join(traceDir, "CPUA.cuptrace.gz") }],
+        problems: [],
+      });
+      expect(goldenTraces({ DSJ2_TRACE_DIR: traceDir }).traces.map((trace) => trace.name)).toEqual(["Karpacz"]);
+    });
+
+    it("reports a directory without them, one that cannot be read, and a trace in both forms", () => {
+      touch(traceDir, "Karpacz.trace");
+      expect(cpuGoldenTraces({ DSJ2_TRACE_DIR: traceDir }).problems).toEqual([
+        `DSJ2_TRACE_DIR (${traceDir}) holds no .cputrace file`,
+        `DSJ2_TRACE_DIR (${traceDir}) holds no .cuptrace file`,
+      ]);
+      touch(traceDir, "CPUA-01.cputrace", "CPUA-01.cputrace.gz", "CPUA.cuptrace");
+      expect(cpuGoldenTraces({ DSJ2_TRACE_DIR: traceDir }).problems).toEqual([
+        `CPUA-01 exists both plain and gzip-compressed in ${traceDir}; remove one`,
+      ]);
+      const absent = join(root, "absent");
+      expect(cpuGoldenTraces({ DSJ2_TRACE_DIR: absent }).problems).toEqual([
+        `DSJ2_TRACE_DIR (${absent}) cannot be read`,
       ]);
     });
   });
