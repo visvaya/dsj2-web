@@ -179,6 +179,8 @@ class Recorder:
         self.written: list[tuple[str, int]] = []
         # Frames of any jump, recorded or not: a quiet frame loop means a menu waits for a click.
         self.frames = 0
+        # The loop of the current jump has ended (its JUMP_END snapshot is taken).
+        self.ended = False
 
     def armed(self) -> bool:
         return self.first <= self.jump <= self.last
@@ -229,12 +231,15 @@ def run(args: argparse.Namespace) -> int:
                 for offset, data in record_patch_bytes(rec.records_patch[rec.jump]):
                     uc.mem_write(base + offset, data)
             rec.records.append(snapshot(uc, point))
+            if point == JUMP_END:
+                rec.ended = True
 
         return hook
 
     def on_jump_session(_uc, _address, _size, _user) -> None:
         rec.flush()
         rec.jump += 1
+        rec.ended = False
 
     # Hooks must exist before the code is first translated by Unicorn.
     for point, seg, off in POINTS:
@@ -288,9 +293,9 @@ def run(args: argparse.Namespace) -> int:
         last_frames = rec.frames
         if quiet < QUIET_TICKS:
             continue
-        if rec.jump == rec.last and rec.records:
+        if rec.jump == rec.last and rec.ended:
             break
-        # The results after a round, or after a watched jump, wait for a click.
+        # The results after a round, or a watched jump that has stopped, wait for a click.
         session.click(*START_LIST_CONTINUE)
         quiet = 0
     rec.flush()
