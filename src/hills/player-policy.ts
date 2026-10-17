@@ -61,8 +61,8 @@ export function policyTakesOff(policy: PlayerPolicy, view: PlayerView, aimShiftS
 }
 
 /**
- * The trained player: `node scripts/train-player.mjs` (about 7 minutes on a slow laptop) printed these numbers.
- * Trained on the generated set (`src/hills/test-support/generated-hills.ts`: 16 hills from K50 to K185 of several
+ * The trained player: `node scripts/train-player.mjs` (about 35 minutes on a slow laptop) printed these numbers.
+ * Trained on the generated set (`src/hills/test-support/generated-hills.ts`: 27 hills from K45 to K260 of several
  * landing hill shapes, knolls and inruns), on two jump seeds of each wind class, maximising the mean points of the
  * player without noise. The early part of the flight trained away (0 frames) and the wind term stayed 0. To train
  * again, run the script and copy its numbers and scores here.
@@ -71,9 +71,9 @@ export const TRAINED_PLAYER_POLICY: PlayerPolicy = {
   takeoffAimS: 0.2,
   earlyFlightFrames: 0,
   earlyLeanRad: 0.28,
-  leanRad: 0.2,
+  leanRad: 0.24,
   leanPerSpeedRadPerMPerS: 0,
-  leanPerHeightRadPerM: 0.032,
+  leanPerHeightRadPerM: 0.016,
   leanPerTailWindRadPerMPerS: 0,
   landingHeightM: 2.2,
   landingPerClosingS: 0,
@@ -82,9 +82,9 @@ export const TRAINED_PLAYER_POLICY: PlayerPolicy = {
 
 /**
  * Scores of `TRAINED_PLAYER_POLICY` printed by the training: the mean points over the training set (the scripted
- * bot before it, `REFERENCE_PLAYER_POLICY`, scored 126.05) and over the game's own hills alone, on the training seeds.
+ * bot before it, `REFERENCE_PLAYER_POLICY`, scored 131.34) and over the game's own hills alone, on the training seeds.
  */
-export const TRAINED_POLICY_SCORES = { trainingSet: 128.3085951010386, ownHills: 118.04166666666667 } as const;
+export const TRAINED_POLICY_SCORES = { trainingSet: 137.21157582012225, ownHills: 118.0625 } as const;
 
 /**
  * The scripted bot the play checks used before the policy was trained (aim 14 frames before the edge, one lean of
