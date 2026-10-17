@@ -183,27 +183,33 @@ przepisania do `TRAINED_PLAYER_POLICY` i `TRAINED_POLICY_SCORES`; niczego nie za
 trening trwa minuty, a wynikiem są liczby do przejrzenia i przepisania, nie werdykt. Trening jest deterministyczny:
 ten sam kod daje te same liczby.
 
-Zbiór treningowy (`src/hills/test-support/player-training.ts`) to wyłącznie skocznie własne i ich warianty z ich
-danych: wszystkie długości razy 0,7-2,5, rozbieg dłuższy albo krótszy o 4-32 m razy skala (dłuższy przesuwa resztę
-skoczni w prawo, bo start nie może zejść poniżej 0 m; próg zachowuje wysokość, bo reguły trzymają ją w stałym
-zakresie). Wariant zostaje, gdy przechodzi kontrolę formatu i reguły dopuszczenia geometrii oraz gdy mediana
-skoków gracza odniesienia (dawnego bota, `REFERENCE_PLAYER_POLICY`) leży między 0,75 K a końcem strefy lądowania,
-czyli skocznia skacze się na swój rozmiar. Zostaje 19 skoczni od K63 do K225. Na każdej skacze gracz bez szumu na
-dwóch najsilniejszych ziarnach każdej klasy wiatru; wynik to średnia punktów gry, a upadek lub dyskwalifikacja
-liczy się jako -100 punktów.
+Zbiór treningowy to zbiór wygenerowany (sekcja „Generator skoczni”): 16 skoczni od K50 do K185 o różnych
+zeskokach, garbach i rozbiegach. Generuje go skrypt bez reguł symulacji, bo te oceniają skocznię wytrenowanym
+graczem, którego trening zastępuje; reguły na zbiorze sprawdza test stabilności. Wcześniej zbiorem były warianty
+jedynej skoczni własnej, a warianty o innym kształcie zeskoku nie przechodziły reguł dopuszczenia, więc gracz nie
+widział innego kształtu i na skoczniach oryginału powyżej K120 zostawał daleko od wyroczni.
+
+Na każdej skoczni, na dwóch najsilniejszych ziarnach każdej klasy wiatru, skaczą trzej gracze: bez szumu oraz
+średni i dobry z tym samym szumem własnych błędów, co w kontrolach (`PLAYER_LEVELS`). Wynik to średnia punktów gry,
+a upadek lub dyskwalifikacja liczy się jako -100 punktów. Rozsądny gracz chce punktów mimo własnych błędów: trening
+samego gracza bez szumu wybrał nacisk lądowania na 1,4 m, a średni gracz z tym szumem przewracał się wtedy na
+jednej trzeciej skoków skoczni K50.
 
 Przeszukiwanie startuje od gracza odniesienia: najpierw strategia ewolucyjna (1+6) z zasianym generatorem (70%
 ocen; wszystkie liczby naraz, rozrzut w krokach zgrubnych, szerszy po zysku, węższy bez niego), potem przeszukiwanie
-po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: wszystkie skocznie zbioru mają ten sam
-kształt zeskoku, jedno porównanie stylów rozstrzygało kilka ziaren (raz na dwie nogi wygrało o 0,2 punktu na 152
-skokach), a gracz odniesienia lądujący na dwie nogi upada na tym samym zbiorze tak często, że jego średnia spada
-z 128 do 82 punktów.
+po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: gracz odniesienia lądujący na dwie nogi
+upadał tak często, że jego średnia spadała z 128 do 82 punktów.
 
-Wynik: 155,0 punktu na zbiorze treningowym (gracz odniesienia 127,6), 123,25 na samych skoczniach własnych, po 173
-ocenach, około 5 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
-pochylenia; zostały pochylenie 0,2 rad rosnące o 0,048 rad na metr wysokości, wybicie 0,2 s przed krawędzią
-i lądowanie na 1,8 m plus 0,04 s tempa opadania. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na
-skoczniach własnych: tani dowód, że ani polityka, ani symulacja się nie zmieniły.
+Wynik: 128,31 punktu na zbiorze treningowym (gracz odniesienia 121,91), 118,04 na samych skoczniach własnych, po 293
+ocenach, około 19 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
+pochylenia; zostały pochylenie 0,2 rad rosnące o 0,032 rad na metr wysokości, wybicie 0,2 s przed krawędzią
+i lądowanie na 2,2 m. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na skoczniach własnych: tani
+dowód, że ani polityka, ani symulacja się nie zmieniły.
+
+Pokazany wiatr dobrze przewiduje odległość (gracz bez szumu, ziarna 1-64, składowa wiatru startowego wzdłuż
+skoczni: współczynnik korelacji od -0,88 przy K50 do -0,96 przy K150; od 0,75 m przy K50 do 2,9 m przy K185 mniej na
+każdy 1 m/s wiatru w plecy), ale pochylenie nie ma dźwigni, która by to odrobiła, więc czytanie wiatru w locie nic
+graczowi nie daje. Wiatr ma znaczenie dla oczekiwań co do odległości, nie dla sterowania.
 
 ### Wyrocznia
 
@@ -218,22 +224,22 @@ gorzej od niego. Na skoczni Ćwiczebna cztery wyszukiwania (po jednym na klasę 
 
 Test lokalny (z `DSJ2_GAME_DIR`, patrz niżej) gra każdą z 37 skoczni oryginału wytrenowanym graczem i wyrocznią na
 najsilniejszym ziarnie każdej klasy wiatru. Odległość, którą dokłada wyrocznia, jako część K (średnia i 90. centyl
-w przedziale wielkości), pomiar z 2026-10-17:
+w przedziale wielkości), pomiar z 2026-10-17 dla obecnej polityki:
 
 | K | skoczni | średnio | 90. centyl | punkty średnio | upadki gracza |
 |---|---|---|---|---|---|
-| do 90 | 10 | 0,049 | 0,100 | 8,1 | 0 |
-| 90-120 | 7 | 0,055 | 0,097 | 11,3 | 0 |
-| 120-160 | 8 | 0,072 | 0,141 | 15,6 | 0 |
-| powyżej 160 | 12 | 0,096 | 0,195 | 24,2 | 0 |
+| do 90 | 10 | 0,061 | 0,097 | 11,3 | 0 |
+| 90-120 | 7 | 0,073 | 0,102 | 15,7 | 0 |
+| 120-160 | 8 | 0,091 | 0,163 | 20,3 | 0 |
+| powyżej 160 | 12 | 0,071 | 0,162 | 17,2 | 0 |
 
-Margines wynika z przedziałów, w których boty już uznawano za wiarygodne: średnio najwyżej 0,06 K, 90. centyl
-najwyżej 0,12 K, bez upadków. Przedział 120-160 go przekracza, więc granica K120 (`botReliableMaxKPointM`) zostaje;
-test lokalny pilnuje marginesu do tej granicy. Na innych ziarnach (od 1001, 16 na skocznię) wytrenowany gracz
-zdobywa na skoczniach oryginału prawie tyle samo co dawny bot (do K90 118,8 wobec 117,7 punktu, 90-120 114,3 wobec
-111,5, 120-160 140,8 wobec 141,7, powyżej 160 159,7 wobec 164,1): trening na wariantach jednej skoczni własnej słabo
-przenosi się na inne kształty zeskoku. Podniesienie granicy wymaga skoczni treningowych o innych kształtach, czyli
-kolejnych skoczni własnych.
+Margines jest względny, w tym samym pomiarze tej samej polityki: przedział jest wiarygodny, gdy średnia i 90. centyl
+wynoszą najwyżej 1,25 raza tyle co w najmniejszym przedziale (do K90) i gracz nie upada. Polityka odporna na własne
+błędy celowo zostawia wyroczni odległość przy każdej wielkości, więc liczy się, czy bot jest na danej wielkości tak
+wiarygodny jak na wielkościach już uznanych. Liczba 1,25 daje dla wcześniejszej polityki ten sam werdykt co dawny
+margines bezwzględny (średnio 0,06 K, 90. centyl 0,12 K): 90-120 miało 1,12 i 0,97 raza (przechodzi), 120-160 1,47
+i 1,41 (nie przechodzi). Dla obecnej polityki 90-120 ma 1,20 i 1,05 raza, 120-160 1,49 i 1,68, powyżej 160 1,16
+i 1,67. Granica K120 (`botReliableMaxKPointM`) zostaje; test lokalny pilnuje marginesu do niej.
 
 Okno wybicia to liczba klatek celu (co 1/70 s), przy których skoczek bez błędów ląduje najwyżej 3 m przed
 najlepszym skokiem, bez upadku i dyskwalifikacji. Jedna klatka wybicia jest warta kilka metrów: to cecha fizyki
@@ -432,6 +438,111 @@ kształcie i nigdy nie spotykają nowego.
 Skocznia „Ćwiczebna” ma obecnie identyfikator `own-3`; `own-1` i `own-2` to jej wcześniejsze kształty. Na `own-2`
 rozbieg był krótszy (`startXM` 11,4 i `flatEndXM` 10 zamiast 10,6 i 9,2) i najlepszy skok lądował w okolicy punktu
 K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkości.
+
+## Generator skoczni
+
+`generateHill(character, seed)` (`src/hills/hill-generator.ts`) robi skocznię z kilku wartości zrozumiałych dla
+człowieka zamiast czternastu liczb profilu. Służy do treningu gracza i do testów; jest też podstawą przyszłego
+edytora skoczni dla graczy. Żadna wygenerowana skocznia nie trafia do gry: dodanie skoczni do listy to osobna
+decyzja, a droga jest ta sama co dla każdej skoczni własnej (sekcja „Dodanie skoczni”: dane do `own-hills.ts`,
+nowy `id`, kontrole, migawka, odbiór na urządzeniu).
+
+### Charakter skoczni
+
+`HillCharacter`:
+
+- `kPointM`: wielkość skoczni, punkt K;
+- `landingSteepnessDeg`: największe nachylenie zeskoku;
+- `landingAreaPastKShare`: jak daleko za K sięga strefa lądowania, jako część K (szerszy zeskok przy większej);
+- `knoll`: `short`, `medium` albo `long`: jak długo zeskok za progiem się zaokrągla, zanim stanie się stromy;
+- `inrunSteepnessDeg`: nachylenie prostej części rozbiegu;
+- `takeoffAngleDeg`: kąt progu;
+- `look`: motyw kolorów sceny (`day`, `dusk`, `winter`: kolory domyślnego wyglądu z innym niebem); wygląd nie
+  zmienia skakania, a położenia podpór, drzew i znaczników odległości wynikają z profilu.
+
+`seed` ustala teren i drzewa oraz końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
+(`generatedHillId`) jest zapisem charakteru, więc ten sam charakter daje ten sam identyfikator.
+
+### Konstrukcja
+
+Wszystkie stałe są w jednym obiekcie `GENERATOR` (z jednostką w nazwie). Dobrano je z fizyki i celów gry, a nie
+z liczb skoczni oryginału.
+
+- Rozbieg zaczyna się na 10 m, z płaską częścią 1,4 m za belką startową, biegnie prosto pod kątem z charakteru
+  i przechodzi parabolą w kąt progu. Promień łuku rośnie z wielkością skoczni (0,25 K), bo szybszy skoczek
+  potrzebuje łagodniejszego łuku przy tym samym nacisku na narty. Złącza są gładkie z samej budowy profilu
+  (`buildHillProfile` wylicza współczynniki łuku i wybiegu).
+- Próg leży na wysokości 200 m, zeskok zaczyna się 2 m pod nim, w środku zakresu reguły wysokości progu.
+- Zeskok to krzywa tanh formatu, `y = cY - A tanh((x - cX) / w)`. Największe nachylenie to `A / w`, więc
+  `A = w tan(nachylenia)`. Koniec strefy lądowania (pierwsze miejsce za najbardziej stromym, łagodniejsze niż
+  32°) leży `w acosh(sqrt(tan(nachylenia) / tan 32°))` za środkiem. Łuk krzywej między dwoma miejscami odległymi
+  od środka o stałą liczbę szerokości jest proporcjonalny do szerokości, więc przy progu leżącym o liczbę
+  szerokości zależną od garbu (1,2, 1,35 albo 1,5) przed środkiem szerokość wynika z jednej całki: łuk od progu
+  do końca strefy lądowania ma długość K razy jeden plus część z charakteru. Punkt K to miejsce, gdzie łuk od
+  progu osiąga K.
+- Gdy K wypada dalej niż 12 m od najbardziej stromego miejsca (reguła stylu dopuszcza 15 m), ustępuje strefa
+  lądowania: jej długość jest wyliczana tak, żeby K leżał 12 m od tego miejsca. Garb nie ustępuje, bo długi,
+  płaski garb wyrzuca skoczka wysoko nad stok (tak wypadło w próbach: wysokie loty, duży rozrzut od wiatru).
+- Wybieg zaczyna się 5 m za strefą lądowania i parabolą schodzi do najniższego punktu 35 m dalej, więc część
+  płaska jest 40 m za strefą lądowania (reguła wymaga 30 m).
+- Długość prostej części rozbiegu ustala krótkie, deterministyczne wyszukiwanie: najlepszy skok wyroczni na
+  najspokojniejszym ziarnie (`CALM_SEED`) rośnie z długością rozbiegu, więc metoda siecznych z przedziałem
+  (wariant Illinois) między rozbiegiem najkrótszym (1 m prostej) a najdłuższym, na jaki pozwalają format
+  (koniec prostej najdalej na 150 m) i scena (najniższy punkt wybiegu najdalej na 379 m), szuka skoku od K+3 do
+  K+8 m. Wyrocznia startuje od gracza odniesienia (`REFERENCE_PLAYER_POLICY`), a nie od wytrenowanego, więc
+  skocznie nie zmieniają się po kolejnym treningu.
+- Liczby profilu są zaokrąglane (długości do 0,01 m, nachylenia do 0,0001, współczynniki łuków do 0,000001),
+  a funkcje przestępne pochodzą z `deterministic-math.ts`, więc wynik jest ten sam w każdym silniku.
+
+### Cele i raport
+
+Cele (`GENERATOR_TARGETS` i reguły gry): najlepszy skok wyroczni w ciszy od K+3 do K+8 m, każda reguła
+dopuszczenia, każda reguła stylu, każda reguła symulacji (dla skoczni do granicy wiarygodności botów) i odległość
+podobieństwa co najmniej `LIKENESS.tooAlike` od każdej skoczni własnej i od skoczni podanych w `others`.
+
+`generateHill` zwraca dane skoczni i raport: najlepszy skok w ciszy i jego odległość od K, długość prostej
+rozbiegu, liczbę uruchomień wyroczni, część K strefy lądowania, problemy reguł stylu, czy cel skoku osiągnięto,
+czy oceniły ją reguły symulacji i najbliższą skocznię. Kontrole (`checkGeneratedHill`) idą od najtańszej: format,
+reguły dopuszczenia, podobieństwo, reguły symulacji. Skocznia, która nie przechodzi formatu, reguły dopuszczenia,
+reguły symulacji albo jest za bardzo podobna do innej, to błąd (`HillGenerationError` z listą problemów), nigdy
+cichy wynik. Reguły stylu i zakres najlepszego skoku to cele: raport mówi, czy je osiągnięto.
+
+### Zbiór wygenerowany
+
+`src/hills/test-support/generated-hills.ts`: stała lista charakterów, generowana po kolei, każda skocznia
+sprawdzana z poprzednimi, więc żadne dwie nie są tą samą skocznią.
+
+Liczby z raportu (bez reguł symulacji, tak jak generuje go trening): nachylenie zeskoku, strefa lądowania za K
+z charakteru (w nawiasie: po ustąpieniu do punktu K), garb, rozbieg, próg, długość prostej rozbiegu z wyszukiwania (m),
+najlepszy skok w ciszy minus K (m), uruchomienia wyroczni, odległość podobieństwa do najbliższej skoczni:
+
+| K | zeskok | strefa za K | garb | rozbieg | próg | prosta | najlepszy - K | wyrocznia | podobieństwo |
+|---|---|---|---|---|---|---|---|---|---|
+| 50 | 39° | 0,30 (0,30) | long | 35° | 11° | 20,2 | 6,1 | 7 | 2,16 |
+| 50 | 36° | 0,22 (0,22) | medium | 30° | 10° | 27,8 | 5,9 | 7 | 0,91 |
+| 65 | 37° | 0,20 (0,20) | medium | 33° | 10° | 32,5 | 4,7 | 6 | 0,84 |
+| 75 | 37° | 0,22 (0,22) | long | 30° | 11° | 56,5 | 7,5 | 6 | 1,19 |
+| 75 | 39° | 0,30 (0,30) | short | 38° | 9° | 21,9 | 7,7 | 7 | 0,87 |
+| 90 | 37° | 0,32 (0,32) | medium | 40° | 8° | 34,5 | 5,5 | 8 | 1,68 |
+| 105 | 38° | 0,22 (0,22) | medium | 36° | 10° | 50,8 | 7,6 | 7 | 1,45 |
+| 105 | 40° | 0,28 (0,28) | short | 42° | 9° | 23,8 | 7,0 | 7 | 0,95 |
+| 120 | 39° | 0,20 (0,28) | short | 40° | 10° | 39,1 | 6,1 | 7 | 1,21 |
+| 120 | 38° | 0,30 (0,30) | short | 38° | 11° | 50,8 | 3,5 | 7 | 0,65 |
+| 135 | 38° | 0,20 (0,23) | medium | 40° | 10° | 61,8 | 3,7 | 7 | 1,74 |
+| 140 | 36° | 0,30 (0,30) | long | 42° | 8° | 97,0 | 7,0 | 7 | 3,35 |
+| 150 | 40° | 0,25 (0,34) | short | 45° | 9° | 37,4 | 5,9 | 6 | 1,74 |
+| 160 | 37° | 0,18 (0,20) | long | 42° | 11° | 111,9 | 5,7 | 4 | 2,10 |
+| 170 | 39° | 0,20 (0,29) | medium | 45° | 10° | 64,9 | 4,5 | 5 | 2,29 |
+| 185 | 39° | 0,20 (0,34) | short | 45° | 10° | 66,8 | 8,0 | 4 | 1,10 |
+
+Wszystkie są w celu, bez problemów reguł stylu, a te do K120 przechodzą reguły symulacji. Druga skocznia K120 ma
+krótki garb: ze średnim garbem nie przechodziła reguły rozrzutu od wiatru (10,8 m przy dopuszczalnych 9,6 m); reguły
+nie poluzowano. Największa skocznia to K185: przy K200 i więcej scena (380 m) nie mieści rozbiegu dość długiego,
+żeby najlepszy skok sięgnął K (raport podaje chybiony cel).
+
+Test jednostkowy generuje najmniejszą skocznię zbioru (z regułami symulacji) i jedną za dużą na scenę (raport
+z chybionym celem i strefą lądowania, która ustąpiła). Cały zbiór z regułami symulacji generuje test stabilności
+(`corepack pnpm test:hills-stability`).
 
 ## Dodanie skoczni
 

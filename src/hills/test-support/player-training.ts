@@ -1,83 +1,25 @@
 import { hillChoiceOf, type HillChoice } from "../../game/hill-choice";
 import { BorlandRandom } from "../../sim/borland-random";
-import { buildHillProfile } from "../../sim/hill-setup";
 import { coordinateSearch, type AxisMove } from "../coordinate-search";
-import { admissionProblems, hillGeometry } from "../hill-geometry";
 import { jumpScore } from "../hill-oracle";
-import { windClassSeeds } from "../hill-play";
-import { EXACT_PLAYER_LEVEL, playJump } from "../hill-players";
-import type { HillSpec } from "../hill-spec";
+import { NOISE_SEED_OFFSET, windClassSeeds } from "../hill-play";
+import { EXACT_PLAYER_LEVEL, PLAYER_LEVELS, playJump } from "../hill-players";
 import { OWN_HILL_SPECS } from "../own-hills";
-import { parseHillSpec } from "../parse-hill-spec";
-import type { PlayerPolicy } from "../player-policy";
+import { REFERENCE_PLAYER_POLICY, type PlayerPolicy } from "../player-policy";
+import { GENERATED_HILL_CHARACTERS, generatedHillSet } from "./generated-hills";
 
 /**
  * Training of the player policy: a deterministic coordinate search over its numbers for the most mean points of
- * the player without noise over a set of hills and winds. Only the game's own hills and variants made from their
- * data go into the set. Run by `node scripts/train-player.mjs`; the unit test only checks the recorded score.
+ * the player without noise over a set of hills and winds: the generated set, hills of many sizes and shapes. Run by `node scripts/train-player.mjs`; the unit test only checks the recorded score.
  */
 
-/** How the training set is made from each own hill. */
+/** The training seeds. */
 export const TRAINING_SET = {
-  /** Every length of the hill (inrun and landing hill, K point with them) is multiplied by each of these. */
-  sizeScales: [0.7, 0.85, 1, 1.2, 1.45, 1.75, 2.1, 2.5],
-  /** Inruns made longer (negative) or shorter by these many metres, times the scale (`scaledHill`). */
-  inrunShiftsM: [-32, -24, -16, -8, -4, 0, 4],
-  /**
-   * A variant is kept when the reference player's median distance over the training seeds lies between this share
-   * of its K point and the end of its landing area: a hill that jumps to its size, as the play rules want. The
-   * others (every jump far short, or past the landing area into a fall) teach a player nothing about a hill
-   * anyone would build.
-   */
-  referenceMedianMinShareOfK: 0.75,
   /** Jump seeds per wind class, picked as the gate picks them. */
   seedsPerClass: 2,
   scanSeeds: 256,
   firstScanSeed: 1,
 } as const;
-
-/**
- * An own hill with every length multiplied by `scale` and its inrun made longer (negative `inrunShiftM`) or shorter
- * (positive) by that many metres of the original, times the scale. A shorter inrun starts further right; a longer
- * one keeps its start and moves the rest of the hill right, because the start cannot go below 0 m. The table keeps
- * its height (the landing hill is raised by what scaling would add to it), because the geometry rules hold it to a
- * range that does not grow with the hill.
- */
-export function scaledHill(spec: HillSpec, scale: number, inrunShiftM: number): HillSpec {
-  const { inrun, landing } = spec.profile;
-  const startShiftM = Math.max(0, inrunShiftM) * scale;
-  const restShiftM = Math.max(0, -inrunShiftM) * scale;
-  const { tableHeightM } = hillGeometry(buildHillProfile(inrun, landing), spec.kPointM);
-  return {
-    ...spec,
-    id: `${spec.id}-x${Math.round(scale * 100)}-i${inrunShiftM < 0 ? "m" : "p"}${Math.abs(inrunShiftM)}`,
-    kPointM: Math.round(spec.kPointM * scale),
-    profile: {
-      inrun: {
-        startXM: inrun.startXM * scale + startShiftM,
-        flatEndXM: inrun.flatEndXM * scale + startShiftM,
-        lineEndXM: inrun.lineEndXM * scale + restShiftM,
-        takeoffXM: inrun.takeoffXM * scale + restShiftM,
-        lineSlope: inrun.lineSlope,
-        // The line keeps its heights where it moved to: y = slope x + intercept, shifted right.
-        lineInterceptM: inrun.lineInterceptM * scale - inrun.lineSlope * restShiftM,
-        curveA: inrun.curveA / scale,
-      },
-      landing: {
-        centerXM: landing.centerXM * scale + restShiftM,
-        centerYM: landing.centerYM * scale + tableHeightM * (scale - 1),
-        amplitudeM: landing.amplitudeM * scale,
-        widthM: landing.widthM * scale,
-        outrunStartXM: landing.outrunStartXM * scale + restShiftM,
-        outrunCurveA: landing.outrunCurveA / scale,
-        knollBlend: landing.knollBlend,
-      },
-    },
-  };
-}
-
-/** Whether a variant would be admitted: it reads as hill data and passes every admission rule of the geometry. */
-const admitted = (spec: HillSpec): boolean => parseHillSpec(spec).ok && admissionProblems(spec).length === 0;
 
 /** The training seeds: `seedsPerClass` of each wind class. */
 export function trainingSeeds(set = TRAINING_SET): number[] {
@@ -86,53 +28,37 @@ export function trainingSeeds(set = TRAINING_SET): number[] {
 }
 
 /**
- * The player the training set is chosen with, fixed so the set does not move with the trained numbers: the
- * scripted bot the play checks used before the policy was trained (aim 14 frames before the edge, one lean of
- * 0.3 rad, landing press at 2.2 m, telemark).
+ * The training hills: the generated set (`generated-hills.ts`), hills of many sizes and shapes. The play rules are
+ * not run while generating it, because they judge a hill with the trained player, which the training replaces; the
+ * tests run them on the set with the player in force.
  */
-export const REFERENCE_PLAYER_POLICY: PlayerPolicy = {
-  takeoffAimS: 14 / 70,
-  earlyFlightFrames: 0,
-  earlyLeanRad: 0.3,
-  leanRad: 0.3,
-  leanPerSpeedRadPerMPerS: 0,
-  leanPerHeightRadPerM: 0,
-  leanPerTailWindRadPerMPerS: 0,
-  landingHeightM: 2.2,
-  landingPerClosingS: 0,
-  telemark: true,
-};
-
-function jumpsToItsSize(spec: HillSpec, seeds: readonly number[], set: typeof TRAINING_SET): boolean {
-  const hill = hillChoiceOf(spec);
-  const { landingAreaEndM } = hillGeometry(hill.profile, spec.kPointM);
-  const sorted = seeds
-    .map((seed) => playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, REFERENCE_PLAYER_POLICY).distanceM)
-    .toSorted((a, b) => a - b);
-  const median =
-    ((sorted[Math.floor((sorted.length - 1) / 2)] ?? 0) + (sorted[Math.ceil((sorted.length - 1) / 2)] ?? 0)) / 2;
-  return median >= set.referenceMedianMinShareOfK * spec.kPointM && median <= landingAreaEndM;
-}
-
-/** The training hills: every admitted variant of every own hill (the hill itself among them) that jumps to its size. */
-export function trainingHills(set = TRAINING_SET): HillChoice[] {
-  const seeds = trainingSeeds(set);
-  return OWN_HILL_SPECS.flatMap((spec) =>
-    set.sizeScales.flatMap((scale) =>
-      set.inrunShiftsM
-        .map((shift) => scaledHill(spec, scale, shift))
-        .filter((v) => admitted(v) && jumpsToItsSize(v, seeds, set)),
-    ),
-  ).map(hillChoiceOf);
+export function trainingHills(): HillChoice[] {
+  return generatedHillSet(GENERATED_HILL_CHARACTERS, false).map((g) => hillChoiceOf(g.spec));
 }
 
 /** Mean score (points, a fall or a disqualification scoring the failed score) of `policy` over hills and seeds. */
 export function trainingScore(policy: PlayerPolicy, hills: readonly HillChoice[], seeds: readonly number[]): number {
   const scores = hills.flatMap((hill) =>
-    seeds.map((seed) => jumpScore(playJump(hill, seed, EXACT_PLAYER_LEVEL, seed, policy))),
+    seeds.flatMap((seed) =>
+      TRAINING_LEVELS.map(({ level, noise }) =>
+        jumpScore(playJump(hill, seed, level, noise ? seed + NOISE_SEED_OFFSET : seed, policy)),
+      ),
+    ),
   );
   return scores.reduce((a, b) => a + b, 0) / scores.length;
 }
+
+/**
+ * Who the score is taken for: the player without noise and the average and good levels with the same noise of
+ * their own errors the play checks give them. A sensible player wants points despite their own errors, so a policy
+ * that wins points only when every press is exact (a landing press low over the slope) loses them to the falls of
+ * the noisy levels, which score the failed-jump score.
+ */
+const TRAINING_LEVELS = [
+  { level: EXACT_PLAYER_LEVEL, noise: false },
+  { level: PLAYER_LEVELS.average, noise: true },
+  { level: PLAYER_LEVELS.good, noise: true },
+] as const;
 
 /** The numbers of a policy the training moves, with their steps (coarse first) and limits. */
 type NumericKey = Exclude<keyof PlayerPolicy, "telemark">;

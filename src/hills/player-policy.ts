@@ -61,28 +61,45 @@ export function policyTakesOff(policy: PlayerPolicy, view: PlayerView, aimShiftS
 }
 
 /**
- * The trained player: `node scripts/train-player.mjs 200` (about 5 minutes on a slow laptop) printed these numbers.
- * Trained on the game's own hills and variants made from their data only (`src/hills/test-support/player-training.ts`:
- * every length scaled from 0.7 to 2.5 times, inruns lengthened and shortened, a variant kept when the geometry rules
- * admit it and it jumps to its size; 19 hills from K63 to K225), on two jump seeds of each wind class, maximising the
- * mean points of the player without noise. The early part of the flight trained away (0 frames). To train again,
- * run the script and copy its numbers and scores here.
+ * The trained player: `node scripts/train-player.mjs` (about 7 minutes on a slow laptop) printed these numbers.
+ * Trained on the generated set (`src/hills/test-support/generated-hills.ts`: 16 hills from K50 to K185 of several
+ * landing hill shapes, knolls and inruns), on two jump seeds of each wind class, maximising the mean points of the
+ * player without noise. The early part of the flight trained away (0 frames) and the wind term stayed 0. To train
+ * again, run the script and copy its numbers and scores here.
  */
 export const TRAINED_PLAYER_POLICY: PlayerPolicy = {
   takeoffAimS: 0.2,
   earlyFlightFrames: 0,
-  earlyLeanRad: 0.36,
+  earlyLeanRad: 0.28,
   leanRad: 0.2,
   leanPerSpeedRadPerMPerS: 0,
-  leanPerHeightRadPerM: 0.048,
+  leanPerHeightRadPerM: 0.032,
   leanPerTailWindRadPerMPerS: 0,
-  landingHeightM: 1.8,
-  landingPerClosingS: 0.04,
+  landingHeightM: 2.2,
+  landingPerClosingS: 0,
   telemark: true,
 };
 
 /**
  * Scores of `TRAINED_PLAYER_POLICY` printed by the training: the mean points over the training set (the scripted
- * bot before it, `REFERENCE_PLAYER_POLICY`, scored 127.6) and over the game's own hills alone, on the training seeds.
+ * bot before it, `REFERENCE_PLAYER_POLICY`, scored 126.05) and over the game's own hills alone, on the training seeds.
  */
-export const TRAINED_POLICY_SCORES = { trainingSet: 154.98026521582352, ownHills: 123.25 } as const;
+export const TRAINED_POLICY_SCORES = { trainingSet: 128.3085951010386, ownHills: 118.04166666666667 } as const;
+
+/**
+ * The scripted bot the play checks used before the policy was trained (aim 14 frames before the edge, one lean of
+ * 0.3 rad, landing press at 2.2 m, telemark). Fixed, so what is built with it (the generated hills) does not move
+ * with the trained numbers.
+ */
+export const REFERENCE_PLAYER_POLICY: PlayerPolicy = {
+  takeoffAimS: 14 / 70,
+  earlyFlightFrames: 0,
+  earlyLeanRad: 0.3,
+  leanRad: 0.3,
+  leanPerSpeedRadPerMPerS: 0,
+  leanPerHeightRadPerM: 0,
+  leanPerTailWindRadPerMPerS: 0,
+  landingHeightM: 2.2,
+  landingPerClosingS: 0,
+  telemark: true,
+};
