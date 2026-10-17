@@ -1,3 +1,4 @@
+import { OWN_HILL_SPECS } from "../src/hills/own-hills";
 import { announcement, button, jumpCanvas, openJumpFromStart, openMenu, TEXT } from "./support/app";
 import { expect, test } from "./support/fixtures";
 import { expectVisibleFocus, tabThrough } from "./support/focus";
@@ -27,9 +28,13 @@ test("the menu and the hill list are operated with the keyboard alone", async ({
   await expect(page.getByRole("heading", { name: TEXT.hillListTitle })).toBeFocused();
   expect(await expectVisibleFocus(page)).toBe(TEXT.hillListTitle);
 
-  const visited = await tabThrough(page, 2);
+  // Every own hill in the order of the list, then the way back.
+  const visited = await tabThrough(page, OWN_HILL_SPECS.length + 1);
   expect(visited[0]).toContain(TEXT.builtInHill);
-  expect(visited[1]).toBe(TEXT.back);
+  expect(visited.slice(0, -1).map((name, i) => name.includes(OWN_HILL_SPECS[i]?.name ?? "?"))).toEqual(
+    OWN_HILL_SPECS.map(() => true),
+  );
+  expect(visited.at(-1)).toBe(TEXT.back);
 
   // Space activates as well; back on the menu the focus is on its title, not lost to the body.
   await page.keyboard.press("Space");

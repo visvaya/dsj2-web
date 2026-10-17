@@ -200,10 +200,11 @@ ocen; wszystkie liczby naraz, rozrzut w krokach zgrubnych, szerszy po zysku, wę
 po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: gracz odniesienia lądujący na dwie nogi
 upadał tak często, że jego średnia spadała z 128 do 82 punktów.
 
-Wynik: 128,31 punktu na zbiorze treningowym (gracz odniesienia 121,91), 118,04 na samych skoczniach własnych, po 293
+Wynik: 128,31 punktu na zbiorze treningowym (gracz odniesienia 121,91), 118,04 na skoczniach własnych spoza zbioru
+(dziś sama Ćwiczebna), po 293
 ocenach, około 19 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
 pochylenia; zostały pochylenie 0,2 rad rosnące o 0,032 rad na metr wysokości, wybicie 0,2 s przed krawędzią
-i lądowanie na 2,2 m. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na skoczniach własnych: tani
+i lądowanie na 2,2 m. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na skoczniach własnych spoza zbioru: tani
 dowód, że ani polityka, ani symulacja się nie zmieniły.
 
 Pokazany wiatr dobrze przewiduje odległość (gracz bez szumu, ziarna 1-64, składowa wiatru startowego wzdłuż
@@ -340,10 +341,12 @@ w `src/hills/hill-play.stability.test.ts` ocenia każdą skocznię własną na t
 (przegląd wiatru 1-256, 257-512, 513-768; skoki losowe 1-16, 17-32, 33-48) i wymaga tej samej listy reguł
 niespełnionych na każdym z nich.
 
-Kontrole mają dwa poziomy. Zwykłe uruchomienie testów (i bramka przed PR) ocenia każdą skocznię własną raz,
-na próbie opisanej wyżej; `corepack pnpm test src/hills` trwa około 9 s. Test stabilności trwa około 17 s na
-skocznię, więc ma osobne polecenie, `corepack pnpm test:hills-stability` (zmienna `HILL_STABILITY=1` dołącza
-plik, który `vite.config.ts` poza nią pomija). CI uruchamia je w zadaniu `checks`, gdy zmiana dotyka
+Kontrole mają dwa poziomy. Zwykłe uruchomienie testów (i bramka przed PR) ocenia szczegółowo skocznię
+treningową (pierwszą skocznię własną), na próbie opisanej wyżej; `corepack pnpm test src/hills` trwa kilkanaście
+sekund. Test stabilności ocenia każdą skocznię własną (do granicy wiarygodności botów musi przejść wszystkie
+reguły) i cały zbiór wygenerowany, łącznie około 5 minut na tej maszynie, więc ma osobne polecenie,
+`corepack pnpm test:hills-stability` (zmienna `HILL_STABILITY=1` dołącza plik, który `vite.config.ts` poza nią
+pomija). Bramka przed PR zmiany w tych ścieżkach uruchamia je także lokalnie. CI uruchamia je w zadaniu `checks`, gdy zmiana dotyka
 `src/hills/`, `src/sim/`, `src/game/`, workflow, `package.json` albo `vite.config.ts`, a także gdy nie da się
 ustalić, co się zmieniło (ręczne uruchomienie, brak poprzedniego commita).
 
@@ -443,9 +446,13 @@ K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkośc
 
 `generateHill(character, seed)` (`src/hills/hill-generator.ts`) robi skocznię z kilku wartości zrozumiałych dla
 człowieka zamiast czternastu liczb profilu. Służy do treningu gracza i do testów; jest też podstawą przyszłego
-edytora skoczni dla graczy. Żadna wygenerowana skocznia nie trafia do gry: dodanie skoczni do listy to osobna
-decyzja, a droga jest ta sama co dla każdej skoczni własnej (sekcja „Dodanie skoczni”: dane do `own-hills.ts`,
-nowy `id`, kontrole, migawka, odbiór na urządzeniu).
+edytora skoczni dla graczy. Dziesięć skoczni zbioru do K120 jest w grze (`own-4` do `own-13`): ich dane są
+skopiowane do `own-hills.ts` z własnym ziarnem scenerii, a `SET_HILLS_IN_GAME`
+(`src/hills/test-support/generated-hills.ts`) wiąże je ze skoczniami zbioru. Test stabilności sprawdza, że profil
+i K w grze są takie, jakie daje generator, a zbiór pomija te skocznie w kontroli podobieństwa, bo to te same
+skocznie. Większe skocznie zbioru czekają na bota, który gra na nich wiarygodnie. Droga do gry jest ta sama co
+dla każdej skoczni własnej (sekcja „Dodanie skoczni”: dane do `own-hills.ts`, nowy `id`, kontrole, migawka, odbiór
+na urządzeniu).
 
 ### Charakter skoczni
 
@@ -457,10 +464,11 @@ nowy `id`, kontrole, migawka, odbiór na urządzeniu).
 - `knoll`: `short`, `medium` albo `long`: jak długo zeskok za progiem się zaokrągla, zanim stanie się stromy;
 - `inrunSteepnessDeg`: nachylenie prostej części rozbiegu;
 - `takeoffAngleDeg`: kąt progu;
-- `look`: motyw kolorów sceny (`day`, `dusk`, `winter`: kolory domyślnego wyglądu z innym niebem); wygląd nie
-  zmienia skakania, a położenia podpór, drzew i znaczników odległości wynikają z profilu.
+- `look`: motyw nieba (`day`, `dusk`, `winter`); wygląd nie zmienia skakania, a położenia podpór, drzew
+  i znaczników odległości wynikają z profilu.
 
-`seed` ustala teren i drzewa oraz końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
+`seed` ustala teren, drzewa, kolory (ściany najazdu z 7 ramp palety sceny, belka startowa z 6, bandy z 8;
+`LOOK_COLOURS`, listy różnej długości dają sąsiednim ziarnom różne zestawienia) oraz końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
 (`generatedHillId`) jest zapisem charakteru, więc ten sam charakter daje ten sam identyfikator.
 
 ### Konstrukcja
@@ -498,7 +506,8 @@ z liczb skoczni oryginału.
 
 Cele (`GENERATOR_TARGETS` i reguły gry): najlepszy skok wyroczni w ciszy od K+3 do K+8 m, każda reguła
 dopuszczenia, każda reguła stylu, każda reguła symulacji (dla skoczni do granicy wiarygodności botów) i odległość
-podobieństwa co najmniej `LIKENESS.tooAlike` od każdej skoczni własnej i od skoczni podanych w `others`.
+podobieństwa co najmniej `LIKENESS.tooAlike` od każdej skoczni katalogu (`catalog`, domyślnie skocznie własne)
+i od skoczni podanych w `others`.
 
 `generateHill` zwraca dane skoczni i raport: najlepszy skok w ciszy i jego odległość od K, długość prostej
 rozbiegu, liczbę uruchomień wyroczni, część K strefy lądowania, problemy reguł stylu, czy cel skoku osiągnięto,

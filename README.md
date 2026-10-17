@@ -10,9 +10,9 @@ Telemark is a working title.
 
 ## Status
 
-As of 2026-10-14: in active development.
+As of 2026-10-17: in active development.
 
-- Playable: training mode on the built-in hill and on the 37 original hills, a replay of the last jump
+- Playable: training mode on 11 built-in hills (K50 to K120) and on the 37 original hills, a replay of the last jump
   (pause, half and quarter speed), and the original's `.rpl` replays from your own copy of the game.
 - Not there yet: competitions.
 - Playable at <https://telemark.visvaya.workers.dev> since 2026-10-13. The page can be installed and works

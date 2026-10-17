@@ -4,7 +4,9 @@ import { gameFilesOutcome } from "./game-files-choice";
 
 const exe = new Uint8Array([1, 2, 3]);
 const dat = new Uint8Array([4, 5]);
-const twoHills = () => [...OWN_HILLS, ...OWN_HILLS];
+const [hill] = OWN_HILLS;
+if (hill === undefined) throw new Error("no own hill");
+const twoHills = () => [hill, hill];
 const unreadable = () => {
   throw new Error("not an MZ executable");
 };

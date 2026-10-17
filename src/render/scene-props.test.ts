@@ -91,7 +91,8 @@ describe.each(HILLS)("on $id", ({ hill }) => {
       const h = hill.profile;
       const state = startTrainingJump(hill, 3).state;
       const table = hillLayerTables(h).farEdge;
-      const sockXM = h.takeoffXM + 15 + 25 * 2;
+      // The third sock, or the last one on a hill whose outrun comes sooner: socks stand only up to the outrun.
+      const sockXM = h.takeoffXM + 15 + 25 * Math.min(2, Math.floor((h.outrunStartXM - h.takeoffXM - 15) / 25));
       const gaps = footGaps(
         landingViews(h, sockXM - 20, sockXM + 5),
         (fb, view) => drawWindSocks(fb, h, view, state, 0),

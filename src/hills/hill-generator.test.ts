@@ -101,9 +101,9 @@ describe("checks of a generated hill", () => {
     expect(caught(() => checkGeneratedHill(stepped)).problems.map((p) => p.level)).toContain("admission");
   });
 
-  it("passes another own hill shape when nothing else is near, without the play rules", () => {
+  it("passes another own hill shape when nothing else in the catalog is near, without the play rules", () => {
     const moved = { ...own, kPointM: own.kPointM + 30 };
-    const checks = checkGeneratedHill(moved, { checkPlay: false, others: [] });
+    const checks = checkGeneratedHill(moved, { checkPlay: false, catalog: [own], others: [] });
     expect(checks.playJudged).toBe(false);
     expect(checks.closestId).toBe(own.id);
   });
