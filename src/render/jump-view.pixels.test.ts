@@ -288,6 +288,16 @@ function telemarkJump(): Scenario {
 }
 
 /**
+ * The telemark jump on a further own hill: the bot prepares the landing 1 m above the slope rather than 2 m, below
+ * the lowest table the rules allow, since on a hill with a low table 2 m would come right after the takeoff.
+ */
+function ownHillJump(): Scenario {
+  const sc = telemarkJump();
+  if (sc.bot === null) throw new Error("the telemark jump has no bot");
+  return { ...sc, bot: { ...sc.bot, landingHeightM: 1 } };
+}
+
+/**
  * A hill that exists only in this test: the first own hill's data with another id, another sky and other trees,
  * parsed and built the way every own hill is.
  */
@@ -313,7 +323,7 @@ describe("jump view pixels of every own hill", () => {
     it(
       `${hill.id}: ${telemarkJump().name}`,
       () => {
-        const sc = telemarkJump();
+        const sc = ownHillJump();
         const frames = capture(sc, hill, HILL_VARIANTS);
         expect(sc.moments.filter((m) => frames[m.name] === undefined).map((m) => m.name)).toEqual([]);
         expect(frames).toMatchSnapshot();

@@ -1,5 +1,6 @@
 import { hillChoiceOf } from "../game/hill-choice";
 import type { HillLook } from "../render/hill-look";
+import { BorlandRandom } from "../sim/borland-random";
 import { detCos, detExp, detSin } from "../sim/deterministic-math";
 import type { InrunSpec, LandingSpec } from "../sim/hill-setup";
 import { geometryProblems, hillGeometry, kFromSteepestMaxM, type HillGeometry } from "./hill-geometry";
@@ -98,7 +99,6 @@ type LookTheme = "day" | "dusk" | "winter";
 const GENERATOR = {
   inrunStartXM: 10,
   flatBehindStartM: 1.4,
-  platformBehindFlatEndM: 3,
   inrunCurveRadiusPerKM: 0.25,
   /** The bend's radius at most: hills from K160 up take this one. */
   inrunCurveRadiusMaxM: 40,
@@ -443,38 +443,102 @@ const colourOf = (list: readonly number[], seed: number): number =>
   list[((seed % list.length) + list.length) % list.length] ?? 0;
 
 /** Seeds of the terrain and the trees are spread over their range by these odd multipliers. */
-const LOOK_SEED_MULTIPLIERS = { terrain: 7919, trees: 104_729 } as const;
+const LOOK_SEED_MULTIPLIERS = { terrain: 7919, trees: 104_729, shape: 31_337 } as const;
 const SEED_RANGE = 65_536;
 
 /**
+ * Ranges the seed draws a generated hill's look from, so that hills differ in more than colour: the original's hills
+ * use 2 to 6 supports, walls of 10 to 15 rows above the track and 3 to 40 below, platforms up to about 11 m and
+ * terrain of 15 to 120 m. Supports: one under the start platform, then up to four along the inrun, each thin or wide.
+ */
+const LOOK_RANGES = {
+  /** Behind the flat part, in metres. */
+  platformBehindM: { min: 1, max: 8 },
+  nearWallUpPx: { min: 10, max: 15 },
+  nearWallDownPx: [5, 11, 18, 26, 34],
+  /** Supports past the one under the platform. */
+  inrunSupports: { min: 1, max: 4 },
+  /** A thin support's half width, and a wide one's at a 60 m long inrun (wider on longer inruns), in metres. */
+  thinHalfM: { min: 0.4, max: 0.7 },
+  wideHalfM: { min: 1, max: 3 },
+  /** A support's centre moves this share of its stretch of the inrun either way. */
+  supportJitterShare: 0.15,
+  supportColour: { min: 10, max: 13 },
+  terrainAmplitudeM: { min: 25, max: 90 },
+  treesFirstCount: { min: 40, max: 90 },
+  treesSecondCount: { min: 10, max: 50 },
+  fenceStartM: { min: -4, max: 2 },
+} as const;
+
+/** Draws from a range: integers when both ends are integers, otherwise a step of a tenth. */
+function drawFrom(rng: BorlandRandom, r: { readonly min: number; readonly max: number }): number {
+  const tenths = Math.round((r.max - r.min) * 10);
+  return Number.isInteger(r.min) && Number.isInteger(r.max)
+    ? r.min + rng.below(r.max - r.min + 1)
+    : round(r.min + rng.below(tenths + 1) / 10, 1);
+}
+
+/** A length of the look rounded as the spec's lengths are. */
+const at = (x: number): number => round(x, G.decimals.lengthM);
+
+/** The supports of the inrun: one under the platform, then thin and wide ones along the inrun to before the takeoff. */
+function supportsOf(inrun: InrunSpec, rng: BorlandRandom): HillLook["supports"] {
+  const L = LOOK_RANGES;
+  const colour = drawFrom(rng, L.supportColour);
+  const under = {
+    fromXM: at(Math.max(0, inrun.flatEndXM - drawFrom(rng, { min: 1, max: 3 }))),
+    toXM: at(inrun.flatEndXM + 0.3),
+  };
+  const from = inrun.flatEndXM + 3;
+  const to = inrun.takeoffXM - 2;
+  const count = drawFrom(rng, L.inrunSupports);
+  const stretchM = (to - from) / count;
+  const along = Array.from({ length: count }, (_, i) => {
+    const jitter = (rng.below(31) / 15 - 1) * L.supportJitterShare;
+    const centre = from + stretchM * (i + 0.5 + jitter);
+    const wide = rng.below(2) === 1;
+    const half = wide ? drawFrom(rng, L.wideHalfM) * (1 + (to - from) / 60) : drawFrom(rng, L.thinHalfM);
+    const halfM = Math.min(half, 0.45 * stretchM);
+    return { fromXM: at(centre - halfM), toXM: at(Math.min(to, centre + halfM)), wide };
+  });
+  return [
+    { ...under, colour, frontColour: 25 },
+    ...along.map(({ fromXM, toXM, wide }) => ({ fromXM, toXM, colour, frontColour: wide ? 25 : 17 })),
+  ];
+}
+
+/**
  * The look of a generated hill: the theme's sky, and every position taken from the profile (the start platform
- * behind the gate, three supports under the inrun ending before the takeoff, trees from the takeoff to past the
- * outrun's bottom, three marks before K). `seed` sets the terrain, the trees and the colours of the inrun's walls,
- * the start gate and the fences.
+ * behind the gate, supports under the inrun ending before the takeoff, trees from the takeoff to past the
+ * outrun's bottom, three marks before K). `seed` sets the colours of the inrun's walls, the start gate and the
+ * fences, and draws the rest from `LOOK_RANGES`: the supports, the walls, the platform, the terrain, the trees and
+ * where the fences start.
  */
 function lookOf(c: HillCharacter, inrun: InrunSpec, lowestXM: number, seed: number): HillLook {
-  const at = (x: number): number => round(x, G.decimals.lengthM);
-  const along = (share: number): number => at(inrun.startXM + share * (inrun.takeoffXM - inrun.startXM));
+  const L = LOOK_RANGES;
+  const rng = new BorlandRandom((seed * LOOK_SEED_MULTIPLIERS.shape) % SEED_RANGE);
+  const supports = supportsOf(inrun, rng);
+  const nearWallDownPx = L.nearWallDownPx[rng.below(L.nearWallDownPx.length)] ?? L.nearWallDownPx[0];
   return {
     skyRgb6: THEME_SKY_RGB6[c.look],
-    terrain: { seed: (seed * LOOK_SEED_MULTIPLIERS.terrain) % SEED_RANGE, amplitudeM: 50, baseOverOutrunM: 3 },
+    terrain: {
+      seed: (seed * LOOK_SEED_MULTIPLIERS.terrain) % SEED_RANGE,
+      amplitudeM: drawFrom(rng, L.terrainAmplitudeM),
+      baseOverOutrunM: 3,
+    },
     trees: {
-      firstCount: 70,
-      secondCount: 30,
+      firstCount: drawFrom(rng, L.treesFirstCount),
+      secondCount: drawFrom(rng, L.treesSecondCount),
       fromXM: at(inrun.takeoffXM),
       toXM: at(lowestXM + G.treesPastLowestM),
       seed: (seed * LOOK_SEED_MULTIPLIERS.trees) % SEED_RANGE,
       hidden: [],
     },
-    supports: [
-      { fromXM: at(Math.max(0, inrun.flatEndXM - 2)), toXM: at(inrun.flatEndXM + 0.3), colour: 13, frontColour: 25 },
-      { fromXM: along(0.27), toXM: along(0.3), colour: 13, frontColour: 17 },
-      { fromXM: along(0.63), toXM: along(0.83), colour: 13, frontColour: 25 },
-    ],
+    supports,
     inrun: {
-      platformStartXM: at(Math.max(0, inrun.flatEndXM - G.platformBehindFlatEndM)),
-      nearWallUpPx: 12,
-      nearWallDownPx: 11,
+      platformStartXM: at(Math.max(0, inrun.flatEndXM - drawFrom(rng, L.platformBehindM))),
+      nearWallUpPx: drawFrom(rng, L.nearWallUpPx),
+      nearWallDownPx,
       wallColour: colourOf(LOOK_COLOURS.wall, seed),
       gateColour: colourOf(LOOK_COLOURS.gate, seed),
     },
@@ -482,7 +546,7 @@ function lookOf(c: HillCharacter, inrun: InrunSpec, lowestXM: number, seed: numb
       firstMarkM: c.kPointM - G.firstMarkBeforeKM,
       markCount: 3,
       fenceColour: colourOf(LOOK_COLOURS.fence, seed),
-      fenceStartM: 0,
+      fenceStartM: drawFrom(rng, L.fenceStartM),
     },
   };
 }

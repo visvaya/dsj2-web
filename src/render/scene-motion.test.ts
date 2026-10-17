@@ -245,8 +245,9 @@ describe.each(HILLS)("on $id", ({ hill, frameStep }) => {
           .filter(([, set]) => set.size > 1)
           .map(([key, set]) => `${key}: ${[...set].join(", ")}`);
         expect(moving).toEqual([]);
-        // The jump shows the props it is meant to check (eight by day on the shortest own hills).
-        expect(gaps.size).toBeGreaterThanOrEqual(night ? 13 : 8);
+        // The jump shows the props it is meant to check: the six ends of the distance lines and at least one wind
+        // sock by day, and masts and lamps besides by night.
+        expect(gaps.size).toBeGreaterThanOrEqual(night ? 13 : 7);
       },
       MOTION_TIMEOUT_MS,
     );
