@@ -18,6 +18,9 @@ Options:
   --seed J:HEX       force the random seed at the entry of the pilot setup of
                      jump J (repeatable): a patch of the generator for branches
                      that are rare in natural play
+  --record J:F=V,..  patch fields of the jumper's computer record at the entry
+                     of the pilot setup of jump J (repeatable); fields form1,
+                     form2, talent1, talent2 (Single) and level (byte)
   --max-ticks N      upper bound of the run (default 12000 timer ticks)
   --shots            save a screenshot after each menu step into <work-dir>
 
@@ -77,6 +80,17 @@ FRAME_LOGIC = 3
 CUP_POINTS = {CUP_START, CUP_END, COMPETITION_START, COMPETITION_END}
 
 RAND_SEED = 0x1942
+JUMPER_INDEX = 0x58AE
+CPU_RECORD = 0x5CBF
+CPU_RECORD_BYTES = 17
+# Offset and struct format of each field of a computer record.
+CPU_RECORD_FIELDS = {
+    "form1": (0, "<f"),
+    "form2": (4, "<f"),
+    "talent1": (8, "<f"),
+    "talent2": (12, "<f"),
+    "level": (16, "<B"),
+}
 JUMPER_LIST = 0x5906
 JUMPER_LIST_BYTES = 26
 JUMPER_LEVEL = 0x19
@@ -117,6 +131,26 @@ def parse_seed(text: str) -> tuple[int, int]:
     return int(jump), int(seed, 16) & 0xFFFFFFFF
 
 
+def parse_record_patch(text: str) -> tuple[int, dict[str, float]]:
+    jump, _, fields = text.partition(":")
+    patch: dict[str, float] = {}
+    for item in fields.split(","):
+        name, _, value = item.partition("=")
+        if name not in CPU_RECORD_FIELDS:
+            raise ValueError(f"unknown record field {name!r}")
+        patch[name] = float(value)
+    return int(jump), patch
+
+
+def record_patch_bytes(patch: dict[str, float]) -> list[tuple[int, bytes]]:
+    """Offsets within the record and the bytes to write there."""
+    out = []
+    for name, value in patch.items():
+        offset, fmt = CPU_RECORD_FIELDS[name]
+        out.append((offset, struct.pack(fmt, int(value) if fmt == "<B" else value)))
+    return out
+
+
 def hill_checkbox(index: int) -> tuple[int, int]:
     column, row = divmod(index, HILL_LIST_ROWS)
     x = HILL_LIST_FIRST[0] if column == 0 else HILL_LIST_SECOND_COLUMN_X
@@ -127,12 +161,18 @@ class Recorder:
     """Collects snapshots per jump and writes each jump when the next one starts."""
 
     def __init__(
-        self, out_dir: str, name: str, jumps: tuple[int, int], seeds: dict[int, int]
+        self,
+        out_dir: str,
+        name: str,
+        jumps: tuple[int, int],
+        seeds: dict[int, int],
+        records: dict[int, dict[str, float]],
     ):
         self.out_dir = out_dir
         self.name = name
         self.first, self.last = jumps
         self.seeds = seeds
+        self.records_patch = records
         self.jump = 0
         self.records: list[bytes] = []
         self.cup: list[bytes] = []
@@ -164,7 +204,8 @@ def run(args: argparse.Namespace) -> int:
     m = session.machine
     ds = (LOAD_SEGMENT + DATA_SEGMENT) * 16
     seeds = dict(parse_seed(s) for s in args.seed)
-    rec = Recorder(args.out_dir, args.name, parse_jumps(args.jumps), seeds)
+    patches = dict(parse_record_patch(r) for r in args.record)
+    rec = Recorder(args.out_dir, args.name, parse_jumps(args.jumps), seeds, patches)
 
     def snapshot(uc, point: int) -> bytes:
         data = bytes(uc.mem_read(ds, SNAPSHOT_BYTES))
@@ -182,6 +223,11 @@ def run(args: argparse.Namespace) -> int:
                 return
             if point == CPU_SETUP_ENTRY and rec.jump in rec.seeds:
                 uc.mem_write(ds + RAND_SEED, struct.pack("<I", rec.seeds[rec.jump]))
+            if point == CPU_SETUP_ENTRY and rec.jump in rec.records_patch:
+                index = bytes(uc.mem_read(ds + JUMPER_INDEX, 1))[0]
+                base = ds + CPU_RECORD + CPU_RECORD_BYTES * index
+                for offset, data in record_patch_bytes(rec.records_patch[rec.jump]):
+                    uc.mem_write(base + offset, data)
             rec.records.append(snapshot(uc, point))
 
         return hook
@@ -273,6 +319,7 @@ def main() -> None:
     p.add_argument("--levels", default="")
     p.add_argument("--jumps", default="1-16")
     p.add_argument("--seed", action="append", default=[])
+    p.add_argument("--record", action="append", default=[])
     p.add_argument("--max-ticks", type=int, default=DEFAULT_MAX_TICKS)
     p.add_argument("--shots", action="store_true")
     args = p.parse_args()
