@@ -18,10 +18,9 @@ export const HILL_RULES = {
   landingAngleAtKMaxDeg: 48,
   /**
    * Horizontal distance of the K point from the steepest point of the landing hill, either way: at most the larger
-   * of a fixed floor and a share of K (`kFromSteepestMaxM`). A modern landing hill is nearly straight from its P
-   * point to K, and P lies about a tenth to a fifth of K before K, so the steepest point can be anywhere on a
-   * stretch that grows with the hill. The share is the low end of that range, which still leaves the generator's
-   * big hills room for its margin; the floor keeps small hills to the few metres a jumper can tell apart.
+   * of a fixed floor and a share of K (`kFromSteepestMaxM`). On a bigger hill the nearly steepest stretch of the
+   * landing hill is longer, so its steepest point may lie further from K. The share leaves the generator's big
+   * hills room for its margin; the floor keeps small hills to the few metres a jumper can tell apart.
    */
   kFromSteepestMinM: 15,
   kFromSteepestShareOfK: 0.12,

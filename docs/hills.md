@@ -90,9 +90,11 @@ z `HILL_RULES` (identyfikatory `geometry.…`). Pomiary są skończone dla każd
 - `landing-angle-at-k`: nachylenie zeskoku w punkcie K 34..48°, bo w okolicy K ląduje większość skoków i tam
   zeskok ma przejmować lądowanie;
 - `k-near-steepest`: punkt K w poziomie najwyżej `max(15 m, 0,12 K)` od najbardziej stromego miejsca zeskoku
-  (`kFromSteepestMaxM`): nowoczesny zeskok jest niemal prosty od punktu P do K, a P leży mniej więcej 0,1..0,2 K
-  przed K, więc najbardziej strome miejsce może leżeć gdziekolwiek na odcinku rosnącym z wielkością skoczni;
-  0,12 K to dolna część tego zakresu, a 15 m trzyma małe skocznie przy kilku metrach, które skoczek rozróżnia;
+  (`kFromSteepestMaxM`): na dużej skoczni prawie najbardziej stromy odcinek zeskoku jest dłuższy, więc najbardziej
+  strome miejsce może leżeć dalej od K. Udział 0,12 K wystarcza dużym skoczniom generatora z jego zapasem; duże
+  skocznie oryginału leżą do około 0,18 K od K (zmierzone lokalnie na plikach gry), ale reguły stylu nie muszą
+  ich przepuszczać.
+  15 m trzyma małe skocznie przy kilku metrach, które skoczek rozróżnia;
 - `landing-area-length`: koniec strefy lądowania (pierwsze miejsce za najbardziej stromym, gdzie zeskok jest
   łagodniejszy niż 32°, mierzony łukiem od progu) leży 0,1..0,4 K za punktem K, bo dalsze skoki potrzebują miejsca;
 - `outrun-length`: od końca strefy lądowania do najniższego punktu wybiegu co najmniej 30 m w poziomie, na
