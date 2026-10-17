@@ -13,6 +13,14 @@ import unittest
 import capstone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from cpu_capture import (
+    POINTS,
+    hill_checkbox,
+    parse_jumps,
+    parse_record_patch,
+    parse_seed,
+    record_patch_bytes,
+)
 from craft_replays import (
     SCENARIOS,
     apply_plan,
@@ -32,6 +40,35 @@ from rpl_codec import (
     encode_replay,
 )
 from trace_file import open_trace, write_trace
+
+
+class CpuCaptureTest(unittest.TestCase):
+    def test_jump_ranges(self) -> None:
+        self.assertEqual(parse_jumps("1-16"), (1, 16))
+        self.assertEqual(parse_jumps("3"), (3, 3))
+
+    def test_forced_seed(self) -> None:
+        self.assertEqual(parse_seed("2:ea652a36"), (2, 0xEA652A36))
+        self.assertEqual(parse_seed("1:1ffffffff"), (1, 0xFFFFFFFF))
+
+    def test_record_patch(self) -> None:
+        jump, patch = parse_record_patch("1:talent2=15,level=0")
+        self.assertEqual((jump, patch), (1, {"talent2": 15.0, "level": 0.0}))
+        expected = [(12, struct.pack("<f", 15.0)), (16, bytes([0]))]
+        self.assertEqual(record_patch_bytes(patch), expected)
+        with self.assertRaises(ValueError):
+            parse_record_patch("1:speed=3")
+
+    def test_hill_checkboxes_fill_the_first_column_first(self) -> None:
+        self.assertEqual(hill_checkbox(0), (52, 67))
+        self.assertEqual(hill_checkbox(7), (52, 144))
+        self.assertEqual(hill_checkbox(8), (172, 67))
+
+    def test_points_keep_the_frame_loop_numbers(self) -> None:
+        numbers = [point for point, _seg, _off in POINTS]
+        self.assertEqual(numbers[:4], [0, 1, 2, 3])
+        self.assertEqual(len(numbers), len(set(numbers)))
+        self.assertNotIn(4, numbers)  # the hill setup point of hill_capture.py
 
 
 class RestoreFpuTest(unittest.TestCase):

@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`a whole computer jump > flies, lands and ends in the frame its result is in when nobody watches 1`] = `
+{
+  "distanceM": 81.27999877929688,
+  "fallType": 0,
+  "frames": 588,
+  "hash": "b610536a",
+  "notes": [
+    19.5,
+    18,
+    18.5,
+    18.5,
+    19,
+  ],
+}
+`;

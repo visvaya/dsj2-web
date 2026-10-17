@@ -23,6 +23,8 @@ const exePath = golden.exe;
 const SIMILAR_K_M = 15;
 /** One evaluation of a hill takes about 8 s alone; several run here. */
 const ENVELOPE_TIMEOUT_MS = 600_000;
+/** The likeness check takes about 4 s alone (measured 2026-10-17) and twice that beside the golden tests. */
+const LIKENESS_TIMEOUT_MS = 60_000;
 
 function load(): OriginalHill[] {
   const exe = new Uint8Array(readFileSync(exePath ?? ""));
@@ -118,16 +120,20 @@ describe.skipIf(!golden.requested)("own hills against the hills of the original"
     expect(golden.problems).toEqual([]);
   });
 
-  it.skipIf(exePath === undefined)("has no own hill too alike to an original one", () => {
-    const originals = originalHillChoices(load());
-    const tooAlike = ownHills.flatMap((own) =>
-      originals.flatMap((o) => {
-        const d = hillDistance(own, o);
-        return d < LIKENESS.tooAlike ? [`${own.id} is ${d.toFixed(3)} from ${o.id}`] : [];
-      }),
-    );
-    expect(tooAlike).toEqual([]);
-  });
+  it.skipIf(exePath === undefined)(
+    "has no own hill too alike to an original one",
+    () => {
+      const originals = originalHillChoices(load());
+      const tooAlike = ownHills.flatMap((own) =>
+        originals.flatMap((o) => {
+          const d = hillDistance(own, o);
+          return d < LIKENESS.tooAlike ? [`${own.id} is ${d.toFixed(3)} from ${o.id}`] : [];
+        }),
+      );
+      expect(tooAlike).toEqual([]);
+    },
+    LIKENESS_TIMEOUT_MS,
+  );
 
   it.skipIf(exePath === undefined)(
     "plays every own hill inside the range of the originals of a similar size",

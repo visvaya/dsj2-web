@@ -154,3 +154,47 @@ export function hillGoldenFiles(env: Env = process.env): HillGoldenFiles {
   ];
   return { requested: true, exe, dat, hillTrace, problems };
 }
+
+const CPU_JUMP_SUFFIX = ".cputrace";
+const CUP_SUFFIX = ".cuptrace";
+
+/** Files of a directory with `suffix` (plain or gzip-compressed) as traces, sorted by name. */
+function suffixedTraces(dir: string, files: readonly string[], suffix: string): TraceFile[] {
+  return files
+    .flatMap((file) => {
+      const name = stripSuffix(file, suffix);
+      return name === undefined ? [] : [{ name, path: join(dir, file) }];
+    })
+    .toSorted((one, other) => (one.name < other.name ? -1 : one.name > other.name ? 1 : 0));
+}
+
+interface CpuGoldenTraces {
+  /** False when DSJ2_TRACE_DIR is not set: the computer jumper tests are skipped. */
+  requested: boolean;
+  /** One computer jump each (tools/re/cpu_capture.py): `<session>-NN.cputrace` or its `.gz` form. */
+  jumps: TraceFile[];
+  /** Cup and competition start of each capture session: `<session>.cuptrace` or its `.gz` form. */
+  cups: TraceFile[];
+  problems: string[];
+}
+
+/** Traces of computer jumps in DSJ2_TRACE_DIR; once it is set, at least one of each kind is required. */
+export function cpuGoldenTraces(env: Env = process.env): CpuGoldenTraces {
+  const dir = env["DSJ2_TRACE_DIR"] ?? "";
+  if (dir === "") return { requested: false, jumps: [], cups: [], problems: [] };
+  const files = filesIn(dir);
+  if (files === undefined) {
+    return { requested: true, jumps: [], cups: [], problems: [`DSJ2_TRACE_DIR (${dir}) cannot be read`] };
+  }
+  const jumps = suffixedTraces(dir, files, CPU_JUMP_SUFFIX);
+  const cups = suffixedTraces(dir, files, CUP_SUFFIX);
+  const doubled = [...jumps, ...cups]
+    .filter((trace, i, all) => all[i + 1]?.name === trace.name)
+    .map((trace) => `${trace.name} exists both plain and gzip-compressed in ${dir}; remove one`);
+  const problems = [
+    ...(jumps.length === 0 ? [`DSJ2_TRACE_DIR (${dir}) holds no .cputrace file`] : []),
+    ...(cups.length === 0 ? [`DSJ2_TRACE_DIR (${dir}) holds no .cuptrace file`] : []),
+    ...doubled,
+  ];
+  return { requested: true, jumps, cups, problems };
+}

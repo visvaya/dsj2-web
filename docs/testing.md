@@ -318,6 +318,7 @@ DSJ2_TRACE_DIR=/ścieżka/traces DSJ2_GAME_DIR=/ścieżka/gra pnpm test
 | `DSJ2_TRACE` (bez katalogu) | wskazany plik istnieje | błąd w każdym teście korzystającym ze śladów |
 | dowolna zmienna śladów | `<nazwa>.rpl` w `DSJ2_GAME_DIR` dla każdego śladu `<nazwa>.trace` | błąd w `jump-sim.golden.test.ts` z listą śladów bez powtórki |
 | `DSJ2_GAME_DIR` | `Dsj.exe` i `Dsj.dat` | błąd w `original-hills.golden.test.ts` i `src/hills/original-hills.local.test.ts` |
+| `DSJ2_TRACE_DIR` | co najmniej jeden plik `.cputrace` i jeden `.cuptrace` (skoki komputerowe) | błąd w `cpu-pilot.golden.test.ts` |
 
 Gdy ustawiono `DSJ2_TRACE_DIR`, zmienna `DSJ2_TRACE` nie jest brana pod uwagę, także wtedy, gdy katalogu nie da się
 odczytać. Samo `DSJ2_GAME_DIR` (bez śladów) uruchamia tylko testy odczytu skoczni; porównanie profili ze śladem
@@ -347,6 +348,35 @@ python3 -I tools/re/hill_capture.py <gra> <katalog-roboczy> <DSJ2_TRACE_DIR>/hil
 Zapisuje stan oryginału po ustawieniu każdej z 37 skoczni (ok. 100 s na skocznię, zmierzone 2026-10-12); test
 `original-hills.golden.test.ts` porównuje z nim odczyt z `Dsj.exe`. Potrzebuje też `Dsj.exe` i `Dsj.dat`
 w `DSJ2_GAME_DIR`.
+
+### Skoki komputerowe
+
+Skoki przeciwników sterowanych przez komputer nie mają powtórek: oryginał rozgrywa je sam w Pucharze Świata.
+`cpu_capture.py` przechodzi menu w emulatorze (ustawienia dźwięku, Puchar Świata, uczestnicy bez gracza 1, więc
+skacze ośmiu przeciwników, opcjonalnie wybór skoczni, start pucharu, lista startowa; wyniki po pierwszej serii
+klika dalej) i zapisuje ślad każdego skoku:
+
+```sh
+python3 -I tools/re/cpu_capture.py <gra> <katalog-roboczy> <wyjście> <nazwa> [--skip-hills N] [--watch]   [--levels L1,..,L8] [--jumps A-B] [--seed J:HEX] [--max-ticks N] [--shots]
+```
+
+- `<wyjście>/<nazwa>-NN.cputrace.gz`: skok NN zawodów (1..16: dwie serie po ośmiu skoczków), od wywołania sesji
+  skoku (0baf:cc6e) do następnego. Oprócz czterech punktów klatki ślad ma migawki na wejściu i wyjściu
+  ustawienia pilota (0baf:8aeb, punkty 5 i 6) i na wyjściu z pętli skoku (0baf:d1f9, punkt 11).
+- `<wyjście>/<nazwa>.cuptrace.gz`: migawki przed i po losowaniu talentów na starcie pucharu (punkty 7 i 8) oraz
+  formy na starcie zawodów (9 i 10).
+- `--skip-hills N` odznacza N pierwszych skoczni pucharu, więc zawody odbywają się na następnej (domyślnie
+  Finlandia K105); `--watch` zaznacza oglądanie skoków przeciwników (skoki są rysowane); `--levels` wpisuje
+  poziomy przeciwników do listy zawodników przed startem pucharu, tak jak edytor skoczka (5 = losowy);
+  `--seed J:HEX` podmienia ziarno na wejściu ustawienia pilota w skoku J. To łatka generatora: wymusza gałąź,
+  która w zwykłej grze zdarza się rzadko (skok nieudany, ograniczenia czasu wybicia).
+
+Test `src/sim/cpu-pilot.golden.test.ts`
+porównuje dla każdego `.cuptrace` losowanie talentów i formy (bit w bit, łącznie z ziarnem), a dla każdego
+`.cputrace`: ustawienie pilota z rekordu i ziarna na wejściu (bit w bit), wejście i stan pilota w każdej klatce
+z migawki odczytu wejścia (bit w bit), stan startowy skoku (z polami, których oryginał nie zeruje między skokami)
+oraz cały skok od ziarna po ustawieniu: każda klatka (tolerancja względna 1e-5), klatka końca pętli,
+odległość, noty i punkty.
 
 ### Powtórki dla dowolnej skoczni
 
