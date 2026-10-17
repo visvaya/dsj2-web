@@ -187,7 +187,7 @@ export const PLAY_SAMPLE = {
 } as const;
 
 /** Seeds of the player's own errors are offset from the jump seeds, so the two do not repeat each other. */
-const NOISE_SEED_OFFSET = 100_000;
+export const NOISE_SEED_OFFSET = 100_000;
 
 /** Plain numbers measured on a hill by the bots; no threshold is applied here. */
 export interface PlayMeasures {

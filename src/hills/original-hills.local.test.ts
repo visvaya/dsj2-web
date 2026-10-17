@@ -74,12 +74,16 @@ const ownHills = OWN_HILL_SPECS.map(hillChoiceOf);
 const SIZE_BUCKET_ENDS_M = [90, 120, 160, Number.POSITIVE_INFINITY];
 
 /**
- * How close the trained player must come to the oracle, as the distance the oracle adds, in shares of K: on
- * average over a size bucket and at its 90th percentile. Proposed from the run that set it: on the originals up to
- * K120, where the bots were already trusted, the mean was 0.049 and 0.055 and the 90th percentile 0.100 and 0.097;
- * from K120 to K160 they were 0.072 and 0.141, above K160 0.096 and 0.195.
+ * How close the trained player must come to the oracle on a size bucket to be trusted there, relative to the
+ * smallest bucket (K up to 90) of the same run: the mean and the 90th percentile of the distance the oracle adds
+ * (in shares of K) at most this many times those of the smallest bucket, and no fall. Relative, because a policy
+ * trained to be robust to the player's own errors deliberately leaves distance to the oracle at every size; the
+ * question is whether the bot is as credible on a size as on the sizes already trusted. 1.25 gives the verdict the
+ * earlier absolute margin (0.06 K mean, 0.12 K at the 90th percentile) gave with the earlier policy: K90-120 at 1.12
+ * and 0.97 times passed, K120-160 at 1.47 and 1.41 failed; with the robust policy K90-120 is at about 1.20 and 1.05
+ * and the larger buckets exceed it on the mean or the 90th percentile.
  */
-const ORACLE_GAP_MAX = { meanShareOfK: 0.06, p90ShareOfK: 0.12 } as const;
+const ORACLE_GAP_MAX_RATIO_TO_SMALLEST = 1.25;
 
 /** One original and wind: what the trained player and the oracle made of it. */
 interface OracleGap {
@@ -179,9 +183,12 @@ describe.skipIf(!golden.requested)("own hills against the hills of the original"
         )
         .join("; ");
       const trusted = buckets.filter((b) => b.start < PLAY_RULES.botReliableMaxKPointM);
+      const [smallest] = buckets;
+      if (smallest === undefined) throw new Error("no size bucket");
+      const r = ORACLE_GAP_MAX_RATIO_TO_SMALLEST;
       const outside = trusted.filter(
         (b) =>
-          !(b.meanShareOfK <= ORACLE_GAP_MAX.meanShareOfK && b.p90ShareOfK <= ORACLE_GAP_MAX.p90ShareOfK) ||
+          !(b.meanShareOfK <= r * smallest.meanShareOfK && b.p90ShareOfK <= r * smallest.p90ShareOfK) ||
           b.playerFalls > 0,
       );
       expect({ outside: outside.map((b) => `K ${b.start}..${b.end}`), table }).toEqual({ outside: [], table });

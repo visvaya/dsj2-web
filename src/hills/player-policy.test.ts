@@ -12,8 +12,7 @@ import {
   type PlayerPolicy,
 } from "./player-policy";
 import { playerView, type PlayerView } from "./player-view";
-import { ownHillsScore, scaledHill } from "./test-support/player-training";
-import { OWN_HILL_SPECS } from "./own-hills";
+import { ownHillsScore } from "./test-support/player-training";
 
 const [training] = OWN_HILLS;
 if (training === undefined) throw new Error("no own hill");
@@ -86,14 +85,6 @@ describe("player policy", () => {
 });
 
 describe("player training", () => {
-  it("scales an own hill by 1 with no inrun shift into the same profile and K point", () => {
-    const [spec] = OWN_HILL_SPECS;
-    if (spec === undefined) throw new Error("no own hill");
-    const same = scaledHill(spec, 1, 0);
-    expect(same.kPointM).toBe(spec.kPointM);
-    expect(same.profile).toEqual(spec.profile);
-  });
-
   it("reproduces the recorded score of the trained player on the own hills", () => {
     expect(ownHillsScore(TRAINED_PLAYER_POLICY)).toBe(TRAINED_POLICY_SCORES.ownHills);
   });
