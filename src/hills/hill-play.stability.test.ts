@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { PLAY_RULES, PLAY_SAMPLE, playMeasures, playProblems } from "./hill-play";
 import { generatedHillSet, SET_HILLS_IN_GAME } from "./test-support/generated-hills";
-import { hillFingerprint } from "./hill-fingerprint";
 import { OWN_HILL_SPECS } from "./own-hills";
 
 /**
@@ -50,13 +49,9 @@ describe("generated set", () => {
         ...(report.playJudged || spec.kPointM > PLAY_RULES.botReliableMaxKPointM ? [] : [`${spec.id}: not judged`]),
       ]);
       expect(missed).toEqual([]);
-      // The hills of the set in the game have the profile and the K point the generator gives them.
-      const inGame = Object.entries(SET_HILLS_IN_GAME).map(([setId, ownId]) => {
-        const generated = set.find((g) => g.spec.id === setId)?.spec;
-        const own = OWN_HILL_SPECS.find((s) => s.id === ownId);
-        return [setId, generated && hillFingerprint(generated), own && hillFingerprint(own)];
-      });
-      expect(inGame.filter(([, generated, own]) => generated === undefined || generated !== own)).toEqual([]);
+      // The hills of the set in the game are taken as the game has them, each once.
+      const ownIds = set.map(({ spec }) => spec.id).filter((id) => OWN_HILL_SPECS.some((s) => s.id === id));
+      expect(ownIds.toSorted()).toEqual(Object.values(SET_HILLS_IN_GAME).toSorted());
     },
     GENERATED_SET_TIMEOUT_MS,
   );

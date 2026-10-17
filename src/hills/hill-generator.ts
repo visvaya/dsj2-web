@@ -2,7 +2,7 @@ import { hillChoiceOf } from "../game/hill-choice";
 import type { HillLook } from "../render/hill-look";
 import { detCos, detExp, detSin } from "../sim/deterministic-math";
 import type { InrunSpec, LandingSpec } from "../sim/hill-setup";
-import { geometryProblems } from "./hill-geometry";
+import { geometryProblems, hillGeometry, kFromSteepestMaxM, type HillGeometry } from "./hill-geometry";
 import { hillDistance, LIKENESS } from "./hill-likeness";
 import { oracleJump } from "./hill-oracle";
 import { PLAY_RULES, playMeasures, playProblems, windClassSeeds } from "./hill-play";
@@ -39,7 +39,32 @@ export interface HillCharacter {
   takeoffAngleDeg: number;
   /** Colours of the scene; the look does not change how the hill plays. */
   look: LookTheme;
+  /**
+   * Where the start gate stands: the inrun's start, horizontal metres from the scene's origin, from 6 to 34
+   * (`CHARACTER_LIMITS`); 10 when not given. A gate further on leaves less of the scene to the inrun.
+   */
+  gateXM?: number;
+  /** Length of the flat part behind the gate, from 0.5 to 7 m; 1.4 m when not given. */
+  flatBehindGateM?: number;
+  /**
+   * How far past K the oracle's best jump on the calmest seed is to land, in metres: at least 3 m wide, from K+3 up
+   * to K+18 at most, and short of the end of the landing area the character asks for; K+3..K+8 when not given.
+   */
+  bestPastKM?: { readonly minM: number; readonly maxM: number };
+  /** Height of the takeoff table over the landing hill, from 1.2 to 2.6 m (within the rule's 1..3 m); 2 m when not given. */
+  tableHeightM?: number;
 }
+
+/** Ranges of the optional values of a character. */
+const CHARACTER_LIMITS = {
+  gateXM: { min: 6, max: 34 },
+  flatBehindGateM: { min: 0.5, max: 7 },
+  tableHeightM: { min: 1.2, max: 2.6 },
+  /** The best jump's target: its lowest start, its highest end, its least width, metres past K. */
+  bestPastKM: { min: 3, max: 18, minWidthM: 3 },
+  /** The target ends at least this far before the end of the landing area, metres. */
+  bestBeforeAreaEndM: 2,
+} as const;
 
 /** Colours of a generated hill's scene: the default look's colours and its sky at three times of day. */
 type LookTheme = "day" | "dusk" | "winter";
@@ -50,16 +75,21 @@ type LookTheme = "day" | "dusk" | "winter";
  * - The inrun starts at `inrunStartXM` with a short flat part behind the start gate, runs straight at the
  *   character's angle and then bends along a parabola into the takeoff angle. The bend's radius grows with the
  *   size of the hill (`inrunCurveRadiusPerKM` times K), because a faster jumper needs a gentler bend for the same
- *   pressure on the skis; the straight part's length is what the search sets.
- * - The takeoff edge sits at `takeoffYM`; the landing hill starts `tableHeightM` below it, in the middle of the
- *   range the geometry rules allow.
+ *   pressure on the skis, up to `inrunCurveRadiusMaxM`: on a big hill a bend of a quarter of K takes so much of
+ *   the scene that the straight part has no room left for the speed the hill needs. The straight part's length is
+ *   what the search sets.
+ * - The takeoff edge sits at `takeoffYM`; the landing hill starts the character's table height below it (by
+ *   default `tableHeightM`, in the middle of the range the geometry rules allow). The inrun starts at the
+ *   character's gate with its flat part behind it (by default `inrunStartXM` and `flatBehindStartM`).
  * - The landing hill is the format's tanh curve, `y = cY - A tanh((x - cX) / w)`: its steepest slope is `A / w`,
- *   so `A = w tan(steepness)`. The width `w` is solved so that the landing area (to where the slope is gentler than
- *   the rules' 32 degrees, at `cX + w acosh(sqrt(tan(steepness) / tan 32))`) reaches the character's share of K
- *   past K, and the centre `cX` so that the arc from the takeoff to K is K long with K at the knoll's distance from
- *   the steepest point (`knollKBeforeSteepestShareOfK`, capped at `knollOffsetMaxM` to stay within the rule).
- * - The outrun starts `outrunPastAreaEndM` past the landing area and curves along a parabola to its lowest point
- *   `outrunTransitionM` further on, so the flat end is past the landing area by the sum of the two.
+ *   so `A = w tan(steepness)`. The takeoff lies the knoll's number of widths before the centre.
+ * - The outrun joins the tanh `outrunJoinWidths` past its centre, while the slope is still steep, and flattens
+ *   along a parabola whose curvature puts its lowest point `outrunFlatM` past the end of the landing area (where
+ *   the parabola gets gentler than the rules' 32 degrees). One rule for every size: the landing area ends inside
+ *   the outrun's curve, rather than far down a tanh that flattens slowly, which would take a big hill past the
+ *   scene. On a landing hill so gentle that the tanh reaches 32 degrees before that point, the outrun joins there.
+ * - The width `w` is solved so that the arc from the takeoff to the end of the landing area is K times one plus
+ *   the character's share; K is where the arc from the takeoff reaches K.
  * - Search: the straight part of the inrun from `inrunLineMinM` to the longest the format and the scene allow; the
  *   oracle's best jump on the calmest seed grows with it, so a bracketing search (false position) finds a length
  *   whose best jump lands between `best.fromKMinM` and `best.fromKMaxM` past K. The oracle starts from the
@@ -70,22 +100,34 @@ const GENERATOR = {
   flatBehindStartM: 1.4,
   platformBehindFlatEndM: 3,
   inrunCurveRadiusPerKM: 0.25,
+  /** The bend's radius at most: hills from K160 up take this one. */
+  inrunCurveRadiusMaxM: 40,
+  /**
+   * The bend's radius at least: a quarter of K gives a small hill a bend so tight that it presses the jumper into
+   * the skis harder than on any bigger hill at a lower speed; this floor keeps small hills' bends near the tightest
+   * a hill of this game has.
+   */
+  inrunCurveRadiusMinM: 19,
   takeoffYM: 200,
   tableHeightM: 2,
   /** The takeoff lies this many widths of the landing tanh before its centre: a longer knoll rounds over more. */
   knollTakeoffWidths: { short: 1.2, medium: 1.35, long: 1.5 },
   /** Where the landing area gives way, the shares of K past K it may take: the style rule's range with a margin. */
   areaPastKShareRange: { min: 0.11, max: 0.39 },
-  /** K lies at most this far from the steepest point, horizontally: within the style rule's 15 m, with a margin. */
-  kFromSteepestMaxM: 12,
+  /** K lies at most this share of the style rule's limit from the steepest point, horizontally: a margin. */
+  kFromSteepestShareOfRule: 0.8,
   /** The landing area ends within this many widths past the centre for any steepness the format allows. */
   areaEndMaxWidths: 10,
   /** Where the rules' landing area ends. */
   landingAreaEndDeg: 32,
   /** The underground blend of the inrun into the landing hill: below the takeoff, so only the look sees it. */
   knollBlend: 0.3,
-  outrunPastAreaEndM: 5,
-  outrunTransitionM: 35,
+  /** The outrun joins the landing tanh this many widths past its centre (the steepest point). */
+  outrunJoinWidths: 0.3,
+  /** From the end of the landing area to the outrun's lowest point, horizontally: the rule's 30 m with a margin. */
+  outrunFlatM: 40,
+  /** Step of the arc length integration of the outrun's parabola, in metres. */
+  arcStepM: 0.05,
   /** Trees reach this far past the outrun's lowest point. */
   treesPastLowestM: 30,
   /** The first of the three distance marks lies this far before K. */
@@ -105,11 +147,42 @@ const GENERATOR = {
   decimals: { lengthM: 2, slope: 4, curve: 6 },
 } as const;
 
-/** What the generator aims at: behaviour, not parameters. */
+/** What the generator aims at when the character does not say: behaviour, not parameters. */
 export const GENERATOR_TARGETS = {
   /** The oracle's best jump on the calmest seed lands this far past K. */
   best: { fromKMinM: 3, fromKMaxM: 8 },
 } as const;
+
+const gateOf = (c: HillCharacter): number => c.gateXM ?? GENERATOR.inrunStartXM;
+const flatOf = (c: HillCharacter): number => c.flatBehindGateM ?? GENERATOR.flatBehindStartM;
+const tableOf = (c: HillCharacter): number => c.tableHeightM ?? GENERATOR.tableHeightM;
+const bestOf = (c: HillCharacter): { minM: number; maxM: number } =>
+  c.bestPastKM ?? { minM: GENERATOR_TARGETS.best.fromKMinM, maxM: GENERATOR_TARGETS.best.fromKMaxM };
+
+const outsideRange = (v: number, r: { min: number; max: number }): boolean => !(v >= r.min && v <= r.max);
+
+/** Problems of a character's optional values against `CHARACTER_LIMITS`; empty when it has none. */
+export function characterProblems(c: HillCharacter): HillProblem[] {
+  const L = CHARACTER_LIMITS;
+  const best = bestOf(c);
+  const areaEndPastKM = c.landingAreaPastKShare * c.kPointM;
+  const found: [boolean, string, string][] = [
+    [outsideRange(gateOf(c), L.gateXM), "gateXM", `gate at ${gateOf(c)} m`],
+    [outsideRange(flatOf(c), L.flatBehindGateM), "flatBehindGateM", `flat part ${flatOf(c)} m`],
+    [outsideRange(tableOf(c), L.tableHeightM), "tableHeightM", `table ${tableOf(c)} m high`],
+    [
+      best.minM < L.bestPastKM.min || best.maxM > L.bestPastKM.max || best.maxM - best.minM < L.bestPastKM.minWidthM,
+      "bestPastKM",
+      `best jump K+${best.minM}..K+${best.maxM}`,
+    ],
+    [
+      best.maxM > areaEndPastKM - L.bestBeforeAreaEndM,
+      "bestPastKM",
+      `best jump up to K+${best.maxM} reaches the landing area's end at K+${areaEndPastKM}`,
+    ],
+  ];
+  return found.filter(([bad]) => bad).map(([, path, message]) => ({ rule: "generator.character", path, message }));
+}
 
 interface GeneratorReport {
   /** The oracle's best jump on the calmest seed, and its distance past K. */
@@ -193,16 +266,41 @@ function bisect(lo: number, hi: number, f: (x: number) => number, target: number
   return (a + b) / 2;
 }
 
-/** The landing hill relative to the takeoff edge: centre, width and amplitude, and the end of the landing area. */
+/** The landing hill relative to the takeoff edge: centre, width and amplitude, the outrun and the landing area. */
 interface LandingShape {
   centerFromTakeoffM: number;
   widthM: number;
   amplitudeM: number;
-  areaEndFromCenterM: number;
+  /** Where the outrun's parabola joins the tanh, from the centre, and its quadratic coefficient. */
+  outrunJoinFromCenterM: number;
+  outrunCurveA: number;
+  /** The outrun's lowest point, from the centre. */
+  lowestFromCenterM: number;
   /** Where the K point lies from the centre (the steepest point), horizontally. */
   kFromCenterM: number;
   /** The landing area past K as a share of K: the character's, unless it gave way. */
   areaPastKShare: number;
+}
+
+/** The outrun's parabola from the join: its slope there (down), its curvature, and the landing area's end on it. */
+interface OutrunCurve {
+  tanJoin: number;
+  curveA: number;
+  /** Horizontal distance from the join to the end of the landing area, and the arc length of that stretch. */
+  areaEndPastJoinM: number;
+  areaArcPastJoinM: number;
+}
+
+/** Arc length of the outrun's parabola over `dxM` metres past the join. */
+function outrunArcM(tanJoin: number, curveA: number, dxM: number): number {
+  const steps = Math.max(1, Math.ceil(dxM / G.arcStepM));
+  const step = dxM / steps;
+  let length = 0;
+  for (let i = 0; i < steps; i++) {
+    const s = tanJoin - 2 * curveA * (i + 0.5) * step;
+    length += Math.sqrt(1 + s * s) * step;
+  }
+  return length;
 }
 
 /** The landing hill with the takeoff `takeoffU` widths from the tanh's centre and the area `pastKShare` past K. */
@@ -210,46 +308,76 @@ function shapeOf(
   c: HillCharacter,
   pastKShare: number,
   takeoffU: number,
-  tanSteep: number,
-  areaEndU: number,
+  joinU: number,
+  outrun: OutrunCurve,
 ): LandingShape {
-  const widthM = (c.kPointM * (1 + pastKShare)) / tanhArcPerWidth(takeoffU, areaEndU, tanSteep);
-  const kU = bisect(takeoffU, areaEndU, (u) => widthM * tanhArcPerWidth(takeoffU, u, tanSteep), c.kPointM);
+  const tanSteep = tanDeg(c.landingSteepnessDeg);
+  const tanhArc = tanhArcPerWidth(takeoffU, joinU, tanSteep);
+  const widthM = (c.kPointM * (1 + pastKShare) - outrun.areaArcPastJoinM) / tanhArc;
+  const joinFromCenterM = joinU * widthM;
+  const kFromCenterM =
+    widthM * tanhArc >= c.kPointM
+      ? widthM * bisect(takeoffU, joinU, (u) => widthM * tanhArcPerWidth(takeoffU, u, tanSteep), c.kPointM)
+      : joinFromCenterM +
+        bisect(
+          0,
+          outrun.areaEndPastJoinM,
+          (dx) => outrunArcM(outrun.tanJoin, outrun.curveA, dx),
+          c.kPointM - widthM * tanhArc,
+        );
   return {
     centerFromTakeoffM: -takeoffU * widthM,
     widthM,
     amplitudeM: widthM * tanSteep,
-    areaEndFromCenterM: areaEndU * widthM,
-    kFromCenterM: kU * widthM,
+    outrunJoinFromCenterM: joinFromCenterM,
+    outrunCurveA: outrun.curveA,
+    lowestFromCenterM: joinFromCenterM + outrun.tanJoin / (2 * outrun.curveA),
+    kFromCenterM,
     areaPastKShare: pastKShare,
   };
 }
 
+/** The outrun of a landing hill of this steepness, joining the tanh `joinU` widths past its centre. */
+function outrunOf(tanSteep: number, joinU: number): OutrunCurve {
+  const tanAreaEnd = tanDeg(G.landingAreaEndDeg);
+  const coshJoin = (detExp(joinU) + detExp(-joinU)) / 2;
+  const tanJoin = tanSteep / (coshJoin * coshJoin);
+  // From the area's end, where the slope is tan 32 degrees, the parabola flattens out within `outrunFlatM`.
+  const curveA = round(tanAreaEnd / (2 * G.outrunFlatM), G.decimals.curve);
+  const areaEndPastJoinM = Math.max(0, (tanJoin - tanAreaEnd) / (2 * curveA));
+  return { tanJoin, curveA, areaEndPastJoinM, areaArcPastJoinM: outrunArcM(tanJoin, curveA, areaEndPastJoinM) };
+}
+
 /**
- * Solves the landing hill of a character; it does not depend on where the takeoff is. The arc of the tanh curve
- * between two points a fixed number of widths from its centre is proportional to the width, so with the takeoff
- * the knoll's number of widths before the centre the width follows from one integral: the arc from the takeoff to
- * the end of the landing area is K times one plus the character's share. The K point is where the arc from the
- * takeoff reaches K. When that puts K further than `kFromSteepestMaxM` from the steepest point, the landing area
- * gives way: its share is solved so K lies at that distance (a longer area moves K back towards the takeoff). The
- * knoll does not give way, because a long flat knoll throws the jumper high above the slope.
+ * Solves the landing hill of a character; it does not depend on where the takeoff is. The outrun joins the tanh a
+ * fixed number of widths past its centre, so its slope there and the parabola that flattens it depend on the
+ * steepness alone, and so do the stretch of the parabola down to 32 degrees and its arc. The arc of the tanh
+ * between two points a fixed number of widths from its centre is proportional to the width, so the width follows
+ * from one division: the tanh's arc from the takeoff to the join plus the parabola's to the end of the landing
+ * area is K times one plus the character's share. When that puts K further from the steepest point than the
+ * generator's share of the rule's limit, the landing area gives way: its share is solved so K lies at that
+ * distance (a longer area moves K back towards the takeoff). The knoll does not give way, because a long flat
+ * knoll throws the jumper high above the slope.
  */
 function landingShape(c: HillCharacter): LandingShape {
   const tanSteep = tanDeg(c.landingSteepnessDeg);
   const ratio = Math.sqrt(tanSteep / tanDeg(G.landingAreaEndDeg));
-  // acosh by bisection: where cosh reaches the ratio, in widths past the centre.
-  const areaEndU = bisect(0, G.areaEndMaxWidths, (u) => (detExp(u) + detExp(-u)) / 2, ratio);
+  // acosh by bisection: where the tanh gets as gentle as the end of the landing area, in widths past the centre.
+  const tanhAreaEndU = bisect(0, G.areaEndMaxWidths, (u) => (detExp(u) + detExp(-u)) / 2, ratio);
+  const joinU = Math.min(G.outrunJoinWidths, tanhAreaEndU);
+  const outrun = outrunOf(tanSteep, joinU);
   const takeoffU = -G.knollTakeoffWidths[c.knoll];
-  const shape = shapeOf(c, c.landingAreaPastKShare, takeoffU, tanSteep, areaEndU);
-  if (Math.abs(shape.kFromCenterM) <= G.kFromSteepestMaxM) return shape;
-  const limitM = Math.sign(shape.kFromCenterM) * G.kFromSteepestMaxM;
+  const shape = shapeOf(c, c.landingAreaPastKShare, takeoffU, joinU, outrun);
+  const maxM = G.kFromSteepestShareOfRule * kFromSteepestMaxM(c.kPointM);
+  if (Math.abs(shape.kFromCenterM) <= maxM) return shape;
+  const limitM = Math.sign(shape.kFromCenterM) * maxM;
   const share = bisect(
     G.areaPastKShareRange.min,
     G.areaPastKShareRange.max,
-    (s) => -shapeOf(c, s, takeoffU, tanSteep, areaEndU).kFromCenterM,
+    (s) => -shapeOf(c, s, takeoffU, joinU, outrun).kFromCenterM,
     -limitM,
   );
-  return shapeOf(c, share, takeoffU, tanSteep, areaEndU);
+  return shapeOf(c, share, takeoffU, joinU, outrun);
 }
 
 /** The inrun and the landing hill with the straight part of the inrun `lineM` long. */
@@ -257,22 +385,24 @@ function profileOf(c: HillCharacter, shape: LandingShape, lineM: number): { inru
   const d = G.decimals;
   const lineSlope = round(-tanDeg(c.inrunSteepnessDeg), d.slope);
   const takeoffSlope = -tanDeg(c.takeoffAngleDeg);
-  const radiusM = G.inrunCurveRadiusPerKM * c.kPointM;
+  const radiusM = Math.max(
+    G.inrunCurveRadiusMinM,
+    Math.min(G.inrunCurveRadiusMaxM, G.inrunCurveRadiusPerKM * c.kPointM),
+  );
   const curveA = round(1 / (2 * radiusM), d.curve);
-  const lineEndXM = round(G.inrunStartXM + lineM, d.lengthM);
+  const lineEndXM = round(gateOf(c) + lineM, d.lengthM);
   const takeoffXM = round(lineEndXM + (takeoffSlope - lineSlope) / (2 * curveA), d.lengthM);
   const curveM = takeoffXM - lineEndXM;
   // The parabola's mean slope over the bend is the mean of its end slopes.
   const lineEndYM = G.takeoffYM - ((lineSlope + takeoffSlope) / 2) * curveM;
   const centerXM = takeoffXM + shape.centerFromTakeoffM;
-  const landingTakeoffYM = G.takeoffYM - G.tableHeightM;
+  const landingTakeoffYM = G.takeoffYM - tableOf(c);
   const tanhAtTakeoff = tanh((takeoffXM - centerXM) / shape.widthM);
-  const outrunStartXM = centerXM + shape.areaEndFromCenterM + G.outrunPastAreaEndM;
-  const outrunSlope = tanhSlope((outrunStartXM - centerXM) / shape.widthM, shape.amplitudeM / shape.widthM);
+  const outrunStartXM = centerXM + shape.outrunJoinFromCenterM;
   return {
     inrun: {
-      startXM: G.inrunStartXM,
-      flatEndXM: G.inrunStartXM - G.flatBehindStartM,
+      startXM: gateOf(c),
+      flatEndXM: round(gateOf(c) - flatOf(c), d.lengthM),
       lineEndXM,
       takeoffXM,
       lineSlope,
@@ -285,7 +415,7 @@ function profileOf(c: HillCharacter, shape: LandingShape, lineM: number): { inru
       amplitudeM: round(shape.amplitudeM, d.lengthM),
       widthM: round(shape.widthM, d.lengthM),
       outrunStartXM: round(outrunStartXM, d.lengthM),
-      outrunCurveA: round(-outrunSlope / (2 * G.outrunTransitionM), d.curve),
+      outrunCurveA: shape.outrunCurveA,
       knollBlend: G.knollBlend,
     },
   };
@@ -362,6 +492,29 @@ const CALM_SEED: number = windClassSeeds(1, 256, 1).calm[0] ?? 1;
 
 /** A stable id from the character and the seed: the same character always gets the same id. */
 export function generatedHillId(c: HillCharacter, seed: number): string {
+  if (
+    c.gateXM !== undefined ||
+    c.flatBehindGateM !== undefined ||
+    c.bestPastKM !== undefined ||
+    c.tableHeightM !== undefined
+  ) {
+    // The id has room for 40 characters: a character with the optional values is named by a hash of all of them.
+    const values = [c.kPointM, c.landingSteepnessDeg, c.landingAreaPastKShare, c.knoll, c.inrunSteepnessDeg];
+    const text = JSON.stringify([
+      ...values,
+      c.takeoffAngleDeg,
+      gateOf(c),
+      flatOf(c),
+      bestOf(c).minM,
+      bestOf(c).maxM,
+      tableOf(c),
+    ]);
+    const hash = Array.from({ length: text.length }, (_, i) => text.charCodeAt(i)).reduce(
+      (h, code) => Math.imul(h ^ code, 0x01000193) >>> 0,
+      0x811c9dc5,
+    );
+    return `gen-k${c.kPointM}-${hash.toString(16).padStart(8, "0")}-${c.look}${seed}`;
+  }
   const knoll = { short: "s", medium: "m", long: "l" }[c.knoll];
   return [
     "gen",
@@ -384,15 +537,15 @@ function specOf(c: HillCharacter, shape: LandingShape, lineM: number, seed: numb
     name: "Generowana",
     kPointM: c.kPointM,
     profile,
-    look: lookOf(c, profile.inrun, profile.landing.outrunStartXM + G.outrunTransitionM, seed),
+    look: lookOf(c, profile.inrun, profile.landing.centerXM + shape.lowestFromCenterM, seed),
   };
 }
 
 /** The longest straight part of the inrun the format and the scene allow, for this landing hill. */
 function longestLineM(c: HillCharacter, shape: LandingShape): number {
   const probe = profileOf(c, shape, 0);
-  const lowestPastLineEndM = probe.landing.outrunStartXM + G.outrunTransitionM - probe.inrun.lineEndXM;
-  return Math.min(G.inrunLineEndMaxXM, G.sceneEndXM - lowestPastLineEndM) - G.inrunStartXM;
+  const lowestPastLineEndM = probe.landing.centerXM + shape.lowestFromCenterM - probe.inrun.lineEndXM;
+  return Math.min(G.inrunLineEndMaxXM, G.sceneEndXM - lowestPastLineEndM) - gateOf(c);
 }
 
 interface SearchPoint {
@@ -401,9 +554,9 @@ interface SearchPoint {
 }
 
 const fromTarget = (c: HillCharacter, p: SearchPoint): number =>
-  p.bestM - c.kPointM - (GENERATOR_TARGETS.best.fromKMinM + GENERATOR_TARGETS.best.fromKMaxM) / 2;
+  p.bestM - c.kPointM - (bestOf(c).minM + bestOf(c).maxM) / 2;
 const onTarget = (c: HillCharacter, p: SearchPoint): boolean =>
-  p.bestM - c.kPointM >= GENERATOR_TARGETS.best.fromKMinM && p.bestM - c.kPointM <= GENERATOR_TARGETS.best.fromKMaxM;
+  p.bestM - c.kPointM >= bestOf(c).minM && p.bestM - c.kPointM <= bestOf(c).maxM;
 
 /**
  * The straight part of the inrun whose best jump lands in the target range: false position (the Illinois variant,
@@ -503,6 +656,8 @@ export function checkGeneratedHill(spec: HillSpec, options: GeneratorOptions = {
  * range are targets, and the report says whether they were reached.
  */
 export function generateHill(character: HillCharacter, seed = 1, options: GeneratorOptions = {}): GeneratedHill {
+  const asked = characterProblems(character);
+  if (asked.length > 0) throw new HillGenerationError("the character is outside its ranges", asked);
   const shape = landingShape(character);
   const { point, steps } = searchInrun(character, shape, seed);
   const spec = specOf(character, shape, point.lineM, seed);
@@ -515,6 +670,36 @@ export function generateHill(character: HillCharacter, seed = 1, options: Genera
       searchSteps: steps,
       bestOnTarget: onTarget(character, point),
       landingAreaPastKShare: shape.areaPastKShare,
+      ...checkGeneratedHill(spec, options),
+    },
+  };
+}
+
+/** Measures of a hill's built profile. */
+function geometryOf(spec: HillSpec): HillGeometry {
+  const { profile, kPointM } = hillChoiceOf(spec);
+  return hillGeometry(profile, kPointM);
+}
+
+/**
+ * A hill made by an earlier version of the generator and kept as data (an own hill), taken as it is: measured and
+ * checked as `generateHill` measures and checks what it makes, with nothing searched. A change of the construction
+ * leaves such a hill as the game has it, since records and replays belong to its profile.
+ */
+export function keptHill(character: HillCharacter, spec: HillSpec, options: GeneratorOptions = {}): GeneratedHill {
+  const point = {
+    lineM: spec.profile.inrun.lineEndXM - spec.profile.inrun.startXM,
+    bestM: oracleJump(hillChoiceOf(spec), CALM_SEED, REFERENCE_PLAYER_POLICY).outcome.distanceM,
+  };
+  return {
+    spec,
+    report: {
+      bestCalmM: point.bestM,
+      bestCalmFromKM: point.bestM - spec.kPointM,
+      inrunLineM: point.lineM,
+      searchSteps: 0,
+      bestOnTarget: onTarget(character, point),
+      landingAreaPastKShare: (geometryOf(spec).landingAreaEndM - spec.kPointM) / spec.kPointM,
       ...checkGeneratedHill(spec, options),
     },
   };

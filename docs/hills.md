@@ -89,7 +89,10 @@ z `HILL_RULES` (identyfikatory `geometry.…`). Pomiary są skończone dla każd
 - `table-height`: próg 1..3 m nad zeskokiem;
 - `landing-angle-at-k`: nachylenie zeskoku w punkcie K 34..48°, bo w okolicy K ląduje większość skoków i tam
   zeskok ma przejmować lądowanie;
-- `k-near-steepest`: punkt K najwyżej 15 m (w poziomie) od najbardziej stromego miejsca zeskoku;
+- `k-near-steepest`: punkt K w poziomie najwyżej `max(15 m, 0,12 K)` od najbardziej stromego miejsca zeskoku
+  (`kFromSteepestMaxM`): nowoczesny zeskok jest niemal prosty od punktu P do K, a P leży mniej więcej 0,1..0,2 K
+  przed K, więc najbardziej strome miejsce może leżeć gdziekolwiek na odcinku rosnącym z wielkością skoczni;
+  0,12 K to dolna część tego zakresu, a 15 m trzyma małe skocznie przy kilku metrach, które skoczek rozróżnia;
 - `landing-area-length`: koniec strefy lądowania (pierwsze miejsce za najbardziej stromym, gdzie zeskok jest
   łagodniejszy niż 32°, mierzony łukiem od progu) leży 0,1..0,4 K za punktem K, bo dalsze skoki potrzebują miejsca;
 - `outrun-length`: od końca strefy lądowania do najniższego punktu wybiegu co najmniej 30 m w poziomie, na
@@ -183,7 +186,7 @@ przepisania do `TRAINED_PLAYER_POLICY` i `TRAINED_POLICY_SCORES`; niczego nie za
 trening trwa minuty, a wynikiem są liczby do przejrzenia i przepisania, nie werdykt. Trening jest deterministyczny:
 ten sam kod daje te same liczby.
 
-Zbiór treningowy to zbiór wygenerowany (sekcja „Generator skoczni”): 16 skoczni od K50 do K185 o różnych
+Zbiór treningowy to zbiór wygenerowany (sekcja „Generator skoczni”): 27 skoczni od K45 do K260 o różnych
 zeskokach, garbach i rozbiegach. Generuje go skrypt bez reguł symulacji, bo te oceniają skocznię wytrenowanym
 graczem, którego trening zastępuje; reguły na zbiorze sprawdza test stabilności. Wcześniej zbiorem były warianty
 jedynej skoczni własnej, a warianty o innym kształcie zeskoku nie przechodziły reguł dopuszczenia, więc gracz nie
@@ -200,10 +203,10 @@ ocen; wszystkie liczby naraz, rozrzut w krokach zgrubnych, szerszy po zysku, wę
 po współrzędnych z krokami dokładnymi. Styl lądowania nie jest trenowany: gracz odniesienia lądujący na dwie nogi
 upadał tak często, że jego średnia spadała z 128 do 82 punktów.
 
-Wynik: 128,31 punktu na zbiorze treningowym (gracz odniesienia 121,91), 118,04 na skoczniach własnych spoza zbioru
+Wynik: 137,21 punktu na zbiorze treningowym (gracz odniesienia 131,34), 118,06 na skoczniach własnych spoza zbioru
 (dziś sama Ćwiczebna), po 293
-ocenach, około 19 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
-pochylenia; zostały pochylenie 0,2 rad rosnące o 0,032 rad na metr wysokości, wybicie 0,2 s przed krawędzią
+ocenach, około 35 minut na tej maszynie. Część wczesna lotu wypadła (0 klatek), wiatr i prędkość nie weszły do
+pochylenia; zostały pochylenie 0,24 rad rosnące o 0,016 rad na metr wysokości, wybicie 0,2 s przed krawędzią
 i lądowanie na 2,2 m. Test jednostkowy sprawdza tylko, że liczby dają zapisany wynik na skoczniach własnych spoza zbioru: tani
 dowód, że ani polityka, ani symulacja się nie zmieniły.
 
@@ -448,9 +451,11 @@ K; na `own-3` ląduje kilka metrów za nim, jak na skoczniach podobnej wielkośc
 człowieka zamiast czternastu liczb profilu. Służy do treningu gracza i do testów; jest też podstawą przyszłego
 edytora skoczni dla graczy. Dziesięć skoczni zbioru do K120 jest w grze (`own-4` do `own-13`): ich dane są
 skopiowane do `own-hills.ts` z własnym ziarnem scenerii, a `SET_HILLS_IN_GAME`
-(`src/hills/test-support/generated-hills.ts`) wiąże je ze skoczniami zbioru. Test stabilności sprawdza, że profil
-i K w grze są takie, jakie daje generator, a zbiór pomija te skocznie w kontroli podobieństwa, bo to te same
-skocznie. Większe skocznie zbioru czekają na bota, który gra na nich wiarygodnie. Droga do gry jest ta sama co
+(`src/hills/test-support/generated-hills.ts`) wiąże charaktery zbioru z tymi skoczniami. Zbiór bierze je takie,
+jakie są w grze (`keptHill`: pomiar najlepszego skoku i te same kontrole co przy generowaniu, bez wyszukiwania),
+zamiast generować je na nowo, bo późniejsza zmiana konstrukcji nie może zmienić skoczni, którą gra już ma
+(rekordy i powtórki należą do odcisku; odciski przypina `hill-fingerprint.test.ts`). W kontroli podobieństwa
+liczą się jak pozostałe skocznie zbioru. Większe skocznie zbioru czekają na bota, który gra na nich wiarygodnie. Droga do gry jest ta sama co
 dla każdej skoczni własnej (sekcja „Dodanie skoczni”: dane do `own-hills.ts`, nowy `id`, kontrole, migawka, odbiór
 na urządzeniu).
 
@@ -465,7 +470,14 @@ na urządzeniu).
 - `inrunSteepnessDeg`: nachylenie prostej części rozbiegu;
 - `takeoffAngleDeg`: kąt progu;
 - `look`: motyw nieba (`day`, `dusk`, `winter`); wygląd nie zmienia skakania, a położenia podpór, drzew
-  i znaczników odległości wynikają z profilu.
+  i znaczników odległości wynikają z profilu;
+- opcjonalnie (`CHARACTER_LIMITS`): `gateXM`, gdzie stoi belka startowa (początek rozbiegu, 6..34 m, domyślnie 10);
+  `flatBehindGateM`, długość płaskiej części za belką (0,5..7 m, domyślnie 1,4); `bestPastKM`, cel najlepszego
+  skoku wyroczni w ciszy (od K+3 do najwyżej K+18, szerokość co najmniej 3 m, koniec co najmniej 2 m przed końcem
+  strefy lądowania z charakteru, żeby reguła „najlepszy skok za strefą lądowania” nie zawiodła; domyślnie K+3..K+8); `tableHeightM`, wysokość progu nad zeskokiem (1,2..2,6 m w granicach reguły 1..3 m, domyślnie 2).
+  Charakter poza tymi zakresami to błąd (`characterProblems`, reguła `generator.character`). Charakter z którąś
+  z tych wartości ma identyfikator ze skrótem FNV-1a wszystkich liczb charakteru (`gen-k<K>-<skrót>-<motyw><ziarno>`),
+  bo pełny zapis przekroczyłby 40 znaków formatu; charaktery bez nich zachowują dotychczasowy zapis.
 
 `seed` ustala teren, drzewa, kolory (ściany najazdu z 7 ramp palety sceny, belka startowa z 6, bandy z 8;
 `LOOK_COLOURS`, listy różnej długości dają sąsiednim ziarnom różne zestawienia) oraz końcówkę identyfikatora; profil zależy tylko od charakteru. Identyfikator
@@ -476,35 +488,43 @@ na urządzeniu).
 Wszystkie stałe są w jednym obiekcie `GENERATOR` (z jednostką w nazwie). Dobrano je z fizyki i celów gry, a nie
 z liczb skoczni oryginału.
 
-- Rozbieg zaczyna się na 10 m, z płaską częścią 1,4 m za belką startową, biegnie prosto pod kątem z charakteru
+- Rozbieg zaczyna się na belce (`gateXM`, domyślnie 10 m), z płaską częścią za nią (domyślnie 1,4 m), biegnie prosto pod kątem z charakteru
   i przechodzi parabolą w kąt progu. Promień łuku rośnie z wielkością skoczni (0,25 K), bo szybszy skoczek
-  potrzebuje łagodniejszego łuku przy tym samym nacisku na narty. Złącza są gładkie z samej budowy profilu
+  potrzebuje łagodniejszego łuku przy tym samym nacisku na narty, najwyżej do 40 m (od K160): na dużej skoczni
+  łuk 0,25 K zajmuje tyle sceny, że prostej nie zostaje miejsca na prędkość, której skocznia potrzebuje; i najmniej
+  19 m: 0,25 K dawał małej skoczni łuk tak ciasny, że przy niższej prędkości dociskał skoczka mocniej niż na
+  większych skoczniach. Rozbieg zaczyna się na belce z charakteru (domyślnie 10 m) z płaską częścią za nią. Złącza są gładkie z samej budowy profilu
   (`buildHillProfile` wylicza współczynniki łuku i wybiegu).
-- Próg leży na wysokości 200 m, zeskok zaczyna się 2 m pod nim, w środku zakresu reguły wysokości progu.
+- Próg leży na wysokości 200 m, zeskok zaczyna się pod nim o wysokość progu z charakteru (domyślnie 2 m, w środku zakresu reguły wysokości progu).
 - Zeskok to krzywa tanh formatu, `y = cY - A tanh((x - cX) / w)`. Największe nachylenie to `A / w`, więc
-  `A = w tan(nachylenia)`. Koniec strefy lądowania (pierwsze miejsce za najbardziej stromym, łagodniejsze niż
-  32°) leży `w acosh(sqrt(tan(nachylenia) / tan 32°))` za środkiem. Łuk krzywej między dwoma miejscami odległymi
-  od środka o stałą liczbę szerokości jest proporcjonalny do szerokości, więc przy progu leżącym o liczbę
-  szerokości zależną od garbu (1,2, 1,35 albo 1,5) przed środkiem szerokość wynika z jednej całki: łuk od progu
-  do końca strefy lądowania ma długość K razy jeden plus część z charakteru. Punkt K to miejsce, gdzie łuk od
-  progu osiąga K.
-- Gdy K wypada dalej niż 12 m od najbardziej stromego miejsca (reguła stylu dopuszcza 15 m), ustępuje strefa
-  lądowania: jej długość jest wyliczana tak, żeby K leżał 12 m od tego miejsca. Garb nie ustępuje, bo długi,
-  płaski garb wyrzuca skoczka wysoko nad stok (tak wypadło w próbach: wysokie loty, duży rozrzut od wiatru).
-- Wybieg zaczyna się 5 m za strefą lądowania i parabolą schodzi do najniższego punktu 35 m dalej, więc część
-  płaska jest 40 m za strefą lądowania (reguła wymaga 30 m).
+  `A = w tan(nachylenia)`. Próg leży o liczbę szerokości zależną od garbu (1,2, 1,35 albo 1,5) przed środkiem.
+- Wybieg dołącza do krzywej 0,3 szerokości za jej środkiem, gdy zeskok jest jeszcze stromy, i wypłaszcza się
+  parabolą o krzywiźnie `tan 32° / (2 · 40 m)`: najniższy punkt leży 40 m (w poziomie) za końcem strefy lądowania,
+  czyli za miejscem, gdzie parabola staje się łagodniejsza niż 32° (reguła wymaga 30 m). Jedna reguła dla każdej
+  wielkości: strefa lądowania kończy się na łuku wybiegu, a nie daleko na wolno wypłaszczającej się krzywej tanh,
+  co wyprowadzało duże skocznie poza scenę. Gdy zeskok jest tak łagodny, że krzywa osiąga 32° przed tym miejscem,
+  wybieg dołącza tam.
+- Nachylenie w miejscu złączenia, a więc i parabola do 32° oraz jej łuk, zależą tylko od nachylenia zeskoku. Łuk
+  krzywej tanh między dwoma miejscami odległymi od środka o stałą liczbę szerokości jest proporcjonalny do
+  szerokości, więc szerokość wynika z jednego dzielenia: łuk krzywej od progu do złączenia plus łuk paraboli do
+  końca strefy lądowania ma długość K razy jeden plus część z charakteru. Punkt K to miejsce, gdzie łuk od progu
+  osiąga K.
+- Gdy K wypada dalej od najbardziej stromego miejsca niż 0,8 granicy reguły stylu (`max(12 m, 0,096 K)`),
+  ustępuje strefa lądowania: jej długość jest wyliczana tak, żeby K leżał dokładnie w tej odległości. Garb nie
+  ustępuje, bo długi, płaski garb wyrzuca skoczka wysoko nad stok (tak wypadło w próbach: wysokie loty, duży
+  rozrzut od wiatru).
 - Długość prostej części rozbiegu ustala krótkie, deterministyczne wyszukiwanie: najlepszy skok wyroczni na
   najspokojniejszym ziarnie (`CALM_SEED`) rośnie z długością rozbiegu, więc metoda siecznych z przedziałem
   (wariant Illinois) między rozbiegiem najkrótszym (1 m prostej) a najdłuższym, na jaki pozwalają format
-  (koniec prostej najdalej na 150 m) i scena (najniższy punkt wybiegu najdalej na 379 m), szuka skoku od K+3 do
-  K+8 m. Wyrocznia startuje od gracza odniesienia (`REFERENCE_PLAYER_POLICY`), a nie od wytrenowanego, więc
+  (koniec prostej najdalej na 150 m) i scena (najniższy punkt wybiegu najdalej na 379 m), szuka skoku w celu z charakteru
+  (domyślnie od K+3 do K+8 m). Wyrocznia startuje od gracza odniesienia (`REFERENCE_PLAYER_POLICY`), a nie od wytrenowanego, więc
   skocznie nie zmieniają się po kolejnym treningu.
 - Liczby profilu są zaokrąglane (długości do 0,01 m, nachylenia do 0,0001, współczynniki łuków do 0,000001),
   a funkcje przestępne pochodzą z `deterministic-math.ts`, więc wynik jest ten sam w każdym silniku.
 
 ### Cele i raport
 
-Cele (`GENERATOR_TARGETS` i reguły gry): najlepszy skok wyroczni w ciszy od K+3 do K+8 m, każda reguła
+Cele (`GENERATOR_TARGETS` i reguły gry): najlepszy skok wyroczni w ciszy w celu z charakteru (domyślnie od K+3 do K+8 m), każda reguła
 dopuszczenia, każda reguła stylu, każda reguła symulacji (dla skoczni do granicy wiarygodności botów) i odległość
 podobieństwa co najmniej `LIKENESS.tooAlike` od każdej skoczni katalogu (`catalog`, domyślnie skocznie własne)
 i od skoczni podanych w `others`.
@@ -518,36 +538,51 @@ cichy wynik. Reguły stylu i zakres najlepszego skoku to cele: raport mówi, czy
 
 ### Zbiór wygenerowany
 
-`src/hills/test-support/generated-hills.ts`: stała lista charakterów, generowana po kolei, każda skocznia
-sprawdzana z poprzednimi, więc żadne dwie nie są tą samą skocznią.
+`src/hills/test-support/generated-hills.ts`: stała lista 27 charakterów od K45 do K260 (trochę poniżej
+najmniejszej i powyżej największej skoczni oryginału), generowana po kolei, każda skocznia sprawdzana z poprzednimi,
+więc żadne dwie nie są tą samą skocznią. Dziesięć skoczni będących w grze zbiór bierze takie, jakie są
+(`SET_HILLS_IN_GAME`; w tabeli 0 uruchomień wyroczni przy wyszukiwaniu, a część K strefy lądowania zmierzona).
 
 Liczby z raportu (bez reguł symulacji, tak jak generuje go trening): nachylenie zeskoku, strefa lądowania za K
-z charakteru (w nawiasie: po ustąpieniu do punktu K), garb, rozbieg, próg, długość prostej rozbiegu z wyszukiwania (m),
+z charakteru (w nawiasie: po ustąpieniu do punktu K), położenie belki (m), płaska część za nią (m), cel najlepszego skoku (m za K), wysokość progu nad zeskokiem (m), garb, rozbieg, próg, długość prostej rozbiegu z wyszukiwania (m),
 najlepszy skok w ciszy minus K (m), uruchomienia wyroczni, odległość podobieństwa do najbliższej skoczni:
 
-| K | zeskok | strefa za K | garb | rozbieg | próg | prosta | najlepszy - K | wyrocznia | podobieństwo |
-|---|---|---|---|---|---|---|---|---|---|
-| 50 | 39° | 0,30 (0,30) | long | 35° | 11° | 20,2 | 6,1 | 7 | 2,16 |
-| 50 | 36° | 0,22 (0,22) | medium | 30° | 10° | 27,8 | 5,9 | 7 | 0,91 |
-| 65 | 37° | 0,20 (0,20) | medium | 33° | 10° | 32,5 | 4,7 | 6 | 0,84 |
-| 75 | 37° | 0,22 (0,22) | long | 30° | 11° | 56,5 | 7,5 | 6 | 1,19 |
-| 75 | 39° | 0,30 (0,30) | short | 38° | 9° | 21,9 | 7,7 | 7 | 0,87 |
-| 90 | 37° | 0,32 (0,32) | medium | 40° | 8° | 34,5 | 5,5 | 8 | 1,68 |
-| 105 | 38° | 0,22 (0,22) | medium | 36° | 10° | 50,8 | 7,6 | 7 | 1,45 |
-| 105 | 40° | 0,28 (0,28) | short | 42° | 9° | 23,8 | 7,0 | 7 | 0,95 |
-| 120 | 39° | 0,20 (0,28) | short | 40° | 10° | 39,1 | 6,1 | 7 | 1,21 |
-| 120 | 38° | 0,30 (0,30) | short | 38° | 11° | 50,8 | 3,5 | 7 | 0,65 |
-| 135 | 38° | 0,20 (0,23) | medium | 40° | 10° | 61,8 | 3,7 | 7 | 1,74 |
-| 140 | 36° | 0,30 (0,30) | long | 42° | 8° | 97,0 | 7,0 | 7 | 3,35 |
-| 150 | 40° | 0,25 (0,34) | short | 45° | 9° | 37,4 | 5,9 | 6 | 1,74 |
-| 160 | 37° | 0,18 (0,20) | long | 42° | 11° | 111,9 | 5,7 | 4 | 2,10 |
-| 170 | 39° | 0,20 (0,29) | medium | 45° | 10° | 64,9 | 4,5 | 5 | 2,29 |
-| 185 | 39° | 0,20 (0,34) | short | 45° | 10° | 66,8 | 8,0 | 4 | 1,10 |
+| K | zeskok | strefa za K | garb | rozbieg | próg | belka | płaskie | cel skoku | wys. progu | prosta | najlepszy - K | wyrocznia | podobieństwo |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 45 | 37° | 0,25 (0,25) | medium | 46° | 10° | 7,0 | 0,8 | 4..8 | 1,6 | 5,4 | 7,2 | 6 | 2,52 |
+| 50 | 39° | 0,30 (0,30) | long | 35° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 20,2 | 6,1 | 0 | 0,74 |
+| 50 | 36° | 0,22 (0,22) | medium | 30° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 27,8 | 5,9 | 0 | 0,56 |
+| 60 | 38° | 0,26 (0,26) | long | 50° | 11° | 12,0 | 2,5 | 5..9 | 2,4 | 7,6 | 6,2 | 5 | 0,82 |
+| 65 | 37° | 0,20 (0,20) | medium | 33° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 32,5 | 4,7 | 0 | 0,78 |
+| 75 | 37° | 0,22 (0,22) | long | 30° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 56,5 | 7,5 | 0 | 1,19 |
+| 75 | 39° | 0,30 (0,30) | short | 38° | 9° | 10,0 | 1,4 | 3..8 | 2,0 | 21,9 | 7,7 | 0 | 0,87 |
+| 90 | 37° | 0,32 (0,32) | medium | 40° | 8° | 10,0 | 1,4 | 3..8 | 2,0 | 34,5 | 5,5 | 0 | 1,68 |
+| 95 | 39° | 0,24 (0,24) | short | 53° | 10° | 15,0 | 3,5 | 7..11 | 1,3 | 8,6 | 9,7 | 7 | 1,36 |
+| 105 | 38° | 0,22 (0,22) | medium | 36° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 50,8 | 7,6 | 0 | 1,32 |
+| 105 | 40° | 0,28 (0,28) | short | 42° | 9° | 10,0 | 1,4 | 3..8 | 2,0 | 23,8 | 7,0 | 0 | 0,95 |
+| 120 | 39° | 0,20 (0,28) | short | 40° | 10° | 10,0 | 1,4 | 3..8 | 2,0 | 39,1 | 6,1 | 0 | 1,21 |
+| 120 | 38° | 0,30 (0,30) | short | 38° | 11° | 10,0 | 1,4 | 3..8 | 2,0 | 50,8 | 3,5 | 0 | 0,65 |
+| 135 | 38° | 0,20 (0,20) | medium | 50° | 10° | 20,0 | 5,0 | 10..14 | 2,2 | 33,1 | 10,3 | 7 | 1,95 |
+| 140 | 36° | 0,30 (0,30) | long | 43° | 8° | 8,0 | 6,0 | 10..13 | 1,8 | 98,8 | 11,4 | 5 | 3,86 |
+| 150 | 40° | 0,25 (0,25) | short | 45° | 9° | 25,0 | 1,0 | 6..10 | 2,6 | 37,1 | 8,0 | 7 | 1,57 |
+| 160 | 37° | 0,18 (0,18) | long | 42° | 11° | 14,0 | 4,5 | 9..12 | 1,4 | 130,7 | 9,7 | 2 | 2,82 |
+| 170 | 39° | 0,20 (0,20) | medium | 55° | 10° | 30,0 | 2,0 | 8..12 | 2,1 | 29,9 | 10,8 | 8 | 2,18 |
+| 185 | 39° | 0,20 (0,20) | short | 45° | 10° | 18,0 | 7,0 | 11..15 | 1,2 | 71,1 | 13,1 | 6 | 1,20 |
+| 200 | 40° | 0,18 (0,18) | short | 47° | 10° | 9,0 | 3,0 | 15..18 | 2,5 | 60,5 | 15,6 | 7 | 1,29 |
+| 200 | 41° | 0,20 (0,20) | medium | 48° | 11° | 22,0 | 0,5 | 4..9 | 1,7 | 63,3 | 5,8 | 4 | 0,91 |
+| 215 | 42° | 0,15 (0,19) | short | 48° | 11° | 16,0 | 5,5 | 9..13 | 2,3 | 50,7 | 11,0 | 5 | 1,04 |
+| 230 | 41° | 0,15 (0,17) | short | 50° | 10° | 13,0 | 1,8 | 13..17 | 1,5 | 60,4 | 14,4 | 6 | 1,44 |
+| 230 | 43° | 0,12 (0,17) | medium | 52° | 9° | 11,0 | 4,0 | 6..9 | 1,9 | 45,1 | 8,6 | 8 | 0,97 |
+| 245 | 43° | 0,12 (0,19) | short | 52° | 10° | 9,5 | 2,8 | 3..7 | 2,6 | 41,4 | 5,2 | 5 | 1,21 |
+| 260 | 45° | 0,12 (0,20) | short | 58° | 9° | 6,5 | 6,5 | 8..12 | 1,3 | 16,8 | 9,5 | 5 | 1,48 |
+| 260 | 47° | 0,12 (0,20) | medium | 56° | 10° | 7,5 | 3,2 | 14..18 | 2,2 | 22,0 | 17,6 | 10 | 0,87 |
 
-Wszystkie są w celu, bez problemów reguł stylu, a te do K120 przechodzą reguły symulacji. Druga skocznia K120 ma
-krótki garb: ze średnim garbem nie przechodziła reguły rozrzutu od wiatru (10,8 m przy dopuszczalnych 9,6 m); reguły
-nie poluzowano. Największa skocznia to K185: przy K200 i więcej scena (380 m) nie mieści rozbiegu dość długiego,
-żeby najlepszy skok sięgnął K (raport podaje chybiony cel).
+Każda skocznia spoza gry ma własne położenie belki, płaską część, wysokość progu i cel najlepszego skoku (belka 6,5..30 m, płaska część 0,5..7 m, próg 1,2..2,6 m, cele od K+3..K+7 do K+15..K+18). Rozbiegi mają od 30° do 58°; strome (45° i więcej) są w każdej wielkości: K45 (46°), K60 (50°), K95 (53°), K135 (50°), K150, K170 (55°), K185 i wszystkie od K200. Wszystkie są w celu, bez problemów reguł stylu, a te do K120 przechodzą reguły symulacji; najbliższa para jest
+0,51 od siebie (dwie K260). Druga skocznia K120 ma krótki garb: ze średnim garbem nie przechodziła reguły rozrzutu
+od wiatru (10,8 m przy dopuszczalnych 9,6 m); reguły nie poluzowano. Duże skocznie mieszczą się w scenie dzięki
+wybiegowi dołączającemu na stromej części i łukowi rozbiegu najwyżej 40 m; K260 potrzebują stromego zeskoku
+(45..47°) i rozbiegu (56..58°), a prostej zostaje im 16..21 m. Przy łagodniejszych charakterach K200..K260 scena nie
+mieści rozbiegu dość długiego, żeby najlepszy skok sięgnął K (raport podaje chybiony cel).
 
 Test jednostkowy generuje najmniejszą skocznię zbioru (z regułami symulacji) i jedną za dużą na scenę (raport
 z chybionym celem i strefą lądowania, która ustąpiła). Cały zbiór z regułami symulacji generuje test stabilności

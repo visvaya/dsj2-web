@@ -1,13 +1,34 @@
 import { OWN_HILL_SPECS } from "../own-hills";
-import { generateHill, type GeneratedHill, type GeneratorOptions, type HillCharacter } from "../hill-generator";
+import {
+  generatedHillId,
+  generateHill,
+  keptHill,
+  type GeneratedHill,
+  type GeneratorOptions,
+  type HillCharacter,
+} from "../hill-generator";
 
 /**
  * The generated set: hills of many sizes and shapes made by the generator, for training the player and for tests.
- * Sizes from K50 to K185 (the largest the construction fits in the scene), several shapes per size: steep and gentle
- * landing hills, short and long landing areas, short, medium and long knolls, gentle and steep inruns, low and high
- * takeoff angles. Those in the game are listed in SET_HILLS_IN_GAME.
+ * Sizes from K45 to K260, a little past both ends of the original's range, several shapes per size: steep and
+ * gentle landing hills, short and long landing areas, short, medium and long knolls, inruns from 30 to 58 degrees
+ * (steep ones of 45 degrees and more across sizes), low and high takeoff angles. Every hill not in the game has its
+ * own gate placement, flat part, table height and best jump target, so no two start or play alike. Those in the game are listed in SET_HILLS_IN_GAME and taken as the game has them.
  */
 export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
+  {
+    kPointM: 45,
+    landingSteepnessDeg: 37,
+    landingAreaPastKShare: 0.25,
+    knoll: "medium",
+    inrunSteepnessDeg: 46,
+    takeoffAngleDeg: 10,
+    look: "day",
+    gateXM: 7,
+    flatBehindGateM: 0.8,
+    bestPastKM: { minM: 4, maxM: 8 },
+    tableHeightM: 1.6,
+  },
   {
     kPointM: 50,
     landingSteepnessDeg: 39,
@@ -25,6 +46,19 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     inrunSteepnessDeg: 30,
     takeoffAngleDeg: 10,
     look: "day",
+  },
+  {
+    kPointM: 60,
+    landingSteepnessDeg: 38,
+    landingAreaPastKShare: 0.26,
+    knoll: "long",
+    inrunSteepnessDeg: 50,
+    takeoffAngleDeg: 11,
+    look: "winter",
+    gateXM: 12,
+    flatBehindGateM: 2.5,
+    bestPastKM: { minM: 5, maxM: 9 },
+    tableHeightM: 2.4,
   },
   {
     kPointM: 65,
@@ -61,6 +95,19 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     inrunSteepnessDeg: 40,
     takeoffAngleDeg: 8,
     look: "dusk",
+  },
+  {
+    kPointM: 95,
+    landingSteepnessDeg: 39,
+    landingAreaPastKShare: 0.24,
+    knoll: "short",
+    inrunSteepnessDeg: 53,
+    takeoffAngleDeg: 10,
+    look: "dusk",
+    gateXM: 15,
+    flatBehindGateM: 3.5,
+    bestPastKM: { minM: 7, maxM: 11 },
+    tableHeightM: 1.3,
   },
   {
     kPointM: 105,
@@ -104,18 +151,26 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     landingSteepnessDeg: 38,
     landingAreaPastKShare: 0.2,
     knoll: "medium",
-    inrunSteepnessDeg: 40,
+    inrunSteepnessDeg: 50,
     takeoffAngleDeg: 10,
     look: "winter",
+    gateXM: 20,
+    flatBehindGateM: 5,
+    bestPastKM: { minM: 10, maxM: 14 },
+    tableHeightM: 2.2,
   },
   {
     kPointM: 140,
     landingSteepnessDeg: 36,
     landingAreaPastKShare: 0.3,
     knoll: "long",
-    inrunSteepnessDeg: 42,
+    inrunSteepnessDeg: 43,
     takeoffAngleDeg: 8,
     look: "dusk",
+    gateXM: 8,
+    flatBehindGateM: 6,
+    bestPastKM: { minM: 10, maxM: 13 },
+    tableHeightM: 1.8,
   },
   {
     kPointM: 150,
@@ -125,6 +180,10 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     inrunSteepnessDeg: 45,
     takeoffAngleDeg: 9,
     look: "day",
+    gateXM: 25,
+    flatBehindGateM: 1,
+    bestPastKM: { minM: 6, maxM: 10 },
+    tableHeightM: 2.6,
   },
   {
     kPointM: 160,
@@ -134,15 +193,23 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     inrunSteepnessDeg: 42,
     takeoffAngleDeg: 11,
     look: "winter",
+    gateXM: 14,
+    flatBehindGateM: 4.5,
+    bestPastKM: { minM: 9, maxM: 12 },
+    tableHeightM: 1.4,
   },
   {
     kPointM: 170,
     landingSteepnessDeg: 39,
     landingAreaPastKShare: 0.2,
     knoll: "medium",
-    inrunSteepnessDeg: 45,
+    inrunSteepnessDeg: 55,
     takeoffAngleDeg: 10,
     look: "dusk",
+    gateXM: 30,
+    flatBehindGateM: 2,
+    bestPastKM: { minM: 8, maxM: 12 },
+    tableHeightM: 2.1,
   },
   {
     kPointM: 185,
@@ -152,6 +219,114 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
     inrunSteepnessDeg: 45,
     takeoffAngleDeg: 10,
     look: "day",
+    gateXM: 18,
+    flatBehindGateM: 7,
+    bestPastKM: { minM: 11, maxM: 15 },
+    tableHeightM: 1.2,
+  },
+  {
+    kPointM: 200,
+    landingSteepnessDeg: 40,
+    landingAreaPastKShare: 0.18,
+    knoll: "short",
+    inrunSteepnessDeg: 47,
+    takeoffAngleDeg: 10,
+    look: "day",
+    gateXM: 9,
+    flatBehindGateM: 3,
+    bestPastKM: { minM: 15, maxM: 18 },
+    tableHeightM: 2.5,
+  },
+  {
+    kPointM: 200,
+    landingSteepnessDeg: 41,
+    landingAreaPastKShare: 0.2,
+    knoll: "medium",
+    inrunSteepnessDeg: 48,
+    takeoffAngleDeg: 11,
+    look: "winter",
+    gateXM: 22,
+    flatBehindGateM: 0.5,
+    bestPastKM: { minM: 4, maxM: 9 },
+    tableHeightM: 1.7,
+  },
+  {
+    kPointM: 215,
+    landingSteepnessDeg: 42,
+    landingAreaPastKShare: 0.15,
+    knoll: "short",
+    inrunSteepnessDeg: 48,
+    takeoffAngleDeg: 11,
+    look: "dusk",
+    gateXM: 16,
+    flatBehindGateM: 5.5,
+    bestPastKM: { minM: 9, maxM: 13 },
+    tableHeightM: 2.3,
+  },
+  {
+    kPointM: 230,
+    landingSteepnessDeg: 41,
+    landingAreaPastKShare: 0.15,
+    knoll: "short",
+    inrunSteepnessDeg: 50,
+    takeoffAngleDeg: 10,
+    look: "day",
+    gateXM: 13,
+    flatBehindGateM: 1.8,
+    bestPastKM: { minM: 13, maxM: 17 },
+    tableHeightM: 1.5,
+  },
+  {
+    kPointM: 230,
+    landingSteepnessDeg: 43,
+    landingAreaPastKShare: 0.12,
+    knoll: "medium",
+    inrunSteepnessDeg: 52,
+    takeoffAngleDeg: 9,
+    look: "winter",
+    gateXM: 11,
+    flatBehindGateM: 4,
+    bestPastKM: { minM: 6, maxM: 9 },
+    tableHeightM: 1.9,
+  },
+  {
+    kPointM: 245,
+    landingSteepnessDeg: 43,
+    landingAreaPastKShare: 0.12,
+    knoll: "short",
+    inrunSteepnessDeg: 52,
+    takeoffAngleDeg: 10,
+    look: "dusk",
+    gateXM: 9.5,
+    flatBehindGateM: 2.8,
+    bestPastKM: { minM: 3, maxM: 7 },
+    tableHeightM: 2.6,
+  },
+  {
+    kPointM: 260,
+    landingSteepnessDeg: 45,
+    landingAreaPastKShare: 0.12,
+    knoll: "short",
+    inrunSteepnessDeg: 58,
+    takeoffAngleDeg: 9,
+    look: "day",
+    gateXM: 6.5,
+    flatBehindGateM: 6.5,
+    bestPastKM: { minM: 8, maxM: 12 },
+    tableHeightM: 1.3,
+  },
+  {
+    kPointM: 260,
+    landingSteepnessDeg: 47,
+    landingAreaPastKShare: 0.12,
+    knoll: "medium",
+    inrunSteepnessDeg: 56,
+    takeoffAngleDeg: 10,
+    look: "winter",
+    gateXM: 7.5,
+    flatBehindGateM: 3.2,
+    bestPastKM: { minM: 14, maxM: 18 },
+    tableHeightM: 2.2,
   },
 ];
 
@@ -159,8 +334,9 @@ export const GENERATED_HILL_CHARACTERS: readonly HillCharacter[] = [
 const SET_SEED = 1;
 
 /**
- * Hills of the set that are in the game, by their id in the set: the own hill with the same profile and K point
- * and its own scenery. The set leaves those own hills out of its likeness checks, since they are its own hills.
+ * Hills of the set that are in the game, by the id the generator gives their character: the own hill made from it,
+ * with its own scenery. The set takes those own hills as they are instead of generating them again, since a later
+ * change of the construction must not change a hill the game has (`keptHill`), and checks them as its other hills.
  */
 export const SET_HILLS_IN_GAME: Readonly<Record<string, string>> = {
   "gen-k50-l390-a30-l-i350-t110-winter1": "own-4",
@@ -176,8 +352,9 @@ export const SET_HILLS_IN_GAME: Readonly<Record<string, string>> = {
 };
 
 /**
- * Generates the characters in order, each checked against the own hills not taken from the set and the hills
- * generated before it, so no two hills of the set are the same hill. `checkPlay` as in `generateHill`.
+ * Generates the characters in order (or takes the own hill made from one, `SET_HILLS_IN_GAME`), each checked against
+ * the own hills not taken from the set and the hills of the set before it, so no two hills of the set are the same
+ * hill. `checkPlay` as in `generateHill`.
  */
 export function generatedHillSet(
   characters: readonly HillCharacter[] = GENERATED_HILL_CHARACTERS,
@@ -187,7 +364,11 @@ export function generatedHillSet(
   const catalog = OWN_HILL_SPECS.filter((spec) => !inGame.has(spec.id));
   const done: GeneratedHill[] = [];
   for (const character of characters) {
-    done.push(generateHill(character, SET_SEED, { others: done.map((d) => d.spec), catalog, checkPlay }));
+    const options = { others: done.map((d) => d.spec), catalog, checkPlay };
+    const ownId = SET_HILLS_IN_GAME[generatedHillId(character, SET_SEED)];
+    const own = OWN_HILL_SPECS.find((spec) => spec.id === ownId);
+    if (ownId !== undefined && own === undefined) throw new Error(`no own hill ${ownId}`);
+    done.push(own === undefined ? generateHill(character, SET_SEED, options) : keptHill(character, own, options));
   }
   return done;
 }

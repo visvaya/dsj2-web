@@ -16,8 +16,15 @@ export const HILL_RULES = {
   tableHeightMaxM: 3,
   landingAngleAtKMinDeg: 34,
   landingAngleAtKMaxDeg: 48,
-  /** Horizontal distance of the K point from the steepest point of the landing hill, either way. */
-  kFromSteepestMaxM: 15,
+  /**
+   * Horizontal distance of the K point from the steepest point of the landing hill, either way: at most the larger
+   * of a fixed floor and a share of K (`kFromSteepestMaxM`). A modern landing hill is nearly straight from its P
+   * point to K, and P lies about a tenth to a fifth of K before K, so the steepest point can be anywhere on a
+   * stretch that grows with the hill. The share is the low end of that range, which still leaves the generator's
+   * big hills room for its margin; the floor keeps small hills to the few metres a jumper can tell apart.
+   */
+  kFromSteepestMinM: 15,
+  kFromSteepestShareOfK: 0.12,
   /** Where the landing area ends: the first point past the steepest one with a flatter slope than this. */
   landingAreaEndDeg: 32,
   /** Length of the landing area past the K point, as a share of the K point. */
@@ -27,6 +34,10 @@ export const HILL_RULES = {
   /** The scenery is drawn over this much of the hill. */
   outrunLowestMaxXM: LAYER_TABLE_LENGTH_M,
 } as const;
+
+/** How far the K point may lie from the steepest point of the landing hill, horizontally, on a hill of this K. */
+export const kFromSteepestMaxM = (kPointM: number): number =>
+  Math.max(HILL_RULES.kFromSteepestMinM, HILL_RULES.kFromSteepestShareOfK * kPointM);
 
 /** Spacing of the samples along the hill, in metres. */
 const SAMPLE_STEP_M = 0.1;
@@ -253,7 +264,7 @@ export function geometryRuleProblems(g: HillGeometry, kPointM: number): HillProb
       `landing at K is ${g.landingAngleAtKDeg} deg`,
     ],
     [
-      !(Math.abs(g.kXM - g.steepestLandingXM) <= r.kFromSteepestMaxM),
+      !(Math.abs(g.kXM - g.steepestLandingXM) <= kFromSteepestMaxM(kPointM)),
       "k-near-steepest",
       `K is ${g.kXM - g.steepestLandingXM} m from the steepest point`,
     ],

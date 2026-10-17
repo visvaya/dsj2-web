@@ -8,6 +8,7 @@ import {
   geometryRuleProblems,
   HILL_RULES,
   hillGeometry,
+  kFromSteepestMaxM,
   type HillGeometry,
 } from "./hill-geometry";
 import type { HillSpec } from "./hill-spec";
@@ -67,6 +68,22 @@ describe("hill geometry", () => {
   ] as const)("reports %s alone for measures that break only that rule", (rule, change) => {
     const g: HillGeometry = { ...trainingGeometry(), ...change };
     expect(geometryRuleProblems(g, training.kPointM).map((p) => p.rule)).toEqual([rule]);
+  });
+
+  it.each([
+    [100, 14.9, false],
+    [100, 15.1, true],
+    [250, -29.9, false],
+    [250, 30.1, true],
+  ] as const)("on a K%s hill, K %s m from the steepest point is a problem: %s", (kPointM, offsetM, expected) => {
+    const g: HillGeometry = { ...trainingGeometry(), kXM: trainingGeometry().steepestLandingXM + offsetM };
+    const rules = geometryRuleProblems(g, kPointM).map((p) => p.rule);
+    expect(rules.includes("geometry.k-near-steepest")).toBe(expected);
+  });
+
+  it("lets K lie further from the steepest point on a bigger hill, never less than the fixed floor", () => {
+    expect(kFromSteepestMaxM(50)).toBe(HILL_RULES.kFromSteepestMinM);
+    expect(kFromSteepestMaxM(250)).toBeCloseTo(250 * HILL_RULES.kFromSteepestShareOfK, 9);
   });
 
   it.each([
