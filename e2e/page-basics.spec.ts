@@ -7,6 +7,7 @@ const TITLES: Readonly<Record<string, string>> = {
   outfit: "Strój · Telemark",
   "how to jump": "Jak skakać · Telemark",
   install: "Gra jako aplikacja · Telemark",
+  about: "O grze · Telemark",
   settings: "Ustawienia · Telemark",
   replays: "Powtórki · Telemark",
   "hill list": "Wybór skoczni · Telemark",
@@ -37,11 +38,12 @@ test("each screen has its own title and the page background is set on the root e
       titles.get("outfit"),
       titles.get("how to jump"),
       titles.get("install"),
+      titles.get("about"),
       titles.get("settings"),
       titles.get("hill list"),
       titles.get("jump"),
     ]).size,
-  ).toBe(7);
+  ).toBe(8);
 });
 
 // A window too short for the menu and for the hill list, so that both scroll on every device profile. The hill

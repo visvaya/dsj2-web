@@ -110,6 +110,14 @@ dashes and emoji. On `master`, the same run can then publish the package it has 
 `git config blame.ignoreRevsFile .git-blame-ignore-revs` (GitHub does so by itself).
 Security reports: see `SECURITY.md`.
 
+## Credits
+
+Telemark follows Deluxe Ski Jump 2 (v2.10P for DOS, 2001), made by Jussi Koskela (Mediamond), with photographs
+by Kalevi Koskela; the Polish translation of v2.10P is by Piotr "V-car" Wikarek. Its jump physics is ported from
+that game. Without Deluxe Ski Jump this game would not exist: thank you.
+
+Telemark is made by Maciej Budzyński.
+
 ## Legal
 
 This is an independent project, not affiliated with or endorsed by the authors or publishers of Deluxe Ski Jump.

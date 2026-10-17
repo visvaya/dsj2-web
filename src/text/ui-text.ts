@@ -18,6 +18,7 @@ export const UI_TEXT = {
     outfit: "Strój",
     howTo: "Jak skakać",
     install: "Gra jako aplikacja",
+    about: "O grze",
     settings: "Ustawienia",
     replays: "Powtórki",
     jump: (hillLabel: string) => `Skok: ${hillLabel}`,
@@ -28,6 +29,8 @@ export const UI_TEXT = {
   menu: {
     /** Under the name of the game: what it is, and its version (`versionLabel`), which never breaks apart. */
     tagline: "Skoki jak z DOS-a",
+    /** Under the tagline, always in sight: the game this one follows and its author. */
+    homage: "Nawiązuje do Deluxe Ski Jump 2 (Mediamond, Jussi Koskela)",
     navigation: "Główne menu",
     training: "Trening",
     replays: "Powtórki",
@@ -35,6 +38,7 @@ export const UI_TEXT = {
     settings: "Ustawienia",
     howTo: "Jak skakać",
     install: "Gra jako aplikacja",
+    about: "O grze",
     loadFiles: "Wczytaj pliki gry",
     quit: "Wyłącz grę",
     /** A framed note: "|" and "~" are the marks of `typeset` (src/ui/typeset.ts). */
@@ -258,6 +262,36 @@ export const UI_TEXT = {
       "zielony",
     ],
     preview: "Podgląd skoczka w wybranym stroju",
+  },
+
+  about: {
+    title: "O grze",
+    /**
+     * Texts set by `typeset` (src/ui/typeset.ts): "~" keeps a one-letter word with the next; the nickname's hyphen
+     * is glued to its second half (U+2060), so the name does not break there.
+     */
+    sections: [
+      {
+        title: "Czym jest Telemark",
+        text: "Telemark to przeglądarkowa gra w~skoki narciarskie. Fizyka skoku jest wiernym odtworzeniem Deluxe Ski Jump~2 (wersja 2.10P na DOS, 2001), przeniesionym z~analizy oryginalnej gry i~sprawdzanym z~nią klatka po klatce. Grafika, interfejs i~dźwięk powstały od nowa, w~duchu oryginału.",
+      },
+      {
+        title: "Podziękowania",
+        text: "Ta gra nie powstałaby bez Deluxe Ski Jump. Jussi Koskela stworzył grę, w~której kilka ruchów myszą wystarcza, żeby poczuć lot, a~o~każdy metr trzeba walczyć. Na jego skoczniach wyrosło pokolenie graczy, także w~Polsce. Dziękujemy.",
+      },
+      {
+        title: "Deluxe Ski Jump 2",
+        text: "Gra: Jussi Koskela (Mediamond). Zdjęcia: Kalevi Koskela. Polskie tłumaczenie wersji 2.10P: Piotr „V-\u2060car” Wikarek.",
+      },
+      {
+        title: "Telemark",
+        text: "Maciej Budzyński. Kod na licencji GPL-3.0-or-later; czcionka Silkscreen na licencji SIL Open Font License 1.1.",
+      },
+      {
+        title: "Niezależny projekt",
+        text: "Telemark jest niezależnym projektem, niezwiązanym z~autorami ani wydawcami Deluxe Ski Jump i~przez nich niepopieranym. Pliki oryginalnej gry nie są częścią Telemarka: skocznie oryginału gra czyta z~własnej kopii gracza.",
+      },
+    ],
   },
 
   install: {
