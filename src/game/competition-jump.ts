@@ -19,7 +19,12 @@ export interface CpuJumpOutcome {
   inputs: readonly FrameInput[];
 }
 
-/** What the pilot reads of the jump at the entry of read_input, as src/sim/cpu-jump.ts gives it. */
+/*
+ * What the pilot reads of the jump at the entry of read_input, the same view src/sim/cpu-jump.ts builds there
+ * (not exported, so the port keeps its shape). The competition jump keeps the pilot's input of every frame for
+ * the picture, which stepCpuFrame does not hand out; competition-jump.test.ts checks both give the same jump.
+ */
+/* jscpd:ignore-start */
 function pilotView(frame: number, at: InputContext) {
   const j = at.jumper;
   return {
@@ -36,6 +41,7 @@ function pilotView(frame: number, at: InputContext) {
     randomSeed: at.randomSeed,
   };
 }
+/* jscpd:ignore-end */
 
 /**
  * The start of a computer jump from `seed`: the wind of a training jump, then the pilot's setup, which the

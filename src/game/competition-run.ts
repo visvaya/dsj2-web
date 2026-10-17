@@ -11,7 +11,7 @@ import { cpuCompetitionJump } from "./competition-jump";
 import type { HillChoice } from "./hill-choice";
 
 /** A jump as the board between jumps tells it: who, the score, and the place after it. */
-export interface LoggedJump {
+interface LoggedJump {
   competitor: number;
   round: number;
   score: JumpScore;

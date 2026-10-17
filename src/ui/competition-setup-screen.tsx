@@ -23,7 +23,7 @@ interface Props {
 }
 
 /** The hill the settings name, or the first on the list when it is not there (the original's files went). */
-export function chosenHill(hills: readonly HillChoice[], hillId: string | null): HillChoice | undefined {
+function chosenHill(hills: readonly HillChoice[], hillId: string | null): HillChoice | undefined {
   return hills.find((h) => h.id === hillId) ?? hills[0];
 }
 

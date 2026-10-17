@@ -7,15 +7,15 @@ import { CPU_LEVEL_COUNT, drawCpuForm, drawCpuTalents, type CpuJumperRecord } fr
  */
 
 /** Places for players and for computer jumpers, as in the original. */
-export const COMPETITION_SLOT_COUNT = 8;
+const COMPETITION_SLOT_COUNT = 8;
 /** The level setting that draws a level for each competition (the original's "random"). */
-export const CPU_LEVEL_RANDOM = CPU_LEVEL_COUNT;
+const CPU_LEVEL_RANDOM = CPU_LEVEL_COUNT;
 /** Level settings in the order the setup offers them: weakest, weak, average, good, super, random. */
 export const CPU_LEVEL_SETTINGS = [0, 1, 2, 3, 4, CPU_LEVEL_RANDOM] as const;
 export type CpuLevelSetting = (typeof CPU_LEVEL_SETTINGS)[number];
-export const ROUND_COUNT = 2;
+const ROUND_COUNT = 2;
 
-export interface CpuSlotSetting {
+interface CpuSlotSetting {
   on: boolean;
   level: CpuLevelSetting;
 }
