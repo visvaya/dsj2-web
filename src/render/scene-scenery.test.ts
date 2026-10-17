@@ -408,8 +408,9 @@ describe("the floodlights' light on the hill at night", () => {
     ({ hill }) => {
       const h = hill.profile;
       const at = (xM: number, liftM = 0) => sceneView(xM, inrunYM(h, xM) + liftM, 432, 1.2);
-      // At the takeoff and past it, and at the takeoff with the camera lower down.
-      const views = [at(h.takeoffXM), at(h.takeoffXM + 4), at(h.takeoffXM, -3)];
+      // At the takeoff and past it, and at the takeoff with the camera lower down; all a little below the inrun, so
+      // the rows under the near edge stay in the picture on every own hill.
+      const views = [at(h.takeoffXM, -1), at(h.takeoffXM + 4, -1), at(h.takeoffXM, -4)];
       for (const row of [{ across: 0.5 }, { across: 0.9 }, { below: 6 }]) {
         const xs = views.map((view) => fullLightFromXM(h, view, row));
         // Full light starts in sight in every view, so each finds it.

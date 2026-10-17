@@ -54,7 +54,9 @@ const rulesOf = (spec: HillSpec, change: Partial<PlayMeasures>) =>
   playProblems(spec, { ...passing, ...change }).map((p) => p.rule);
 
 describe("play rules", () => {
-  describe.each(OWN_HILL_SPECS.map((s) => [s.id, s] as const))("%s", (id, spec) => {
+  // The evaluation in detail on the training hill; every other own hill plays the rules in the stability tier
+  // (hill-play.stability.test.ts), which runs whenever the hills, the simulation or the game change.
+  describe.each([[training.id, training] as const])("%s", (id, spec) => {
     const hill = OWN_HILLS.find((h) => h.id === id);
     if (hill === undefined) throw new Error(`no hill ${id}`);
     let evaluation: ReturnType<typeof playEvaluation> | undefined;

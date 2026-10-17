@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { OWN_HILLS } from "../game/hill-choice";
 import { PLAY_RULES, PLAY_SAMPLE, playMeasures, playProblems } from "./hill-play";
-import { generatedHillSet } from "./test-support/generated-hills";
+import { generatedHillSet, SET_HILLS_IN_GAME } from "./test-support/generated-hills";
+import { hillFingerprint } from "./hill-fingerprint";
 import { OWN_HILL_SPECS } from "./own-hills";
 
 /**
@@ -26,6 +27,8 @@ describe("play rules on other seeds", () => {
         return playProblems(spec, playMeasures(hill, sample)).map((p) => p.rule);
       };
       const first = verdict(0);
+      // Every own hill within the bots' limit passes; larger ones wait for a bot that plays them reliably.
+      expect(spec.kPointM > PLAY_RULES.botReliableMaxKPointM ? [] : first).toEqual([]);
       expect(verdict(1)).toEqual(first);
       expect(verdict(2)).toEqual(first);
     },
@@ -40,12 +43,20 @@ describe("generated set", () => {
   it(
     "generates every hill of the set on target, with no problem by any rule and none too alike to another",
     () => {
-      const missed = generatedHillSet().flatMap(({ spec, report }) => [
+      const set = generatedHillSet();
+      const missed = set.flatMap(({ spec, report }) => [
         ...(report.bestOnTarget ? [] : [`${spec.id}: best calm jump ${report.bestCalmFromKM} m from K`]),
         ...report.styleProblems.map((p) => `${spec.id}: ${p.rule} (${p.message})`),
         ...(report.playJudged || spec.kPointM > PLAY_RULES.botReliableMaxKPointM ? [] : [`${spec.id}: not judged`]),
       ]);
       expect(missed).toEqual([]);
+      // The hills of the set in the game have the profile and the K point the generator gives them.
+      const inGame = Object.entries(SET_HILLS_IN_GAME).map(([setId, ownId]) => {
+        const generated = set.find((g) => g.spec.id === setId)?.spec;
+        const own = OWN_HILL_SPECS.find((s) => s.id === ownId);
+        return [setId, generated && hillFingerprint(generated), own && hillFingerprint(own)];
+      });
+      expect(inGame.filter(([, generated, own]) => generated === undefined || generated !== own)).toEqual([]);
     },
     GENERATED_SET_TIMEOUT_MS,
   );

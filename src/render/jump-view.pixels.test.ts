@@ -99,6 +99,16 @@ const blinkOn = (frame: number) => Math.floor(frame / BLINK_FRAMES) % 2 === 0;
 const phaseOf = (jump: TrainingJump) => jump.state.logic.phase;
 const allNotesShown = (jump: TrainingJump, frame: number) => notesShownBy(jump.state.logic, frame);
 
+/**
+ * When the notes are seen appearing: as the second judge's note appears, as the snapshots were first taken, unless
+ * that note is the last to appear (each judge's moment is random), and then as the first note appears.
+ */
+function notesAppearingFrame(jump: TrainingJump): number {
+  const frames = jump.state.logic.judges.map((judge) => judge.showFrame);
+  const second = frames[1] ?? Infinity;
+  return second < Math.max(...frames) ? second : Math.min(...frames);
+}
+
 const SCENARIOS: readonly Scenario[] = [
   {
     name: "jump with a telemark landing",
@@ -125,8 +135,7 @@ const SCENARIOS: readonly Scenario[] = [
       { name: "outrun", when: (j) => phaseOf(j) === PHASE.outrun && !isJumpOver(j) },
       {
         name: "distance shown, notes appearing",
-        when: (j, f) =>
-          j.state.logic.finished && !allNotesShown(j, f) && f >= (j.state.logic.judges[1]?.showFrame ?? Infinity),
+        when: (j, f) => j.state.logic.finished && !allNotesShown(j, f) && f >= notesAppearingFrame(j),
       },
       {
         name: "after the jump, notes and record shown",

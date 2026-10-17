@@ -149,8 +149,10 @@ export class HillGenerationError extends Error {
 }
 
 export interface GeneratorOptions {
-  /** Hills the result must not be too alike to, besides the own hills. */
+  /** Hills the result must not be too alike to, besides the catalog. */
   others?: readonly HillSpec[];
+  /** The hills already in the game, which the result must not be too alike to: the own hills by default. */
+  catalog?: readonly HillSpec[];
   /** Run the play rules on hills up to the bots' limit (the default); off only to save time where they run elsewhere. */
   checkPlay?: boolean;
 }
@@ -295,14 +297,30 @@ const THEME_SKY_RGB6: Readonly<Record<LookTheme, readonly [number, number, numbe
   winter: [44, 52, 58],
 };
 
+/**
+ * Colours of the inrun's walls, the start gate and the fences, as palette indices: the darkest shade each uses,
+ * on the scene palette's ramps (grey, blue, red, green, orange, violet, cyan for the walls; gold, red, blue,
+ * yellow, orange, cyan, pink, violet for the fences). A hill takes one of each by its seed; lists of different
+ * lengths give neighbouring seeds different combinations.
+ */
+const LOOK_COLOURS = {
+  wall: [228, 100, 68, 84, 164, 212, 132],
+  gate: [163, 67, 115, 99, 195, 83],
+  fence: [192, 64, 96, 112, 160, 128, 176, 208],
+} as const;
+
+const colourOf = (list: readonly number[], seed: number): number =>
+  list[((seed % list.length) + list.length) % list.length] ?? 0;
+
 /** Seeds of the terrain and the trees are spread over their range by these odd multipliers. */
 const LOOK_SEED_MULTIPLIERS = { terrain: 7919, trees: 104_729 } as const;
 const SEED_RANGE = 65_536;
 
 /**
- * The look of a generated hill: the default look's colours with the theme's sky, and every position taken from
- * the profile (the start platform behind the gate, three supports under the inrun ending before the takeoff,
- * trees from the takeoff to past the outrun's bottom, three marks before K). `seed` sets the terrain and the trees.
+ * The look of a generated hill: the theme's sky, and every position taken from the profile (the start platform
+ * behind the gate, three supports under the inrun ending before the takeoff, trees from the takeoff to past the
+ * outrun's bottom, three marks before K). `seed` sets the terrain, the trees and the colours of the inrun's walls,
+ * the start gate and the fences.
  */
 function lookOf(c: HillCharacter, inrun: InrunSpec, lowestXM: number, seed: number): HillLook {
   const at = (x: number): number => round(x, G.decimals.lengthM);
@@ -327,10 +345,15 @@ function lookOf(c: HillCharacter, inrun: InrunSpec, lowestXM: number, seed: numb
       platformStartXM: at(Math.max(0, inrun.flatEndXM - G.platformBehindFlatEndM)),
       nearWallUpPx: 12,
       nearWallDownPx: 11,
-      wallColour: 228,
-      gateColour: 163,
+      wallColour: colourOf(LOOK_COLOURS.wall, seed),
+      gateColour: colourOf(LOOK_COLOURS.gate, seed),
     },
-    marks: { firstMarkM: c.kPointM - G.firstMarkBeforeKM, markCount: 3, fenceColour: 192, fenceStartM: 0 },
+    marks: {
+      firstMarkM: c.kPointM - G.firstMarkBeforeKM,
+      markCount: 3,
+      fenceColour: colourOf(LOOK_COLOURS.fence, seed),
+      fenceStartM: 0,
+    },
   };
 }
 
@@ -444,7 +467,7 @@ export interface GeneratedHillChecks {
 }
 
 /**
- * The checks of a generated hill, cheapest first: the format, the admission rules, the likeness to the own hills
+ * The checks of a generated hill, cheapest first: the format, the admission rules, the likeness to the catalog
  * and to `options.others`, and the play rules up to the bots' limit. Throws `HillGenerationError` at the first
  * that fails; style problems are returned, because they are targets and not refusals.
  */
@@ -454,7 +477,7 @@ export function checkGeneratedHill(spec: HillSpec, options: GeneratorOptions = {
   const geometry = geometryProblems(spec);
   const admission = geometry.filter((p) => p.level === "admission");
   if (admission.length > 0) throw new HillGenerationError(`generated hill ${spec.id} is not admitted`, admission);
-  const closest = closestOf(spec, [...OWN_HILL_SPECS, ...(options.others ?? [])]);
+  const closest = closestOf(spec, [...(options.catalog ?? OWN_HILL_SPECS), ...(options.others ?? [])]);
   if (closest.distance < LIKENESS.tooAlike) {
     throw new HillGenerationError(`generated hill ${spec.id} is the same hill as another`, [
       { rule: "generator.too-alike", path: "", message: `likeness distance ${closest.distance} to ${closest.id}` },
@@ -476,7 +499,7 @@ export function checkGeneratedHill(spec: HillSpec, options: GeneratorOptions = {
 /**
  * A hill of the given character. `seed` sets the scenery (terrain and trees) and the id; the profile depends on
  * the character alone. Throws `HillGenerationError` when the result misses a format, admission or play rule, or is
- * too alike to an own hill or one of `options.others` (`checkGeneratedHill`); the style rules and the best jump's
+ * too alike to a hill of the catalog or one of `options.others` (`checkGeneratedHill`); the style rules and the best jump's
  * range are targets, and the report says whether they were reached.
  */
 export function generateHill(character: HillCharacter, seed = 1, options: GeneratorOptions = {}): GeneratedHill {

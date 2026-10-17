@@ -9,6 +9,16 @@ import { OWN_HILL_SPECS } from "./own-hills";
  */
 const PINNED: Readonly<Record<string, string>> = {
   "own-3": "5d8a7866",
+  "own-4": "b93d232d",
+  "own-5": "1fb389d7",
+  "own-6": "9105b1c6",
+  "own-7": "d56d619e",
+  "own-8": "a562620e",
+  "own-9": "f7865f97",
+  "own-10": "366ba8d2",
+  "own-11": "bcb52bcd",
+  "own-12": "9df818fb",
+  "own-13": "6cfde0d4",
 };
 
 describe("hill fingerprint", () => {

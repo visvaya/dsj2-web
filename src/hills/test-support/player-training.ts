@@ -6,7 +6,7 @@ import { NOISE_SEED_OFFSET, windClassSeeds } from "../hill-play";
 import { EXACT_PLAYER_LEVEL, PLAYER_LEVELS, playJump } from "../hill-players";
 import { OWN_HILL_SPECS } from "../own-hills";
 import { REFERENCE_PLAYER_POLICY, type PlayerPolicy } from "../player-policy";
-import { GENERATED_HILL_CHARACTERS, generatedHillSet } from "./generated-hills";
+import { GENERATED_HILL_CHARACTERS, generatedHillSet, SET_HILLS_IN_GAME } from "./generated-hills";
 
 /**
  * Training of the player policy: a deterministic coordinate search over its numbers for the most mean points of
@@ -192,9 +192,14 @@ export function trainPolicy(
   return { policy: polished.point, score: polished.score, evaluations };
 }
 
-/** Mean score over the game's own hills alone (unscaled), on the training seeds: what the unit test reproduces. */
+/**
+ * Mean score over the game's own hills the training does not see (those not taken from the generated set),
+ * unscaled, on the training seeds: what the unit test reproduces.
+ */
 export function ownHillsScore(policy: PlayerPolicy, set = TRAINING_SET): number {
-  return trainingScore(policy, OWN_HILL_SPECS.map(hillChoiceOf), trainingSeeds(set));
+  const fromSet = new Set(Object.values(SET_HILLS_IN_GAME));
+  const unseen = OWN_HILL_SPECS.filter((spec) => !fromSet.has(spec.id));
+  return trainingScore(policy, unseen.map(hillChoiceOf), trainingSeeds(set));
 }
 
 /** Trains the policy from the reference player and reports as it goes; what `scripts/train-player.mjs` runs. */
