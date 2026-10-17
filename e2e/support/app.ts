@@ -8,6 +8,7 @@ export const TEXT = {
   replays: "Powtórki",
   outfit: "Strój",
   howTo: "Jak skakać",
+  about: "O grze",
   settings: "Ustawienia",
   install: "Gra jako aplikacja",
   back: "Wstecz",
@@ -128,7 +129,8 @@ export async function storedSave(page: Page): Promise<unknown> {
 type ScreenCheck = (screen: string) => Promise<void>;
 
 /**
- * Opens the menu, the outfit screen, the two screens of instructions, the settings, the replays and the hill list
+ * Opens the menu, the outfit screen, the two screens of instructions, the one about the game, the settings, the
+ * replays and the hill list
  * in turn and runs `check` on each; ends on the hill list.
  */
 export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: ScreenCheck): Promise<void> {
@@ -144,6 +146,10 @@ export async function onEachMenuScreen(page: Page, traits: DeviceTraits, check: 
   await press(button(page, TEXT.install), traits);
   await expect(page.getByRole("heading", { name: TEXT.install })).toBeVisible();
   await check("install");
+  await press(button(page, TEXT.back), traits);
+  await press(button(page, TEXT.about), traits);
+  await expect(page.getByRole("heading", { name: TEXT.about })).toBeVisible();
+  await check("about");
   await press(button(page, TEXT.back), traits);
   await press(button(page, TEXT.settings), traits);
   await expect(page.getByRole("heading", { name: TEXT.settings })).toBeVisible();

@@ -10,6 +10,7 @@ export type TitledScreen =
   | { kind: "outfit" }
   | { kind: "howto" }
   | { kind: "install" }
+  | { kind: "about" }
   | { kind: "settings" }
   | { kind: "replays" }
   | { kind: "jump"; hill: { name: string; kPointM: number } };
@@ -24,6 +25,7 @@ export function screenTitle(screen: TitledScreen): string {
   if (screen.kind === "outfit") return withApp(T.outfit);
   if (screen.kind === "howto") return withApp(T.howTo);
   if (screen.kind === "install") return withApp(T.install);
+  if (screen.kind === "about") return withApp(T.about);
   if (screen.kind === "settings") return withApp(T.settings);
   if (screen.kind === "replays") return withApp(T.replays);
   return withApp(T.jump(UI_TEXT.hillLabel(screen.hill.name, screen.hill.kPointM)));

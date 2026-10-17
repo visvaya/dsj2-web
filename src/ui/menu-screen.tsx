@@ -29,7 +29,7 @@ interface Props {
   /** Whether the game can start without a network, and the means to check for and install a new release. */
   offline: OfflineSupportView;
   /** Opens another screen of the game. */
-  onOpen: (screen: "hills" | "replays" | "outfit" | "settings" | "howto" | "install") => void;
+  onOpen: (screen: "hills" | "replays" | "outfit" | "settings" | "howto" | "install" | "about") => void;
   onOriginalHills: (hills: HillChoice[]) => void;
   /** Whether the heading takes the keyboard focus when the screen appears. */
   focusOnEntry: boolean;
@@ -40,7 +40,10 @@ async function bytesOf(files: FileList, name: string): Promise<Uint8Array | unde
   return file ? new Uint8Array(await file.arrayBuffer()) : undefined;
 }
 
-/** The name of the game, its version with the check for a new one, and the note of a waiting release. */
+/**
+ * The name of the game, its version with the check for a new one, the game it follows, and the note of a waiting
+ * release.
+ */
 function MenuHeader({
   headingRef,
   offline: { state, updates },
@@ -61,6 +64,7 @@ function MenuHeader({
       ) : (
         <Subtitle version={version} />
       )}
+      <p className="note homage">{UI_TEXT.menu.homage}</p>
       <UpdateNotice state={state} updates={updates} />
     </header>
   );
@@ -140,6 +144,9 @@ export function MenuScreen({
             {UI_TEXT.menu.install}
           </button>
         )}
+        <button type="button" className="pixel-button" onClick={() => onOpen("about")}>
+          {UI_TEXT.menu.about}
+        </button>
         <label className="pixel-button file-label">
           {UI_TEXT.menu.loadFiles}
           {/* No accept filter: iOS does not know .dat and greys such files out. The names are checked instead. */}

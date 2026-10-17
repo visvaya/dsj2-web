@@ -18,6 +18,7 @@ import { UI_TEXT } from "../text/ui-text";
 import { typeset } from "./typeset";
 import { HillScreen } from "./hill-screen";
 import { HowToScreen } from "./how-to-jump";
+import { AboutScreen } from "./about-screen";
 import { InstallScreen } from "./install-screen";
 import type { JumpResult } from "./jump-round";
 import { JumpScreen } from "./jump-screen";
@@ -37,25 +38,30 @@ type Screen =
   | { kind: "outfit" }
   | { kind: "howto" }
   | { kind: "install" }
+  | { kind: "about" }
   | { kind: "settings" }
   | { kind: "replays" }
   /** A jump screen; with a replay of the original, it plays that first. */
   | { kind: "jump"; hill: HillChoice; replay?: ReplaySource };
 
 interface SideProps {
-  kind: "howto" | "install" | "settings";
+  kind: "howto" | "install" | "about" | "settings";
   settings: Settings;
   onSettings: (change: Partial<Settings>) => void;
   onBack: () => void;
   focusOnEntry: boolean;
 }
 
-/** The screens beside the game itself: the two with instructions and the settings; each leads back to the menu. */
+/**
+ * The screens beside the game itself: the two with instructions, the one about the game and the settings; each
+ * leads back to the menu.
+ */
 function SideScreen({ kind, settings, onSettings, onBack, focusOnEntry }: SideProps) {
   if (kind === "settings") {
     return <SettingsScreen settings={settings} onSettings={onSettings} onBack={onBack} focusOnEntry={focusOnEntry} />;
   }
   if (kind === "install") return <InstallScreen onBack={onBack} focusOnEntry={focusOnEntry} />;
+  if (kind === "about") return <AboutScreen onBack={onBack} focusOnEntry={focusOnEntry} />;
   // The instructions speak of the steering in use: on a touch screen, a finger or the tilt of the phone.
   return (
     <HowToScreen
@@ -235,7 +241,7 @@ export function App({ diagnostics }: AppProps) {
       />
     );
   }
-  if (screen.kind === "howto" || screen.kind === "install" || screen.kind === "settings") {
+  if (screen.kind === "howto" || screen.kind === "install" || screen.kind === "about" || screen.kind === "settings") {
     return <SideScreen kind={screen.kind} {...side} />;
   }
   if (screen.kind === "outfit") {
