@@ -10,7 +10,7 @@ export interface Rival {
 
 /** The eight computer jumpers, in the order of their places in the competition settings. */
 export const RIVALS: readonly Rival[] = [
-  { name: "Aatu Lehtovaara", country: "FI", outfit: { pants: 1, sleeves: 1, gloves: 0, helmet: 1, skis: 0 } },
+  { name: "Aatu Lehtovaara", country: "FI", outfit: { pants: 9, sleeves: 0, gloves: 0, helmet: 9, skis: 1 } },
   { name: "Lars Hovden", country: "NO", outfit: { pants: 2, sleeves: 2, gloves: 0, helmet: 3, skis: 5 } },
   { name: "Matej Brezar", country: "SI", outfit: { pants: 3, sleeves: 0, gloves: 3, helmet: 0, skis: 2 } },
   { name: "Kenji Morioka", country: "JP", outfit: { pants: 4, sleeves: 4, gloves: 0, helmet: 4, skis: 1 } },

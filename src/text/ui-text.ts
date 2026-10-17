@@ -439,8 +439,9 @@ export const UI_TEXT = {
   jumpScreen: {
     pause: "Pauza i ustawienia",
     pauseKey: "ESC: MENU",
-    canvas: (hillLabel: string) =>
-      `Skok na skoczni ${hillLabel}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: jeszcze raz, P: powtórka, S: zachowanie skoku, Esc: menu z ustawieniami i instrukcją.`,
+    /** `contest`: in a competition the press after the jump goes on to the next jumper. */
+    canvas: (hillLabel: string, contest = false) =>
+      `Skok na skoczni ${hillLabel}. Lewy przycisk myszy lub Z: start, oba przyciski lub Z i X: wybicie, mysz lub strzałki: pochylenie, przycisk tuż nad ziemią: telemark, drugi przycisk zaraz po pierwszym daje wąski telemark, a później szerszy, oba naraz: lądowanie na dwie nogi, po skoku lewy przycisk: ${contest ? "dalej" : "jeszcze raz"}, P: powtórka, S: zachowanie skoku, Esc: menu z ustawieniami i instrukcją.`,
     resume: "Wróć do gry",
     resumeKey: " (Esc)",
     again: "Skocz jeszcze raz",

@@ -1506,6 +1506,20 @@ h2 {
   gap: 4px 16px;
 }
 
+/* With room for both, the levels line up in one column after the longest name. */
+@media (min-width: 600px) {
+  .contest-rivals {
+    display: grid;
+    grid-template-columns: max-content max-content;
+  }
+
+  .contest-rival {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+  }
+}
+
 .contest-rival .settings-check span {
   display: inline-flex;
   align-items: center;

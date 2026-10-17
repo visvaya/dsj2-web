@@ -61,8 +61,8 @@ export interface ContestJump {
   outfit: Outfit;
   /** A computer jumper's jump, played from its inputs; null for a player's jump. */
   cpu: ReplaySource | null;
-  /** Moves on to the next jumper; called once. */
-  onNext: () => void;
+  /** Goes on to the next jumper, once; false while the jump has no result to go on with. */
+  onNext: () => boolean;
   /** Leaves the competition, after the player said yes. */
   onAbandon: () => void;
 }
@@ -76,8 +76,8 @@ function useContestNext(contest: ContestJump | undefined): (() => void) | null {
   });
   const [next] = useState(() => () => {
     if (done.current) return;
-    done.current = true;
-    latest.current?.onNext();
+    // Latched only once the competition took the jump on; a press before its result is known does nothing.
+    done.current = latest.current?.onNext() ?? false;
   });
   return contest ? next : null;
 }
@@ -349,7 +349,7 @@ export function JumpScreen(props: Props) {
           ref={canvasRef}
           tabIndex={-1}
           role="img"
-          aria-label={JUMP_TEXT.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM))}
+          aria-label={JUMP_TEXT.canvas(UI_TEXT.hillLabel(hill.name, hill.kPointM), props.contest !== undefined)}
         />
         {!menu.menuOpen && <KeepNote text={keepLast.keepNote} />}
         {cpu && contestNext && !menu.menuOpen && <SkipButton onSkip={contestNext} touch={touch} />}

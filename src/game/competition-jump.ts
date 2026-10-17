@@ -1,7 +1,8 @@
 import { BorlandRandom } from "../sim/borland-random";
+import { pilotView } from "../sim/cpu-jump";
 import { cpuPilotInput, setupCpuPilot, type CpuJumperRecord, type CpuPilotState } from "../sim/cpu-pilot";
 import type { FrameInput } from "../sim/jump-logic";
-import { jumpRunning, stepFrame, type InputContext } from "../sim/jump-sim";
+import { jumpRunning, stepFrame } from "../sim/jump-sim";
 import { FRAME_DT_S } from "../sim/physics-constants";
 import { createStartWind } from "../sim/training-wind";
 import type { JumpScore } from "./competition";
@@ -18,30 +19,6 @@ export interface CpuJumpOutcome {
   /** The pilot's input of every frame, the first for frame 1, up to where the jumper stops. */
   inputs: readonly FrameInput[];
 }
-
-/*
- * What the pilot reads of the jump at the entry of read_input, the same view src/sim/cpu-jump.ts builds there
- * (not exported, so the port keeps its shape). The competition jump keeps the pilot's input of every frame for
- * the picture, which stepCpuFrame does not hand out; competition-jump.test.ts checks both give the same jump.
- */
-/* jscpd:ignore-start */
-function pilotView(frame: number, at: InputContext) {
-  const j = at.jumper;
-  return {
-    frame,
-    phase: at.logic.phase,
-    xM: j.xM,
-    yM: j.yM,
-    vxMPerS: j.vxMPerS,
-    vyMPerS: j.vyMPerS,
-    speedMPerS: j.speedMPerS,
-    slopeAngleRad: j.slopeAngleRad,
-    bodyAngleRad: at.logic.bodyAngleRad,
-    landingPrepS: at.logic.landingPrepS,
-    randomSeed: at.randomSeed,
-  };
-}
-/* jscpd:ignore-end */
 
 /**
  * The start of a computer jump from `seed`: the wind of a training jump, then the pilot's setup, which the

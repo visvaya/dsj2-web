@@ -70,9 +70,10 @@ export function useCompetition(show: Show, ownOutfit: Outfit) {
     const hudName = UI_TEXT.competition.hudName(competitorName(competitor), current.state.round);
     const outcome = competitor.kind === "cpu" ? cpuCompetitionJump(current.hill, competitor.record, newSeed()) : null;
     playerScore.current = null;
-    const afterJump = (score: JumpScore | null) => {
-      if (score === null) return;
+    const afterJump = (score: JumpScore | null): boolean => {
+      if (score === null) return false;
       board(withUnwatchedJumps(withScore(current, score), newSeed));
+      return true;
     };
     setRun(current);
     setJump({
