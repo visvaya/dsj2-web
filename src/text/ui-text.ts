@@ -289,7 +289,7 @@ export const UI_TEXT = {
       },
       {
         title: "Niezależny projekt",
-        text: "Telemark jest niezależnym projektem, niezwiązanym z~autorami ani wydawcami Deluxe Ski Jump i~przez nich niepopieranym. Pliki oryginalnej gry nie są częścią Telemarka: skocznie oryginału gra czyta z~własnej kopii gracza.",
+        text: "Telemark jest niezależnym projektem, niezwiązanym z~autorami ani wydawcami Deluxe Ski Jump. Pliki oryginalnej gry nie są częścią Telemarka: skocznie oryginału gra czyta z~własnej kopii gracza.",
       },
     ],
   },
