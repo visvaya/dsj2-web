@@ -73,6 +73,7 @@ POINTS = [
     (JUMP_END, 0x0BAF, 0xD1F9),
 ]
 JUMP_SESSION = (0x0BAF, 0xCC6E)
+FRAME_LOGIC = 3
 CUP_POINTS = {CUP_START, CUP_END, COMPETITION_START, COMPETITION_END}
 
 RAND_SEED = 0x1942
@@ -98,7 +99,7 @@ START_LIST_CONTINUE = (160, 180)
 START_LIST_CLICKS = 2
 DEFAULT_MAX_TICKS = 12000
 POLL_TICKS = 10
-# A recorded jump is over when the frame loop has been quiet for this long.
+# The frame loop has been quiet this long: a menu waits, or the last recorded jump is over.
 QUIET_TICKS = 60
 
 
@@ -136,7 +137,8 @@ class Recorder:
         self.records: list[bytes] = []
         self.cup: list[bytes] = []
         self.written: list[tuple[str, int]] = []
-        self.snapshots = 0
+        # Frames of any jump, recorded or not: a quiet frame loop means a menu waits for a click.
+        self.frames = 0
 
     def armed(self) -> bool:
         return self.first <= self.jump <= self.last
@@ -171,6 +173,8 @@ def run(args: argparse.Namespace) -> int:
 
     def make_hook(point: int):
         def hook(uc, _address, _size, _user) -> None:
+            if point == FRAME_LOGIC:
+                rec.frames += 1
             if point in CUP_POINTS:
                 rec.cup.append(snapshot(uc, point))
                 return
@@ -179,7 +183,6 @@ def run(args: argparse.Namespace) -> int:
             if point == CPU_SETUP_ENTRY and rec.jump in rec.seeds:
                 uc.mem_write(ds + RAND_SEED, struct.pack("<I", rec.seeds[rec.jump]))
             rec.records.append(snapshot(uc, point))
-            rec.snapshots += 1
 
         return hook
 
@@ -232,16 +235,18 @@ def run(args: argparse.Namespace) -> int:
         step(f"start-list-{i}", START_LIST_CONTINUE)
 
     quiet = 0
-    last_count = rec.snapshots
+    last_frames = rec.frames
     while m.ticks < args.max_ticks and not rec.done():
         session.ticks(POLL_TICKS)
-        quiet = quiet + POLL_TICKS if rec.snapshots == last_count else 0
-        last_count = rec.snapshots
-        if rec.jump == rec.last and rec.records and quiet >= QUIET_TICKS:
+        quiet = quiet + POLL_TICKS if rec.frames == last_frames else 0
+        last_frames = rec.frames
+        if quiet < QUIET_TICKS:
+            continue
+        if rec.jump == rec.last and rec.records:
             break
-        if args.watch and quiet >= QUIET_TICKS and rec.jump >= rec.first:
-            # A drawn jump waits for a click on its result screen.
-            session.click(*START_LIST_CONTINUE)
+        # The results after a round, or after a watched jump, wait for a click.
+        session.click(*START_LIST_CONTINUE)
+        quiet = 0
     rec.flush()
     if rec.cup:
         path = os.path.join(args.out_dir, f"{args.name}.cuptrace.gz")
